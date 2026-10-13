@@ -70,4 +70,9 @@ export class DaxModelService {
   update(id: number, body: DaxModelSaveRequest): Observable<SavedDaxModelDto> {
     return this.http.put<SavedDaxModelDto>(`${environment.apiBaseUrl}/dax-models/${id}`, body);
   }
+
+  /** DELETE /api/dax-models/{id} – 409 with a message when a saved chart still uses the model. */
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiBaseUrl}/dax-models/${id}`);
+  }
 }

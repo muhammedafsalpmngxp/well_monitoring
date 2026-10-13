@@ -54,6 +54,26 @@ public sealed class DaxModelsController(ISender sender) : ControllerBase
         return updated is null ? NotFound() : Ok(updated);
     }
 
+    /// <summary>Deletes a model (Settings → Dax Model → Delete). A model still used in a saved chart is kept (409).</summary>
+    [HttpDelete("{id:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        var result = await sender.Send(new DeleteDaxModelCommand(id, userId, IsAdmin), ct);
+        return result.Status switch
+        {
+            DeleteDaxModelStatus.NotFound => NotFound(),
+            DeleteDaxModelStatus.InUse => Conflict(new
+            {
+                message = $"\"{result.Name}\" is used in {result.UsedInCharts} {(result.UsedInCharts == 1 ? "chart" : "charts")} and can't be deleted. Remove it from {(result.UsedInCharts == 1 ? "that chart" : "those charts")} first.",
+            }),
+            _ => NoContent(),
+        };
+    }
+
     private bool IsAdmin => User.IsInRole("admin");
 
     private bool TryGetUserId(out long userId)

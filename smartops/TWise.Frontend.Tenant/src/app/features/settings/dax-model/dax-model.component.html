@@ -158,6 +158,7 @@
             </div>
 
             <p class="dax-model-load-error" role="alert" *ngIf="loadError">{{ loadError }}</p>
+            <p class="dax-model-delete-success" role="status" *ngIf="deleteSuccess">{{ deleteSuccess }}</p>
             <div class="dax-model-table-wrap">
                 <ag-grid-angular class="dax-model-grid" [columnDefs]="columnDefs" [defaultColDef]="defaultColDef"
                     [rowData]="rows" [loading]="loading" [theme]="gridTheme" [rowSelection]="rowSelection"
@@ -474,3 +475,9 @@
         </div>
     </div>
 </div>
+
+<app-confirmation-dialog [isOpen]="deleteTargets.length > 0"
+  [title]="deleteTargets.length === 1 ? 'Delete DAX Model' : 'Delete DAX Models'"
+  [message]="deleteConfirmMessage" [details]="deleteTargetNames" confirmLabel="Yes, Delete" variant="danger"
+  [busy]="deleteBusy" [error]="deleteError" (confirmed)="confirmDelete()" (cancelled)="cancelDelete()">
+</app-confirmation-dialog>

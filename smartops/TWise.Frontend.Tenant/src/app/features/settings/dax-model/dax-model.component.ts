@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, inject, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { ClientSideRowModelModule, ColDef, ModuleRegistry, RowSelectionModule, RowSelectionOptions, SelectionChangedEvent, SelectionColumnDef, themeQuartz, ValueFormatterParams } from 'ag-grid-community';
 import { Breadcrumb } from '../../../core/models/breadcrumb.model';
 import { DaxModelSaveRequest, DaxModelService, SavedDaxModelDto } from '../../../core/services/dax-model.service';
@@ -486,10 +488,75 @@ export class DaxModelComponent implements OnInit {
     this.openEditModal(row);
   }
 
+  // --- Delete (row bin icon or "Delete selected"): confirm, delete on the server, reload the page of models ---
+  deleteTargets: DaxModelRow[] = [];
+  deleteBusy = false;
+  deleteError: string | null = null;
+  deleteSuccess = '';
+
+  get deleteConfirmMessage(): string {
+    return this.deleteTargets.length === 1
+      ? 'Are you sure you want to delete this DAX model? This action cannot be undone.'
+      : `Are you sure you want to delete these ${this.deleteTargets.length} DAX models? This action cannot be undone.`;
+  }
+
+  get deleteTargetNames(): string {
+    return this.deleteTargets.map(row => row.name).join(', ');
+  }
+
   deleteRow(row: DaxModelRow): void {
     if (!this.canModify) return;
-    this.rows.splice(this.rows.findIndex(r => r.id === row.id), 1);
+    this.openDeleteConfirm([row]);
+  }
+
+  deleteSelected(): void {
+    if (!this.canModify || !this.selectedRows.length) return;
+    this.openDeleteConfirm([...this.selectedRows]);
+  }
+
+  private openDeleteConfirm(rows: DaxModelRow[]): void {
+    this.deleteTargets = rows;
+    this.deleteError = null;
+    this.deleteSuccess = '';
     this.cdr.markForCheck();
+  }
+
+  cancelDelete(): void {
+    if (this.deleteBusy) return;
+    this.deleteTargets = [];
+    this.deleteError = null;
+    this.cdr.markForCheck();
+  }
+
+  /** Deletes each target; a model a chart still uses is kept and its reason shown in the dialog. */
+  confirmDelete(): void {
+    if (!this.canModify || !this.deleteTargets.length || this.deleteBusy) return;
+    this.deleteBusy = true;
+    this.deleteError = null;
+    const requests = this.deleteTargets.map(row => this.daxModels.delete(Number(row.id)).pipe(
+      map(() => ''),
+      catchError(err => of(err?.error?.message ?? `"${row.name}" could not be deleted.`)),
+    ));
+    forkJoin(requests).subscribe(errors => {
+      const failed = errors.filter(Boolean);
+      const deleted = errors.length - failed.length;
+      this.deleteBusy = false;
+      if (deleted) {
+        this.deleteSuccess = deleted === 1 && this.deleteTargets.length === 1
+          ? `"${this.deleteTargets[0].name}" deleted.`
+          : `${deleted} DAX ${deleted === 1 ? 'model' : 'models'} deleted.`;
+        this.selectedRows = [];
+        this.loadModels();
+      }
+      if (failed.length) {
+        // Keep the dialog open on the models that were not deleted, with the reason.
+        this.deleteTargets = this.deleteTargets.filter((_, i) => errors[i]);
+        this.deleteError = failed.join(' ');
+      } else {
+        this.deleteTargets = [];
+      }
+      this.cdr.markForCheck();
+    });
   }
 
   toggleFilterDropdown(name: 'status' | 'time', event: Event): void {
@@ -550,13 +617,4 @@ export class DaxModelComponent implements OnInit {
     this.loadModels();
   }
 
-  deleteSelected(): void {
-    if (!this.canModify) return;
-    const idsToRemove = new Set(this.selectedRows.map(row => row.id));
-    for (let i = this.rows.length - 1; i >= 0; i--) {
-      if (idsToRemove.has(this.rows[i].id)) this.rows.splice(i, 1);
-    }
-    this.selectedRows = [];
-    this.cdr.markForCheck();
-  }
 }
