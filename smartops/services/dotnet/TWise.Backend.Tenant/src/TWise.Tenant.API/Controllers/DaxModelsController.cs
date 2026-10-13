@@ -66,12 +66,18 @@ public sealed class DaxModelsController(ISender sender) : ControllerBase
         return result.Status switch
         {
             DeleteDaxModelStatus.NotFound => NotFound(),
-            DeleteDaxModelStatus.InUse => Conflict(new
-            {
-                message = $"\"{result.Name}\" is used in {result.UsedInCharts} {(result.UsedInCharts == 1 ? "chart" : "charts")} and can't be deleted. Remove it from {(result.UsedInCharts == 1 ? "that chart" : "those charts")} first.",
-            }),
+            DeleteDaxModelStatus.InUse => Conflict(new { message = InUseMessage(result.Name!, result.UsedInCharts!) }),
             _ => NoContent(),
         };
+    }
+
+    /// <summary>e.g. "test222" is used in the chart "Wells by Plant" and can't be deleted. Remove it from that chart first.</summary>
+    private static string InUseMessage(string model, IReadOnlyList<string> charts)
+    {
+        var names = string.Join(", ", charts.Select(c => $"\"{c}\""));
+        return charts.Count == 1
+            ? $"\"{model}\" is used in the chart {names} and can't be deleted. Remove it from that chart first."
+            : $"\"{model}\" is used in {charts.Count} charts ({names}) and can't be deleted. Remove it from those charts first.";
     }
 
     private bool IsAdmin => User.IsInRole("admin");

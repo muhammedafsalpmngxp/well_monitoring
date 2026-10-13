@@ -16,6 +16,9 @@ public interface IDaxModelRepository
     /// <summary>How many saved charts reference each model id (measures carry "savedModelId").</summary>
     Task<IReadOnlyDictionary<long, int>> CountChartUsageAsync(IReadOnlyCollection<long> ids, CancellationToken ct = default);
 
+    /// <summary>Names of the saved charts that use the model, by name.</summary>
+    Task<IReadOnlyList<string>> ListChartNamesUsingAsync(long id, CancellationToken ct = default);
+
     /// <summary>A tracked model by id, or null when it does not exist, is deleted or belongs to another user
     /// (ownerId null = any owner, for admins).</summary>
     Task<SavedDaxModel?> GetByIdAsync(long id, long? ownerId, CancellationToken ct = default);

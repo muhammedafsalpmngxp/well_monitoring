@@ -8,12 +8,11 @@ namespace TWise.Tenant.UnitTests.Features.DaxModels;
 /// <summary>DFCT0010875: Delete on Settings → Dax Model removes an unused model and keeps one a chart uses.</summary>
 public class DeleteDaxModelTests
 {
-    private static Mock<IDaxModelRepository> Repo(SavedDaxModel? model, long? ownerId, int usedInCharts = 0)
+    private static Mock<IDaxModelRepository> Repo(SavedDaxModel? model, long? ownerId, params string[] usedInCharts)
     {
         var repo = new Mock<IDaxModelRepository>();
         repo.Setup(r => r.GetByIdAsync(5, ownerId, It.IsAny<CancellationToken>())).ReturnsAsync(model);
-        repo.Setup(r => r.CountChartUsageAsync(It.IsAny<IReadOnlyCollection<long>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(usedInCharts > 0 ? new Dictionary<long, int> { [5] = usedInCharts } : new Dictionary<long, int>());
+        repo.Setup(r => r.ListChartNamesUsingAsync(5, It.IsAny<CancellationToken>())).ReturnsAsync(usedInCharts);
         return repo;
     }
 
@@ -34,11 +33,13 @@ public class DeleteDaxModelTests
     public async Task A_model_used_in_a_chart_is_kept()
     {
         var model = new SavedDaxModel { Id = 5, Name = "test01", CreatedBy = 7 };
-        var repo = Repo(model, ownerId: 7, usedInCharts: 1);
+        var repo = Repo(model, ownerId: 7, "Wells by Plant");
 
         var result = await new DeleteDaxModelHandler(repo.Object).Handle(new DeleteDaxModelCommand(5, UserId: 7, IsAdmin: false), default);
 
-        result.Should().Be(new DeleteDaxModelResult(DeleteDaxModelStatus.InUse, "test01", 1));
+        result.Status.Should().Be(DeleteDaxModelStatus.InUse);
+        result.Name.Should().Be("test01");
+        result.UsedInCharts.Should().Equal("Wells by Plant");
         model.IsDeleted.Should().BeFalse();
         repo.Verify(r => r.UpdateAsync(It.IsAny<SavedDaxModel>(), It.IsAny<CancellationToken>()), Times.Never);
     }
