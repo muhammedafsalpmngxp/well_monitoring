@@ -30,7 +30,7 @@ import { DaxMeasureConfig, formatDaxValue } from '../../../core/utils/dax-evalua
              options, which leaves a polar pane and old series behind when switching renderers. -->
         <ng-container *ngFor="let o of (options && !error && rows.length && !loading ? [options] : []); trackBy: byRef">
           <highcharts-chart class="advanced-highchart"
-            [constructorType]="map ? 'mapChart' : 'chart'" [options]="o" />
+            [constructorType]="map || o.mapView ? 'mapChart' : 'chart'" [options]="o" />
         </ng-container>
       </ng-container>
       <ag-grid-angular *ngIf="daxSummaries.length && !error" [theme]="theme" [modules]="modules"

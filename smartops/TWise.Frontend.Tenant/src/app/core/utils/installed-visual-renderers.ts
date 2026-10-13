@@ -1,6 +1,6 @@
-import { bindCustomVisualTemplate } from '../services/custom-visual-binding';
+import { bindCustomVisualRows, bindCustomVisualTemplate, isMultiRoleVisual } from '../services/custom-visual-binding';
 import { InstalledVisual } from '../services/marketplace.service';
-import { getAdvancedCustomRenderers, registerAdvancedCustomRenderer } from './advanced-chart.util';
+import { aggregateAdvancedValues, getAdvancedCustomRenderers, registerAdvancedCustomRenderer } from './advanced-chart.util';
 
 /**
  * Turns visuals installed from the marketplace into renderers for the 'customvisual' chart type.
@@ -26,6 +26,17 @@ export function registerInstalledVisuals(visuals: InstalledVisual[]): void {
           labels: categories,
           values,
         }) ?? { series: [] },
+      // Several measures, split-by, X/Y, OHLC or levels: bound against the rows and the mapped columns.
+      ...(isMultiRoleVisual(visual.dataRoles) ? {
+        roles: visual.dataRoles,
+        renderRows: (rows, config) => bindCustomVisualRows(visual.optionsTemplateJson, visual.dataRoles, {
+          rows,
+          columns: Object.fromEntries(visual.dataRoles.map(role => [role.key, role.allowMultiple
+            ? (role.type === 'measure' ? config.measures : config.dimensions)
+            : [config.fields[role.key]].filter(Boolean)])),
+          aggregate: values => aggregateAdvancedValues(values, config.aggregation),
+        }) ?? { series: [] },
+      } : {}),
     });
   }
 }

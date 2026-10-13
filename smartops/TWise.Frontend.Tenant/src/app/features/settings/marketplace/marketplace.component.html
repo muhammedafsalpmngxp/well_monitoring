@@ -53,7 +53,7 @@
           <div class="mkt__preview">
             <img *ngIf="card.listing.plugin.imageUrl" [src]="card.listing.plugin.imageUrl" [alt]="card.listing.plugin.name + ' preview'" />
             <!-- Decorative preview: Highcharts sets role/aria on its own element, so hide a wrapper it does not manage. -->
-            <div *ngIf="card.preview" class="mkt__preview-chart" aria-hidden="true"><highcharts-chart [options]="card.preview"></highcharts-chart></div>
+            <div *ngIf="card.preview" class="mkt__preview-chart" aria-hidden="true"><highcharts-chart [constructorType]="card.preview['mapView'] ? 'mapChart' : 'chart'" [options]="card.preview"></highcharts-chart></div>
           </div>
           <div class="mkt__info">
             <span class="mkt__name">{{ card.listing.plugin.name }}</span>

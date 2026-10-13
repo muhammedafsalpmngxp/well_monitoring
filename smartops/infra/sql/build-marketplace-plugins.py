@@ -1,5 +1,6 @@
 """Generates add-marketplace-plugins.sql: the core.MarketplacePlugins table and its seed rows, one
-per Highcharts chart type that draws from one category (dimension) and one measure. These rows
+per Highcharts chart type. Most draw from one category (dimension) and one measure; multi-role
+charts (MULTI_CHARTS) declare their own roles and are bound against the rows. These rows
 are the built-in "TWise Visuals" marketplace, served by GET /api/marketplace/catalog.
 
 Run after editing CHARTS, then apply the SQL to each tenant database (idempotent)."""
@@ -134,7 +135,133 @@ CHARTS = [
     }),
 ]
 
+
+def role(key, label, kind="measure", required=True, multiple=False):
+    return {"key": key, "label": label, "type": kind, "required": required, "allowMultiple": multiple}
+
+
+CATEGORY = role("category", "Category", "dimension")
+SPLIT = role("split", "Split By", "dimension")
+MEASURE = role("measure", "Measure")
+LEGEND = {"enabled": True}
+
+# Multi-role charts: (id, name, icon, description, template, roles). A series without data is filled
+# from the mapped columns: one series per split value / measure, X/Y points, OHLC rows or level nodes.
+MULTI_CHARTS = [
+    ("line-by-group", "Line by Group", "line", "One line per value of a split-by column, e.g. output per cluster over months.", {
+        "chart": {**BASE, "type": "line"}, "xAxis": XAXIS, "yAxis": YAXIS, "legend": LEGEND,
+        "series": [{"type": "line", "marker": {"radius": 3}}],
+    }, [CATEGORY, SPLIT, MEASURE]),
+    ("stacked-column-group", "Stacked Column by Group", "bar", "Columns per category, stacked by the values of a split-by column.", {
+        "chart": {**BASE, "type": "column"}, "xAxis": XAXIS, "yAxis": {**YAXIS, "stackLabels": {"enabled": True}}, "legend": LEGEND,
+        "plotOptions": {"column": {"stacking": "normal"}},
+        "series": [{"type": "column"}],
+    }, [CATEGORY, SPLIT, MEASURE]),
+    ("stacked-area", "Stacked Area", "area", "Several measures stacked on top of each other, showing the total and each part.", {
+        "chart": {**BASE, "type": "area"}, "xAxis": XAXIS, "yAxis": YAXIS, "legend": LEGEND,
+        "plotOptions": {"area": {"stacking": "normal", "fillOpacity": 0.5}},
+        "series": [{"type": "area"}],
+    }, [CATEGORY, role("measures", "Measures", multiple=True)]),
+    ("dual-axis", "Column + Line (Dual Axis)", "bar", "A measure as columns and a second measure as a line on its own right-hand axis.", {
+        "chart": {**BASE}, "xAxis": XAXIS, "legend": LEGEND,
+        "yAxis": [{"title": {"text": "{{measure.label}}"}}, {"title": {"text": "{{measure2.label}}"}, "opposite": True}],
+        "series": [
+            {"type": "column", "name": "{{measure.label}}", "data": "{{measure}}"},
+            {"type": "spline", "name": "{{measure2.label}}", "data": "{{measure2}}", "yAxis": 1, "marker": {"radius": 3}},
+        ],
+    }, [CATEGORY, role("measure", "Column Measure"), role("measure2", "Line Measure")]),
+    ("xy-scatter", "X/Y Scatter", "scatter", "One marker per row at its numeric X and Y; optional colour scale and labels.", {
+        "chart": {**BASE, "type": "scatter", "zooming": {"type": "xy"}},
+        "xAxis": {"title": {"text": "{{x.label}}"}}, "yAxis": {"title": {"text": "{{y.label}}"}},
+        "colorAxis": {"minColor": "#cfe8e1", "maxColor": "#127a65"}, "legend": NO_LEGEND,
+        "series": [{"type": "scatter", "name": "{{y.label}}", "colorKey": "colorValue", "marker": {"radius": 5}}],
+    }, [role("x", "X"), role("y", "Y"), role("color", "Color", required=False), role("label", "Label", "dimension", required=False)]),
+    ("xy-bubble", "X/Y Bubble", "scatter", "Scatter whose marker size follows a third measure; optional colour scale.", {
+        "chart": {**BASE, "type": "bubble", "zooming": {"type": "xy"}},
+        "xAxis": {"title": {"text": "{{x.label}}"}}, "yAxis": {"title": {"text": "{{y.label}}"}},
+        "colorAxis": {"minColor": "#cfe8e1", "maxColor": "#127a65"}, "legend": NO_LEGEND,
+        "series": [{"type": "bubble", "name": "{{size.label}}", "colorKey": "colorValue", "minSize": 6, "maxSize": "18%"}],
+    }, [role("x", "X"), role("y", "Y"), role("size", "Size"), role("color", "Color", required=False), role("label", "Label", "dimension", required=False)]),
+    ("xy-line", "X/Y Line", "line", "Points joined in order of a numeric (or date) X, for measured curves.", {
+        "chart": {**BASE, "type": "line", "zooming": {"type": "x"}},
+        "xAxis": {"title": {"text": "{{x.label}}"}}, "yAxis": {"title": {"text": "{{y.label}}"}}, "legend": NO_LEGEND,
+        "series": [{"type": "line", "name": "{{y.label}}", "marker": {"radius": 3}}],
+    }, [role("x", "X"), role("y", "Y"), role("label", "Label", "dimension", required=False)]),
+    ("ohlc", "OHLC", "line", "Open, high, low and close per date as bars with ticks.", {
+        "chart": {**BASE}, "xAxis": {"type": "datetime"}, "yAxis": YAXIS, "legend": NO_LEGEND,
+        "series": [{"type": "ohlc", "name": "{{close.label}}"}],
+    }, [role("date", "Date", "dimension"), role("open", "Open"), role("high", "High"), role("low", "Low"), role("close", "Close")]),
+    ("sunburst-levels", "Multi-level Sunburst", "pie", "Rings for each level of a hierarchy (e.g. cluster > plant > well), sized by a measure.", {
+        "chart": {**BASE}, "legend": NO_LEGEND,
+        "series": [{"type": "sunburst", "name": "{{measure.label}}", "allowTraversingTree": True, "dataLabels": {"format": "{point.name}"},
+                    "levels": [{"level": 1, "colorByPoint": True}, {"level": 2, "colorVariation": {"key": "brightness", "to": -0.4}},
+                               {"level": 3, "colorVariation": {"key": "brightness", "to": 0.4}}]}],
+    }, [role("levels", "Levels (in order)", "dimension", multiple=True), MEASURE]),
+    ("treemap-levels", "Multi-level Treemap", "bar", "Nested rectangles for each level of a hierarchy, sized by a measure.", {
+        "chart": {**BASE}, "legend": NO_LEGEND,
+        "series": [{"type": "treemap", "name": "{{measure.label}}", "layoutAlgorithm": "squarified", "allowTraversingTree": True,
+                    "levels": [{"level": 1, "colorByPoint": True, "borderWidth": 3, "dataLabels": {"enabled": True, "style": {"fontSize": "13px"}}},
+                               {"level": 2, "borderWidth": 1, "dataLabels": {"enabled": False}}]}],
+    }, [role("levels", "Levels (in order)", "dimension", multiple=True), MEASURE]),
+    ("density", "Density", "scatter", "Rows grouped into a grid over numeric X and Y; each cell coloured by the row count or a weight.", {
+        "chart": {**BASE, "type": "heatmap", "zooming": {"type": "xy"}},
+        "xAxis": {"title": {"text": "{{x.label}}"}}, "yAxis": {"title": {"text": "{{y.label}}"}},
+        "colorAxis": {"min": 0, "minColor": "#eef7f4", "maxColor": "#127a65"},
+        "legend": {"enabled": True, "title": {"text": "Rows / Weight"}},
+        "series": [{"type": "heatmap", "name": "{{y.label}}", "borderWidth": 0}],
+    }, [role("x", "X"), role("y", "Y"), role("weight", "Weight", required=False)]),
+    ("map-density", "Map Density", "line", "Heat layer over a street map: rows grouped by latitude and longitude, coloured by count or a weight.", {
+        "chart": {**BASE},
+        "credits": {"enabled": True, "text": "© OpenStreetMap contributors", "href": "https://www.openstreetmap.org/copyright"},
+        "mapView": {"projection": {"name": "WebMercator"}, "padding": 30, "maxZoom": 14},
+        "mapNavigation": {"enabled": True, "enableMouseWheelZoom": True, "buttonOptions": {"verticalAlign": "bottom"}},
+        "colorAxis": {"min": 0, "minColor": "#fff3b0", "maxColor": "#d7191c"},
+        "legend": {"enabled": True, "title": {"text": "Rows / Weight"}},
+        "series": [
+            {"type": "tiledwebmap", "name": "Map", "provider": {"type": "OpenStreetMap"}, "showInLegend": False},
+            {"type": "geoheatmap", "name": "{{latitude.label}}", "opacity": 0.75},
+        ],
+    }, [role("latitude", "Latitude"), role("longitude", "Longitude"), role("weight", "Weight", required=False)]),
+    ("sunburst-color", "Sunburst - Color by Value", "pie", "Multi-level sunburst sized by one measure and coloured on a scale by another.", {
+        "chart": {**BASE}, "colorAxis": {"minColor": "#e8f1fb", "maxColor": "#21409a"}, "legend": {"enabled": True, "title": {"text": "{{color.label}}"}},
+        "series": [{"type": "sunburst", "name": "{{measure.label}}", "colorKey": "colorValue", "allowTraversingTree": True, "dataLabels": {"format": "{point.name}"}}],
+    }, [role("levels", "Levels (in order)", "dimension", multiple=True), role("measure", "Size"), role("color", "Color")]),
+    ("treemap-color", "Treemap - Color by Value", "bar", "Multi-level treemap sized by one measure and coloured on a scale by another.", {
+        "chart": {**BASE}, "colorAxis": {"minColor": "#e8f1fb", "maxColor": "#21409a"}, "legend": {"enabled": True, "title": {"text": "{{color.label}}"}},
+        "series": [{"type": "treemap", "name": "{{measure.label}}", "colorKey": "colorValue", "layoutAlgorithm": "squarified", "allowTraversingTree": True,
+                    "levels": [{"level": 1, "borderWidth": 3, "dataLabels": {"enabled": True, "style": {"fontSize": "13px"}}},
+                               {"level": 2, "borderWidth": 1, "dataLabels": {"enabled": False}}]}],
+    }, [role("levels", "Levels (in order)", "dimension", multiple=True), role("measure", "Size"), role("color", "Color")]),
+    ("sunburst-group", "Sunburst by Group", "pie", "One small sunburst per value of a split-by column, side by side for comparison (up to 9).", {
+        "chart": {**BASE}, "legend": NO_LEGEND,
+        "series": [{"type": "sunburst", "allowTraversingTree": True, "dataLabels": {"format": "{point.name}", "style": {"fontSize": "9px"}},
+                    "levels": [{"level": 1, "colorByPoint": True}, {"level": 2, "colorVariation": {"key": "brightness", "to": -0.4}}]}],
+    }, [role("levels", "Levels (in order)", "dimension", multiple=True), SPLIT, MEASURE]),
+    ("category-heatmap", "Category Heatmap", "bar", "A grid of one category against another, each cell coloured by a measure.", {
+        "chart": {**BASE, "type": "heatmap"},
+        "xAxis": {"categories": "{{category}}"}, "yAxis": {"categories": "{{row}}", "title": {"text": None}, "reversed": True},
+        "colorAxis": {"minColor": "#e8f1fb", "maxColor": "#21409a"}, "legend": {"enabled": True, "title": {"text": "{{measure.label}}"}},
+        "series": [{"type": "heatmap", "name": "{{measure.label}}", "borderWidth": 1, "borderColor": "#ffffff"}],
+    }, [CATEGORY, role("row", "Rows", "dimension"), MEASURE]),
+]
+
 FEATURES = {
+    "line-by-group": ["One line per group", "Legend", "Shared category axis"],
+    "stacked-column-group": ["Stacked by group", "Stack totals", "Legend"],
+    "stacked-area": ["Several measures stacked", "Total and parts", "Legend"],
+    "dual-axis": ["Columns and a line", "Second Y axis", "Two measures"],
+    "xy-scatter": ["Numeric X and Y", "Colour scale", "Zoom"],
+    "xy-bubble": ["Numeric X and Y", "Size by measure", "Colour scale"],
+    "xy-line": ["Numeric or date X", "Points in X order", "Zoom"],
+    "ohlc": ["Open, high, low, close", "Date axis", "Price ranges"],
+    "sunburst-levels": ["Several levels", "Click to drill in", "Sized by measure"],
+    "treemap-levels": ["Several levels", "Click to drill in", "Sized by measure"],
+    "density": ["Grid of cells over X and Y", "Count or weight", "Colour scale"],
+    "map-density": ["Heat layer on a street map", "Latitude / longitude", "Zoom and pan"],
+    "sunburst-color": ["Several levels", "Colour scale by a second measure", "Click to drill in"],
+    "treemap-color": ["Several levels", "Colour scale by a second measure", "Click to drill in"],
+    "sunburst-group": ["One sunburst per group", "Side-by-side comparison", "Up to 9 groups"],
+    "category-heatmap": ["Category x category grid", "Colour scale", "Cell per pair"],
     "word-cloud": ["Words sized by value", "No axes to read", "Best for names, tags and categories"],
     "packed-bubble": ["Bubble area = value", "Labels inside bubbles", "Good for 5–40 categories"],
     "item": ["One dot per unit", "Parliament layout", "Best for small counts such as seats or headcount"],
@@ -220,12 +347,13 @@ def lit(value) -> str:
     return "N'" + text.replace("'", "''") + "'"
 
 
+ALL = [(*chart, ROLES) for chart in CHARTS] + MULTI_CHARTS
 rows = [
     UPSERT.format(pid=lit(pid), name=lit(name), desc=lit(desc), ver=lit(VERSION), pub=lit(PUBLISHER),
-                  vkey=lit(f"{pid}-mkt"), icon=lit(icon), roles=lit(ROLES), features=lit(FEATURES[pid]), tpl=lit(template))
-    for pid, name, icon, desc, template in CHARTS
+                  vkey=lit(f"{pid}-mkt"), icon=lit(icon), roles=lit(roles), features=lit(FEATURES[pid]), tpl=lit(template))
+    for pid, name, icon, desc, template, roles in ALL
 ]
 
 out = Path(__file__).with_name("add-marketplace-plugins.sql")
 out.write_text(TABLE + "\n".join(rows) + "GO\n", encoding="utf-8")
-print(f"{len(CHARTS)} plugins -> {out}")
+print(f"{len(ALL)} plugins -> {out}")

@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, HostListener, Input, Output, TemplateRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ADVANCED_FIELD_ROLES, AdvancedChartConfig, defaultAdvancedConfig, getAdvancedCustomRenderers, isAdvancedChart } from '../../../core/utils/advanced-chart.util';
+import { AdvancedChartConfig, advancedFieldRoles, defaultAdvancedConfig, getAdvancedCustomRenderers, isAdvancedChart, multiRoleVisualRoles } from '../../../core/utils/advanced-chart.util';
 import { WELL_MAP_BACKGROUNDS, WELL_MAP_COORDINATES, WellMapConfig } from '../../../core/utils/well-map.util';
 
 import { FieldLabelDirective } from '../../directives/field-label.directive';
@@ -44,10 +44,10 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
         </div>
         <small *ngIf="textOnly(role, config.fields[role] || '')" class="hint">Text column — choose a numeric column, or set Aggregation to Count.</small>
       </label>
-      <fieldset *ngIf="needsDimensions"><legend>{{ type === 'keyinfluencers' ? 'Explain By' : 'Row Dimensions (in order)' }}</legend>
+      <fieldset *ngIf="needsDimensions"><legend>{{ type === 'keyinfluencers' ? 'Explain By' : (multiRoleLabel('dimension') || 'Row Dimensions (in order)') }}</legend>
         <label class="check" *ngFor="let column of columns"><input type="checkbox" [checked]="config.dimensions.includes(column)" (change)="toggle('dimensions', column)" [disabled]="disabled" />{{ column }}<span *ngIf="config.dimensions.includes(column)">{{ config.dimensions.indexOf(column) + 1 }}</span></label>
       </fieldset>
-      <fieldset *ngIf="needsMeasures"><legend>Measures</legend>
+      <fieldset *ngIf="needsMeasures"><legend>{{ multiRoleLabel('measure') || 'Measures' }}</legend>
         <label class="check" *ngFor="let column of columns"><input type="checkbox" [checked]="config.measures.includes(column)" (change)="toggle('measures', column)" [disabled]="disabled" />{{ column }}</label>
       </fieldset>
       <label *ngIf="hasAggregation">Aggregation
@@ -262,6 +262,8 @@ export class AdvancedChartMappingComponent {
     return this.renderers.find(renderer => renderer.id === value)?.label ?? 'Select';
   }
   roleLabel(role: string): string {
+    const visualRole = this.visualRoles.find(entry => entry.key === role);
+    if (visualRole) return visualRole.required ? visualRole.label : `${visualRole.label} (optional)`;
     if (this.type === 'wellmap') {
       const wellMap: Record<string, string> = { category: 'Marker Label (e.g. Well)', x: 'X — Easting / Longitude', y: 'Y — Northing / Latitude' };
       if (wellMap[role]) return wellMap[role];
@@ -270,13 +272,20 @@ export class AdvancedChartMappingComponent {
   }
   /** Marker size needs numbers. */
   get sizeColumns(): string[] { return this.numericColumns ?? this.columns; }
-  get roles(): string[] { return isAdvancedChart(this.type) ? ADVANCED_FIELD_ROLES[this.type] : []; }
-  get needsDimensions(): boolean { return ['pivottable', 'matrix', 'decompositiontree', 'keyinfluencers'].includes(this.type ?? ''); }
-  get needsMeasures(): boolean { return ['pivottable', 'matrix', 'stackedarea100'].includes(this.type ?? ''); }
+  get roles(): string[] { return isAdvancedChart(this.type) ? advancedFieldRoles(this.type, this.config) : []; }
+  /** Roles of the selected custom visual when it needs more than one category and one value. */
+  get visualRoles() { return multiRoleVisualRoles(this.type, this.config); }
+  /** Label of the multi-role visual's list role (several dimensions or measures), if it has one. */
+  multiRoleLabel(type: 'dimension' | 'measure'): string {
+    return this.visualRoles.find(role => role.allowMultiple && (role.type === 'measure') === (type === 'measure'))?.label ?? '';
+  }
+  get needsDimensions(): boolean { return ['pivottable', 'matrix', 'decompositiontree', 'keyinfluencers'].includes(this.type ?? '') || !!this.multiRoleLabel('dimension'); }
+  get needsMeasures(): boolean { return ['pivottable', 'matrix', 'stackedarea100'].includes(this.type ?? '') || !!this.multiRoleLabel('measure'); }
   get hasAggregation(): boolean { return ['pivottable', 'matrix', 'stackedarea100', 'decompositiontree', 'filledmap', 'geochart', 'combomap', 'customvisual'].includes(this.type ?? ''); }
   /** The Value role needs numbers unless the aggregation counts rows. */
   textOnly(role: string, column: string): boolean {
-    if (role !== 'value' || !column || !this.numericColumns || !this.hasAggregation) return false;
+    const measureRole = role === 'value' || this.visualRoles.some(entry => entry.key === role && entry.type === 'measure');
+    if (!measureRole || !column || !this.numericColumns || !this.hasAggregation) return false;
     return this.config.aggregation !== 'count' && !this.numericColumns.includes(column);
   }
   /** Blocks picking the same column for two different roles (e.g. Category vs Value) on the same chart. */

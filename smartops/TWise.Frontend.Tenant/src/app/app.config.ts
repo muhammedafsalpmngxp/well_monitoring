@@ -72,6 +72,8 @@ export const appConfig: ApplicationConfig = {
         await import('highcharts/esm/modules/tiledwebmap');
         await import('highcharts/esm/modules/treegraph');
         await import('highcharts/esm/modules/heatmap');
+        // Map Density marketplace visual: heat layer on a map (needs map + heatmap above).
+        await import('highcharts/esm/modules/geoheatmap');
         // Marketplace visuals added for chart-type parity: word cloud, item, variable pie,
         // sunburst (extends treemap, so after it) and pareto (derives from a base series).
         await import('highcharts/esm/modules/wordcloud');

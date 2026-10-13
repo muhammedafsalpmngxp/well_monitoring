@@ -1,7 +1,8 @@
 import { ChangeDetectorRef, Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MarketplaceCatalog, MarketplaceListing, MarketplaceService, SaveCatalogRequest } from '../../../core/services/marketplace.service';
-import { bindCustomVisualTemplate } from '../../../core/services/custom-visual-binding';
+import { bindCustomVisualRows, bindCustomVisualTemplate, isMultiRoleVisual } from '../../../core/services/custom-visual-binding';
+import { CustomVisualDataRole } from '../../../core/services/marketplace.service';
 import { registerInstalledVisuals } from '../../../core/utils/installed-visual-renderers';
 import { PermissionService } from '../../../core/services/permission.service';
 
@@ -18,6 +19,26 @@ const PREVIEW_DATA = {
   dimensionLabel: 'Region',
   measureLabel: 'Output',
 };
+
+/** Sample rows for multi-role visuals (several measures, split-by, X/Y, OHLC, levels). */
+const PREVIEW_ROWS = ['North', 'East', 'South', 'West'].flatMap((region, r) => ['Day', 'Night'].map((shift, s) => ({
+  Region: region, Site: `${region} ${s + 1}`, Shift: shift,
+  Output: 40 + r * 12 + s * 9, Target: 55 + r * 6, Cost: 20 + r * 5 + s * 4,
+  X: 10 + r * 20 + s * 7, Y: 30 + ((r * 37 + s * 23) % 50), Size: 5 + r * 3 + s * 2,
+  Date: `2026-0${r + 1}-${s ? 15 : 1}`, Open: 50 + r * 4 + s, High: 58 + r * 4 + s * 2, Low: 46 + r * 4, Close: 54 + r * 4 + s * 2,
+  Lat: 18 + r * 1.6 + s * 0.7, Lon: 54 + ((r * 3 + s * 2) % 5) * 0.9,
+})));
+/** Sample column per role key; other roles get Region (text) or Output (number). */
+const PREVIEW_COLUMNS: Record<string, string[]> = {
+  category: ['Region'], split: ['Shift'], levels: ['Region', 'Site'], measures: ['Output', 'Target'], measure2: ['Target'],
+  x: ['X'], y: ['Y'], size: ['Size'], color: ['Cost'], label: ['Site'],
+  date: ['Date'], open: ['Open'], high: ['High'], low: ['Low'], close: ['Close'],
+  latitude: ['Lat'], longitude: ['Lon'], weight: ['Output'], row: ['Shift'],
+};
+
+function previewColumns(roles: CustomVisualDataRole[]): Record<string, string[]> {
+  return Object.fromEntries(roles.map(role => [role.key, PREVIEW_COLUMNS[role.key] ?? [role.type === 'measure' ? 'Output' : 'Region']]));
+}
 
 /**
  * Browse registered catalogs of chart visuals and install them into this tenant.
@@ -254,7 +275,17 @@ export class MarketplaceComponent implements OnInit {
   private previewOf(listing: MarketplaceListing): Record<string, any> | null {
     const { plugin } = listing;
     if (plugin.imageUrl || plugin.renderKind !== 'highcharts-template') return null;
-    const options = bindCustomVisualTemplate(plugin.optionsTemplateJson, plugin.dataRoles, PREVIEW_DATA);
+    let options: Record<string, any> | null;
+    try {
+      options = isMultiRoleVisual(plugin.dataRoles)
+        ? bindCustomVisualRows(plugin.optionsTemplateJson, plugin.dataRoles, {
+          rows: PREVIEW_ROWS, columns: previewColumns(plugin.dataRoles),
+          aggregate: values => values.reduce<number>((sum, value) => sum + (Number(value) || 0), 0),
+        })
+        : bindCustomVisualTemplate(plugin.optionsTemplateJson, plugin.dataRoles, PREVIEW_DATA);
+    } catch {
+      options = null;
+    }
     if (!options) return null;
     return {
       ...options,

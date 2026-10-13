@@ -52,7 +52,7 @@ import { appendLockedFilterTitle } from '../../../core/utils/locked-filter-title
 import { getSuggestedChartTypeIds } from '../../../core/utils/chart-suggestions.util';
 import { CHART_AUTO_COLORS, chartFallbackColor, getSeriesColorByName, usesPeriodLineCategoryColorRules, usesSeriesCategoryColorRules } from '../../../core/utils/chart-color.util';
 import { AdvancedFilterComponent } from '../../../shared/components/advanced-filter/advanced-filter.component';
-import { ADVANCED_CHART_LABELS, AdvancedChartConfig, AdvancedChartType, applyAdvancedDefaultMapping, defaultAdvancedConfig, isAdvancedChart, normalizeAdvancedChartType, readAdvancedConfig, remapAdvancedColumns, validateAdvancedConfig } from '../../../core/utils/advanced-chart.util';
+import { ADVANCED_CHART_LABELS, AdvancedChartConfig, AdvancedChartType, applyAdvancedDefaultMapping, defaultAdvancedConfig, isAdvancedChart, multiRoleVisualRoles, normalizeAdvancedChartType, readAdvancedConfig, remapAdvancedColumns, validateAdvancedConfig } from '../../../core/utils/advanced-chart.util';
 import { buildKpiChartOptions, computeKpiValue } from '../../../core/utils/kpi-chart.util';
 
 export type { DaxMeasureConfig, DaxCalculatedColumnConfig, DaxDisplayPreference, DaxEvaluationScope, DaxModelConfig, DaxAstNode, DaxToken } from '../../../core/utils/dax-evaluator.util';
@@ -4517,8 +4517,17 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
   /** Palette click: a marketplace visual is the Custom Visual type with its renderer preset. */
   selectChartTypeOption(type: ChartTypeOption): void {
-    this.selectChartType(type.id);
-    if (type.renderer) this.updateAdvancedConfig({ ...this.advancedConfig, customRenderer: type.renderer });
+    // Another marketplace card while Custom Visual is active only changes the visual;
+    // selectChartType would toggle the type off. Clicking the same card still deselects it.
+    const switchingVisual = !!type.renderer && this.selectedChartType === type.id && this.advancedConfig.customRenderer !== type.renderer;
+    if (!switchingVisual) this.selectChartType(type.id);
+    if (!type.renderer || this.selectedChartType !== type.id) return;
+    this.updateAdvancedConfig({ ...this.advancedConfig, customRenderer: type.renderer });
+    // A new visual brings its own fields (X/Y, Split By, Levels… or Category/Value): fill the empty ones from the source.
+    if (switchingVisual || multiRoleVisualRoles('customvisual', this.advancedConfig).length) {
+      this.applyDefaultMapping();
+      this.refreshPreview();
+    }
   }
 
   isChartTypeActive(type: ChartTypeOption): boolean {

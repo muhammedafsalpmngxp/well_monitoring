@@ -1,6 +1,7 @@
 import type Highcharts from 'highcharts';
 import { buildWellMapOptions, defaultWellMapConfig, readWellMapConfig, WellMapConfig } from './well-map.util';
 import { DaxMeasureConfig, evaluateDaxMeasure, evaluateDaxMeasureForRow } from './dax-evaluator.util';
+import type { CustomVisualDataRole } from '../services/marketplace.service';
 
 export const ADVANCED_CHART_LABELS = {
   boxplot: 'Boxplot', candlestick: 'Candlestick', stackedarea100: '100% Stacked Area',
@@ -65,10 +66,11 @@ export const MAP_CHART_TYPES = new Set<string>(['filledmap', 'linemap', 'connect
 
 export function applyAdvancedDefaultMapping(type: AdvancedChartType, rows: DataRow[], columns: string[], config: AdvancedChartConfig): AdvancedChartConfig {
   const next = readAdvancedConfig(config);
-  const roles = ADVANCED_FIELD_ROLES[type];
+  const roles = advancedFieldRoles(type, next);
+  const visualRoles = multiRoleVisualRoles(type, next);
   next.fields = Object.fromEntries(Object.entries(next.fields).filter(([role]) => roles.includes(role)));
-  if (!['pivottable', 'matrix', 'decompositiontree', 'keyinfluencers'].includes(type)) next.dimensions = [];
-  if (!['pivottable', 'matrix', 'stackedarea100'].includes(type)) next.measures = [];
+  if (!['pivottable', 'matrix', 'decompositiontree', 'keyinfluencers'].includes(type) && !visualRoles.some(role => role.allowMultiple && role.type !== 'measure')) next.dimensions = [];
+  if (!['pivottable', 'matrix', 'stackedarea100'].includes(type) && !visualRoles.some(role => role.allowMultiple && role.type === 'measure')) next.measures = [];
   const values = (column: string): unknown[] => rows.map(row => row[column]).filter(value => value !== null && value !== undefined && value !== '');
   const numericColumns = columns.filter(column => {
     const entries = values(column);
@@ -129,6 +131,17 @@ export function applyAdvancedDefaultMapping(type: AdvancedChartType, rows: DataR
     const value = numericColumns.find(unused);
     if (value) next.fields['value'] = value;
   }
+  // Multi-role custom visual: fill its required roles with the first unused text / numeric columns.
+  // Grouping roles (Split By, Levels) prefer columns with few distinct values, so a row id never becomes 1,000 series.
+  const fewValues = (column: string) => new Set(values(column).map(String)).size <= 30;
+  for (const role of visualRoles.filter(entry => entry.required)) {
+    const pick = role.type === 'measure' ? numericColumns.find(unused)
+      : role.key === 'category' ? categoryColumns.find(unused) : categoryColumns.find(column => unused(column) && fewValues(column));
+    if (!pick) continue;
+    if (!role.allowMultiple) { if (!next.fields[role.key]) next.fields[role.key] = pick; }
+    else if (role.type === 'measure') { if (!next.measures.length) next.measures = [pick]; }
+    else if (!next.dimensions.length) next.dimensions = [pick];
+  }
   if (['pivottable', 'matrix', 'decompositiontree', 'keyinfluencers'].includes(type) && !next.dimensions.length) {
     const dimension = categoryColumns.find(column => unused(column) && (type !== 'keyinfluencers' || (() => {
       const counts = new Map<unknown, number>();
@@ -168,6 +181,9 @@ export interface AdvancedCustomRenderer {
   id: string;
   label: string;
   render: (categories: string[], values: (number | null)[]) => Highcharts.Options;
+  /** Multi-role visuals (several measures, split-by, X/Y, OHLC, levels): their roles, drawn from the rows. */
+  roles?: CustomVisualDataRole[];
+  renderRows?: (rows: DataRow[], config: AdvancedChartConfig) => Highcharts.Options;
 }
 
 const customRenderers = new Map<string, AdvancedCustomRenderer>([
@@ -185,12 +201,33 @@ export function getAdvancedCustomRenderers(): { id: string; label: string }[] {
   return [...customRenderers.values()].map(({ id, label }) => ({ id, label }));
 }
 
+/** The data roles of the selected custom visual when it is multi-role; empty otherwise. */
+export function multiRoleVisualRoles(type: string | null, config: AdvancedChartConfig): CustomVisualDataRole[] {
+  if (type !== 'customvisual') return [];
+  const renderer = customRenderers.get(config.customRenderer);
+  return renderer?.renderRows ? renderer.roles ?? [] : [];
+}
+
+/** Single-column roles shown as dropdowns: the multi-role visual's own, else the type's fixed roles. */
+export function advancedFieldRoles(type: AdvancedChartType, config: AdvancedChartConfig): string[] {
+  const visualRoles = multiRoleVisualRoles(type, config);
+  return visualRoles.length ? visualRoles.filter(role => !role.allowMultiple).map(role => role.key) : ADVANCED_FIELD_ROLES[type];
+}
+
 export function validateAdvancedConfig(type: AdvancedChartType, rows: DataRow[], config: AdvancedChartConfig): void {
-  requireFields(config, ADVANCED_FIELD_ROLES[type]);
+  const visualRoles = multiRoleVisualRoles(type, config);
+  if (visualRoles.length) {
+    const missing = visualRoles.filter(role => role.required && (role.allowMultiple
+      ? !(role.type === 'measure' ? config.measures : config.dimensions).length
+      : !config.fields[role.key])).map(role => role.label);
+    if (missing.length) throw new Error(`Select columns for: ${missing.join(', ')}.`);
+  } else {
+    requireFields(config, ADVANCED_FIELD_ROLES[type]);
+  }
   if (['pivottable', 'matrix', 'decompositiontree', 'keyinfluencers'].includes(type) && !config.dimensions.length) throw new Error('Select at least one dimension.');
   if (['pivottable', 'matrix', 'stackedarea100'].includes(type) && !config.measures.length) throw new Error('Select measures.');
   const columns = new Set(rows.flatMap(row => Object.keys(row)));
-  const selected = [...ADVANCED_FIELD_ROLES[type].map(role => config.fields[role]), ...config.dimensions, ...config.measures];
+  const selected = [...advancedFieldRoles(type, config).map(role => config.fields[role]).filter(Boolean), ...config.dimensions, ...config.measures];
   if (rows.length && selected.some(column => !columns.has(column))) throw new Error('A mapped column is missing from the source. Update the data mapping.');
   if (['pivottable', 'matrix'].includes(type) && config.dimensions.some(column => config.measures.includes(column) || column === config.fields['column'])) throw new Error('Row dimensions, pivot column and measures must be different columns.');
 }
@@ -374,6 +411,7 @@ export function buildAdvancedOptions(type: AdvancedChartType, rows: DataRow[], c
   if (type === 'customvisual') {
     const renderer = customRenderers.get(config.customRenderer);
     if (!renderer) throw new Error('The saved custom renderer is not installed.');
+    if (renderer.renderRows) return { ...base, ...renderer.renderRows(rows, config) };
     const groups = new Map<string, unknown[]>();
     for (const row of rows) {
       const category = String(row[fields['category']] ?? '(Blank)');
