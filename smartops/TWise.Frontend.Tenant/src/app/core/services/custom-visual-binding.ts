@@ -115,10 +115,14 @@ function parseTemplate(optionsTemplateJson: string): Record<string, unknown> | n
  */
 export function isMultiRoleVisual(roles: CustomVisualDataRole[] | null | undefined): boolean {
   const list = roles ?? [];
-  return list.some(role => role.allowMultiple)
+  return list.some(role => role.allowMultiple || ROW_ROLE_KEYS.has(role.key))
     || list.filter(role => role.type === 'measure').length !== 1
     || list.filter(role => role.type !== 'measure').length !== 1;
 }
+
+/** Role keys only the rows binding understands, e.g. Price Candlestick's single Time + Price. */
+const ROW_ROLE_KEYS = new Set(['date', 'price', 'x', 'y', 'latitude', 'longitude', 'levels', 'groups', 'split', 'row',
+  'open', 'high', 'low', 'close', 'size', 'color', 'weight', 'label', 'measures', 'measure2']);
 
 /** Rows and the columns mapped to each data role (one column, or several for allowMultiple roles). */
 export interface CustomVisualRowData {
@@ -153,11 +157,28 @@ export function bindCustomVisualRows(
   const text = (value: unknown): string => value === null || value === undefined || value === '' ? '(Blank)' : String(value);
   const unique = (column: string): string[] => [...new Set(data.rows.map(row => text(row[column])))];
 
+  // Binding options a template may set under "tw" (removed before Highcharts sees them):
+  //   sort: 'desc' | 'asc'     order categories by their total
+  //   bucket: 'auto'           group a Date role into year / month / day / hour / minute buckets
+  //   centerZero: true         colour axis symmetric around 0 (diverging scales)
+  //   negateFirstSplit: true   first split value drawn negative (buy vs sell)
+  const tw = (template['tw'] ?? {}) as { sort?: string; bucket?: string; centerZero?: boolean; negateFirstSplit?: boolean };
+  delete template['tw'];
+
+  const dateColumn = col('date');
+  const times = dateColumn && tw.bucket ? data.rows.map(row => toTime(row[dateColumn])).filter((t): t is number => t !== null) : [];
+  const bucket = timeBucket(times);
+  const groupColumns = cols('groups');
   const categoryColumn = col('category');
-  const categories = categoryColumn ? unique(categoryColumn) : [];
+  const hasCategory = !!categoryColumn || groupColumns.length > 0 || times.length > 0;
+  const categoryOf = (row: Record<string, unknown>): string => groupColumns.length
+    ? groupColumns.map(column => text(row[column])).join(' › ')
+    : categoryColumn ? text(row[categoryColumn]) : bucket.label(toTime(row[dateColumn!]));
+  const categories = hasCategory ? [...new Set(data.rows.map(categoryOf))] : [];
+  if (times.length && !categoryColumn && !groupColumns.length) categories.sort();
   const perCategory = (column: string, rows = data.rows): (number | null)[] => {
     const groups = new Map<string, unknown[]>(categories.map(category => [category, []]));
-    for (const row of rows) groups.get(text(row[categoryColumn!]))?.push(row[column]);
+    for (const row of rows) groups.get(categoryOf(row))?.push(row[column]);
     return [...groups.values()].map(values => values.length ? data.aggregate(values) : null);
   };
 
@@ -166,10 +187,11 @@ export function bindCustomVisualRows(
     const mapped = cols(role.key);
     const label = mapped.join(', ') || role.label;
     if (role.type === 'measure') {
-      const values = !mapped.length ? [] : categoryColumn ? perCategory(mapped[0]) : data.rows.map(row => toNumber(row[mapped[0]]));
+      const values = !mapped.length ? [] : hasCategory ? perCategory(mapped[0]) : data.rows.map(row => toNumber(row[mapped[0]]));
       bindings.set(role.key.toLowerCase(), { data: values, label });
     } else {
-      bindings.set(role.key.toLowerCase(), { data: role.key === 'category' ? categories : mapped.length ? unique(mapped[0]) : [], label });
+      const isAxis = role.key === 'category' || role.key === 'groups' || (role.key === 'date' && times.length > 0);
+      bindings.set(role.key.toLowerCase(), { data: isAxis ? categories : mapped.length ? unique(mapped[0]) : [], label });
     }
   }
 
@@ -182,11 +204,14 @@ export function bindCustomVisualRows(
 
   const fill = (entry: Record<string, any>): Record<string, any>[] => {
     const type = entry['type'];
-    if (['ohlc', 'candlestick'].includes(type)) return [{ ...entry, data: ohlcPoints() }];
+    if (['ohlc', 'candlestick'].includes(type)) return [{ ...entry, data: col('open') || !col('price') ? ohlcPoints() : priceCandles() }];
+    if (['bar', 'column'].includes(type) && col('price') && !col('date')) return orderBook(entry);
     if (type === 'heatmap' && col('x') && col('y')) return [densityGrid(entry, 'x', 'y')];
     if (type === 'geoheatmap') return [densityGrid(entry, 'longitude', 'latitude')];
     if (['sunburst', 'treemap'].includes(type) && cols('levels').length) {
       const split = col('split');
+      // Treemap by Group: the split column becomes the top level, so each group is one coloured block.
+      if (split && type === 'treemap') return [{ ...entry, data: treeNodes(data.rows, [split, ...cols('levels')]) }];
       if (!split || type !== 'sunburst') return [{ ...entry, data: shadeSunburst(type, treeNodes(data.rows)) }];
       // One small sunburst per split value, laid out in a grid.
       const groups = unique(split);
@@ -199,13 +224,20 @@ export function bindCustomVisualRows(
         data: shadeSunburst(type, treeNodes(data.rows.filter(row => text(row[split]) === value))),
       }));
     }
-    if (type === 'heatmap' && categoryColumn && col('row')) return [categoryMatrix(entry)];
-    if (col('x') && col('y')) return [{ ...entry, data: xyPoints(type) }];
+    if (type === 'heatmap' && hasCategory && col('row')) return [categoryMatrix(entry)];
+    if (col('x') && col('y')) {
+      const split = col('split');
+      if (!split) return [{ ...entry, data: xyPoints(type, data.rows) }];
+      // X/Y Scatter by Group: one series (colour) per split value.
+      const groups = unique(split);
+      if (groups.length > 50) throw new Error(`Split By has ${groups.length} values; choose a column with 50 or fewer.`);
+      return groups.map(value => ({ ...entry, name: value, data: xyPoints(type, data.rows.filter(row => text(row[split]) === value)) }));
+    }
     const shape = NAMED_POINT_SHAPES[type];
-    if (shape && categoryColumn && firstMeasure) {
+    if (shape && hasCategory && firstMeasure) {
       return [{ ...entry, data: perCategory(firstMeasure).map((y, i) => shape(categories[i], y)) }];
     }
-    if (!categoryColumn) throw new Error('Select a column for Category.');
+    if (!hasCategory) throw new Error('Select a column for Category.');
     const split = col('split');
     if (split) {
       const groups = unique(split);
@@ -231,8 +263,48 @@ export function bindCustomVisualRows(
     }).sort((a, b) => a[0] - b[0]);
   };
 
-  const treeNodes = (rows: Record<string, unknown>[]): Record<string, unknown>[] => {
-    const levels = cols('levels');
+  /** Candlestick from a single Price column: open = first, close = last, high / low per time bucket. */
+  const priceCandles = (): number[][] => {
+    const price = col('price');
+    if (!dateColumn || !price) throw new Error('Select columns for Date and Price.');
+    const ticks = data.rows.map(row => ({ t: toTime(row[dateColumn]), p: toNumber(row[price]) }))
+      .filter((tick): tick is { t: number; p: number } => tick.t !== null && tick.p !== null).sort((a, b) => a.t - b.t);
+    if (!ticks.length) throw new Error('Every row needs a date and a numeric Price.');
+    const step = timeBucket(ticks.map(tick => tick.t));
+    const candles = new Map<number, number[]>();
+    for (const { t, p } of ticks) {
+      const start = step.start(t);
+      const candle = candles.get(start);
+      if (!candle) candles.set(start, [start, p, p, p, p]);
+      else { candle[2] = Math.max(candle[2], p); candle[3] = Math.min(candle[3], p); candle[4] = p; }
+    }
+    return [...candles.values()];
+  };
+
+  /** Order book: Price grouped into about 30 buckets, one bar series per Split value (e.g. buy / sell). */
+  const orderBook = (entry: Record<string, any>): Record<string, any>[] => {
+    const [price, split, weight] = [col('price')!, col('split'), col('weight')];
+    const prices = data.rows.map(row => toNumber(row[price])).filter((p): p is number => p !== null);
+    if (!prices.length) throw new Error('Price needs numeric values.');
+    const min = Math.min(...prices), size = niceStep((Math.max(...prices) - min) / 30);
+    const start = Math.floor(min / size) * size;
+    const index = (p: number) => Math.floor((p - start) / size + 1e-9);
+    const count = index(Math.max(...prices)) + 1;
+    bound['xAxis'] = { ...bound['xAxis'], categories: Array.from({ length: count }, (_, i) => String(+(start + i * size).toFixed(6))) };
+    const groups = split ? unique(split) : [entry['name'] ?? price];
+    return groups.map((value, g) => {
+      const cells: unknown[][] = Array.from({ length: count }, () => []);
+      for (const row of data.rows) {
+        const p = toNumber(row[price]);
+        if (p === null || (split && text(row[split]) !== value)) continue;
+        cells[index(p)].push(weight ? row[weight] : 1);
+      }
+      const sign = tw.negateFirstSplit && g === 0 && groups.length > 1 ? -1 : 1;
+      return { ...entry, name: value, data: cells.map(values => values.length ? sign * ((weight ? data.aggregate(values) : values.length) ?? 0) : null) };
+    });
+  };
+
+  const treeNodes = (rows: Record<string, unknown>[], levels = cols('levels')): Record<string, unknown>[] => {
     const color = col('color');
     if (!firstMeasure) throw new Error('Select a column for the size measure.');
     const nodes = new Map<string, Record<string, unknown>>();
@@ -280,7 +352,7 @@ export function bindCustomVisualRows(
     if (categories.length * rowValues.length > 10000) throw new Error('Too many cells to draw (over 10,000). Filter the source or choose columns with fewer values.');
     const cells = new Map<string, unknown[]>();
     for (const row of data.rows) {
-      const key = `${categories.indexOf(text(row[categoryColumn!]))}:${rowValues.indexOf(text(row[col('row')!]))}`;
+      const key = `${categories.indexOf(categoryOf(row))}:${rowValues.indexOf(text(row[col('row')!]))}`;
       cells.set(key, [...(cells.get(key) ?? []), row[firstMeasure]]);
     }
     return { ...entry, data: [...cells].map(([key, values]) => [...key.split(':').map(Number), data.aggregate(values)]) };
@@ -294,7 +366,7 @@ export function bindCustomVisualRows(
     const [xCol, yCol, weight] = [col(xKey), col(yKey), col('weight')];
     if (!xCol || !yCol) throw new Error(`Select columns for ${xKey === 'x' ? 'X and Y' : 'Latitude and Longitude'}.`);
     const points = data.rows
-      .map(row => ({ x: toNumber(row[xCol]), y: toNumber(row[yCol]), w: weight ? row[weight] : 1 }))
+      .map(row => ({ x: toNumber(row[xCol]) ?? (xKey === 'x' ? toTime(row[xCol]) : null), y: toNumber(row[yCol]), w: weight ? row[weight] : 1 }))
       .filter(point => point.x !== null && point.y !== null && (xKey === 'x' || (Math.abs(point.x!) <= 180 && Math.abs(point.y!) <= 90)));
     if (!points.length) throw new Error(xKey === 'x' ? 'X and Y need numeric values.' : 'Latitude must be -90..90 and longitude -180..180.');
     // About one cell per row for small sources, up to a 25 x 25 grid.
@@ -313,6 +385,9 @@ export function bindCustomVisualRows(
     const cellData = [...cells.values()].map(cell => xKey === 'x'
       ? { x: cell.x, y: cell.y, value: value(cell.values) }
       : { lon: cell.x, lat: cell.y, value: value(cell.values) });
+    if (xKey === 'x' && data.rows.some(row => toNumber(row[xCol]) === null && toTime(row[xCol]) !== null)) {
+      bound['xAxis'] = { ...bound['xAxis'], type: 'datetime' };
+    }
     if (xKey !== 'x') {
       // Fit the map to the data, keeping any projection the template sets.
       bound['mapView'] = { ...bound['mapView'], fitToGeometry: { type: 'MultiPoint', coordinates: cellData.map(cell => [cell['lon'], cell['lat']]) } };
@@ -320,10 +395,21 @@ export function bindCustomVisualRows(
     return { ...entry, colsize: xr.size, rowsize: yr.size, data: cellData };
   };
 
-  const xyPoints = (type: string): Record<string, unknown>[] => {
+  /** A text X or Y (e.g. State) becomes a category axis; its values are plotted at their index. */
+  const axisValues = (column: string, axis: 'xAxis' | 'yAxis', allowDate: boolean): ((value: unknown) => number | null) => {
+    const textual = data.rows.some(row => row[column] !== null && row[column] !== undefined && row[column] !== ''
+      && toNumber(row[column]) === null && !(allowDate && toTime(row[column]) !== null));
+    if (!textual) return value => toNumber(value) ?? (allowDate ? toTime(value) : null);
+    const names = unique(column);
+    bound[axis] = { ...bound[axis], categories: names };
+    return value => names.indexOf(text(value));
+  };
+
+  const xyPoints = (type: string, rows: Record<string, unknown>[]): Record<string, unknown>[] => {
     const [x, y, size, color, label] = ['x', 'y', 'size', 'color', 'label'].map(col);
-    const points = data.rows.map(row => ({
-      x: toNumber(row[x!]) ?? toTime(row[x!]), y: toNumber(row[y!]),
+    const xOf = axisValues(x!, 'xAxis', true), yOf = axisValues(y!, 'yAxis', false);
+    const points = rows.map(row => ({
+      x: xOf(row[x!]), y: yOf(row[y!]),
       ...(size ? { z: toNumber(row[size]) } : {}),
       ...(color ? { colorValue: toNumber(row[color]) } : {}),
       ...(label ? { name: text(row[label]) } : {}),
@@ -342,7 +428,52 @@ export function bindCustomVisualRows(
       return next.data === undefined && !DERIVED_SERIES.has(next.type) ? fill(next) : [next];
     });
   }
+  if (tw.sort && Array.isArray(bound['xAxis']?.categories)) sortCategories(bound, tw.sort === 'asc' ? 1 : -1);
+  if (tw.centerZero && bound['colorAxis']) {
+    const values = (bound['series'] ?? []).flatMap((s: any) => (s?.data ?? []).map((p: any) => Array.isArray(p) ? p[2] : p?.value))
+      .filter((v: unknown): v is number => typeof v === 'number');
+    const max = Math.max(...values.map(Math.abs), 1);
+    bound['colorAxis'] = { ...bound['colorAxis'], min: -max, max };
+  }
   return bound;
+}
+
+/** Orders the category axis (and every series' values with it) by the categories' totals. */
+function sortCategories(options: Record<string, any>, direction: 1 | -1): void {
+  const categories: string[] = options['xAxis'].categories;
+  const series = (options['series'] ?? []).filter((s: any) => Array.isArray(s?.data) && s.data.length === categories.length && s.data.every((v: unknown) => v === null || typeof v === 'number'));
+  if (!series.length) return;
+  const total = (i: number) => series.reduce((sum: number, s: any) => sum + (s.data[i] ?? 0), 0);
+  const order = categories.map((_, i) => i).sort((a, b) => direction * (total(a) - total(b)));
+  options['xAxis'] = { ...options['xAxis'], categories: order.map(i => categories[i]) };
+  for (const s of series) s.data = order.map(i => s.data[i]);
+}
+
+/** A round bucket size (1, 2, 2.5 or 5 x a power of ten) at least `raw`. */
+function niceStep(raw: number): number {
+  if (!(raw > 0)) return 1;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  return ([1, 2, 2.5, 5, 10].find(step => step * power >= raw) ?? 10) * power;
+}
+
+/** Picks year / month / day / hour / minute buckets for the span of the times (about 30–60 buckets). */
+function timeBucket(times: number[]): { start: (t: number) => number; label: (t: number | null) => string } {
+  const span = times.length ? Math.max(...times) - Math.min(...times) : 0;
+  const day = 86_400_000;
+  const unit = span > 3 * 365 * day ? 'year' : span > 90 * day ? 'month' : span > 3 * day ? 'day' : span > 6 * 3_600_000 ? 'hour' : 'minute';
+  const start = (t: number): number => {
+    const d = new Date(t);
+    if (unit === 'year') return Date.UTC(d.getUTCFullYear(), 0, 1);
+    if (unit === 'month') return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+    if (unit === 'day') return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    return Math.floor(t / (unit === 'hour' ? 3_600_000 : 60_000)) * (unit === 'hour' ? 3_600_000 : 60_000);
+  };
+  const label = (t: number | null): string => {
+    if (t === null) return '(Blank)';
+    const iso = new Date(start(t)).toISOString();
+    return unit === 'year' ? iso.slice(0, 4) : unit === 'month' ? iso.slice(0, 7) : unit === 'day' ? iso.slice(0, 10) : iso.slice(0, 16).replace('T', ' ');
+  };
+  return { start, label };
 }
 
 function toNumber(value: unknown): number | null {

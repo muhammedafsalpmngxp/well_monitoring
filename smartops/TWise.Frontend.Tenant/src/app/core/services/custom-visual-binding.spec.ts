@@ -88,6 +88,57 @@ describe('custom visual binding', () => {
     expect(matrix!['series'][0].data).toEqual([[0, 0, 10], [0, 1, 4], [1, 0, 7]]);
   });
 
+  it('joins group levels and sorts categories by total', () => {
+    const options = bindCustomVisualRows('{"tw":{"sort":"desc"},"xAxis":{"categories":"{{groups}}"},"series":[{"type":"column"}]}',
+      [role('groups', 'dimension', true), role('measure', 'measure')],
+      { rows, columns: { groups: ['Cluster', 'Month'], measure: ['Output'] }, aggregate: sum });
+    expect(options!['tw']).toBeUndefined();
+    expect(options!['xAxis'].categories).toEqual(['Nimr › Jan', 'Nimr › Feb', 'Marmul › Jan']);
+    expect(options!['series'][0].data).toEqual([10, 7, 4]);
+  });
+
+  it('builds candles from one price column and an order book with the first side negative', () => {
+    const ticks = [
+      { T: '2026-01-01T10:00:10Z', P: 5, Side: 'buy' }, { T: '2026-01-01T10:00:40Z', P: 7, Side: 'sell' },
+      { T: '2026-01-01T10:00:50Z', P: 6, Side: 'buy' }, { T: '2026-01-01T10:01:20Z', P: 8, Side: 'sell' },
+    ];
+    const candles = bindCustomVisualRows('{"series":[{"type":"candlestick"}]}', [role('date', 'dimension'), role('price', 'measure')],
+      { rows: ticks, columns: { date: ['T'], price: ['P'] }, aggregate: sum });
+    expect(candles!['series'][0].data.map((c: number[]) => c.slice(1))).toEqual([[5, 7, 5, 6], [8, 8, 8, 8]]);
+
+    const book = bindCustomVisualRows('{"tw":{"negateFirstSplit":true},"series":[{"type":"bar"}]}', [role('price', 'measure'), role('split', 'dimension')],
+      { rows: ticks, columns: { price: ['P'], split: ['Side'] }, aggregate: sum });
+    const [buy, sell] = book!['series'];
+    expect(buy.name).toBe('buy');
+    expect(buy.data.filter((v: number | null) => v !== null).every((v: number) => v < 0)).toBe(true);
+    expect(sell.data.filter((v: number | null) => v !== null).every((v: number) => v > 0)).toBe(true);
+  });
+
+  it('puts a text Y on a category axis, splits X/Y by group, and centres a diverging scale on zero', () => {
+    const scatter = bindCustomVisualRows('{"series":[{"type":"scatter"}]}', [role('x', 'measure'), role('y', 'measure'), role('split', 'dimension')],
+      { rows, columns: { x: ['Output'], y: ['Cluster'], split: ['Month'] }, aggregate: sum });
+    expect(scatter!['yAxis'].categories).toEqual(['Nimr', 'Marmul']);
+    expect(scatter!['series'].map((s: any) => [s.name, s.data.map((p: any) => p.y)])).toEqual([['Jan', [0, 1]], ['Feb', [0]]]);
+
+    const heat = bindCustomVisualRows('{"tw":{"centerZero":true},"colorAxis":{},"series":[{"type":"heatmap"}]}',
+      [role('category', 'dimension'), role('row', 'dimension'), role('measure', 'measure')],
+      { rows: [...rows, { Month: 'Feb', Cluster: 'Marmul', Output: -12 }], columns: { category: ['Month'], row: ['Cluster'], measure: ['Output'] }, aggregate: sum });
+    expect(heat!['colorAxis']).toEqual({ min: -12, max: 12 });
+  });
+
+  it('groups dates into buckets for a time heatmap and puts the split on top of a treemap', () => {
+    const time = bindCustomVisualRows('{"tw":{"bucket":"auto"},"xAxis":{"categories":"{{date}}"},"series":[{"type":"heatmap"}]}',
+      [role('date', 'dimension'), role('row', 'dimension'), role('measure', 'measure')],
+      { rows, columns: { date: ['D'], row: ['Cluster'], measure: ['Output'] }, aggregate: sum });
+    // Dates two days apart are grouped by hour, in date order.
+    expect(time!['xAxis'].categories).toEqual(['2026-01-01 00:00', '2026-01-02 00:00', '2026-01-03 00:00']);
+    expect(time!['series'][0].data.length).toBe(3);
+
+    const tree = bindCustomVisualRows('{"series":[{"type":"treemap"}]}', [role('levels', 'dimension', true), role('split', 'dimension'), role('measure', 'measure')],
+      { rows, columns: { levels: ['Month'], split: ['Cluster'], measure: ['Output'] }, aggregate: sum });
+    expect(tree!['series'][0].data).toContainEqual({ id: '|Nimr|Jan', parent: '|Nimr', name: 'Jan', value: 10 });
+  });
+
   it('explains what is missing instead of drawing nothing', () => {
     expect(() => bindCustomVisualRows('{"series":[{"type":"ohlc"}]}', [role('date', 'dimension')],
       { rows, columns: { date: ['D'] }, aggregate: sum })).toThrow(/Open, High, Low and Close/);

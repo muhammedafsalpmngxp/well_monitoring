@@ -25,7 +25,7 @@ const PREVIEW_ROWS = ['North', 'East', 'South', 'West'].flatMap((region, r) => [
   Region: region, Site: `${region} ${s + 1}`, Shift: shift,
   Output: 40 + r * 12 + s * 9, Target: 55 + r * 6, Cost: 20 + r * 5 + s * 4,
   X: 10 + r * 20 + s * 7, Y: 30 + ((r * 37 + s * 23) % 50), Size: 5 + r * 3 + s * 2,
-  Date: `2026-0${r + 1}-${s ? 15 : 1}`, Open: 50 + r * 4 + s, High: 58 + r * 4 + s * 2, Low: 46 + r * 4, Close: 54 + r * 4 + s * 2,
+  Date: `2026-0${r + 1}-${s ? 15 : '01'}`, Open: 50 + r * 4 + s, High: 58 + r * 4 + s * 2, Low: 46 + r * 4, Close: 54 + r * 4 + s * 2,
   Lat: 18 + r * 1.6 + s * 0.7, Lon: 54 + ((r * 3 + s * 2) % 5) * 0.9,
 })));
 /** Sample column per role key; other roles get Region (text) or Output (number). */
@@ -33,7 +33,7 @@ const PREVIEW_COLUMNS: Record<string, string[]> = {
   category: ['Region'], split: ['Shift'], levels: ['Region', 'Site'], measures: ['Output', 'Target'], measure2: ['Target'],
   x: ['X'], y: ['Y'], size: ['Size'], color: ['Cost'], label: ['Site'],
   date: ['Date'], open: ['Open'], high: ['High'], low: ['Low'], close: ['Close'],
-  latitude: ['Lat'], longitude: ['Lon'], weight: ['Output'], row: ['Shift'],
+  latitude: ['Lat'], longitude: ['Lon'], weight: ['Output'], row: ['Shift'], groups: ['Region', 'Shift'], price: ['Close'],
 };
 
 function previewColumns(roles: CustomVisualDataRole[]): Record<string, string[]> {

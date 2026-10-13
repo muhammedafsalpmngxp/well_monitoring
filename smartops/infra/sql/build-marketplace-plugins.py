@@ -232,17 +232,83 @@ MULTI_CHARTS = [
                     "levels": [{"level": 1, "borderWidth": 3, "dataLabels": {"enabled": True, "style": {"fontSize": "13px"}}},
                                {"level": 2, "borderWidth": 1, "dataLabels": {"enabled": False}}]}],
     }, [role("levels", "Levels (in order)", "dimension", multiple=True), role("measure", "Size"), role("color", "Color")]),
-    ("sunburst-group", "Sunburst by Group", "pie", "One small sunburst per value of a split-by column, side by side for comparison (up to 9).", {
-        "chart": {**BASE}, "legend": NO_LEGEND,
+    ("sunburst-group", "Sunburst by Group", "pie", "One small sunburst per value of a split-by column, side by side for comparison (up to 9); optional colour by value.", {
+        "chart": {**BASE}, "legend": NO_LEGEND, "colorAxis": {"minColor": "#e8f1fb", "maxColor": "#21409a"},
         "series": [{"type": "sunburst", "allowTraversingTree": True, "dataLabels": {"format": "{point.name}", "style": {"fontSize": "9px"}},
                     "levels": [{"level": 1, "colorByPoint": True}, {"level": 2, "colorVariation": {"key": "brightness", "to": -0.4}}]}],
-    }, [role("levels", "Levels (in order)", "dimension", multiple=True), SPLIT, MEASURE]),
+    }, [role("levels", "Levels (in order)", "dimension", multiple=True), SPLIT, MEASURE, role("color", "Color", required=False)]),
     ("category-heatmap", "Category Heatmap", "bar", "A grid of one category against another, each cell coloured by a measure.", {
         "chart": {**BASE, "type": "heatmap"},
         "xAxis": {"categories": "{{category}}"}, "yAxis": {"categories": "{{row}}", "title": {"text": None}, "reversed": True},
         "colorAxis": {"minColor": "#e8f1fb", "maxColor": "#21409a"}, "legend": {"enabled": True, "title": {"text": "{{measure.label}}"}},
         "series": [{"type": "heatmap", "name": "{{measure.label}}", "borderWidth": 1, "borderColor": "#ffffff"}],
     }, [CATEGORY, role("row", "Rows", "dimension"), MEASURE]),
+    # ── Group By / bar variants ──
+    ("stacked-bar-group", "Stacked Bar by Group", "bar", "Horizontal bars per category, stacked by the values of a split-by column.", {
+        "chart": {**BASE, "type": "bar"}, "xAxis": XAXIS, "yAxis": {**YAXIS, "stackLabels": {"enabled": True}}, "legend": LEGEND,
+        "plotOptions": {"bar": {"stacking": "normal"}}, "series": [{"type": "bar"}],
+    }, [CATEGORY, SPLIT, MEASURE]),
+    ("column-two-groups", "Column by Two Groups", "bar", "Columns for each combination of two (or more) group columns, e.g. Category > Sub-Category, largest first.", {
+        "chart": {**BASE, "type": "column"}, "xAxis": {"categories": "{{groups}}"}, "yAxis": YAXIS, "legend": NO_LEGEND,
+        "tw": {"sort": "desc"}, "series": [{"type": "column", "name": "{{measure.label}}"}],
+    }, [role("groups", "Groups (in order)", "dimension", multiple=True), MEASURE]),
+    ("sorted-bar", "Sorted Bar", "bar", "Horizontal bars sorted largest first; optionally stacked by a split-by column.", {
+        "chart": {**BASE, "type": "bar"}, "xAxis": XAXIS, "yAxis": YAXIS, "legend": LEGEND,
+        "plotOptions": {"bar": {"stacking": "normal"}}, "tw": {"sort": "desc"}, "series": [{"type": "bar", "name": "{{measure.label}}"}],
+    }, [CATEGORY, MEASURE, role("split", "Split By", "dimension", required=False)]),
+    ("diverging-bar", "Diverging Bar", "bar", "Bars left and right of zero, coloured by sign (e.g. profit vs loss), sorted.", {
+        "chart": {**BASE, "type": "bar"}, "xAxis": XAXIS, "yAxis": {**YAXIS, "plotLines": [{"value": 0, "width": 1, "color": "#667085"}]},
+        "legend": NO_LEGEND, "tw": {"sort": "desc"},
+        "series": [{"type": "bar", "name": "{{measure.label}}", "color": "#2c7bb6", "negativeColor": "#d7191c"}],
+    }, [CATEGORY, MEASURE, role("split", "Split By", "dimension", required=False)]),
+    ("dual-axis-columns", "Two Columns (Dual Axis)", "bar", "Two measures as side-by-side columns, the second on its own right-hand axis.", {
+        "chart": {**BASE, "type": "column"}, "xAxis": XAXIS, "legend": LEGEND,
+        "yAxis": [{"title": {"text": "{{measure.label}}"}}, {"title": {"text": "{{measure2.label}}"}, "opposite": True}],
+        "series": [{"type": "column", "name": "{{measure.label}}", "data": "{{measure}}"},
+                   {"type": "column", "name": "{{measure2.label}}", "data": "{{measure2}}", "yAxis": 1}],
+    }, [CATEGORY, role("measure", "Left Measure"), role("measure2", "Right Measure")]),
+    # ── Market ──
+    ("price-candlestick", "Price Candlestick", "line", "Candles built from a price and a time column: open, high, low and close per time bucket.", {
+        "chart": {**BASE}, "xAxis": {"type": "datetime"}, "yAxis": {"title": {"text": "{{price.label}}"}}, "legend": NO_LEGEND,
+        "series": [{"type": "candlestick", "name": "{{price.label}}", "color": "#d7191c", "upColor": "#2c7bb6", "lineColor": "#667085", "upLineColor": "#667085"}],
+    }, [role("date", "Time", "dimension"), role("price", "Price")]),
+    ("order-book", "Order Book", "bar", "Price buckets with one side (e.g. buy) to the left and the other (sell) to the right.", {
+        "chart": {**BASE, "type": "bar"}, "xAxis": {"title": {"text": "{{price.label}}"}, "reversed": False},
+        "yAxis": {**YAXIS, "plotLines": [{"value": 0, "width": 1, "color": "#667085"}]}, "legend": LEGEND,
+        "plotOptions": {"bar": {"stacking": "normal", "groupPadding": 0, "pointPadding": 0.05}}, "tw": {"negateFirstSplit": True},
+        "series": [{"type": "bar"}],
+    }, [role("price", "Price"), role("split", "Side", "dimension"), role("weight", "Weight", required=False)]),
+    ("xy-scatter-group", "X/Y Scatter by Group", "scatter", "Scatter with one colour per value of a split-by column (e.g. order status).", {
+        "chart": {**BASE, "type": "scatter", "zooming": {"type": "xy"}},
+        "xAxis": {"title": {"text": "{{x.label}}"}}, "yAxis": {"title": {"text": "{{y.label}}"}}, "legend": LEGEND,
+        "series": [{"type": "scatter", "marker": {"radius": 4, "symbol": "circle"}}],
+    }, [role("x", "X"), role("y", "Y"), SPLIT, role("size", "Size", required=False), role("label", "Label", "dimension", required=False)]),
+    ("xy-scatter-labels", "X/Y Scatter - Labels", "scatter", "Scatter with each point labelled (e.g. by sub-category); optional colour scale.", {
+        "chart": {**BASE, "type": "scatter", "zooming": {"type": "xy"}},
+        "xAxis": {"title": {"text": "{{x.label}}"}}, "yAxis": {"title": {"text": "{{y.label}}"}},
+        "colorAxis": {"minColor": "#cfe8e1", "maxColor": "#127a65"}, "legend": NO_LEGEND,
+        "series": [{"type": "scatter", "name": "{{y.label}}", "colorKey": "colorValue", "marker": {"radius": 5},
+                    "dataLabels": {"enabled": True, "format": "{point.name}", "style": {"fontSize": "10px", "textOutline": "none"}}}],
+    }, [role("x", "X"), role("y", "Y"), role("label", "Label", "dimension"), role("color", "Color", required=False)]),
+    # ── Treemap / Heatmap variants ──
+    ("treemap-group", "Treemap by Group", "bar", "Treemap whose top level is a split-by column (e.g. Region), one colour per group.", {
+        "chart": {**BASE}, "legend": NO_LEGEND,
+        "series": [{"type": "treemap", "name": "{{measure.label}}", "layoutAlgorithm": "squarified", "allowTraversingTree": True,
+                    "levels": [{"level": 1, "colorByPoint": True, "borderWidth": 3, "dataLabels": {"enabled": True, "style": {"fontSize": "13px"}}},
+                               {"level": 2, "borderWidth": 1, "dataLabels": {"enabled": False}}]}],
+    }, [role("levels", "Levels (in order)", "dimension", multiple=True), SPLIT, MEASURE]),
+    ("diverging-heatmap", "Diverging Heatmap", "bar", "Category x category grid on a red-white-blue scale centred on zero (e.g. profit vs loss).", {
+        "chart": {**BASE, "type": "heatmap"},
+        "xAxis": {"categories": "{{category}}"}, "yAxis": {"categories": "{{row}}", "title": {"text": None}, "reversed": True},
+        "colorAxis": {"stops": [[0, "#d7191c"], [0.5, "#f7f7f7"], [1, "#2c7bb6"]]}, "legend": {"enabled": True, "title": {"text": "{{measure.label}}"}},
+        "tw": {"centerZero": True}, "series": [{"type": "heatmap", "name": "{{measure.label}}", "borderWidth": 1, "borderColor": "#ffffff"}],
+    }, [CATEGORY, role("row", "Rows", "dimension"), MEASURE]),
+    ("time-heatmap", "Time Heatmap", "bar", "Dates grouped by year, month, day or hour against a category, each cell coloured by a measure.", {
+        "chart": {**BASE, "type": "heatmap"},
+        "xAxis": {"categories": "{{date}}"}, "yAxis": {"categories": "{{row}}", "title": {"text": None}, "reversed": True},
+        "colorAxis": {"minColor": "#e8f1fb", "maxColor": "#21409a"}, "legend": {"enabled": True, "title": {"text": "{{measure.label}}"}},
+        "tw": {"bucket": "auto"}, "series": [{"type": "heatmap", "name": "{{measure.label}}", "borderWidth": 0}],
+    }, [role("date", "Date", "dimension"), role("row", "Rows", "dimension"), MEASURE]),
 ]
 
 FEATURES = {
@@ -262,6 +328,18 @@ FEATURES = {
     "treemap-color": ["Several levels", "Colour scale by a second measure", "Click to drill in"],
     "sunburst-group": ["One sunburst per group", "Side-by-side comparison", "Up to 9 groups"],
     "category-heatmap": ["Category x category grid", "Colour scale", "Cell per pair"],
+    "stacked-bar-group": ["Horizontal stacked bars", "Stack totals", "Legend"],
+    "column-two-groups": ["Two or more group levels", "Largest first", "Combined labels"],
+    "sorted-bar": ["Largest first", "Optional split-by stacks", "Horizontal"],
+    "diverging-bar": ["Positive / negative colours", "Zero line", "Sorted"],
+    "dual-axis-columns": ["Two measures", "Second Y axis", "Side-by-side columns"],
+    "price-candlestick": ["Open, high, low, close from one price", "Auto time buckets", "Date axis"],
+    "order-book": ["Price buckets", "Buy left, sell right", "Count or weight"],
+    "xy-scatter-group": ["Colour per group", "Legend", "Optional size"],
+    "xy-scatter-labels": ["Labelled points", "Optional colour scale", "Zoom"],
+    "treemap-group": ["Split-by as top level", "Colour per group", "Click to drill in"],
+    "diverging-heatmap": ["Red-white-blue scale", "Centred on zero", "Category x category"],
+    "time-heatmap": ["Auto date buckets", "Date x category grid", "Colour scale"],
     "word-cloud": ["Words sized by value", "No axes to read", "Best for names, tags and categories"],
     "packed-bubble": ["Bubble area = value", "Labels inside bubbles", "Good for 5–40 categories"],
     "item": ["One dot per unit", "Parliament layout", "Best for small counts such as seats or headcount"],
