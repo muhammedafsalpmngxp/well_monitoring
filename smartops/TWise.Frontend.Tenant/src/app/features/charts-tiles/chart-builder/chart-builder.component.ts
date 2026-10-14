@@ -6351,8 +6351,10 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     }
     return {
       chart: {
-        type: 'bullet' as any, inverted: true, backgroundColor: 'transparent', height: 320,
-        scrollablePlotArea: { minHeight: Math.max(320, categories.length * 28 + 80) },
+        // scrollablePlotArea masks scrolled-past rows with an opaque overlay; a transparent
+        // background + default 0.85 mask opacity let them bleed through near the fixed axis.
+        type: 'bullet' as any, inverted: true, backgroundColor: '#ffffff', height: 320,
+        scrollablePlotArea: { minHeight: Math.max(320, categories.length * 28 + 80), opacity: 1 },
       },
       title: { text: undefined },
       credits: { enabled: false },
