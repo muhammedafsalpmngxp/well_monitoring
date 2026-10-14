@@ -984,7 +984,7 @@ public sealed partial class AiAskService(
         return labels.Count == 0 ? null : labels;
     }
 
-    /// <summary>The tenant's AI prompts (Settings → AI Prompts), from the database.</summary>
+    /// <summary>The tenant's AI prompts (AI Settings → AI Prompts), from the database.</summary>
     private Task<IReadOnlyDictionary<string, string>> PromptsAsync(long tenantId, CancellationToken ct) => prompts.GetAsync(tenantId, ct);
 
     /// <summary>The tenant's instructions with the dataset's own overrides (Ask AI → Dataset notes) on top.</summary>

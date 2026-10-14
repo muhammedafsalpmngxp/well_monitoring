@@ -19,7 +19,7 @@ interface GraphLink { rel: AiRelation; x1: number; y1: number; x2: number; y2: n
 })
 export class AiRelationsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
-  readonly breadcrumbs = [{ label: 'Home' }, { label: 'Settings', route: '/settings' }, { label: 'AI Relationships' }];
+  readonly breadcrumbs = [{ label: 'Home' }, { label: 'AI Settings', route: '/settings/ai' }, { label: 'AI Relationships' }];
   readonly size = 520;
 
   datasets: AiDataset[] = [];

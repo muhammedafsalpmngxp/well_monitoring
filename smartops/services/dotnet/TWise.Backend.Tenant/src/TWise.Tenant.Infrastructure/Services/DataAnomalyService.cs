@@ -218,7 +218,7 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         var seed = AgenticFeatureCatalog.Get(Feature);
         var s = await settings.GetAsync(tenantId, ct);
         if (!AgenticFeatureSettingsRules.IsConfigured(seed, AgenticFeatureSettingsRules.Resolve(seed, AgenticFeatureSettingsRules.Stored(s, Feature)).Access))
-            throw new InvalidOperationException($"{seed.Title} is not set up yet: an admin chooses the schemas it may read under Settings → AI Settings → {seed.Title}.");
+            throw new InvalidOperationException($"{seed.Title} is not set up yet: an admin chooses the schemas it may read under AI Settings → Ask Data & Features → {seed.Title}.");
         // Compile and Discover cannot work without the AI: say so now, not after the job is queued.
         if (kind != KindRun) await ai.ResolveProviderAsync(tenantId, ct);
         if (ruleIds.Count > 0)

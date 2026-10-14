@@ -12,7 +12,7 @@ export type AiProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'custom';
 /** An editable AI instruction; text is the one in use (custom or default). */
 export interface AiPromptDto { key: string; name: string; description: string; defaultText: string; text: string; isCustom: boolean }
 
-/** One AI prompt on Settings → AI Prompts (stored in the tenant database). group: features | askdata | askdata-messages | agents, or an Agentic Feature key (slippage | dailyreport | anomaly). */
+/** One AI prompt on AI Settings → AI Prompts (stored in the tenant database). group: features | askdata | askdata-messages | agents, or an Agentic Feature key (slippage | dailyreport | anomaly). */
 export interface AiPromptItem {
   key: string; group: string; name: string; description: string; text: string; originalText: string;
   version: number; changedBy: string; changedAt: string;
@@ -27,7 +27,7 @@ export interface AiPromptItem {
 export interface AiPromptVersion { version: number; action: 'seed' | 'update' | 'restore'; note: string | null; changedBy: string; changedAt: string; isCurrent: boolean; text: string }
 
 /**
- * Ask Data's settings (Settings → AI Settings): what it may read and its limits. configured is false until at least
+ * Ask Data's settings (AI Settings → Ask Data & Features): what it may read and its limits. configured is false until at least
  * one schema is chosen; Ask Data refuses to run until then. Hidden tables are "schema.table" or "table" (every schema);
  * hidden columns "schema.table.column", "table.column" or "column" (every table).
  */
@@ -66,7 +66,7 @@ export interface FeatureSettingDefinition {
 }
 
 /**
- * An Agentic Feature's section of Settings → AI Settings (core.AiSettings): its settings with the values in use
+ * An Agentic Feature's section of AI Settings → Ask Data & Features (core.AiSettings): its settings with the values in use
  * (defaults filled in) and what it may read. accessMode "tables": the admin ticks tables (its verified SQL reads
  * queryTables); "schemas": the admin chooses schemas and hidden tables / columns, as for Ask Data.
  */

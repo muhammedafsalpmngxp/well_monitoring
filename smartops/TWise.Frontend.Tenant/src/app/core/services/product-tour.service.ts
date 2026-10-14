@@ -92,6 +92,13 @@ const TOUR_STEPS: TourStep[] = [
     placement: 'right',
   },
   {
+    id: 'ai-settings',
+    title: 'AI Settings',
+    description: 'Configure AI providers, features, Ask Data and prompts, and review AI activity',
+    targetSelector: '[data-tour="tour-ai-settings"]',
+    placement: 'right',
+  },
+  {
     id: 'create-dashboard',
     title: 'Create New Dashboard',
     description: 'Build custom dashboards to track what matters most',

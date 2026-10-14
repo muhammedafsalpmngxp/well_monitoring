@@ -31,7 +31,7 @@ export class AiSettingsComponent implements OnInit {
 
   /** Which page this instance renders: providers (+ limits, usage) or the features-by-role matrix. */
   readonly section: 'providers' | 'features' = inject(ActivatedRoute).snapshot.data['section'] ?? 'providers';
-  readonly breadcrumbs = [{ label: 'Home' }, { label: 'Settings', route: '/settings' }, { label: this.section === 'features' ? 'AI Features' : 'AI Providers' }];
+  readonly breadcrumbs = [{ label: 'Home' }, { label: 'AI Settings', route: '/settings/ai' }, { label: this.section === 'features' ? 'AI Features' : 'AI Providers' }];
   readonly providerTypes = Object.entries(PROVIDER_DEFAULTS).map(([value, d]) => ({ value: value as AiProvider, label: d.label }));
 
   providers: AiProviderDto[] = [];
@@ -63,7 +63,7 @@ export class AiSettingsComponent implements OnInit {
   constructor(private readonly ai: AiService, private readonly users: UserManagementService, private readonly cdr: ChangeDetectorRef,
               private readonly permissions: PermissionService) {}
 
-  /** Admins see where the AI instructions moved (Settings → AI Prompts is admin-only). */
+  /** Admins see where the AI instructions moved (AI Settings → AI Prompts is admin-only). */
   get isAdmin(): boolean { return this.permissions.isAdminUser; }
 
   // ── Model prices (agent cost estimates; nothing is built in, prices change often) ─

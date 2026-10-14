@@ -1,4 +1,4 @@
-"""The dailyreport.* prompt texts of one request (Settings > AI Prompts), in the three shapes the feature uses:
+"""The dailyreport.* prompt texts of one request (AI Settings > AI Prompts), in the three shapes the feature uses:
 
 * a template:            ``{UPPER_CASE}`` placeholders, filled in one pass (``fill``);
 * a list of entries:     one ``name: text`` line per entry (definitions, constraints, refusals, verifier issues);

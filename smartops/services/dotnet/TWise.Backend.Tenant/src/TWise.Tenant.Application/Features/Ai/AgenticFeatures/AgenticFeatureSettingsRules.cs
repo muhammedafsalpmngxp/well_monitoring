@@ -12,7 +12,7 @@ public sealed record FeatureSettingsState(IReadOnlyDictionary<string, JsonElemen
     string? ModifiedBy, DateTime? ModifiedAt);
 
 /// <summary>
-/// An Agentic Feature's settings in core.AiSettings.&lt;feature&gt;_settings_json (Settings → AI Settings → the feature):
+/// An Agentic Feature's settings in core.AiSettings.&lt;feature&gt;_settings_json (AI Settings → Ask Data & Features → the feature):
 /// reading them with the seed's defaults filled in, and checking a save against the definitions and the Ask Data
 /// database's catalog. Stored as {"values": {...}, "access": {...}, "modifiedBy", "modifiedAt"}.
 /// </summary>

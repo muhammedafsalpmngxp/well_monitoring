@@ -105,7 +105,7 @@ def _prepare(req: FeatureRequest, keys: tuple[str, ...], need_llm: bool) -> Anom
         raise HTTPException(status_code=400, detail=str(exc)) from None
     if not (req.access.included_tables or req.access.allowed_schemas):
         raise HTTPException(status_code=400, detail=f"{TITLE} is not set up yet: an admin chooses the tables it may "
-                                                    f"read under Settings > AI Settings > {TITLE}.")
+                                                    f"read under AI Settings > Ask Data & Features > {TITLE}.")
     if need_llm and req.llm is None:
         raise HTTPException(status_code=503, detail="No AI provider is active for this tenant. An admin can add one "
                                                     "under Settings > AI Providers.")
@@ -114,7 +114,7 @@ def _prepare(req: FeatureRequest, keys: tuple[str, ...], need_llm: bool) -> Anom
         if absent:
             raise HTTPException(status_code=400, detail=f"{TITLE} cannot run: these AI prompts are not configured for "
                                                         f"this tenant: {', '.join(absent)}. An admin can restore them "
-                                                        "under Settings > AI Prompts.")
+                                                        "under AI Settings > AI Prompts.")
     return settings
 
 

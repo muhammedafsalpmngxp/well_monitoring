@@ -1,4 +1,4 @@
-"""The Daily Report settings a request carries (Settings > AI Settings > Daily Report).
+"""The Daily Report settings a request carries (AI Settings > Ask Data & Features > Daily Report).
 
 Every limit, threshold, cache size, model choice and tunable vocabulary of the feature is one of these. There are no
 defaults here: the Tenant API sends every key (the seed's defaults filled in), and a missing or invalid key stops the
@@ -132,4 +132,4 @@ def load_settings(raw: dict) -> DailyReportSettings:
                 problems.append(f"'{where}' is invalid ({error.get('msg', 'invalid value')})" if where
                                 else error.get("msg", "invalid value"))
         raise SettingsInvalid("Daily Report settings: " + "; ".join(problems[:5])
-                              + ". An admin can correct them under Settings > AI Settings > Daily Report.") from None
+                              + ". An admin can correct them under AI Settings > Ask Data & Features > Daily Report.") from None

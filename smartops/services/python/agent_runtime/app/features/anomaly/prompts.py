@@ -1,4 +1,4 @@
-"""Every text this feature sends to a model is a tenant prompt (``anomaly.*``, Settings > AI Prompts). This module
+"""Every text this feature sends to a model is a tenant prompt (``anomaly.*``, AI Settings > AI Prompts). This module
 names the keys, fills their {UPPER_CASE} placeholders (single pass, app.features.common.text.fill) and assembles the
 system prompts the way the original engine did - the reference material (business rules, worked examples) cut to the
 one rule being written, identically for the author and the reviewer.

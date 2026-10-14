@@ -9,7 +9,7 @@ public class AiSettings : BaseEntity
     /// <summary>No longer used: the AI prompts are in core.AiPrompt. Kept so the column stays mapped.</summary>
     public string? PromptsJson { get; set; }
 
-    // Ask Data: what it may read and its limits (Settings → AI Settings). The lists are JSON arrays; no allowed schemas
+    // Ask Data: what it may read and its limits (AI Settings → Ask Data & Features). The lists are JSON arrays; no allowed schemas
     // means Ask Data is not set up and refuses to run.
     public string? AskDataAllowedSchemas { get; set; }
     public string? AskDataExcludedTables { get; set; }
@@ -26,7 +26,7 @@ public class AiSettings : BaseEntity
     public string AskDataChatMode { get; set; } = "deep";
 
     // Agentic Features (Agentic AI → Agentic Features): each feature's settings and the tables it may read, as JSON
-    // {"values": {...}, "access": {...}, "modifiedBy", "modifiedAt"} (Settings → AI Settings). Null = the defaults.
+    // {"values": {...}, "access": {...}, "modifiedBy", "modifiedAt"} (AI Settings → Ask Data & Features). Null = the defaults.
     public string? SlippageSettingsJson { get; set; }
     public string? DailyReportSettingsJson { get; set; }
     public string? AnomalySettingsJson { get; set; }

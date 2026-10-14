@@ -47,8 +47,8 @@ public sealed record AiAgentOutputDto(string Name, string Type = "string", strin
 
 /// <summary>
 /// Knowledge Source and limits for the built-in Ask Data tool. BusinessRules are added after the tenant's
-/// (Settings → AI Prompts); blank Examples use the tenant's. AllowedSchemas and MaxRows can only narrow the
-/// tenant's Ask Data settings (Settings → AI Settings); empty AllowedSchemas = all the tenant allows.
+/// (AI Settings → AI Prompts); blank Examples use the tenant's. AllowedSchemas and MaxRows can only narrow the
+/// tenant's Ask Data settings (AI Settings → Ask Data & Features); empty AllowedSchemas = all the tenant allows.
 /// </summary>
 public sealed record AiAgentAskDataDto(string? BusinessRules = null, string? Examples = null,
     IReadOnlyList<string>? AllowedSchemas = null, int MaxRows = 500);

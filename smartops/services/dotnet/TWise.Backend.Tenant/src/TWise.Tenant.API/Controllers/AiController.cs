@@ -461,7 +461,7 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
     public Task<IActionResult> SavePrompt(string key, [FromBody] SaveAiPromptRequest request, CancellationToken ct) =>
         AdminAsync(async t => Ok(await sender.Send(new SaveAiPromptCommand(t, UserId(), key, request.Text), ct)));
 
-    // ── Ask Data settings (Settings → AI Settings, admins only) ─────────────────────────────────────────────────────
+    // ── Ask Data settings (AI Settings → Ask Data & Features, admins only) ─────────────────────────────────────────────────────
 
     /// <summary>What Ask Data may read (schemas, hidden tables and columns) and its limits.</summary>
     [HttpGet("settings/ask-data")]
@@ -486,7 +486,7 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
     public Task<IActionResult> GetAskDataCatalog(CancellationToken ct) =>
         AdminAsync(async _ => Ok(await sender.Send(new GetAskDataCatalogQuery(), ct)));
 
-    // ── Agentic Features settings (Settings → AI Settings, admins only) ──────────────────────────────────────────────
+    // ── Agentic Features settings (AI Settings → Ask Data & Features, admins only) ──────────────────────────────────────────────
 
     /// <summary>Every Agentic Feature (Slippage, Daily Report, Data Anomaly) with its setting definitions, values in use
     /// (defaults filled in), the tables it may read and, for verified-SQL features, the tables its queries read.</summary>
@@ -519,7 +519,7 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
             ? Ok(await sender.Send(new ResetAgenticFeatureSettingsCommand(t, UserName(), feature), ct))
             : NotFound());
 
-    // ── AI prompts (Settings → AI Prompts, admins only) ───────────────────────────────────────────────────────────
+    // ── AI prompts (AI Settings → AI Prompts, admins only) ───────────────────────────────────────────────────────────
 
     /// <summary>Every AI prompt of the tenant (AI features, Ask Data, agents): text in use, version, original, last change.</summary>
     [HttpGet("prompt-library")]

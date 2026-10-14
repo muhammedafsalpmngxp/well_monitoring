@@ -88,7 +88,7 @@ def schemas_in_scope() -> list[str]:
     schemas = sorted({s.strip().lower() for s in acc.allowed_schemas if s.strip()})
     if not schemas:
         raise access.AccessDenied(f"{TITLE} is not set up yet: an admin chooses the tables it may read under "
-                                  f"Settings > AI Settings > {TITLE}.")
+                                  f"AI Settings > Ask Data & Features > {TITLE}.")
     return schemas
 
 

@@ -305,7 +305,7 @@ def _well(well_id: str, cfg: SlippageSettings) -> dict:
               if f"{m.prefix}_{part}" not in result.columns]
     if absent:
         raise BadRequest(f"The Slippage milestones setting names columns the well slippage query does not return "
-                         f"({', '.join(absent)}). An admin can fix it under Settings > AI Settings > Slippage.")
+                         f"({', '.join(absent)}). An admin can fix it under AI Settings > Ask Data & Features > Slippage.")
     for row in result.rows:
         if _same(row.get("well_id"), well_id):
             return {

@@ -84,7 +84,7 @@ type CrewSort = 'open' | 'overdue' | 'crew' | 'recent';
 
 /**
  * DISPLAY ONLY: the colour of a status token the verified queries report. The vocabularies themselves are tenant settings
- * (Settings → AI Settings → Slippage), so an unknown value is shown as written in a neutral colour, never dropped.
+ * (AI Settings → Ask Data & Features → Slippage), so an unknown value is shown as written in a neutral colour, never dropped.
  * DATA_QUALITY_ISSUE is not red: it means the date needed to judge is missing, not that the work is late.
  */
 const STATUS_TONE: Record<string, Tone> = {

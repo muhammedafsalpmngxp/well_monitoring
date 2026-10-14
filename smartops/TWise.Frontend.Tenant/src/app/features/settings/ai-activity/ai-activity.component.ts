@@ -15,7 +15,7 @@ import { AiActivityItem, AiFailure, AiService, AiTraceStep } from '../../../core
 })
 export class AiActivityComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
-  readonly breadcrumbs = [{ label: 'Home' }, { label: 'Settings', route: '/settings' }, { label: 'AI Activity' }];
+  readonly breadcrumbs = [{ label: 'Home' }, { label: 'AI Settings', route: '/settings/ai' }, { label: 'AI Activity' }];
   readonly pageSize = 50;
   readonly dayOptions = [{ days: 1, label: 'Today' }, { days: 7, label: 'Last 7 days' }, { days: 30, label: 'Last 30 days' }, { days: 90, label: 'Last 90 days' }];
   readonly stepNames: Record<string, string> = {

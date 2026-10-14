@@ -6,7 +6,7 @@ namespace TWise.Tenant.Application.Features.Ai;
 
 /// <summary>
 /// The AI features' prompt keys and how a feature reads its text. Every text comes from the tenant database
-/// (core.AiPrompt, read through IAiPromptStore and edited under Settings → AI Prompts); there are no
+/// (core.AiPrompt, read through IAiPromptStore and edited under AI Settings → AI Prompts); there are no
 /// defaults in code. Only the wording is editable: the JSON query format, the dataset facts and the checked numbers
 /// are always added by code, so an edit cannot break parsing.
 /// </summary>
@@ -65,5 +65,5 @@ public static class AiPrompts
     public static string Text(string key, IReadOnlyDictionary<string, string> texts) =>
         texts.TryGetValue(key, out var t) && t is not null
             ? t
-            : throw new InvalidOperationException($"The AI prompt '{key}' is not configured for this tenant. An admin can restore it under Settings → AI Prompts.");
+            : throw new InvalidOperationException($"The AI prompt '{key}' is not configured for this tenant. An admin can restore it under AI Settings → AI Prompts.");
 }

@@ -18,7 +18,7 @@ CACHE_ROOT = Path(os.environ.get("AGENT_RUNTIME_CACHE", Path(__file__).resolve()
 
 @dataclass(frozen=True)
 class AskDataSettings:
-    """Per-run limits and visibility: the tenant's Ask Data settings (Settings > AI Settings, sent by the Tenant API),
+    """Per-run limits and visibility: the tenant's Ask Data settings (AI Settings > Ask Data & Features, sent by the Tenant API),
     narrowed by an agent's Knowledge Source (runner.settings_for). Nothing here names a schema, table or column."""
     max_sql_retries: int = 2
     max_rows: int = 500

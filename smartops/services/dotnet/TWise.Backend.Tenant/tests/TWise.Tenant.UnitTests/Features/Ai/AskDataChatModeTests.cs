@@ -10,7 +10,7 @@ using TWise.Tenant.Infrastructure.Services;
 
 namespace TWise.Tenant.UnitTests.Features.Ai;
 
-/// <summary>The Ask your data chatbot answers in the mode chosen in Settings → AI Settings; agents are not affected.</summary>
+/// <summary>The Ask your data chatbot answers in the mode chosen in AI Settings → Ask Data & Features; agents are not affected.</summary>
 public class AskDataChatModeTests
 {
     private sealed class Capture : HttpMessageHandler

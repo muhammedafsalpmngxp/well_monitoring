@@ -39,7 +39,7 @@ Base path: `/api/agents`
 | `inputs` | names use letters, digits and `_`, unique |
 | `status` | `draft` or `published` |
 | `type` | how the instructions run: `sequential` (one after another, the default), `parallel` (all at once, then one combined answer), `supervisor` (the AI picks which instruction runs next until the goal is answered; each instruction runs exactly as written, and none runs twice once it succeeded), `loop` (repeat until the AI judges the goal met) |
-| `askData.allowedSchemas` | narrows the schemas Ask Data may read; names outside the tenant's list (Settings → AI Settings) are ignored. Empty or null = the tenant's list |
+| `askData.allowedSchemas` | narrows the schemas Ask Data may read; names outside the tenant's list (AI Settings → Ask Data & Features) are ignored. Empty or null = the tenant's list |
 | `maxIterations` | 1 to 20 (default 5): rounds for `supervisor` and `loop` |
 | `steps[].id` | optional, up to 64 characters; needed by routers and links. `x` / `y` are the canvas position |
 | `notes` | optional, up to 50 canvas sticky notes: `{ id, text (up to 2000), x, y, color: yellow \| blue \| green \| pink }`. Editor only; runs and agentflow exports ignore them |
@@ -171,7 +171,7 @@ the SELECT in its `sql` instead of asking a model to write one; its `text` is a 
 
 | Field | Rules |
 |---|---|
-| `steps[].sql` | Saved SQL steps only, up to 20,000 characters: exactly one read-only `SELECT` (or `WITH … SELECT`). `{{name}}` (or `'{{name}}'`) is sent as a parameter, never pasted in; an empty input is NULL. A placeholder inside a longer quoted text or a comment is refused: write `LIKE '%' + {{name}} + '%'`. It reads only what Ask Data may read (Settings → AI Settings, narrowed by `askData.allowedSchemas`; no `SELECT *`) and runs in a transaction that is always rolled back |
+| `steps[].sql` | Saved SQL steps only, up to 20,000 characters: exactly one read-only `SELECT` (or `WITH … SELECT`). `{{name}}` (or `'{{name}}'`) is sent as a parameter, never pasted in; an empty input is NULL. A placeholder inside a longer quoted text or a comment is refused: write `LIKE '%' + {{name}} + '%'`. It reads only what Ask Data may read (AI Settings → Ask Data & Features, narrowed by `askData.allowedSchemas`; no `SELECT *`) and runs in a transaction that is always rolled back |
 | `action` | `table`: the rows are the step's answer, no AI call. `summary`: the AI provider writes the answer from the rows (one call) |
 | `kind: "setup"` | step 1 only, Saved SQL only, at least one step after it, no link to or from it. It runs before every other step; its first row's columns named like inputs set those inputs (e.g. a blank date becomes the latest report date). No row stops the run with a message. The other steps keep their numbers (they start at 2) |
 | input `question` | an input with this name lets people ask in their own words: one call on the provider's fast model fills the agent's **blank** other inputs from it (typed values win; a number input given a non-number is left blank). No call when nothing is blank. Mark the inputs a question can supply as optional |

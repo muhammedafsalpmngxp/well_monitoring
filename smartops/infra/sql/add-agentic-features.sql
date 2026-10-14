@@ -5,7 +5,7 @@
 -- request by the Tenant API.
 --
 --   core.AiSettings.<feature>_settings_json   each feature's settings and the tables it may read
---                                             (Settings → AI Settings → the feature). NULL = the defaults.
+--                                             (AI Settings → Ask Data & Features → the feature). NULL = the defaults.
 --   core.AiFeatureQuery                       the verified SQL of Slippage and Daily Report (one row per query).
 --                                             seed_hash = the seed text it was copied from (NULL once edited), so a
 --                                             newer seed replaces only queries nobody changed.
@@ -16,7 +16,7 @@
 --   core.AiFeatureJob                         long operations (compile, run, discover): progress, result, one at a
 --                                             time per tenant and feature (filtered unique index)
 --
--- Prompts are core.AiPrompt rows (Settings → AI Prompts), added by the Tenant API from its seed like every prompt.
+-- Prompts are core.AiPrompt rows (AI Settings → AI Prompts), added by the Tenant API from its seed like every prompt.
 -- Rules and queries are seeded by the Tenant API the first time a tenant opens the feature.
 --
 -- Requires add-ai-settings.sql. Idempotent: safe to run more than once.

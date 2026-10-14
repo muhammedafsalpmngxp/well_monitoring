@@ -216,7 +216,7 @@ def fake_db(monkeypatch):
     return connect, seen, conns
 
 
-TENANT = AskDataTenantSettings(allowed_schemas=["dbo", "well"])   # Settings > AI Settings: what Ask Data may read
+TENANT = AskDataTenantSettings(allowed_schemas=["dbo", "well"])   # AI Settings > Ask Data & Features: what Ask Data may read
 
 
 def test_run_binds_inputs_caps_rows_and_closes_the_connection(fake_db):

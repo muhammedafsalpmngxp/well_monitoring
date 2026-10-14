@@ -94,7 +94,7 @@ class AgentInput(_Camel):
 
 
 class AskDataTenantSettings(_Camel):
-    """The tenant's Ask Data settings (core.AiSettings, Settings > AI Settings), sent by the Tenant API with every run that
+    """The tenant's Ask Data settings (core.AiSettings, AI Settings > Ask Data & Features), sent by the Tenant API with every run that
     uses Ask Data. The runtime has no schema, table or column names of its own: no allowed schemas = not set up."""
     allowed_schemas: list[str] = []
     excluded_tables: list[str] = []      # "schema.table" or "table" (that name in every schema)

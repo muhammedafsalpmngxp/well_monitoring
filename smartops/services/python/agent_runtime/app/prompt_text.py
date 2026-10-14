@@ -1,7 +1,7 @@
 """The AI prompt texts of one request.
 
 Every text the runtime sends to a model comes from the tenant's database (core.AiPrompt, edited
-under Settings > AI Prompts). The Tenant API sends them with each request as {key: text}; nothing here has a
+under AI Settings > AI Prompts). The Tenant API sends them with each request as {key: text}; nothing here has a
 built-in default. A key that is missing or empty stops the run with a message naming it.
 
 Templates hold placeholders such as {QUESTION}: upper-case names in single braces. They are filled in one pass,
@@ -22,7 +22,7 @@ class PromptMissing(LookupError):
     def __init__(self, key: str):
         self.key = key
         super().__init__(f"The AI prompt '{key}' is not configured for this tenant. "
-                         "An admin can restore it under Settings > AI Prompts.")
+                         "An admin can restore it under AI Settings > AI Prompts.")
 
 
 def text(texts: Mapping[str, str] | None, key: str) -> str:

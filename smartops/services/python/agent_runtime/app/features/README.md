@@ -17,8 +17,8 @@ Every request carries everything (`app/features/common/models.py` `FeatureReques
 |---|---|---|
 | `db` | the Ask Data database connection | never logged |
 | `llm` | the tenant's active AI provider (null = none) | `common/llm.py` |
-| `prompts` | `{key: text}`: every prompt of the feature, from `core.AiPrompt` (Settings > AI Prompts) | no prompt text in code; a missing key fails with `PromptMissing` naming it |
-| `settings` | the feature's settings, all keys always present (Settings > AI Settings > the feature) | no limits / thresholds / domain values in code |
+| `prompts` | `{key: text}`: every prompt of the feature, from `core.AiPrompt` (AI Settings > AI Prompts) | no prompt text in code; a missing key fails with `PromptMissing` naming it |
+| `settings` | the feature's settings, all keys always present (AI Settings > Ask Data & Features > the feature) | no limits / thresholds / domain values in code |
 | `access` | tables the feature may read (`FeatureAccess`) | every statement is checked (`common/access.py`) |
 | `queries` | `{key: FeatureQuery}`: the feature's verified SQL (`core.AiFeatureQuery`) | Slippage and Daily Report; no SQL in code |
 

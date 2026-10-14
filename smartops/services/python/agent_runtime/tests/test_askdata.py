@@ -329,7 +329,7 @@ def test_export_refuses_when_ask_data_is_not_set_up():
 
     body = {"token": "abc.def", "format": "xlsx", "db": {"server": "s", "name": "n", "user": "u", "password": "p"}}
     r = TestClient(app).post("/api/agent-runtime/askdata/export", json=body)
-    assert r.status_code == 400 and "Settings > AI Settings" in r.json()["detail"]
+    assert r.status_code == 400 and "AI Settings > Ask Data & Features" in r.json()["detail"]
 
 
 def test_the_runtime_has_no_schema_table_or_column_names_of_its_own():
@@ -359,7 +359,7 @@ def test_ask_data_refuses_until_the_tenant_sets_it_up():
     from app.models import AskDataTenantSettings
 
     for tenant in (None, AskDataTenantSettings(), AskDataTenantSettings(allowed_schemas=["sys", "INFORMATION_SCHEMA", " "])):
-        with pytest.raises(ValueError, match="Settings > AI Settings"):
+        with pytest.raises(ValueError, match="AI Settings > Ask Data & Features"):
             settings_for(None, tenant)
     assert "not set up" in NOT_SET_UP
 

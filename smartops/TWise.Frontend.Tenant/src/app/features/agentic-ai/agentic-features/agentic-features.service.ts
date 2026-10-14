@@ -9,7 +9,7 @@ export interface AgenticFeatureSummary {
   feature: string; title: string; description: string; route: string; moduleCode: string;
   /** AI is switched on for the tenant (Settings → AI Providers). */
   aiEnabled: boolean;
-  /** An admin has chosen the tables the feature may read (Settings → AI Settings → the feature). */
+  /** An admin has chosen the tables the feature may read (AI Settings → Ask Data & Features → the feature). */
   configured: boolean;
 }
 

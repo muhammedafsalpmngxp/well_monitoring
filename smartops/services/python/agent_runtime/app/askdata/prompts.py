@@ -1,7 +1,7 @@
 """The Ask Data prompts for ONE run (twise db_assistant/src/prompts/system_prompts.py, per agent).
 
 Every text comes from the run's prompt texts (`AskDataRun.texts`), which the Tenant API sends from the tenant's
-database (core.AiPrompt, Settings > AI Prompts):
+database (core.AiPrompt, AI Settings > AI Prompts):
 
   askdata.<name>       the node system prompts and their shared parts (platform_preamble, answer_rules,
                        sql_knowledge, sql_rules, <node>_system), plus business_rules and few_shots
@@ -9,7 +9,7 @@ database (core.AiPrompt, Settings > AI Prompts):
 
 Composition is unchanged: the MAX_ROWS substitution and the business-rules / few-shots injection. An agent's own
 Knowledge Source business rules are added after the tenant's (both reach the model); its own examples replace the
-tenant's few_shots. {{ORG_NAME}} in a prompt is the tenant's organisation name (Settings > AI Settings).
+tenant's few_shots. {{ORG_NAME}} in a prompt is the tenant's organisation name (AI Settings > Ask Data & Features).
 The SQL safety checks are code (nodes/validator.py, tools/access.py), not prompts, so no edit can weaken them.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from typing import Mapping
 from app.askdata.settings import current_run
 from app.prompt_text import fill, text
 
-# {{ORG_NAME}} when the tenant has not named its organisation (Settings > AI Settings).
+# {{ORG_NAME}} when the tenant has not named its organisation (AI Settings > Ask Data & Features).
 NO_ORG_NAME = "the organisation"
 
 SYSTEM_NAMES = ("platform_preamble", "answer_rules", "sql_knowledge", "sql_rules", "orchestrator_system",

@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AgenticFeatureSettings, AiService, AskDataCatalog, AskDataSettings, SaveAskDataSettings } from '../../../core/services/ai.service';
 
-/** The fixed sections of Settings → AI Settings. Ask Data is the first; each Agentic Feature adds its own (from the API). */
+/** The fixed sections of AI Settings → Ask Data & Features. Ask Data is the first; each Agentic Feature adds its own (from the API). */
 export const AI_SETTINGS_SECTIONS: { key: string; title: string; hint: string }[] = [
   { key: 'ask-data', title: 'Ask Data', hint: 'What Ask your data and agent Ask Data steps may read, and their limits.' },
 ];
@@ -32,7 +32,7 @@ interface Message { ok: boolean; text: string }
 const low = (s: string) => s.trim().toLowerCase();
 
 /**
- * Settings → AI Settings (admins only): how the AI works for this tenant, stored in core.AiSettings. The Ask Data
+ * AI Settings → Ask Data & Features (admins only): how the AI works for this tenant, stored in core.AiSettings. The Ask Data
  * section sets which schemas it may read, which tables and columns stay hidden, and its limits; the agent runtime has
  * no list of its own, so until a schema is chosen Ask Data refuses to run. Schemas, tables and columns are picked
  * from the Ask Data database itself; names that no longer exist (or apply in every schema / table) can still be hidden.
@@ -50,7 +50,7 @@ export class AiConfigurationComponent implements OnInit {
   sections = [...AI_SETTINGS_SECTIONS];
   readonly limits = ASK_DATA_LIMITS;
   readonly chatModes = CHAT_MODES;
-  readonly breadcrumbs = [{ label: 'Home' }, { label: 'Settings', route: '/settings' }, { label: 'AI Settings' }];
+  readonly breadcrumbs = [{ label: 'Home' }, { label: 'AI Settings', route: '/settings/ai' }, { label: 'Ask Data & Features' }];
   /** Tables listed at once in the hidden-tables picker; the search narrows the rest. */
   readonly tableListMax = 200;
 

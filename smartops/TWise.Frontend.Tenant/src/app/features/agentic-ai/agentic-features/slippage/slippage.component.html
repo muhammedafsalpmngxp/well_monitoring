@@ -260,7 +260,7 @@
         </p>
         <ng-container *ngIf="!tasks.loading && tasks.data as d">
           <p *ngIf="d.truncated" class="sl__alert sl__alert--warn" role="status">
-            Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit. An admin can raise the limit under Settings → AI Settings → Slippage.
+            Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit. An admin can raise the limit under AI Settings → Ask Data & Features → Slippage.
           </p>
           <p *ngIf="!d.rows.length" class="sl__empty">
             No task rows were returned for well {{ wellId }}. The analysis covers wells still in progress, so a completed well returns nothing; this does not mean the well has no late work.
@@ -561,7 +561,7 @@
         </p>
         <ng-container *ngIf="wells.data as d">
           <p *ngIf="d.truncated" class="sl__alert sl__alert--warn" role="status">
-            Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit, so the figures above are incomplete. An admin can raise the limit under Settings → AI Settings → Slippage.
+            Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit, so the figures above are incomplete. An admin can raise the limit under AI Settings → Ask Data & Features → Slippage.
           </p>
           <p *ngIf="!d.rows.length" class="sl__empty">No well has failed a contractual milestone.</p>
           <p *ngIf="d.rows.length && !wellRows.length" class="sl__empty">No wells match these filters.</p>

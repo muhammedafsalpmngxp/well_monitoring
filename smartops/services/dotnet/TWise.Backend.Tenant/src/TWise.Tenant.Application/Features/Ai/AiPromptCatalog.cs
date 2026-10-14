@@ -4,7 +4,7 @@ using TWise.Tenant.Application.Features.Ai.AgenticFeatures;
 namespace TWise.Tenant.Application.Features.Ai;
 
 /// <summary>
-/// Every AI prompt a tenant has, by key: its group, name and description on Settings → AI Prompts, and what a save
+/// Every AI prompt a tenant has, by key: its group, name and description on AI Settings → AI Prompts, and what a save
 /// must keep so the code can still use it. The TEXTS are not here: they live only in the tenant database
 /// (core.AiPrompt, history in core.AiPromptHistory), seeded once from Resources/ai-prompts.seed.json.
 ///
@@ -21,7 +21,7 @@ public static partial class AiPromptCatalog
     /// <summary>Longest text a prompt may have (the largest original, the Ask Data business rules, is about 13,000).</summary>
     public const int MaxLength = 100_000;
 
-    /// <summary>The groups of Settings → AI Prompts: the built-in ones, then one per Agentic Feature (its key).</summary>
+    /// <summary>The groups of AI Settings → AI Prompts: the built-in ones, then one per Agentic Feature (its key).</summary>
     public static readonly IReadOnlyList<(string Key, string Title)> Groups =
     [
         (Features, "AI features"),

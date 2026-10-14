@@ -217,8 +217,8 @@ Wait for `Local: http://localhost:4200/`, then open <http://localhost:4200> and 
 * Frontend change: window D rebuilds by itself; if not, restart it. Press `Ctrl+F5` in the browser.
 * New permissions: log out and log in again.
 
-**First use of the Agentic Features** (admins): Settings → AI Settings → Slippage / Daily Report / Data Anomaly:
-check the tables or schemas each may read and **Save**. Prompts are under Settings → AI Prompts (one group per
+**First use of the Agentic Features** (admins): AI Settings → Ask Data & Features → Slippage / Daily Report / Data Anomaly:
+check the tables or schemas each may read and **Save**. Prompts are under AI Settings → AI Prompts (one group per
 feature). Then Agentic AI → Agentic Features. Data Anomaly needs a **Compile** before its first **Run**. Details:
 [docs/ai/Agentic-Features.md](docs/ai/Agentic-Features.md).
 
@@ -230,7 +230,7 @@ feature). Then Agentic AI → Agentic Features. Data Anomaly needs a **Compile**
 | `Invalid object name 'core.AiFeatureJob'` / `Invalid column name …settings_json` in window B | The database scripts were not applied: run `apply_agentic_features.py` (above), then restart B. |
 | "The server could not be reached" on a page | Window B (5069) is down or restarting. |
 | "The agent service is not reachable" / "had an unexpected error" | Window C (8006) is down, or failed: read the last lines of window C. |
-| "… is not set up yet" on a feature | An admin has not saved its tables under Settings → AI Settings. |
+| "… is not set up yet" on a feature | An admin has not saved its tables under AI Settings → Ask Data & Features. |
 | Menu item missing | Permissions script not applied, or log out and log in again. |
 
 ## URL convention

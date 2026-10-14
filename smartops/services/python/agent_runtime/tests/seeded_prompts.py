@@ -23,7 +23,7 @@ def runtime_texts() -> dict[str, str]:
     return {k: v for k, v in seed().items() if k.startswith(("askdata.", "agent."))}
 
 
-# The organisation name the QA tenant has (Settings > AI Settings); the baseline was recorded with it.
+# The organisation name the QA tenant has (AI Settings > Ask Data & Features); the baseline was recorded with it.
 ORG_NAME = "Al-Tasnim"
 
 

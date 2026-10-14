@@ -1,5 +1,5 @@
 """The Slippage advisor's texts: every word the model is sent comes from the tenant's slippage.* prompts
-(core.AiPrompt, Settings > AI Prompts), filled here in one pass ({UPPER_CASE} placeholders, app.prompt_text.fill).
+(core.AiPrompt, AI Settings > AI Prompts), filled here in one pass ({UPPER_CASE} placeholders, app.prompt_text.fill).
 
   business_rules, scenarios, task_glossary   the grounding documents ({RISK_RED}, {END_STATUSES}, ... in the
                                              glossary come from the vocabulary settings)

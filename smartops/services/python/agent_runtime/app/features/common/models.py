@@ -21,7 +21,7 @@ class FeatureQuery(_Camel):
 
 
 class FeatureAccess(_Camel):
-    """The tables a feature may read (Settings > AI Settings > the feature). A table is readable when it is not excluded
+    """The tables a feature may read (AI Settings > Ask Data & Features > the feature). A table is readable when it is not excluded
     and either listed in ``included_tables`` or, when that list is empty, in one of ``allowed_schemas``. Names are
     ``schema.table`` (``excluded_*`` also accept a bare table / column name, as Ask Data does)."""
     allowed_schemas: list[str] = []

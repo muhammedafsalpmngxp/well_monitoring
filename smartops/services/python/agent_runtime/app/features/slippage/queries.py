@@ -33,7 +33,7 @@ KEYS = (WELL_SLIPPAGE, ACTIVITY_SUMMARY, ACTIVITY_DELAY, CREW_AVAILABILITY)
 # rows would be shown under another well's heading, so it is refused instead.
 WELL_SCOPED = frozenset({ACTIVITY_DELAY})
 
-_WHERE = "An admin can fix it under Settings > AI Settings > Slippage."
+_WHERE = "An admin can fix it under AI Settings > Ask Data & Features > Slippage."
 # String literals, comments and quoted identifiers: a ? inside them is not a parameter.
 _NOT_CODE = re.compile(r"'(?:[^']|'')*'|--[^\n]*|/\*.*?\*/|\[[^\]]*\]|\"(?:[^\"]|\"\")*\"", re.S)
 

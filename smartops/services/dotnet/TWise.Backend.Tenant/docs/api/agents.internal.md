@@ -175,11 +175,11 @@ New Agent page (Angular) ──► Tenant API /api/agents (CQRS) ──► core.
 `app/askdata` is the DB Assistant ported unchanged (graphs, nodes, access and
 SQL checks). What it may read and its limits are the tenant's: allowed schemas, hidden tables and columns, rows per
 query, query time limit, queries per question, SQL rewrites, answer re-checks, conversation turns, organisation name
-and export file prefix live in `core.AiSettings` (`askdata_*` columns, edited in Settings > AI Settings) and the
+and export file prefix live in `core.AiSettings` (`askdata_*` columns, edited in AI Settings > Ask Data & Features) and the
 Tenant API sends them with every Ask Data run as `askDataSettings`. The runtime has no schema, table or column names
 of its own: a tenant with no allowed schemas is refused ("not set up"). LLM timeout 120 s with 2 retries and the
 per-node reasoning table are in `llm.py`. Prompts come only from the tenant database: the Tenant API
-reads `core.AiPrompt` (history in `core.AiPromptHistory`, edited in Settings > AI Prompts) and
+reads `core.AiPrompt` (history in `core.AiPromptHistory`, edited in AI Settings > AI Prompts) and
 sends the `askdata.*` and `agent.*` texts with every request as `prompts`; the runtime has no built-in text
 and refuses a run that lacks one. Export (`tools/export.py`, `export_formats.py`) signs the answer's SQL with
 `ASKDATA_EXPORT_SECRET` (set it outside local development; without it links stop working on restart).

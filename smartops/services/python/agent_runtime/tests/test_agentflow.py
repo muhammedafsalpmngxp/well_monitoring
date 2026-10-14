@@ -57,7 +57,7 @@ def test_org_name_replaces_only_its_placeholder():
 
     texts = {"askdata.sql_knowledge": "Column ORG_NAME_ID; ask about {{ORG_NAME}}"}
     assert prompts._load(texts, "sql_knowledge", "Acme") == "Column ORG_NAME_ID; ask about Acme"
-    # A tenant that has not named its organisation (Settings > AI Settings) gets a neutral phrase, never a placeholder.
+    # A tenant that has not named its organisation (AI Settings > Ask Data & Features) gets a neutral phrase, never a placeholder.
     assert prompts._load(texts, "sql_knowledge", "  ") == f"Column ORG_NAME_ID; ask about {prompts.NO_ORG_NAME}"
 
 

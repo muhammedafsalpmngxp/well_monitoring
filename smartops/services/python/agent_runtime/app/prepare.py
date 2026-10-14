@@ -103,7 +103,7 @@ def prepare(cfg: AgentConfig, inputs: dict[str, str], llm: Llm | None, texts: Te
             yield "status", {"stage": "No AI provider is active, so the question was not read; using the inputs as entered"}
         elif absent := missing_prompts(texts, EXTRACT_KEYS):
             out.error = ("The question cannot be read: these AI prompts are not configured for this tenant: "
-                         f"{', '.join(absent)}. An admin can restore them under Settings > AI Prompts.")
+                         f"{', '.join(absent)}. An admin can restore them under AI Settings > AI Prompts.")
             return
         else:
             yield "status", {"stage": "Reading your question"}

@@ -40,7 +40,7 @@ public sealed class SaveAiPromptHandler(IAiPromptStore prompts) : IRequestHandle
     public async Task<IReadOnlyList<AiPromptDto>> Handle(SaveAiPromptCommand c, CancellationToken ct)
     {
         var def = AiPromptCatalog.Get(c.Key);
-        if (def.Group != AiPromptCatalog.Features) throw new InvalidOperationException($"'{c.Key}' is not an AI-feature prompt. Use Settings → AI Prompts.");
+        if (def.Group != AiPromptCatalog.Features) throw new InvalidOperationException($"'{c.Key}' is not an AI-feature prompt. Use AI Settings → AI Prompts.");
         if (string.IsNullOrWhiteSpace(c.Text) && !def.AllowEmpty)
             await prompts.RestoreAsync(c.TenantId, c.Key, 1, null, null, c.UserId, ct);
         else

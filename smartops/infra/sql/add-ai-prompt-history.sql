@@ -1,7 +1,7 @@
 -- ═════════════════════════════════════════════════════════════════════════════
 -- SmartOps Tenant — AI prompts in the database, with version history (add-ai-prompt-history.sql)
 -- ─────────────────────────────────────────────────────────────────────────────
--- Every AI prompt lives in the tenant database (Settings → AI Prompts, admins only):
+-- Every AI prompt lives in the tenant database (AI Settings → AI Prompts, admins only):
 --   core.AiPrompt                  the ACTIVE text of every prompt, one row each (add-ai-prompt-table.sql)
 --   core.AiSettings.row_ver        added by earlier versions of this script; no longer used
 --   core.AiPromptHistory           every version of every prompt: who saved it, when, why. Version 1 of each key

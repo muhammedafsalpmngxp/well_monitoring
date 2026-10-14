@@ -1,4 +1,4 @@
-"""Which tables a feature's SQL reads, and whether the tenant allows them (Settings > AI Settings > the feature).
+"""Which tables a feature's SQL reads, and whether the tenant allows them (AI Settings > Ask Data & Features > the feature).
 
 Verified SQL is checked before every run, so a query edited in the database, or a table an admin later withdraws,
 is refused with a message that names the table instead of reading data the tenant did not allow.
@@ -77,8 +77,8 @@ def check(sql: str, access: FeatureAccess, feature_title: str) -> None:
     """Raise AccessDenied when the SQL reads a table the feature may not read."""
     if not (access.included_tables or access.allowed_schemas):
         raise AccessDenied(f"{feature_title} is not set up yet: an admin chooses the tables it may read under "
-                           f"Settings > AI Settings > {feature_title}.")
+                           f"AI Settings > Ask Data & Features > {feature_title}.")
     refused = sorted(t for t in referenced_tables(sql) if not allowed(t, access))
     if refused:
         raise AccessDenied(f"{feature_title} may not read {', '.join(refused)}. An admin can allow "
-                           f"{'it' if len(refused) == 1 else 'them'} under Settings > AI Settings > {feature_title}.")
+                           f"{'it' if len(refused) == 1 else 'them'} under AI Settings > Ask Data & Features > {feature_title}.")

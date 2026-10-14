@@ -14,7 +14,7 @@ export const PROMPT_GROUPS: { key: string; title: string; hint: string }[] = [
 interface Message { ok: boolean; text: string }
 
 /**
- * Settings → AI Prompts (admins only): every AI prompt of the tenant, stored in the tenant database. Each save is a
+ * AI Settings → AI Prompts (admins only): every AI prompt of the tenant, stored in the tenant database. Each save is a
  * new version with who, when and an optional note; any version, or the original, can be restored. Changes apply to
  * the next question. The server refuses a text that drops a {PLACEHOLDER} or a reply key the code needs, and a save
  * over someone else's newer version.
@@ -30,7 +30,7 @@ export class AiPromptsComponent implements OnInit {
 
   /** The built-in groups, then one per Agentic Feature (Slippage, Daily Report, Data Anomaly), as the API lists them. */
   groups = [...PROMPT_GROUPS];
-  readonly breadcrumbs = [{ label: 'Home' }, { label: 'Settings', route: '/settings' }, { label: 'AI Prompts' }];
+  readonly breadcrumbs = [{ label: 'Home' }, { label: 'AI Settings', route: '/settings/ai' }, { label: 'AI Prompts' }];
   readonly maxLength = 100_000;
 
   items: AiPromptItem[] = [];

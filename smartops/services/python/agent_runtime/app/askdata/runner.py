@@ -81,7 +81,7 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
     if absent:
         yield {"event": "error", "data": {"message": "Ask Data cannot run: these AI prompts are not configured for this "
                                                      f"tenant: {', '.join(absent)}. An admin can restore them under "
-                                                     "Settings > AI Prompts."}}
+                                                     "AI Settings > AI Prompts."}}
         return
     mode = "normal" if mode == "normal" else "deep"
     try:
@@ -136,7 +136,7 @@ def without_export_hints(answer: str) -> str:
 
 
 NOT_SET_UP = ("Ask Data is not set up for this tenant yet: an admin chooses the schemas it may read under "
-              "Settings > AI Settings.")
+              "AI Settings > Ask Data & Features.")
 # Never readable, whatever a tenant lists (the access check refuses them too).
 _SYSTEM_SCHEMAS = frozenset({"sys", "information_schema"})
 
@@ -152,7 +152,7 @@ def _names(values: Any) -> tuple[str, ...]:
 
 
 def settings_for(options: Any, tenant: Any = None) -> AskDataSettings:
-    """The tenant's Ask Data settings (models.AskDataTenantSettings, from Settings > AI Settings), narrowed by an agent's
+    """The tenant's Ask Data settings (models.AskDataTenantSettings, from AI Settings > Ask Data & Features), narrowed by an agent's
     Knowledge Source (``options``). An agent can only narrow the tenant's schemas and lower its row limit. Raises
     ValueError when the tenant has not set Ask Data up or the agent's schemas cannot be read."""
     base = tuple(s for s in _names(tenant.allowed_schemas if tenant else ()) if s not in _SYSTEM_SCHEMAS)

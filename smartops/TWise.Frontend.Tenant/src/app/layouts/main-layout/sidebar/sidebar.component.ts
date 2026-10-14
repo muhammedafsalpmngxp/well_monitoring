@@ -107,6 +107,7 @@ export class SidebarComponent implements OnInit, OnChanges, OnDestroy {
     'Agentic AI': 'tour-ai-assistant',
     'User & Role Management': 'tour-user-role-management',
     Settings: 'tour-settings',
+    'AI Settings': 'tour-ai-settings',
   };
 
   tourIdFor(label: string): string | null {
@@ -131,6 +132,8 @@ export class SidebarComponent implements OnInit, OnChanges, OnDestroy {
   isParentActive(item: MenuItem): boolean {
     if (item.children?.some(child => this.isChildActive(child.route))) return true;
     if (!item.children?.length) return false;
+    // AI Settings pages live under /settings too: don't light up Settings when another group owns the page.
+    if (this.menuGroups.some(g => g.items.some(other => other !== item && other.children?.some(c => this.isChildActive(c.route))))) return false;
     const base = '/' + (item.children[0]?.route ?? '').split('/').filter(Boolean)[0];
     const path = this.currentUrl.split('?')[0].split('#')[0];
     return path === base || path.startsWith(base + '/');

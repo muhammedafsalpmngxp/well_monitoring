@@ -42,7 +42,7 @@ export class FeaturesHomeComponent implements OnInit {
   /** What the feature needs before it works fully; empty when it is ready. */
   notes(f: AgenticFeatureSummary): string[] {
     const n: string[] = [];
-    if (!f.configured) n.push('Not set up: an admin chooses what it may read under Settings → AI Settings.');
+    if (!f.configured) n.push('Not set up: an admin chooses what it may read under AI Settings → Ask Data & Features.');
     if (!f.aiEnabled) n.push(f.feature === 'anomaly'
       ? 'AI is off: runs use the checks already compiled; compile and discover need AI.'
       : 'AI is off: the figures work, the AI explanations do not.');

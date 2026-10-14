@@ -87,7 +87,7 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, "api/agent-runtime/askdata/ask")
         {
-            // The chatbot's mode is the tenant's choice (Settings → AI Settings); agents choose theirs per step.
+            // The chatbot's mode is the tenant's choice (AI Settings → Ask Data & Features); agents choose theirs per step.
             Content = JsonContent.Create(new
             {
                 question, history, mode = AskDataSettingsRules.ChatMode(askData.ChatMode), db = AskDataDb(), llm, prompts,

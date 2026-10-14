@@ -11,7 +11,7 @@ const low = (s: string) => s.trim().toLowerCase();
 const schemaOf = (full: string) => low(full.split('.')[0]);
 
 /**
- * One Agentic Feature's section of Settings → AI Settings: every setting it has (from its definitions: no field is
+ * One Agentic Feature's section of AI Settings → Ask Data & Features: every setting it has (from its definitions: no field is
  * hard-coded here), grouped as the definitions say, and what it may read in the Ask Data database. "tables" features
  * (Slippage, Daily Report) read fixed tables through their verified SQL: the admin ticks those tables. "schemas"
  * features (Data Anomaly) write their own SQL: the admin chooses schemas and hides tables or columns, as for Ask Data.

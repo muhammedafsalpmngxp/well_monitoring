@@ -6,7 +6,7 @@ using TWise.Tenant.Domain.Entities;
 
 namespace TWise.Tenant.Application.Features.Ai.AgenticFeatures;
 
-/// <summary>Every Agentic Feature with its settings (Settings → AI Settings, one section each).</summary>
+/// <summary>Every Agentic Feature with its settings (AI Settings → Ask Data & Features, one section each).</summary>
 public sealed record GetAgenticFeatureSettingsQuery(long TenantId) : IRequest<IReadOnlyList<AgenticFeatureSettingsDto>>;
 
 /// <summary>Saves one feature's settings and the tables it may read; tables and schemas are checked against the Ask Data

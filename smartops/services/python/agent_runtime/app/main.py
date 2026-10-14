@@ -255,7 +255,7 @@ def run_events(req: RunRequest, *, extract_chat: Any = None, **graph_overrides: 
     absent = missing_prompts(req.prompts, RUN_KEYS) if req.llm is not None else []
     if absent:
         yield "error", {"message": "The agent cannot run: these AI prompts are not configured for this tenant: "
-                                   f"{', '.join(absent)}. An admin can restore them under Settings > AI Prompts."}
+                                   f"{', '.join(absent)}. An admin can restore them under AI Settings > AI Prompts."}
         return
     ready = Prepared(cfg=cfg, inputs=dict(req.inputs))
     yield from prepare(cfg, dict(req.inputs), req.llm, req.prompts, ready, chat=extract_chat,

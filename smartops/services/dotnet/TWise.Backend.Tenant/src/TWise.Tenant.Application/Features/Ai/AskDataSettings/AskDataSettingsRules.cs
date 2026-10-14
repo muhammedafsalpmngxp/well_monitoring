@@ -8,7 +8,7 @@ using TWise.Tenant.Domain.Entities;
 namespace TWise.Tenant.Application.Features.Ai.AskDataSettings;
 
 /// <summary>
-/// Ask Data's settings in core.AiSettings (Settings → AI Settings): reading them for the page and for the runtime, and
+/// Ask Data's settings in core.AiSettings (AI Settings → Ask Data & Features): reading them for the page and for the runtime, and
 /// checking a save. The runtime keeps no schema, table or column names of its own, so these are the only source.
 /// </summary>
 public static partial class AskDataSettingsRules

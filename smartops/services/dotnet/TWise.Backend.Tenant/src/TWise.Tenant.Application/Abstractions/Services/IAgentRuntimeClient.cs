@@ -8,7 +8,7 @@ namespace TWise.Tenant.Application.Abstractions.Services;
 public sealed record AgentFlowLlm(string Provider, string Model, string? BaseUrl);
 
 /// <summary>
-/// The tenant's Ask Data settings as the runtime takes them (core.AiSettings, Settings → AI Settings): what Ask Data may
+/// The tenant's Ask Data settings as the runtime takes them (core.AiSettings, AI Settings → Ask Data & Features): what Ask Data may
 /// read and its limits. The runtime has no list of its own; no allowed schemas means it refuses (not set up).
 /// ChatMode (deep | normal) is only the Ask your data chatbot's mode: it is sent as that request's mode, never with an
 /// agent run (agents choose their mode per step).

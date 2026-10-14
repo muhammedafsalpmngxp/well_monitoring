@@ -111,7 +111,7 @@ class DataSource:
         found = self._request.queries.get(key)
         if found is None:
             raise QueryConfigError(f"The Daily Report query '{key}' is not configured for this tenant. An admin can "
-                                   "restore it under Settings > AI Settings > Daily Report.")
+                                   "restore it under AI Settings > Ask Data & Features > Daily Report.")
         return found
 
     def parameters(self, key: str, values: dict[str, Any]) -> list[Any]:
@@ -119,7 +119,7 @@ class DataSource:
         missing = [name for name in found.params if name not in values]
         if missing:
             raise QueryConfigError(f"The Daily Report query '{key}' asks for {', '.join(missing)}, which Daily Report "
-                                   "does not provide. An admin can correct it under Settings > AI Settings > "
+                                   "does not provide. An admin can correct it under AI Settings > Ask Data & Features > "
                                    "Daily Report.")
         return [values[name] for name in found.params]
 
@@ -174,7 +174,7 @@ def _fit_columns(key: str, found: FeatureQuery, columns: list[str], rows: list[d
     missing = [c for c in found.columns if c.lower() not in by_lower]
     if missing:
         raise QueryConfigError(f"The Daily Report query '{key}' does not return {', '.join(missing)}. An admin can "
-                               "correct it under Settings > AI Settings > Daily Report.")
+                               "correct it under AI Settings > Ask Data & Features > Daily Report.")
     renames = {by_lower[c.lower()]: c for c in found.columns if by_lower[c.lower()] != c}
     if not renames:
         return rows

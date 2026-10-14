@@ -11,7 +11,7 @@ public record AiPromptDto(string Key, string Name, string Description, string De
 public record SaveAiPromptRequest(string? Text);
 
 /// <summary>
-/// One AI prompt on Settings → AI Prompts: the text in use and its version, the original (version 1), who changed it
+/// One AI prompt on AI Settings → AI Prompts: the text in use and its version, the original (version 1), who changed it
 /// last, and what a save must keep (Placeholders the code fills, ReplyKeys of the JSON reply the code reads).
 /// </summary>
 public record AiPromptItemDto(string Key, string Group, string Name, string Description, string Text, string OriginalText,
@@ -67,7 +67,7 @@ public record AiMessage(string Role, string Content);
 public record AiCompletion(string Content, int PromptTokens, int CompletionTokens);
 
 /// <summary>
-/// Ask Data's settings (Settings → AI Settings): what it may read and its limits. Configured is false until an admin
+/// Ask Data's settings (AI Settings → Ask Data & Features): what it may read and its limits. Configured is false until an admin
 /// has chosen at least one schema; Ask Data refuses to run until then. ChatMode (deep | normal) is how the Ask your data
 /// chatbot answers; agents choose their own mode per step.
 /// </summary>

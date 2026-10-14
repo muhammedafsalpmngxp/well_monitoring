@@ -2,7 +2,7 @@
 -- SmartOps Tenant — Ask Data settings on [core].[AiSettings] (add-ai-askdata-settings.sql)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- What Ask Data (the Ask your data chatbot and an agent's Ask Data steps) may read and its limits, per tenant,
--- edited under Settings → AI Settings (admins only). The agent runtime keeps no list of its own: the Tenant API
+-- edited under AI Settings → Ask Data & Features (admins only). The agent runtime keeps no list of its own: the Tenant API
 -- sends these with every Ask Data run.
 --
 --   askdata_allowed_schemas   JSON array of the schemas Ask Data may read, e.g. ["well","dbo"].
@@ -15,7 +15,7 @@
 --   askdata_sql_retries       times a failed query is rewritten
 --   askdata_verify_retries    times a rejected answer is retried (deep mode)
 --   askdata_history_turns     earlier questions and answers the chatbot remembers
---   askdata_org_name          the organisation the prompts speak for ({{ORG_NAME}} in Settings → AI Prompts)
+--   askdata_org_name          the organisation the prompts speak for ({{ORG_NAME}} in AI Settings → AI Prompts)
 --   askdata_export_prefix     start of exported file names
 --   askdata_chat_mode         deep | normal: how the Ask your data chatbot (side panel) answers. Agents choose their
 --                             own mode per step and are not affected.

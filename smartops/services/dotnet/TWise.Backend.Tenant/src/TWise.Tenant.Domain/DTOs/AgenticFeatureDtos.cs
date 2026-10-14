@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace TWise.Tenant.Domain.DTOs;
 
 /// <summary>
-/// The tables an Agentic Feature may read (Settings → AI Settings → the feature). A table is readable when it is not
+/// The tables an Agentic Feature may read (AI Settings → Ask Data & Features → the feature). A table is readable when it is not
 /// excluded and either listed in IncludedTables or, when that list is empty, in one of AllowedSchemas.
 /// </summary>
 public record FeatureAccessDto(
@@ -15,7 +15,7 @@ public record FeatureAccessDto(
     public static readonly FeatureAccessDto Empty = new([], [], [], []);
 }
 
-/// <summary>One setting of an Agentic Feature, as Settings → AI Settings shows it. Type: int | decimal | bool | text |
+/// <summary>One setting of an Agentic Feature, as AI Settings → Ask Data & Features shows it. Type: int | decimal | bool | text |
 /// list | enum | map. Min / Max bound numbers (and map values); Options are the enum's values.</summary>
 public record FeatureSettingDefinitionDto(string Key, string Label, string Help, string Group, string Type, JsonElement Default,
     double? Min, double? Max, IReadOnlyList<string> Options);

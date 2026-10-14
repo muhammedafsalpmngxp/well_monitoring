@@ -1,4 +1,4 @@
-"""The feature's settings, read from the request (Settings > AI Settings > Data Anomaly).
+"""The feature's settings, read from the request (AI Settings > Ask Data & Features > Data Anomaly).
 
 Every knob the original engine read from its .env (ANOMALY_*), every retry budget, the severity weights, and the
 engine tunables that used to be module constants (pruning limits, contract tolerances, introspection limits,
@@ -192,7 +192,7 @@ def parse(raw: dict[str, Any]) -> AnomalySettings:
         if bad:
             parts.append("invalid " + "; ".join(bad))
         raise SettingsInvalid("Data Anomaly settings are not usable: " + " - ".join(parts)
-                              + ". An admin can fix them under Settings > AI Settings > Data Anomaly.") from None
+                              + ". An admin can fix them under AI Settings > Ask Data & Features > Data Anomaly.") from None
 
 
 _CURRENT: ContextVar[AnomalySettings | None] = ContextVar("anomaly_settings", default=None)
