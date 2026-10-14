@@ -134,11 +134,12 @@
               <div class="add-dashboard-modal__custom-select-panel" *ngIf="addModalCategoryOpen"
                 (click)="$event.stopPropagation()">
                 <ng-container *ngIf="apiCategories.length > 0; else noDashboardCategories">
+                  <app-category-search #addCategorySearch [options]="apiCategories" labelKey="categoryName"></app-category-search>
                   <div
                     class="add-dashboard-modal__custom-select-option add-dashboard-modal__custom-select-option--placeholder">
                     Select category
                   </div>
-                  <div appKeyClick class="add-dashboard-modal__custom-select-option" *ngFor="let cat of apiCategories"
+                  <div appKeyClick class="add-dashboard-modal__custom-select-option" *ngFor="let cat of addCategorySearch.filteredOptions"
                     [class.active]="newDashboardCategory === cat.categoryName"
                     (click)="selectAddModalCategory(cat.categoryName)">
                     {{ cat.categoryName }}
@@ -637,6 +638,7 @@
 
               </button>
             </div>
+            <app-category-search #categorySearch [options]="categoryOptions" labelKey="label"></app-category-search>
             <button class="boards-page__dropdown-item" [class.active]="categoryFilter.length === 0"
               (click)="setCategoryFilter('all')">
               <span class="boards-page__dropdown-item-icon">
@@ -664,7 +666,7 @@
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
             </button>
-            <button *ngFor="let opt of categoryOptions" class="boards-page__dropdown-item"
+            <button *ngFor="let opt of categorySearch.filteredOptions" class="boards-page__dropdown-item"
               [class.active]="categoryFilter.includes(opt.value)" (click)="setCategoryFilter(opt.value)">
               <span class="boards-page__dropdown-item-icon">
 

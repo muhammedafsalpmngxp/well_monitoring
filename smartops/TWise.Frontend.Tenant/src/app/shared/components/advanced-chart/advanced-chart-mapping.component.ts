@@ -10,6 +10,12 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
   standalone: true,
   imports: [FieldLabelDirective, CommonModule, FormsModule],
   template: `
+    <ng-template #columnSearchInput>
+      <div class="dd__search">
+        <input type="text" placeholder="Search columns" aria-label="Search columns"
+          [(ngModel)]="columnSearch" (keydown)="$event.stopPropagation()" [disabled]="disabled" />
+      </div>
+    </ng-template>
     <div class="mapping">
       <label *ngFor="let role of roles">{{ roleLabel(role) }}
         <div class="dd" style="height: 36px;border-radius:10px;" (click)="$event.stopPropagation()">
@@ -24,13 +30,15 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
             </svg>
           </button>
           <div class="dd__panel" *ngIf="openDropdown === ('role:' + role)">
+            <ng-container *ngTemplateOutlet="columnSearchInput"></ng-container>
             <div class="dd__list">
               <button type="button" class="dd__item" (click)="selectRoleColumn(role, '')">Select column</button>
-              <button type="button" class="dd__item" *ngFor="let column of columns" [class.active]="config.fields[role] === column"
+              <button type="button" class="dd__item" *ngFor="let column of filteredColumns" [class.active]="config.fields[role] === column"
                 [disabled]="textOnly(role, column) || usedByOtherRole(role, column)" (click)="selectRoleColumn(role, column)">
                 <ng-container *ngTemplateOutlet="columnIcon; context: { $implicit: column }"></ng-container>
                 <span>{{ column }}{{ textOnly(role, column) ? ' (text)' : (usedByOtherRole(role, column) ? ' (used)' : '') }}</span>
               </button>
+              <div *ngIf="!filteredColumns.length" class="dd__empty" role="status">No columns found</div>
             </div>
           </div>
         </div>
@@ -90,13 +98,15 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
               </svg>
             </button>
             <div class="dd__panel" *ngIf="openDropdown === 'map:size'">
+              <ng-container *ngTemplateOutlet="columnSearchInput"></ng-container>
               <div class="dd__list">
                 <button type="button" class="dd__item" (click)="selectMarkerSize('')">Same size</button>
-                <button type="button" class="dd__item" *ngFor="let column of sizeColumns" [class.active]="config.map.size === column"
+                <button type="button" class="dd__item" *ngFor="let column of filteredSizeColumns" [class.active]="config.map.size === column"
                   (click)="selectMarkerSize(column)">
                   <ng-container *ngTemplateOutlet="columnIcon; context: { $implicit: column }"></ng-container>
                   <span>{{ column }}</span>
                 </button>
+                <div *ngIf="!filteredSizeColumns.length" class="dd__empty" role="status">No columns found</div>
               </div>
             </div>
           </div>
@@ -113,13 +123,15 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
               </svg>
             </button>
             <div class="dd__panel" *ngIf="openDropdown === 'map:color'">
+              <ng-container *ngTemplateOutlet="columnSearchInput"></ng-container>
               <div class="dd__list">
                 <button type="button" class="dd__item" (click)="selectMarkerColor('')">One colour</button>
-                <button type="button" class="dd__item" *ngFor="let column of columns" [class.active]="config.map.color === column"
+                <button type="button" class="dd__item" *ngFor="let column of filteredColumns" [class.active]="config.map.color === column"
                   (click)="selectMarkerColor(column)">
                   <ng-container *ngTemplateOutlet="columnIcon; context: { $implicit: column }"></ng-container>
                   <span>{{ column }}</span>
                 </button>
+                <div *ngIf="!filteredColumns.length" class="dd__empty" role="status">No columns found</div>
               </div>
             </div>
           </div>
@@ -166,7 +178,7 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
     :host { display: block; min-width: 0; }
     .mapping { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
     label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #344054; min-width: 0; overflow-wrap: anywhere; }
-    input[type=number] { width: 100%; box-sizing: border-box; min-width: 0; min-height: 36px; border: 1px solid #d0d5dd; border-radius: 8px; background: white; padding: 6px; color: #344054; font: inherit; }
+    input[type=number], .dd__search input { width: 100%; box-sizing: border-box; min-width: 0; min-height: 36px; border: 1px solid #d0d5dd; border-radius: 8px; background: white; padding: 6px; color: #344054; font: inherit; }
     fieldset { grid-column: 1 / -1; border: 1px solid #e4e7ec; border-radius: 8px; max-height: 180px; overflow: auto; min-width: 0; padding: 8px; }
     legend { font-size: 12px; color: #344054; }
     .check { flex-direction: row; align-items: center; padding: 4px 0; }
@@ -194,6 +206,8 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
       box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12); overflow: hidden;
     }
     .dd__list { max-height: 220px; overflow-y: auto; padding: 4px; }
+    .dd__search { padding: 8px; }
+    .dd__empty { padding: 8px 10px; color: #667085; font-size: 12px; }
     .dd__item {
       display: flex; align-items: center; gap: 6px; width: 100%; padding: 8px 10px; border: none; border-radius: 6px;
       background: transparent; font: inherit; font-size: 12px; color: #344054; text-align: left;
@@ -225,7 +239,15 @@ export class AdvancedChartMappingComponent {
   readonly labels: Record<string, string> = { q1: 'First Quartile (Q1)', q3: 'Third Quartile (Q3)', region: 'Country ISO Code', destinationLatitude: 'Destination Latitude', destinationLongitude: 'Destination Longitude', column: 'Pivot Column', value: 'Value / Target' };
   /** Only one of this component's custom dropdowns (role columns / aggregation / map fields / renderer) is open at a time. */
   openDropdown: string | null = null;
+  columnSearch = '';
+  get filteredColumns(): string[] { return this.filterColumns(this.columns); }
+  get filteredSizeColumns(): string[] { return this.filterColumns(this.sizeColumns); }
+  private filterColumns(columns: string[]): string[] {
+    const search = this.columnSearch.trim().toLowerCase();
+    return search ? columns.filter(column => column.toLowerCase().includes(search)) : columns;
+  }
   toggleDropdown(key: string): void {
+    this.columnSearch = '';
     this.openDropdown = this.openDropdown === key ? null : key;
   }
   @HostListener('document:click')

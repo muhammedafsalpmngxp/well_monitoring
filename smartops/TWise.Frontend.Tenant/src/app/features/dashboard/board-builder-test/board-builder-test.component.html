@@ -278,7 +278,8 @@
                         </svg>
                     </button>
                     <ul class="builder-toolbar__category-menu" *ngIf="showCategoryDropdown">
-                        <li appKeyClick *ngFor="let cat of categories" (click)="selectCategory(cat)"
+                        <li app-category-search #builderCategorySearch [options]="categories"></li>
+                        <li appKeyClick *ngFor="let cat of builderCategorySearch.filteredOptions" (click)="selectCategory(cat)"
                             [class.active]="cat === category">{{ cat }}</li>
                     </ul>
                 </div>
@@ -1083,7 +1084,8 @@
                             [style.top.px]="filterMenuPos.top" [style.left.px]="filterMenuPos.left" [style.width.px]="filterMenuPos.width">
                             <button type="button" class="add-tiles-modal__filter-menu-item" [class.active]="tilesCategoryFilter === 'all'"
                                 (click)="selectTilesCategory('all')">All Category</button>
-                            <button type="button" class="add-tiles-modal__filter-menu-item" *ngFor="let cat of tileCategoryOptions"
+                            <app-category-search #tileCategorySearch [options]="tileCategoryOptions"></app-category-search>
+                            <button type="button" class="add-tiles-modal__filter-menu-item" *ngFor="let cat of tileCategorySearch.filteredOptions"
                                 [class.active]="tilesCategoryFilter === cat" (click)="selectTilesCategory(cat)">{{ cat }}</button>
                         </div>
                     </div>
@@ -1421,7 +1423,8 @@
                             [style.top.px]="filterMenuPos.top" [style.left.px]="filterMenuPos.left" [style.width.px]="filterMenuPos.width">
                             <button type="button" class="add-tiles-modal__filter-menu-item" [class.active]="chartsCategoryFilter === 'all'"
                                 (click)="selectChartsCategory('all')">All Category</button>
-                            <button type="button" class="add-tiles-modal__filter-menu-item" *ngFor="let cat of chartCategoryOptions"
+                            <app-category-search #chartCategorySearch [options]="chartCategoryOptions"></app-category-search>
+                            <button type="button" class="add-tiles-modal__filter-menu-item" *ngFor="let cat of chartCategorySearch.filteredOptions"
                                 [class.active]="chartsCategoryFilter === cat" (click)="selectChartsCategory(cat)">{{ cat }}</button>
                         </div>
                     </div>

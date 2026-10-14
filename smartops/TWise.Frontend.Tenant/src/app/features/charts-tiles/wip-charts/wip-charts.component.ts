@@ -111,6 +111,7 @@ export class WipChartsComponent implements OnInit, OnDestroy {
   sortOption: SortOption = 'default';
   categoryFilter: string[] = [];
   searchTerm = '';
+  categorySearch = '';
   openMenuId: string | null = null;
   cloningChartIds = new Set<string>();
   categoryOpen = false;
@@ -469,6 +470,11 @@ export class WipChartsComponent implements OnInit, OnDestroy {
     return this.apiCategories.map(c => ({ value: c.categoryName, label: c.categoryName }));
   }
 
+  get filteredCategoryOptions(): { value: string; label: string }[] {
+    const term = this.categorySearch.trim().toLowerCase();
+    return this.categoryOptions.filter(option => option.label.toLowerCase().includes(term));
+  }
+
   /** Charts filtered by the active tab, search term and category. */
   get visibleCharts(): ChartItem[] {
     const term = this.searchTerm.trim().toLowerCase();
@@ -513,7 +519,10 @@ export class WipChartsComponent implements OnInit, OnDestroy {
 
   toggleCategoryDropdown(): void {
     this.categoryOpen = !this.categoryOpen;
-    if (this.categoryOpen) this.sortOpen = false;
+    if (this.categoryOpen) {
+      this.categorySearch = '';
+      this.sortOpen = false;
+    }
   }
 
   closeCategoryDropdown(): void { this.categoryOpen = false; }

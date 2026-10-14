@@ -275,7 +275,9 @@
             </svg>
           </button>
           <ul class="dq-tabs-toolbar__dropdown-menu" *ngIf="showCategoryDropdown">
-            <li appKeyClick *ngFor="let opt of categoryOptions" [class.active]="selectedCategory === opt"
+            <li app-category-search #categorySearch [options]="categoryOptions.slice(1)"></li>
+            <li appKeyClick [class.active]="selectedCategory === 'All Category'" (click)="selectCategoryFilter('All Category')">All Category</li>
+            <li appKeyClick *ngFor="let opt of categorySearch.filteredOptions" [class.active]="selectedCategory === opt"
               (click)="selectCategoryFilter(opt)">
               {{ opt }}
             </li>

@@ -223,6 +223,7 @@
                 (click)="$event.stopPropagation()"
               >
                 <ng-container *ngIf="apiCategories.length > 0; else noChartCategories">
+                  <app-category-search #addCategorySearch [options]="apiCategories" labelKey="categoryName"></app-category-search>
                   <div
                     class="add-chart-modal__custom-select-option add-chart-modal__custom-select-option--placeholder"
                   >
@@ -230,7 +231,7 @@
                   </div>
                   <div appKeyClick
                     class="add-chart-modal__custom-select-option"
-                    *ngFor="let cat of apiCategories"
+                    *ngFor="let cat of addCategorySearch.filteredOptions"
                     [class.active]="newChartCategoryId === cat.categoryId"
                     (click)="selectAddModalCategory(cat.categoryId, cat.categoryName)"
                   >
@@ -591,6 +592,14 @@
               </svg>
             </button>
           </div>
+          <div class="charts-page__search charts-page__search--category">
+            <input
+              type="search"
+              placeholder="Search categories"
+              [(ngModel)]="categorySearch"
+              aria-label="Search categories"
+            />
+          </div>
           <button
             class="boards-page__dropdown-item"
             [class.active]="categoryFilter.length === 0"
@@ -651,7 +660,7 @@
             </svg>
           </button>
           <button
-            *ngFor="let opt of categoryOptions"
+            *ngFor="let opt of filteredCategoryOptions"
             class="boards-page__dropdown-item"
             [class.active]="categoryFilter.includes(opt.value)"
             (click)="setCategoryFilter(opt.value)"
@@ -690,6 +699,13 @@
               />
             </svg>
           </button>
+          <div
+            *ngIf="filteredCategoryOptions.length === 0"
+            class="boards-page__dropdown-empty"
+            role="status"
+          >
+            No categories found
+          </div>
         </div>
       </div>
 

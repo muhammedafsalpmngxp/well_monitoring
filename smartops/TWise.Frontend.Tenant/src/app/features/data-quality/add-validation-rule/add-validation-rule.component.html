@@ -76,10 +76,11 @@
                             </svg>
                         </span>
                     </label>
+                    <app-category-search #ruleCategorySearch [options]="categoryOptions"></app-category-search>
                     <div class="avr-select-wrap">
                         <select class="avr-select" [ngModel]="category" (ngModelChange)="onCategoryChanged($event)">
                             <option value="" disabled selected hidden>Select Category</option>
-                            <option *ngFor="let c of categoryOptions" [value]="c">{{ c }}</option>
+                            <option *ngFor="let c of categoryOptions" [value]="c" [hidden]="!ruleCategorySearch.matches(c)">{{ c }}</option>
                         </select>
                     </div>
                 </div>

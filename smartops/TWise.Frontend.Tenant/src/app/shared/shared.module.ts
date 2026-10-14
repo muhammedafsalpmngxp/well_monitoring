@@ -19,6 +19,7 @@ import { ConfirmationDialogComponent } from './components/confirmation-dialog/co
 import { VersionHistoryDialogComponent } from './components/version-history/version-history-dialog.component';
 import { ReliabilityDetailsDialogComponent } from './components/reliability-details/reliability-details-dialog.component';
 import { CategoryManagerComponent } from './components/category-manager/category-manager.component';
+import { CategorySearchComponent } from './components/category-manager/category-search.component';
 import { MultiSelectComponent } from './components/multi-select/multi-select.component';
 import { AdvancedFilterComponent } from './components/advanced-filter/advanced-filter.component';
 import { DateInputComponent } from './components/date-input/date-input.component';
@@ -71,6 +72,7 @@ const SHARED_DIRECTIVES = [ClickOutsideDirective, HasRoleDirective, LazyVisibleD
   imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterModule, IconComponent,
     AdvancedChartComponent,
     AdvancedChartMappingComponent,
+    CategorySearchComponent,
     AgGridAngular,
     CategoryNameCellRendererComponent,
     CategoryDashboardCellRendererComponent,
@@ -80,6 +82,7 @@ const SHARED_DIRECTIVES = [ClickOutsideDirective, HasRoleDirective, LazyVisibleD
     FieldLabelDirective,
   ],
   exports: [
+    CategorySearchComponent,
     AdvancedChartComponent,
     AdvancedChartMappingComponent,
     // Angular modules re-exported for convenience

@@ -1320,12 +1320,13 @@
                     </div>
                     <div class="wv-scenario-panel__value-box">{{ item.value }}</div>
                   </div>
+                  <app-category-search #itemCategorySearch [options]="scenarioCategoryOptions"></app-category-search>
                   <div class="wv-scenario-panel__target-row">
                     <label [for]="'scenario-item-target-' + item.id">Apply to</label>
                     <select [id]="'scenario-item-target-' + item.id" [(ngModel)]="item.target"
                       (ngModelChange)="onScenarioChange()">
                       <option value="">{{ scenarioAllTargetsLabel }}</option>
-                      <option *ngFor="let option of scenarioCategoryOptions" [value]="option">{{ option }}</option>
+                      <option *ngFor="let option of scenarioCategoryOptions" [value]="option" [hidden]="!itemCategorySearch.matches(option)">{{ option }}</option>
                     </select>
                   </div>
                   <div class="wv-scenario-panel__range">
@@ -1358,12 +1359,13 @@
                     </div>
                     <div class="wv-scenario-panel__value-box">{{ scenarioPlanAdjustments }}</div>
                   </div>
+                  <app-category-search #planCategorySearch [options]="scenarioCategoryOptions"></app-category-search>
                   <div class="wv-scenario-panel__target-row">
                     <label for="scenario-plan-target">Apply to</label>
                     <select id="scenario-plan-target" [(ngModel)]="scenarioCategoryTarget"
                       (ngModelChange)="onScenarioChange()">
                       <option value="">{{ scenarioAllTargetsLabel }}</option>
-                      <option *ngFor="let option of scenarioCategoryOptions" [value]="option">{{ option }}</option>
+                      <option *ngFor="let option of scenarioCategoryOptions" [value]="option" [hidden]="!planCategorySearch.matches(option)">{{ option }}</option>
                     </select>
                   </div>
                   <div class="wv-scenario-panel__target-row">
@@ -1461,12 +1463,13 @@
                     </div>
                     <div class="wv-scenario-panel__value-box">{{ scenarioCompletionEfficiency }}</div>
                   </div>
+                  <app-category-search #completionCategorySearch [options]="scenarioCategoryOptions"></app-category-search>
                   <div class="wv-scenario-panel__target-row">
                     <label for="scenario-completion-target">Apply to</label>
                     <select id="scenario-completion-target" [(ngModel)]="scenarioCategoryTarget"
                       (ngModelChange)="onScenarioChange()">
                       <option value="">{{ scenarioAllTargetsLabel }}</option>
-                      <option *ngFor="let option of scenarioCategoryOptions" [value]="option">{{ option }}</option>
+                      <option *ngFor="let option of scenarioCategoryOptions" [value]="option" [hidden]="!completionCategorySearch.matches(option)">{{ option }}</option>
                     </select>
                   </div>
                   <div class="wv-scenario-panel__range">

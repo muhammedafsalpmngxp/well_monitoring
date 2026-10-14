@@ -210,7 +210,8 @@
                 </svg>
               </button>
             </div>
-            <button *ngFor="let cat of categories" class="builder-toolbar__category-item"
+            <app-category-search #builderCategorySearch [options]="categories"></app-category-search>
+            <button *ngFor="let cat of builderCategorySearch.filteredOptions" class="builder-toolbar__category-item"
               [class.active]="cat === category" [title]="cat" (click)="selectCategory(cat)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                 stroke-linecap="round" stroke-linejoin="round">
@@ -1296,6 +1297,15 @@
               <app-advanced-chart-mapping *ngIf="isAdvancedType" [type]="selectedChartType" [columns]="availableMappingColumns"
                 [numericColumns]="numericMappingColumns" [columnIcon]="colTypeIcon"
                 [config]="advancedConfig" [disabled]="locked" (configChange)="updateAdvancedConfig($event)"></app-advanced-chart-mapping>
+              <ng-template #mappingSearch>
+                <div class="chart-setup__menu-search">
+                  <input type="text" placeholder="Search columns" [(ngModel)]="mappingColumnSearch"
+                    aria-label="Search mapping columns" />
+                </div>
+                <div *ngIf="!filteredMappingColumns.length" class="chart-setup__param-source-empty" role="status">
+                  No columns found
+                </div>
+              </ng-template>
               <div class="chart-setup__row" *ngIf="!isAdvancedType && selectedChartType !== 'table' && !isSankeyType && !isTimelineType">
                 <div class="chart-setup__field" *ngIf="!isGaugeType">
                   <label for="chart-xaxis-btn">{{ isCircularChart ? 'Category' : 'X-axis' }}
@@ -1522,11 +1532,12 @@
                       </svg>
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="mappingDropdownOpen === 'bulletTarget'">
+                      <ng-container *ngTemplateOutlet="mappingSearch"></ng-container>
                       <ul class="chart-setup__axis-menu-list">
                         <li appKeyClick (click)="selectMappingColumn('bulletTarget', '')"
                           (keydown.enter)="selectMappingColumn('bulletTarget', '')"
                           [class.active]="!mappingColumnValue('bulletTarget')">None</li>
-                        <li appKeyClick *ngFor="let col of availableMappingColumns"
+                        <li appKeyClick *ngFor="let col of filteredMappingColumns"
                           [class.disabled]="isExtraColumnConflict(col)"
                           [title]="isExtraColumnConflict(col) ? col + ' is already used as the X-axis or Y-axis' : col"
                           (click)="!isExtraColumnConflict(col) && selectMappingColumn('bulletTarget', col)"
@@ -1555,11 +1566,12 @@
                       </svg>
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="mappingDropdownOpen === 'bubbleSize'">
+                      <ng-container *ngTemplateOutlet="mappingSearch"></ng-container>
                       <ul class="chart-setup__axis-menu-list">
                         <li appKeyClick (click)="selectMappingColumn('bubbleSize', '')"
                           (keydown.enter)="selectMappingColumn('bubbleSize', '')"
                           [class.active]="!mappingColumnValue('bubbleSize')">Select column...</li>
-                        <li appKeyClick *ngFor="let col of availableMappingColumns"
+                        <li appKeyClick *ngFor="let col of filteredMappingColumns"
                           [class.disabled]="isExtraColumnConflict(col)"
                           [title]="isExtraColumnConflict(col) ? col + ' is already used as the X-axis or Y-axis' : col"
                           (click)="!isExtraColumnConflict(col) && selectMappingColumn('bubbleSize', col)"
@@ -1588,11 +1600,12 @@
                       </svg>
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="mappingDropdownOpen === 'heatmapY'">
+                      <ng-container *ngTemplateOutlet="mappingSearch"></ng-container>
                       <ul class="chart-setup__axis-menu-list">
                         <li appKeyClick (click)="selectMappingColumn('heatmapY', '')"
                           (keydown.enter)="selectMappingColumn('heatmapY', '')"
                           [class.active]="!mappingColumnValue('heatmapY')">Select column...</li>
-                        <li appKeyClick *ngFor="let col of availableMappingColumns"
+                        <li appKeyClick *ngFor="let col of filteredMappingColumns"
                           [class.disabled]="isHeatmapYConflict(col)"
                           [title]="isHeatmapYConflict(col) ? col + ' is already used as the X-axis or Y-axis' : col"
                           (click)="!isHeatmapYConflict(col) && selectMappingColumn('heatmapY', col)"
@@ -1621,11 +1634,12 @@
                       </svg>
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="mappingDropdownOpen === 'sankeyFrom'">
+                      <ng-container *ngTemplateOutlet="mappingSearch"></ng-container>
                       <ul class="chart-setup__axis-menu-list">
                         <li appKeyClick (click)="selectMappingColumn('sankeyFrom', '')"
                           (keydown.enter)="selectMappingColumn('sankeyFrom', '')"
                           [class.active]="!mappingColumnValue('sankeyFrom')">Select column...</li>
-                        <li appKeyClick *ngFor="let col of availableMappingColumns"
+                        <li appKeyClick *ngFor="let col of filteredMappingColumns"
                           [class.disabled]="isSankeyFieldConflict('from', col)"
                           [title]="isSankeyFieldConflict('from', col) ? col + ' is already used for To/Weight' : col"
                           (click)="!isSankeyFieldConflict('from', col) && selectMappingColumn('sankeyFrom', col)"
@@ -1651,11 +1665,12 @@
                       </svg>
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="mappingDropdownOpen === 'sankeyTo'">
+                      <ng-container *ngTemplateOutlet="mappingSearch"></ng-container>
                       <ul class="chart-setup__axis-menu-list">
                         <li appKeyClick (click)="selectMappingColumn('sankeyTo', '')"
                           (keydown.enter)="selectMappingColumn('sankeyTo', '')"
                           [class.active]="!mappingColumnValue('sankeyTo')">Select column...</li>
-                        <li appKeyClick *ngFor="let col of availableMappingColumns"
+                        <li appKeyClick *ngFor="let col of filteredMappingColumns"
                           [class.disabled]="isSankeyFieldConflict('to', col)"
                           [title]="isSankeyFieldConflict('to', col) ? col + ' is already used for From/Weight' : col"
                           (click)="!isSankeyFieldConflict('to', col) && selectMappingColumn('sankeyTo', col)"
@@ -1683,11 +1698,12 @@
                       </svg>
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="mappingDropdownOpen === 'sankeyWeight'">
+                      <ng-container *ngTemplateOutlet="mappingSearch"></ng-container>
                       <ul class="chart-setup__axis-menu-list">
                         <li appKeyClick (click)="selectMappingColumn('sankeyWeight', '')"
                           (keydown.enter)="selectMappingColumn('sankeyWeight', '')"
                           [class.active]="!mappingColumnValue('sankeyWeight')">Select column...</li>
-                        <li appKeyClick *ngFor="let col of availableMappingColumns"
+                        <li appKeyClick *ngFor="let col of filteredMappingColumns"
                           [class.disabled]="isSankeyFieldConflict('weight', col)"
                           [title]="isSankeyFieldConflict('weight', col) ? col + ' is already used for From/To' : col"
                           (click)="!isSankeyFieldConflict('weight', col) && selectMappingColumn('sankeyWeight', col)"
@@ -1716,11 +1732,12 @@
                       </svg>
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="mappingDropdownOpen === 'timelineDate'">
+                      <ng-container *ngTemplateOutlet="mappingSearch"></ng-container>
                       <ul class="chart-setup__axis-menu-list">
                         <li appKeyClick (click)="selectMappingColumn('timelineDate', '')"
                           (keydown.enter)="selectMappingColumn('timelineDate', '')"
                           [class.active]="!mappingColumnValue('timelineDate')">Select column...</li>
-                        <li appKeyClick *ngFor="let col of availableMappingColumns"
+                        <li appKeyClick *ngFor="let col of filteredMappingColumns"
                           [class.disabled]="isTimelineFieldConflict('date', col)"
                           [title]="isTimelineFieldConflict('date', col) ? col + ' is already used as the Label column' : col"
                           (click)="!isTimelineFieldConflict('date', col) && selectMappingColumn('timelineDate', col)"
@@ -1746,11 +1763,12 @@
                       </svg>
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="mappingDropdownOpen === 'timelineLabel'">
+                      <ng-container *ngTemplateOutlet="mappingSearch"></ng-container>
                       <ul class="chart-setup__axis-menu-list">
                         <li appKeyClick (click)="selectMappingColumn('timelineLabel', '')"
                           (keydown.enter)="selectMappingColumn('timelineLabel', '')"
                           [class.active]="!mappingColumnValue('timelineLabel')">Select column...</li>
-                        <li appKeyClick *ngFor="let col of availableMappingColumns"
+                        <li appKeyClick *ngFor="let col of filteredMappingColumns"
                           [class.disabled]="isTimelineFieldConflict('label', col)"
                           [title]="isTimelineFieldConflict('label', col) ? col + ' is already used as the Date column' : col"
                           (click)="!isTimelineFieldConflict('label', col) && selectMappingColumn('timelineLabel', col)"
@@ -1986,7 +2004,11 @@
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="showMultiYDropdown" role="listbox"
                       aria-label="Y-axis columns" aria-multiselectable="true">
-                      <div *ngFor="let col of (selectedChartType === 'table' ? yAxisColumns : availableMappingColumns)"
+                      <div class="chart-setup__menu-search">
+                        <input type="text" placeholder="Search columns" [(ngModel)]="multiYSearch"
+                          aria-label="Search Y-axis series columns" />
+                      </div>
+                      <div *ngFor="let col of filteredMultiYColumns"
                         tabindex="0" class="chart-setup__axis-menu-item" role="option"
                         [class.disabled]="isXAxisConflict(col) || isRightYAxisColumn(col)"
                         [attr.aria-disabled]="isXAxisConflict(col) || isRightYAxisColumn(col)"
@@ -2000,6 +2022,9 @@
                           aria-label="Select column" style="pointer-events: none; margin-right: 6px" />
                         <ng-container *ngTemplateOutlet="colTypeIcon; context: { $implicit: col }"></ng-container>
                         {{ col }}
+                      </div>
+                      <div *ngIf="!filteredMultiYColumns.length" class="chart-setup__param-source-empty" role="status">
+                        No columns found
                       </div>
                     </div>
                   </div>
@@ -2031,7 +2056,11 @@
                     </button>
                     <div class="chart-setup__axis-menu" *ngIf="showComboLineDropdown" role="listbox"
                       aria-label="Line columns" aria-multiselectable="true">
-                      <div *ngFor="let col of availableMappingColumns" tabindex="0" class="chart-setup__axis-menu-item"
+                      <div class="chart-setup__menu-search">
+                        <input type="text" placeholder="Search columns" [(ngModel)]="comboLineSearch"
+                          aria-label="Search right Y-axis columns" />
+                      </div>
+                      <div *ngFor="let col of filteredComboLineColumns" tabindex="0" class="chart-setup__axis-menu-item"
                         role="option" [class.disabled]="isXAxisConflict(col) || isLeftYAxisColumn(col)"
                         [attr.aria-disabled]="isXAxisConflict(col) || isLeftYAxisColumn(col)"
                         [title]="isXAxisConflict(col) ? col + ' is already used as the X-axis' : (isLeftYAxisColumn(col) ? col + ' is already used on the Left Y-axis' : '')"
@@ -2045,6 +2074,9 @@
                           style="pointer-events: none; margin-right: 6px" />
                         <ng-container *ngTemplateOutlet="colTypeIcon; context: { $implicit: col }"></ng-container>
                         {{ col }}
+                      </div>
+                      <div *ngIf="!filteredComboLineColumns.length" class="chart-setup__param-source-empty" role="status">
+                        No columns found
                       </div>
                     </div>
                   </div>
@@ -4109,12 +4141,15 @@
                             role="listbox" [style.top.px]="categoryRuleMenuPos.top"
                             [style.left.px]="categoryRuleMenuPos.left"
                             [style.minWidth.px]="categoryRuleMenuPos.minWidth">
-                            <label *ngFor="let category of colorRuleCategories"
-                              class="chart-setup__category-rule-option">
-                              <input type="checkbox" [checked]="rule.categories?.includes(category)"
-                                (change)="toggleColorRuleCategory(rule, category)" />
-                              <span>{{ category }}</span>
-                            </label>
+                            <ng-container *ngIf="colorRuleCategories.length > 0">
+                              <app-category-search #ruleCategorySearch [options]="colorRuleCategories"></app-category-search>
+                              <label *ngFor="let category of ruleCategorySearch.filteredOptions"
+                                class="chart-setup__category-rule-option">
+                                <input type="checkbox" [checked]="rule.categories?.includes(category)"
+                                  (change)="toggleColorRuleCategory(rule, category)" />
+                                <span>{{ category }}</span>
+                              </label>
+                            </ng-container>
                             <span *ngIf="colorRuleCategories.length === 0" class="chart-setup__category-rule-empty">No
                               X-axis categories</span>
                           </div>

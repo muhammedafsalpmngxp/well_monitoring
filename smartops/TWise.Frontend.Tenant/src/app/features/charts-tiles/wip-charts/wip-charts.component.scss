@@ -798,6 +798,12 @@
     color: var(--color-text-muted);
     transition: border-color 0.15s ease;
 
+    &.charts-page__search--category {
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 8px;
+    }
+
     &:focus-within {
       border-color: var(--color-primary);
     }
@@ -1934,6 +1940,12 @@ $chart-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 120px;
     padding-top: 4px;
     // padding-bottom: 12px;
 
+  }
+
+  &__dropdown-empty {
+    padding: 10px 14px;
+    color: #667085;
+    font-size: 14px;
   }
 
   &__dropdown-close {

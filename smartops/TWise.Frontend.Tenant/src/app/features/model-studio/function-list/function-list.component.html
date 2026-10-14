@@ -2,10 +2,11 @@
   <label class="functions__label" [attr.for]="'function-search-' + mode">Functions</label>
   <input [id]="'function-search-' + mode" class="form-control functions__search" type="search" autocomplete="off"
     placeholder="Search by name or what it does" [(ngModel)]="term" [ngModelOptions]="{ standalone: true }" />
+  <app-category-search #functionCategorySearch [options]="categories"></app-category-search>
   <div class="functions__filters" role="group" aria-label="Function category">
     <button type="button" class="functions__filter" [class.functions__filter--active]="!category" [attr.aria-pressed]="!category"
       (click)="category = null">All</button>
-    <button *ngFor="let name of categories" type="button" class="functions__filter" [class.functions__filter--active]="category === name"
+    <button *ngFor="let name of functionCategorySearch.filteredOptions" type="button" class="functions__filter" [class.functions__filter--active]="category === name"
       [attr.aria-pressed]="category === name" (click)="category = name">{{ name }}</button>
   </div>
 

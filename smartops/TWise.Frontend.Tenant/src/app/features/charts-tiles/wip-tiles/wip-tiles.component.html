@@ -613,6 +613,7 @@
                 </svg>
               </button>
             </div>
+            <app-category-search #categorySearch [options]="categoryOptions" labelKey="label"></app-category-search>
             <button
               class="tiles-page__dropdown-item"
               [class.active]="categoryFilter.length === 0"
@@ -673,7 +674,7 @@
               </svg>
             </button>
             <button
-              *ngFor="let opt of categoryOptions"
+              *ngFor="let opt of categorySearch.filteredOptions"
               class="tiles-page__dropdown-item"
               [class.active]="categoryFilter.includes(opt.value)"
               (click)="setCategoryFilter(opt.value)"
@@ -1516,6 +1517,7 @@
                 </svg>
               </button>
             </div>
+            <app-category-search #categorySearch [options]="categoryOptions" labelKey="label"></app-category-search>
             <button
               class="tiles-page__dropdown-item"
               [class.active]="categoryFilter.length === 0"
@@ -1576,7 +1578,7 @@
               </svg>
             </button>
             <button
-              *ngFor="let opt of categoryOptions"
+              *ngFor="let opt of categorySearch.filteredOptions"
               class="tiles-page__dropdown-item"
               [class.active]="categoryFilter.includes(opt.value)"
               (click)="setCategoryFilter(opt.value)"

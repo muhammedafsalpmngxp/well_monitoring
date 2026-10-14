@@ -197,7 +197,8 @@
 
         </button>
         <ul class="builder-toolbar__category-menu" *ngIf="showCategoryDropdown">
-          <li appKeyClick *ngFor="let cat of categories" (click)="selectCategory(cat)" [class.active]="cat === category">{{ cat }}
+          <li app-category-search #builderCategorySearch [options]="categories"></li>
+          <li appKeyClick *ngFor="let cat of builderCategorySearch.filteredOptions" (click)="selectCategory(cat)" [class.active]="cat === category">{{ cat }}
           </li>
         </ul>
       </div>

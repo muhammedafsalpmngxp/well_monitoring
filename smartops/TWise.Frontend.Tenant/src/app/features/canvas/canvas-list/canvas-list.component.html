@@ -54,9 +54,10 @@
     </div>
     <div class="form-group">
       <label for="canvas-category">Category</label>
+      <app-category-search #canvasCategorySearch [options]="categories" labelKey="categoryName"></app-category-search>
       <select id="canvas-category" class="form-control" name="categoryId" required [(ngModel)]="form.categoryId">
         <option [ngValue]="null" disabled>Choose a category</option>
-        <option *ngFor="let category of categories" [ngValue]="category.categoryId">{{ category.categoryName }}</option>
+        <option *ngFor="let category of categories" [ngValue]="category.categoryId" [hidden]="!canvasCategorySearch.matches(category)">{{ category.categoryName }}</option>
       </select>
     </div>
     <p *ngIf="formError" class="form-error" role="alert">{{ formError }}</p>

@@ -848,26 +848,47 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   // Loads the initial preview for a saved chart whose source is a view, applying the
   // chart's saved locked filters/date params — same request shape used while editing.
   private hydrateViewSourcePreview(source: string, viewId: number, d: any): void {
-    this.loadViewDateParameters(viewId, () => this.widgetService.getFilteredChartData({
-      chartSource: source,
-      chartSourceType: 'View',
-      viewId,
-      filters: [...this.lockedInteractiveFilterPayload(), ...this.globalHierarchyFilterPayload()],
-      ...this.viewDatePayload(viewId),
-      mode: this.isTrendChart ? this.trendMode : undefined,
-    }).subscribe({
-      next: (res) => {
-        if (res?.columns?.length) {
-          this.rawLoadedColumns = res.columns;
-          this.rawLoadedRows = res.rows ?? [];
-          this.applyParameterDrivenTransformations();
-          this.xAxis = d.xAxis || (res.columns[0] ?? ''); this.yAxis = d.yAxis ?? 'Count (F)'; this.yAggColumn = d.yAggColumn ?? '';
-          if (this.selectedChartType) this.refreshPreview(); else this.chartPreviewOptions = null;
+    this.sourceLoading = true;
+    this.sourceError = '';
+    const requestVersion = ++this.sourceLoadVersion;
+    this.loadViewDateParameters(viewId, () => {
+      if (requestVersion !== this.sourceLoadVersion || this.selectedChartModelId !== source) return;
+      this.widgetService.getFilteredChartData({
+        chartSource: source,
+        chartSourceType: 'View',
+        viewId,
+        filters: [...this.lockedInteractiveFilterPayload(), ...this.globalHierarchyFilterPayload()],
+        ...this.viewDatePayload(viewId),
+        mode: this.isTrendChart ? this.trendMode : undefined,
+      }).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (res) => {
+          if (requestVersion !== this.sourceLoadVersion || this.selectedChartModelId !== source) return;
+          this.sourceLoading = false;
+          if (res?.columns?.length) {
+            this.rawLoadedColumns = res.columns;
+            this.rawLoadedRows = res.rows ?? [];
+            this.applyParameterDrivenTransformations();
+            this.xAxis = d.xAxis || (res.columns[0] ?? ''); this.yAxis = d.yAxis ?? 'Count (F)'; this.yAggColumn = d.yAggColumn ?? '';
+            if (this.selectedChartType) this.refreshPreview(); else this.chartPreviewOptions = null;
+          } else {
+            this.rawLoadedColumns = [];
+            this.rawLoadedRows = [];
+            this.tableRows = [];
+            this.crossTableFilterRows = null;
+            this.xAxisOptions = [];
+            this.yAxisColumns = [];
+            this.refreshPreview();
+          }
           this.cdr.markForCheck();
-        }
-      },
-      error: () => {},
-    }));
+        },
+        error: () => {
+          if (requestVersion !== this.sourceLoadVersion || this.selectedChartModelId !== source) return;
+          this.sourceLoading = false;
+          this.sourceError = 'Unable to load the selected source. Check the source, filters, and connection.';
+          this.cdr.markForCheck();
+        },
+      });
+    });
   }
 
   private distinctPlantValues(plants: PlantFilterDto[], selector: (plant: PlantFilterDto) => string): string[] {
@@ -1136,6 +1157,22 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   get filteredYAxisColumns(): string[] {
     const t = this.yAxisSearch.trim().toLowerCase();
     return t ? this.availableMappingColumns.filter(o => o.toLowerCase().includes(t)) : this.availableMappingColumns;
+  }
+  multiYSearch = '';
+  comboLineSearch = '';
+  mappingColumnSearch = '';
+  get filteredMappingColumns(): string[] {
+    const search = this.mappingColumnSearch.trim().toLowerCase();
+    return search ? this.availableMappingColumns.filter(column => column.toLowerCase().includes(search)) : this.availableMappingColumns;
+  }
+  get filteredComboLineColumns(): string[] {
+    const search = this.comboLineSearch.trim().toLowerCase();
+    return search ? this.availableMappingColumns.filter(column => column.toLowerCase().includes(search)) : this.availableMappingColumns;
+  }
+  get filteredMultiYColumns(): string[] {
+    const columns = this.selectedChartType === 'table' ? this.yAxisColumns : this.availableMappingColumns;
+    const search = this.multiYSearch.trim().toLowerCase();
+    return search ? columns.filter(column => column.toLowerCase().includes(search)) : columns;
   }
   get filteredYAxisFunctions(): { value: string; label: string; requiresColumn: boolean; allowsColumn: boolean }[] {
     const t = this.yAxisSearch.trim().toLowerCase();
@@ -4928,6 +4965,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   toggleMappingDropdown(key: string): void {
     const next = this.mappingDropdownOpen === key ? null : key;
     this.closeDataMappingDropdowns();
+    this.mappingColumnSearch = '';
     this.mappingDropdownOpen = next;
   }
 
@@ -7157,6 +7195,13 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
             this.selectedChartModelId = source;
             if (sourceType.toLowerCase() === 'import') this.loadImportedDatasets();
             if (this.dataSourceMode === 'view' && viewId) {
+              this.sourceLoading = true;
+              this.sourceError = '';
+              const onViewLookupError = () => {
+                this.sourceLoading = false;
+                this.sourceError = 'Unable to load the selected source. Check the source, filters, and connection.';
+                this.cdr.markForCheck();
+              };
               // Load the pickable 'view'-type list for the source-switcher UI.
               this.commonApi.getDatabaseViews('view').subscribe({
                 next: (views) => {
@@ -7173,7 +7218,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
                         this.availableViews = [...this.availableViews, view as unknown as DatabaseViewListItem];
                         this.hydrateViewSourcePreview(source, view.id, d);
                       },
-                      error: () => {},
+                      error: onViewLookupError,
                     });
                   }
                   this.cdr.markForCheck();
@@ -7184,7 +7229,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
                       this.availableViews = [view as unknown as DatabaseViewListItem];
                       this.hydrateViewSourcePreview(source, view.id, d);
                     },
-                    error: () => {},
+                    error: onViewLookupError,
                   });
                 },
               });
@@ -7719,6 +7764,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     const next = !this.showMultiYDropdown;
     this.closeDataMappingDropdowns();
     this.showChartModelDropdown = false;
+    this.multiYSearch = '';
     this.showMultiYDropdown = next;
   }
 
@@ -7741,6 +7787,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   toggleComboLineDropdown(): void {
     const next = !this.showComboLineDropdown;
     this.closeDataMappingDropdowns();
+    this.comboLineSearch = '';
     this.showComboLineDropdown = next;
   }
 }
