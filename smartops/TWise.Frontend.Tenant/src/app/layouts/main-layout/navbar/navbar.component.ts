@@ -61,7 +61,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   isUserMenuOpen = false;
   isFontSizeMenuOpen = false;
   isNotificationsOpen = false;
-  lastSyncedLabel = '09 Oct, 12.10 am';
+  lastSyncedLabel = '2026-10-13, 20:05 PM';
 
   notifications: DisplayNotification[] = [];
 
