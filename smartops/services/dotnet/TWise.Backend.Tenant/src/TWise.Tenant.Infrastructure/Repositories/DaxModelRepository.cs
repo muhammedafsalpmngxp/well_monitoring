@@ -56,15 +56,17 @@ public sealed partial class DaxModelRepository(TenantDbContext db) : IDaxModelRe
     [GeneratedRegex(@"""savedModelId""\s*:\s*""?(\d+)")]
     private static partial Regex SavedModelIdPattern();
 
-    public async Task<IReadOnlyList<string>> ListChartNamesUsingAsync(long id, CancellationToken ct = default)
+    public async Task<IReadOnlyList<DaxModelChartUse>> ListChartsUsingAsync(long id, CancellationToken ct = default)
     {
-        // Same charts as CountChartUsageAsync counts.
+        // Same charts as CountChartUsageAsync counts; the id text filter keeps the read to likely matches.
+        var idText = id.ToString();
         var charts = await db.Widgets.AsNoTracking()
-            .Where(w => w.Type == "chart" && w.DesignJson != null && w.DesignJson.Contains("\"savedModelId\""))
-            .Select(w => new { w.Name, w.DesignJson }).ToListAsync(ct);
+            .Where(w => w.Type == "chart" && w.DesignJson != null && w.DesignJson.Contains("\"savedModelId\"") && w.DesignJson.Contains(idText))
+            .Select(w => new { w.Name, w.CreatedBy, w.Status, w.DesignJson }).ToListAsync(ct);
         return charts
             .Where(c => SavedModelIdPattern().Matches(c.DesignJson!).Any(m => long.Parse(m.Groups[1].Value) == id))
-            .Select(c => c.Name).Order(StringComparer.OrdinalIgnoreCase).ToList();
+            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(c => new DaxModelChartUse(c.Name, c.CreatedBy, c.Status == "published")).ToList();
     }
 
     public async Task<IReadOnlyDictionary<long, int>> CountChartUsageAsync(IReadOnlyCollection<long> ids, CancellationToken ct = default)

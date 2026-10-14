@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TWise.Tenant.API.Auth;
 using TWise.Tenant.Application.Features.DaxModels;
 using TWise.Tenant.Domain.DTOs;
 
@@ -56,6 +57,7 @@ public sealed class DaxModelsController(ISender sender) : ControllerBase
 
     /// <summary>Deletes a model (Settings → Dax Model → Delete). A model still used in a saved chart is kept (409).</summary>
     [HttpDelete("{id:long}")]
+    [RequireModulePermission("settings.dax-model", 'm')]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -66,18 +68,22 @@ public sealed class DaxModelsController(ISender sender) : ControllerBase
         return result.Status switch
         {
             DeleteDaxModelStatus.NotFound => NotFound(),
-            DeleteDaxModelStatus.InUse => Conflict(new { message = InUseMessage(result.Name!, result.UsedInCharts!) }),
+            DeleteDaxModelStatus.InUse => Conflict(new { message = InUseMessage(result.Name!, result.UsedInCharts!, result.OtherCharts) }),
             _ => NoContent(),
         };
     }
 
-    /// <summary>e.g. "test222" is used in the chart "Wells by Plant" and can't be deleted. Remove it from that chart first.</summary>
-    private static string InUseMessage(string model, IReadOnlyList<string> charts)
+    /// <summary>e.g. "test222" is used in the chart "Wells by Plant" and can't be deleted. Remove it from that chart first.
+    /// Charts the caller may not open are only counted ("1 other chart").</summary>
+    private static string InUseMessage(string model, IReadOnlyList<string> charts, int otherCharts)
     {
-        var names = string.Join(", ", charts.Select(c => $"\"{c}\""));
-        return charts.Count == 1
-            ? $"\"{model}\" is used in the chart {names} and can't be deleted. Remove it from that chart first."
-            : $"\"{model}\" is used in {charts.Count} charts ({names}) and can't be deleted. Remove it from those charts first.";
+        var total = charts.Count + otherCharts;
+        var parts = charts.Select(c => $"\"{c}\"").ToList();
+        if (otherCharts > 0 && parts.Count > 0) parts.Add($"{otherCharts} other {(otherCharts == 1 ? "chart" : "charts")}");
+        var where = total == 1 && charts.Count == 1 ? $"the chart {parts[0]}"
+            : parts.Count > 0 ? $"{total} charts ({string.Join(", ", parts)})"
+            : total == 1 ? "1 chart" : $"{total} charts";
+        return $"\"{model}\" is used in {where} and can't be deleted. Remove it from {(total == 1 ? "that chart" : "those charts")} first.";
     }
 
     private bool IsAdmin => User.IsInRole("admin");

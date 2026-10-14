@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, inject, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { from, of } from 'rxjs';
+import { catchError, concatMap, map, toArray } from 'rxjs/operators';
 import { ClientSideRowModelModule, ColDef, ModuleRegistry, RowSelectionModule, RowSelectionOptions, SelectionChangedEvent, SelectionColumnDef, themeQuartz, ValueFormatterParams } from 'ag-grid-community';
 import { Breadcrumb } from '../../../core/models/breadcrumb.model';
 import { DaxModelSaveRequest, DaxModelService, SavedDaxModelDto } from '../../../core/services/dax-model.service';
@@ -446,6 +446,12 @@ export class DaxModelComponent implements OnInit {
       pageSize: this.pageSize,
     }).subscribe({
       next: page => {
+        // A delete can empty the last page: go back to the new last page.
+        if (!page.items.length && page.total > 0 && this.currentPage > 1) {
+          this.currentPage = Math.ceil(page.total / this.pageSize);
+          this.loadModels();
+          return;
+        }
         this.rows = page.items.map(toRow);
         this.totalRecords = page.total;
         this.totalModelsCount = page.totalModels;
@@ -533,11 +539,14 @@ export class DaxModelComponent implements OnInit {
     if (!this.canModify || !this.deleteTargets.length || this.deleteBusy) return;
     this.deleteBusy = true;
     this.deleteError = null;
-    const requests = this.deleteTargets.map(row => this.daxModels.delete(Number(row.id)).pipe(
-      map(() => ''),
-      catchError(err => of(err?.error?.message ?? `"${row.name}" could not be deleted.`)),
-    ));
-    forkJoin(requests).subscribe(errors => {
+    // One request at a time: each one checks every chart that uses a saved model.
+    from(this.deleteTargets).pipe(
+      concatMap(row => this.daxModels.delete(Number(row.id)).pipe(
+        map(() => ''),
+        catchError(err => of(err?.error?.message ?? `"${row.name}" could not be deleted.`)),
+      )),
+      toArray(),
+    ).subscribe(errors => {
       const failed = errors.filter(Boolean);
       const deleted = errors.length - failed.length;
       this.deleteBusy = false;
