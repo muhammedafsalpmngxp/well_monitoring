@@ -1214,11 +1214,10 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     const el = cards[idx] as HTMLElement;
     if (!el) return null;
     if (matchDashboardView) {
-      // Export Options' Show Table/Show Legends checkboxes override each card's own setting -
-      // hidden on the live element (html2canvas clones it internally), restored once captured.
-      const hidden = this.hideExportTableAndLegends(el, showTable, showLegends);
-      return captureVisibleDashboardWidget(el, keepFullTitle && el.querySelector('app-chart-table') ? this.buildStaticExportTable(idx) : null, includeScrollableContent)
-        .finally(() => hidden.forEach(h => h.el.setAttribute('style', h.css)));
+      // Export Options' Show Table/Show Legends checkboxes override each card's own setting - applied to
+      // html2canvas's copy only, so the live card never changes during export (DFCT0010878).
+      return captureVisibleDashboardWidget(el, keepFullTitle && el.querySelector('app-chart-table') ? this.buildStaticExportTable(idx) : null, includeScrollableContent,
+        clone => this.hideExportTableAndLegends(clone, showTable, showLegends));
     }
     // Expand a hidden copy, never the live card: restyling the live card and its ancestors resized
     // the grid and dropped the scrollbar, so the dashboard shifted and flickered during export (DFCT0010301).
@@ -1374,60 +1373,41 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   /** Captures a single KPI tile at its true on-screen width (full height, un-clipped), scroll-position independent. */
   private captureKpiTile(el: HTMLElement, matchDashboardView = false): Promise<HTMLCanvasElement | null> {
-    // Both paths capture the live tile directly (see below) - matchDashboardView no longer picks a
-    // different capture technique; the composite step positions/scales this canvas either way.
+    // Both paths capture the tile the same way; the composite step positions/scales this canvas either way.
     void matchDashboardView;
-    // Measure the tile's real assigned box BEFORE the height:auto override below replaces it, so
-    // it can be compared against the un-clipped content size further down.
+    // Capture an off-screen copy, never the live tile: restyling the live tile and every ancestor up to
+    // <body> made the dashboard shift and flicker once per tile during export (DFCT0010878, as DFCT0010301).
+    // The tile's real box is measured on the live tile, which is only read.
     const originalClientW = el.clientWidth;
     const originalClientH = el.clientHeight;
-    const origCss = el.getAttribute('style') || '';
-    el.style.setProperty('height', 'auto', 'important');
-    el.style.setProperty('max-height', 'none', 'important');
-    el.style.setProperty('overflow', 'visible', 'important');
-    let ancestor: HTMLElement | null = el.parentElement;
-    const savedAncestors: { el: HTMLElement; css: string; scrollTop: number }[] = [];
-    while (ancestor && ancestor !== document.body) {
-      savedAncestors.push({ el: ancestor, css: ancestor.getAttribute('style') || '', scrollTop: ancestor.scrollTop });
-      ancestor.style.setProperty('overflow', 'visible', 'important');
-      ancestor = ancestor.parentElement;
-    }
-    // The on-screen label is ellipsis-truncated (+ tooltip) to fit the tile width - un-clip it before
-    // measuring below, so the full tile name is captured instead of baking in the clip. Wraps (like
-    // the tile's own on-screen scroll reveals extra vertical content) rather than growing sideways.
-    const labels = Array.from(el.querySelectorAll<HTMLElement>('.ops-dashboard__kpi-label'));
-    const savedLabels = labels.map(label => ({ label, css: label.getAttribute('style') || '' }));
-    labels.forEach(label => {
+    const tileW = el.offsetWidth;
+    if (!tileW) return Promise.resolve(null);
+    const stage = document.createElement('div');
+    stage.style.cssText = `position:fixed;left:-100000px;top:0;width:${tileW}px;pointer-events:none;`;
+    const copy = el.cloneNode(true) as HTMLElement;
+    stage.appendChild(copy);
+    el.parentElement!.appendChild(stage);
+    copy.style.setProperty('width', `${tileW}px`, 'important');
+    copy.style.setProperty('height', 'auto', 'important');
+    copy.style.setProperty('max-height', 'none', 'important');
+    copy.style.setProperty('overflow', 'visible', 'important');
+    // The on-screen label is ellipsis-truncated (+ tooltip) to fit the tile width - un-clip it so the
+    // full name is captured; measuring scrollWidth/scrollHeight below already accounts for any wrap.
+    copy.querySelectorAll<HTMLElement>('.ops-dashboard__kpi-label').forEach(label => {
       label.style.setProperty('overflow', 'visible', 'important');
       label.style.setProperty('text-overflow', 'unset', 'important');
       label.style.setProperty('white-space', 'normal', 'important');
     });
-    // '.ops-dashboard__kpi-content' (a CHILD of the tile, not an ancestor) is the actual scroll box
-    // (height:100%, overflow-y:auto) that clips a tile's content when it's sized smaller than its
-    // content - the ancestor un-clipping above never reaches it, so it was still clipping the
-    // un-clipped label above.
-    const contentEl = el.querySelector<HTMLElement>('.ops-dashboard__kpi-content');
-    const savedContentCss = contentEl?.getAttribute('style') || '';
+    // '.ops-dashboard__kpi-content' is the tile's inner scroll box (height:100%, overflow-y:auto) that
+    // still clips the un-clipped label - un-clip it on the copy too.
+    const contentEl = copy.querySelector<HTMLElement>('.ops-dashboard__kpi-content');
     contentEl?.style.setProperty('height', 'auto', 'important');
     contentEl?.style.setProperty('overflow', 'visible', 'important');
-    const restore = () => {
-      el.setAttribute('style', origCss);
-      savedAncestors.forEach(a => { a.el.setAttribute('style', a.css); a.el.scrollTop = a.scrollTop; });
-      savedLabels.forEach(l => l.label.setAttribute('style', l.css));
-      if (contentEl) contentEl.setAttribute('style', savedContentCss);
-    };
-    void el.offsetHeight; // force reflow
     // A tile sized smaller than its neighbors (saved custom layout) can leave too little room for
-    // the now-wrapped label - if the un-clipped content genuinely doesn't fit the tile's own
-    // ORIGINAL box, shrink the icon/value too (capture only, restored straight after) rather than
-    // the label alone trying (and failing) to make a multi-line name fit past the rounded border.
-    const savedShrinkEls: { shrinkEl: HTMLElement; css: string }[] = [];
-    if (originalClientW > 0 && originalClientH > 0 && (el.scrollWidth > originalClientW || el.scrollHeight > originalClientH)) {
-      const shrinkEls = Array.from(el.querySelectorAll<HTMLElement>(
-        '.ops-dashboard__kpi-icon, .ops-dashboard__kpi-icon svg, .ops-dashboard__kpi-value',
-      ));
-      shrinkEls.forEach(shrinkEl => savedShrinkEls.push({ shrinkEl, css: shrinkEl.getAttribute('style') || '' }));
-      shrinkEls.forEach(shrinkEl => {
+    // the wrapped label - if the un-clipped content does not fit the tile's ORIGINAL box, shrink
+    // the icon/value too rather than the label alone overflowing past the rounded border.
+    if (originalClientW > 0 && originalClientH > 0 && (copy.scrollWidth > originalClientW || copy.scrollHeight > originalClientH)) {
+      copy.querySelectorAll<HTMLElement>('.ops-dashboard__kpi-icon, .ops-dashboard__kpi-icon svg, .ops-dashboard__kpi-value').forEach(shrinkEl => {
         if (shrinkEl.classList.contains('ops-dashboard__kpi-value')) {
           shrinkEl.style.setProperty('font-size', '16px', 'important');
         } else {
@@ -1436,19 +1416,21 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           shrinkEl.style.setProperty('height', size, 'important');
         }
       });
-      void el.offsetHeight; // force reflow after shrinking
     }
-    const restoreAll = () => {
-      restore();
-      savedShrinkEls.forEach(s => s.shrinkEl.setAttribute('style', s.css));
-    };
-    const captureW = el.scrollWidth;
-    const captureH = el.scrollHeight;
-    if (!captureW || !captureH) { restoreAll(); return Promise.resolve(null); }
-    return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff', x: 0, y: 0, width: captureW, height: captureH, scrollX: 0, scrollY: 0, windowWidth: captureW, windowHeight: captureH, ignoreElements: onlyDashboardWidget(el), onclone: (doc, clone) => loadCloneFonts(doc, clone) }).then((canvas: HTMLCanvasElement) => {
-      restoreAll();
-      return canvas.width && canvas.height ? canvas : null;
-    }).catch((err: unknown) => { restoreAll(); throw err; });
+    const captureW = copy.scrollWidth;
+    const captureH = copy.scrollHeight;
+    if (!captureW || !captureH) { stage.remove(); return Promise.resolve(null); }
+    return html2canvas(copy, {
+      scale: 2, useCORS: true, backgroundColor: '#ffffff', x: 0, y: 0, width: captureW, height: captureH, scrollX: 0, scrollY: 0,
+      windowWidth: document.documentElement.clientWidth, windowHeight: Math.max(document.documentElement.clientHeight, captureH),
+      ignoreElements: onlyDashboardWidget(copy),
+      // html2canvas renders its own copy of the page: bring the stage into view there.
+      onclone: (doc, clone) => {
+        if (clone.parentElement) clone.parentElement.style.cssText = `position:fixed;left:0;top:0;width:${tileW}px;`;
+        return loadCloneFonts(doc, clone);
+      },
+    }).then((canvas: HTMLCanvasElement) => canvas.width && canvas.height ? canvas : null)
+      .finally(() => stage.remove());
   }
 
   /**

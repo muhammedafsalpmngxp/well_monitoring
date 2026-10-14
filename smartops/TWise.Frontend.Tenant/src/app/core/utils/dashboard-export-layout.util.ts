@@ -315,6 +315,8 @@ export function captureVisibleDashboardWidget(
   widget: HTMLElement,
   staticTable?: HTMLTableElement | null,
   includeScrollableContent = false,
+  /** Extra changes made to html2canvas's copy only, never the live widget. */
+  prepareClone?: (clone: HTMLElement) => void,
 ): Promise<HTMLCanvasElement> {
   const rect = widget.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return Promise.reject(new Error('Dashboard widget has no visible size.'));
@@ -336,6 +338,7 @@ export function captureVisibleDashboardWidget(
     windowHeight: document.documentElement.clientHeight,
     ignoreElements: onlyDashboardWidget(widget),
     onclone: (document, clone) => {
+      prepareClone?.(clone);
       prepareDashboardWidgetClone(document, clone, width, computed.height, staticTable);
       if (includeScrollableContent) expandDashboardChartScrollAreas(clone);
       return loadCloneFonts(document, clone);
