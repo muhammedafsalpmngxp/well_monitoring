@@ -24,7 +24,8 @@ public sealed class InternalApiKeyHandler(
             return Task.FromResult(AuthenticateResult.Fail("Missing X-Api-Key header."));
 
         var configuredKey = configuration["InternalApi:ApiKey"];
-        if (string.IsNullOrEmpty(configuredKey))
+        // The CHANGE_ME placeholder is public (it is in the repo): treat it as not configured.
+        if (string.IsNullOrEmpty(configuredKey) || configuredKey.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
             return Task.FromResult(AuthenticateResult.Fail("Internal API key not configured."));
 
         var extractedBytes = Encoding.UTF8.GetBytes(extractedKey!);

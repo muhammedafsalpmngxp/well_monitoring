@@ -37,6 +37,21 @@ export class AiAgentsComponent implements OnInit {
     this.router.navigate(['/agentic-ai/ai-agents', agent.id]);
   }
 
+  /** The agent open in the Run dialog. */
+  running: Agent | null = null;
+
+  runAgent(agent: AgentCard): void {
+    this.menuFor = null;
+    this.running = this.saved.find(a => a.id === agent.id) ?? null;
+  }
+
+  /** After a run the card's runs / success / time changed: reload them. */
+  runClosed(ran: boolean): void {
+    this.running = null;
+    if (ran) this.agentsApi.list().subscribe({ next: list => { this.saved = list; this.render(); }, error: () => { /* keep the old stats */ } });
+    this.cdr.markForCheck();
+  }
+
   /** The card whose ⋮ menu is open, and the agent being deleted. */
   menuFor: number | null = null;
   deleting: number | null = null;

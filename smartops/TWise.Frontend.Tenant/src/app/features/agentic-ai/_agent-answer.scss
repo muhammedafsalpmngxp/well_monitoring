@@ -1,0 +1,63 @@
+// An agent answer rendered from markdown (markdown.util.ts), shared by the Test panel and the Run dialog.
+// The HTML comes in through [innerHTML], so component style encapsulation does not reach it: ::ng-deep, scoped
+// under .agent-md.
+@mixin agent-answer {
+    .agent-md {
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--color-text-primary, #101828);
+        overflow-wrap: anywhere;
+
+        ::ng-deep {
+            h1, h2, h3, h4, h5, h6 {
+                margin: 12px 0 6px;
+                font-weight: 600;
+                line-height: 1.3;
+                color: var(--color-text-primary, #101828);
+            }
+            h3 { font-size: 16px; }
+            h4 { font-size: 15px; }
+            h5 { font-size: 14px; }
+            h6 { font-size: 13px; }
+            > :first-child { margin-top: 0; }
+
+            p { margin: 0 0 8px; }
+            ul, ol { margin: 0 0 8px; padding-left: 20px; }
+            li { margin: 2px 0; }
+            strong { font-weight: 600; }
+            code {
+                padding: 1px 4px;
+                border-radius: 4px;
+                background: var(--color-bg-subtle, #F2F4F7);
+                font-size: 12px;
+            }
+            hr { border: 0; border-top: 1px solid var(--color-border, #EAECF0); margin: 12px 0; }
+
+            .md-table {
+                margin: 6px 0 12px;
+                overflow-x: auto;
+                border: 1px solid var(--color-border, #EAECF0);
+                border-radius: 8px;
+            }
+            table { border-collapse: collapse; width: 100%; font-size: 12px; overflow-wrap: normal; }
+            th, td {
+                padding: 6px 10px;
+                border-bottom: 1px solid var(--color-border, #EAECF0);
+                text-align: left;
+                vertical-align: top;
+                white-space: nowrap;
+            }
+            th {
+                position: sticky;
+                top: 0;
+                background: var(--color-bg-subtle, #F9FAFB);
+                color: var(--color-text-secondary, #475467);
+                font-weight: 600;
+            }
+            tbody tr:nth-child(even) td { background: var(--color-bg-subtle, #FCFCFD); }
+            tbody tr:last-child td { border-bottom: 0; }
+            .md-r { text-align: right; font-variant-numeric: tabular-nums; }
+            .md-c { text-align: center; }
+        }
+    }
+}

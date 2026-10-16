@@ -1,0 +1,79 @@
+<div class="ra-backdrop" (click)="close()">
+    <div appDialog (dialogClose)="close()" class="ra-dialog" (click)="$event.stopPropagation()">
+
+        <header class="ra-head">
+            <span class="ra-head__icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path d="M3.75 3.74C3.75 3.01 3.75 2.65 3.9 2.45C4.03 2.27 4.24 2.17 4.46 2.15C4.71 2.14 5.01 2.34 5.62 2.74L13.5 8C14 8.34 14.25 8.5 14.34 8.71C14.42 8.9 14.42 9.1 14.34 9.29C14.25 9.5 14 9.66 13.5 10L5.62 15.26C5.01 15.66 4.71 15.86 4.46 15.85C4.24 15.83 4.03 15.73 3.9 15.55C3.75 15.35 3.75 14.99 3.75 14.26V3.74Z"
+                        stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </span>
+            <div class="ra-head__text">
+                <h2 class="ra-head__title">Run {{ agent.name }}</h2>
+                <p class="ra-head__sub">{{ agent.description || agent.goal || 'Runs the agent with the inputs below.' }}</p>
+            </div>
+            <button type="button" class="ra-close" (click)="close()" aria-label="Close">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="#667085" stroke-width="1.6" stroke-linecap="round" /></svg>
+            </button>
+        </header>
+
+        <div class="ra-body">
+            <form class="ra-inputs" (ngSubmit)="run()" *ngIf="agent.inputs.length; else noInputs">
+                <span class="ra-section">Inputs</span>
+                <div class="ra-field" *ngFor="let i of agent.inputs">
+                    <label class="ra-label" [for]="'run-' + i.name">
+                        {{ i.name }}<span class="ra-req" *ngIf="i.required">*</span>
+                        <span class="ra-label__type">{{ i.type || 'string' }}</span>
+                    </label>
+                    <input class="ra-input" [id]="'run-' + i.name" [name]="i.name" [(ngModel)]="values[i.name]" [disabled]="running"
+                        [type]="i.type === 'number' ? 'number' : 'text'" [placeholder]="'Enter ' + i.name"
+                        [attr.aria-required]="i.required" autocomplete="off" />
+                    <span class="ra-hint" *ngIf="i.description">{{ i.description }}</span>
+                </div>
+                <button type="submit" hidden></button>
+            </form>
+            <ng-template #noInputs>
+                <p class="ra-hint ra-hint--block">This agent needs no inputs: its instructions run as written.</p>
+            </ng-template>
+
+            <div class="ra-progress" *ngIf="running" aria-live="polite">
+                <span class="ra-spinner" aria-hidden="true"></span>
+                <span class="ra-progress__stage">{{ stage || 'Running' }}</span>
+                <span class="ra-progress__time">{{ elapsed }}s<ng-container *ngIf="steps.length"> · {{ doneSteps }}/{{ steps.length }} steps</ng-container></span>
+            </div>
+
+            <p class="ra-msg ra-msg--bad" *ngIf="error" role="alert">{{ error }}</p>
+
+            <section class="ra-answer" *ngIf="answer">
+                <div class="ra-answer__head">
+                    <span class="ra-section">Answer<span class="ra-label__type" *ngIf="seconds !== null">{{ seconds }}s</span></span>
+                    <button type="button" class="ra-link" (click)="copy()">Copy</button>
+                </div>
+                <div class="agent-md" [innerHTML]="answerHtml"></div>
+            </section>
+
+            <details class="ra-steps" *ngIf="steps.length && !running">
+                <summary>Steps ({{ steps.length }})</summary>
+                <div class="ra-step" *ngFor="let s of steps">
+                    <span class="ra-step__dot" [class.ra-step__dot--ok]="s.ok" [class.ra-step__dot--bad]="s.phase === 'end' && !s.ok"></span>
+                    <div class="ra-step__text">
+                        <span class="ra-step__q">Step {{ s.step }} · {{ s.question }}</span>
+                        <span class="ra-hint">{{ s.agent }}<ng-container *ngIf="s.seconds !== undefined"> · {{ s.seconds }}s</ng-container></span>
+                        <span class="ra-step__err" *ngIf="s.error">{{ s.error }}</span>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <footer class="ra-foot">
+            <button type="button" class="ra-btn ra-btn--ghost" (click)="running ? cancel() : close()">{{ running ? 'Stop' : 'Close' }}</button>
+            <button type="button" class="ra-btn ra-btn--primary" (click)="run()" [disabled]="running">
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                    <path d="M3.75 3.74C3.75 3.01 3.75 2.65 3.9 2.45C4.03 2.27 4.24 2.17 4.46 2.15C4.71 2.14 5.01 2.34 5.62 2.74L13.5 8C14 8.34 14.25 8.5 14.34 8.71C14.42 8.9 14.42 9.1 14.34 9.29C14.25 9.5 14 9.66 13.5 10L5.62 15.26C5.01 15.66 4.71 15.86 4.46 15.85C4.24 15.83 4.03 15.73 3.9 15.55C3.75 15.35 3.75 14.99 3.75 14.26V3.74Z"
+                        stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                {{ running ? 'Running…' : (answer || error ? 'Run again' : 'Run agent') }}
+            </button>
+        </footer>
+    </div>
+</div>

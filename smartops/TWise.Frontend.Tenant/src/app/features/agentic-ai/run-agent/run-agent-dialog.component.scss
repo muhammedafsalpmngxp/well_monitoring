@@ -1,0 +1,292 @@
+@use '../agent-answer' as answer;
+@include answer.agent-answer;
+
+// Same look as the agent builder's dialogs and Test panel: #21409A primary, #E7ECF3 borders, 6px controls.
+.ra-backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 1000;
+}
+
+.ra-dialog {
+    width: 100%;
+    max-width: 860px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--color-bg-card, #fff);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 8px 32px rgba(16, 24, 40, 0.18);
+    outline: none;
+}
+
+.ra-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid #E7ECF3;
+
+    &__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #EEF2FB;
+    }
+
+    &__text { flex: 1; min-width: 0; }
+
+    &__title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.3;
+        color: var(--color-text-primary, #101828);
+    }
+
+    &__sub {
+        margin: 2px 0 0;
+        font-size: 13px;
+        line-height: 1.4;
+        color: #667085;
+    }
+}
+
+.ra-close {
+    display: flex;
+    padding: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+
+    &:hover { background: #F2F4F7; }
+}
+
+.ra-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 20px;
+}
+
+.ra-section {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: #475467;
+}
+
+.ra-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px 16px;
+
+    .ra-section { grid-column: 1 / -1; }
+}
+
+.ra-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+.ra-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #344054;
+
+    &__type {
+        margin-left: 4px;
+        padding: 0 6px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        color: #667085;
+        background: #F2F4F7;
+    }
+}
+
+.ra-req { color: var(--color-danger, #D92D20); }
+
+.ra-input {
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid #DCE3ED;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #101828;
+    background: #fff;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+
+    &::placeholder { color: #98A2B3; }
+    &:focus { border-color: #21409A; box-shadow: 0 0 0 3px rgba(33, 64, 154, 0.12); }
+    &:disabled { background: #F9FAFB; color: #667085; }
+}
+
+.ra-hint {
+    font-size: 12px;
+    color: #667085;
+
+    &--block { margin: 0; padding: 10px 12px; border-radius: 8px; background: #F9FAFB; }
+}
+
+.ra-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #EEF2FB;
+    font-size: 13px;
+    color: #21409A;
+
+    &__stage { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &__time { flex-shrink: 0; font-variant-numeric: tabular-nums; color: #475467; }
+}
+
+.ra-spinner {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border: 2px solid rgba(33, 64, 154, 0.25);
+    border-top-color: #21409A;
+    border-radius: 50%;
+    animation: ra-spin 0.8s linear infinite;
+}
+
+@keyframes ra-spin { to { transform: rotate(360deg); } }
+
+.ra-msg {
+    margin: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+
+    &--bad {
+        color: var(--color-danger, #B42318);
+        background: color-mix(in srgb, var(--color-danger, #B42318) 10%, transparent);
+    }
+}
+
+.ra-answer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid #E7ECF3;
+    border-radius: 8px;
+    background: #fff;
+
+    &__head { display: flex; align-items: center; justify-content: space-between; }
+
+    // Tall tables scroll inside the answer with their header kept in view.
+    .agent-md ::ng-deep .md-table { max-height: 420px; }
+}
+
+.ra-link {
+    padding: 2px 6px;
+    border: 0;
+    background: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: #21409A;
+    cursor: pointer;
+
+    &:hover { text-decoration: underline; }
+}
+
+.ra-steps {
+    border: 1px solid #E7ECF3;
+    border-radius: 8px;
+    padding: 8px 12px;
+
+    summary { cursor: pointer; font-size: 13px; font-weight: 500; color: #475467; }
+}
+
+.ra-step {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0 0;
+
+    &__dot {
+        width: 8px;
+        height: 8px;
+        margin-top: 6px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: #98A2B3;
+
+        &--ok { background: var(--color-success, #12B76A); }
+        &--bad { background: var(--color-danger, #D92D20); }
+    }
+
+    &__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; }
+    &__q { color: var(--color-text-primary, #101828); }
+    &__err { color: var(--color-danger, #B42318); font-size: 12px; }
+}
+
+.ra-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 20px;
+    border-top: 1px solid #E7ECF3;
+}
+
+.ra-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+
+    &--primary {
+        border: 0;
+        color: #fff;
+        background: #21409A;
+
+        &:hover:not([disabled]) { background: #1a3480; }
+        &[disabled] { opacity: 0.6; cursor: progress; }
+    }
+
+    &--ghost {
+        border: 1px solid #DCE3ED;
+        color: #344054;
+        background: #fff;
+
+        &:hover { background: #F9FAFB; }
+    }
+}
+
+@media (max-width: 600px) {
+    .ra-backdrop { padding: 0; align-items: stretch; }
+    .ra-dialog { max-width: none; max-height: none; border-radius: 0; }
+}

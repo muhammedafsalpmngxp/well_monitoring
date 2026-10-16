@@ -337,6 +337,40 @@
         border-top: 1px solid #E7ECF3;
         margin-top: auto;
     }
+
+    &__actions {
+        display: flex;
+        gap: 8px;
+
+        .aia-card-btn { flex: 1; }
+    }
+}
+
+.aia-card-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    border: 1px solid #DCE3ED;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    color: #344054;
+    cursor: pointer;
+
+    &:hover { background: #F9FAFB; }
+
+    &--primary {
+        border-color: #21409A;
+        background: #21409A;
+        color: #fff;
+
+        &:hover { background: #1a3480; }
+    }
 }
 
 .aia-badge-dot {

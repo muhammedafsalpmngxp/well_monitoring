@@ -630,7 +630,7 @@
                     <p class="na-msg na-msg--bad" *ngIf="testError">{{ testError }}</p>
                     <div class="na-test-answer" *ngIf="testAnswer">
                         <span class="na-label">Answer<span class="na-label--muted" *ngIf="testSeconds !== null"> · {{ testSeconds }}s</span></span>
-                        <p>{{ plain(testAnswer) }}</p>
+                        <div class="agent-md" [innerHTML]="md(testAnswer)"></div>
                     </div>
                     <div class="na-test-decisions" *ngIf="testDecisions.length">
                         <span class="na-label">Decisions</span>
@@ -642,7 +642,7 @@
                             Step {{ s.step }}<span *ngIf="(s.attempt ?? 1) > 1"> (run {{ s.attempt }})</span> · {{ s.agent }} · {{ s.phase === 'start' ? 'running' : (s.seconds + 's') }}
                         </summary>
                         <p class="na-test-step__q">{{ s.question }}</p>
-                        <p *ngIf="s.answer">{{ plain(s.answer) }}</p>
+                        <div class="agent-md" *ngIf="s.answer" [innerHTML]="md(s.answer)"></div>
                         <p class="na-msg na-msg--bad" *ngIf="s.error">{{ s.error }}</p>
                         <span class="na-chip" *ngIf="s.route === 'sql'" [class.na-chip--ok]="s.verified">{{ s.verified ? 'Verified' : 'Not verified: treat figures as indicative' }}</span>
                         <div class="na-test-table" *ngIf="s.data?.columns?.length">

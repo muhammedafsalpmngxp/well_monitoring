@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { Agent, AgentBranch, AgentsService, AgentTool, AgentStepResult, AgentToolOption, AgentType, SaveAgentRequest } from '../agents.service';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
 import { circleAt, neverReached, stepsToSave } from '../agent-steps.util';
+import { markdownToHtml } from '../markdown.util';
 
 export interface InstructionItem {
   value: string;
@@ -749,6 +750,18 @@ export class NewAgentComponent implements OnInit, OnDestroy {
 
   /** Answers come as markdown; show them as plain text without the ** and __ markers. */
   plain(text: string | null | undefined): string { return (text ?? '').replace(/\*\*|__/g, ''); }
+
+  /** Answers as formatted HTML (tables, headings, lists); converted once per text, not on every check. */
+  private mdCache = new Map<string, string>();
+  md(text: string | null | undefined): string {
+    const key = text ?? '';
+    let html = this.mdCache.get(key);
+    if (html === undefined) {
+      if (this.mdCache.size > 50) this.mdCache.clear();
+      this.mdCache.set(key, (html = markdownToHtml(key)));
+    }
+    return html;
+  }
 
   trackByIndex(i: number): number { return i; }
   trackByLabel(_: number, n: { label: string }): string { return n.label; }

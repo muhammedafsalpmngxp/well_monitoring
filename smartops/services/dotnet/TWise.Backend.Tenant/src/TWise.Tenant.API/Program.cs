@@ -98,8 +98,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // ─── JWT Authentication — same secret/issuer/audience as ControlPlane ─────────
-var jwtSecret = builder.Configuration["JwtSettings:SecretKey"]
-    ?? throw new InvalidOperationException("JwtSettings:SecretKey is not configured.");
+var jwtSecret = RequireSecret(builder.Configuration, "JwtSettings:SecretKey");
 var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "smartops.auth";
 var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "smartops.api";
 
@@ -192,8 +191,7 @@ builder.Services.AddCors(options =>
 });
 
 // ─── Encryption ───────────────────────────────────────────────────────────────
-var encryptionKey = builder.Configuration["DatabaseConnections:EncryptionKey"]
-    ?? throw new InvalidOperationException("DatabaseConnections:EncryptionKey is not configured.");
+var encryptionKey = RequireSecret(builder.Configuration, "DatabaseConnections:EncryptionKey");
 ConnectionPasswordHelper.Initialize(encryptionKey);
 
 // ─── Build ────────────────────────────────────────────────────────────────────
@@ -266,3 +264,18 @@ app.MapGet("/health", (IConfiguration cfg) => new
 }).AllowAnonymous();
 
 app.Run();
+
+// A secret that must be set, and must not be the CHANGE_ME placeholder that a copy of the repo without real
+// settings carries: an API that ran with the placeholder encryption key re-saved the AI provider key with it, and
+// every API with the real key then failed with "cannot be decrypted". Fail at startup instead.
+static string RequireSecret(IConfiguration config, string key)
+{
+    var value = config[key];
+    if (string.IsNullOrWhiteSpace(value))
+        throw new InvalidOperationException($"{key} is not configured.");
+    if (value.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException(
+            $"{key} is still the CHANGE_ME placeholder. Set the value every TWise API on this database uses " +
+            $"(environment variable {key.Replace(":", "__")}), or encrypted settings become unreadable for the others.");
+    return value;
+}
