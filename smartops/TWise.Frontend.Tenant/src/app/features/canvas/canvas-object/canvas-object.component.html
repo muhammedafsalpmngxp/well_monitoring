@@ -1,0 +1,148 @@
+<ng-container [ngSwitch]="state">
+  <p *ngSwitchCase="'incomplete'" class="canvas-object__hint">{{ problem }}</p>
+
+  <ng-container *ngSwitchCase="'static'">
+    <ng-container *ngIf="item.type === 'text'">
+      <div *ngIf="richText as html; else plainText" #fitBox class="canvas-object__text canvas-object__rich" [class.canvas-object__text--fit]="item.style?.fitText"
+        [ngClass]="'canvas-object__text--' + (item.style?.verticalAlign ?? 'top')" [innerHTML]="html"></div>
+      <ng-template #plainText>
+        <p #fitBox class="canvas-object__text" [class.canvas-object__text--fit]="item.style?.fitText" [ngClass]="'canvas-object__text--' + (item.style?.verticalAlign ?? 'top')">{{ item.text }}</p>
+      </ng-template>
+    </ng-container>
+    <ng-container *ngIf="item.type === 'image'">
+      <a *ngIf="interactive && item.style?.link; else plainImage" class="canvas-object__image-link" [href]="item.style?.link"
+        target="_blank" rel="noopener noreferrer" [attr.aria-label]="item.alt || 'Open the link'">
+        <img class="canvas-object__image" [src]="item.imageUrl?.trim()" [alt]="item.alt || ''" [style.object-fit]="item.style?.fit ?? 'contain'"
+          loading="lazy" referrerpolicy="no-referrer" />
+      </a>
+      <ng-template #plainImage>
+        <img class="canvas-object__image" [src]="item.imageUrl?.trim()" [alt]="item.alt || ''" [style.object-fit]="item.style?.fit ?? 'contain'"
+          loading="lazy" referrerpolicy="no-referrer" />
+      </ng-template>
+    </ng-container>
+  </ng-container>
+
+  <app-loader *ngSwitchCase="'loading'" class="canvas-object__loading" [type]="skeleton" [groupIndex]="index"></app-loader>
+
+  <div *ngSwitchCase="'error'" class="canvas-object__error" role="alert">
+    <strong>{{ error?.message }}</strong>
+    <span>{{ error?.hint }}</span>
+  </div>
+
+  <ng-container *ngSwitchCase="'ready'">
+    <div *ngIf="drillable" class="canvas-object__drill" (pointerdown)="$event.stopPropagation()">
+      <button type="button" class="canvas-object__drill-button" [disabled]="!drillPath.length" title="Drill up" aria-label="Drill up" (click)="drillUp()">&#8593;</button>
+      <button type="button" class="canvas-object__drill-button" [class.canvas-object__drill-button--on]="drillMode" [attr.aria-pressed]="drillMode"
+        [disabled]="!canDrillDown && !drillMode" title="When on, a click on a point drills down into it" (click)="drillMode = !drillMode">&#8595; Drill down</button>
+      <span class="canvas-object__drill-path">
+        <ng-container *ngFor="let crumb of drillCrumbs">{{ crumb }} &rsaquo; </ng-container>{{ levelName(drillField) }}
+      </span>
+    </div>
+    <!-- Drawn again when a highlight comes or goes: an update would keep the faded colours of its points. -->
+    <ng-container *ngIf="(item.type === 'chart' || (item.type === 'tile' && item.gauge)) && options">
+    <highcharts-chart *ngFor="let drawn of [drawKey]" class="canvas-object__chart"
+      [options]="options" [oneToOne]="true"></highcharts-chart>
+    </ng-container>
+
+    <div *ngIf="item.type === 'tile' && !item.gauge && tile" #fitBox class="canvas-object__tile"
+      [ngClass]="tile.tone ? 'canvas-object__tile--' + tile.tone : ''">
+      <span *ngIf="item.style?.showIcon !== false" class="canvas-object__tile-icon" aria-hidden="true"><app-icon name="bar_chart"></app-icon></span>
+      <span class="canvas-object__tile-text">
+        <span class="canvas-object__tile-label">{{ labels[item.measures[0]] ?? item.measures[0] }}</span>
+        <strong class="canvas-object__tile-value" [title]="tile.full" [style.font-size.em]="item.style?.valueSize ? item.style!.valueSize! / 14 : null"
+          [style.color]="item.style?.valueColor">{{ tile.value }}</strong>
+        <span *ngIf="tile.delta as delta" class="canvas-object__delta" [class.canvas-object__delta--good]="delta.good"
+          [class.canvas-object__delta--bad]="!delta.good">{{ delta.text }}<span class="canvas-object__delta-label"> vs {{ item.compare }}</span></span>
+        <span *ngIf="tile.progress !== null" class="canvas-object__target">
+          <span class="canvas-object__bar" role="progressbar" [attr.aria-valuenow]="tile.progress" aria-valuemin="0" aria-valuemax="100"
+            [attr.aria-label]="tile.progress + '% of the target'">
+            <span class="canvas-object__bar-fill" [style.width.%]="tile.progress"></span>
+          </span>
+          <span class="canvas-object__target-text">{{ tile.progress }}% of {{ tile.target }}</span>
+        </span>
+      </span>
+    </div>
+
+    <ag-grid-angular *ngIf="item.type === 'table' || item.type === 'matrix'" class="canvas-object__grid" [theme]="objectGridTheme"
+      [columnDefs]="columnDefs" [defaultColDef]="item.type === 'matrix' ? matrixColDef : defaultColDef" [rowData]="rowData"
+      [pinnedBottomRowData]="totalRow" [getRowStyle]="totalRowStyle"
+      [getRowClass]="item.type === 'matrix' ? matrixRowClass : undefined" [suppressFieldDotNotation]="true"></ag-grid-angular>
+
+    <div *ngIf="item.type === 'slicer'" class="canvas-object__slicer" [ngSwitch]="style">
+      <!-- The value list, shown as a list, inside a dropdown, or as tiles -->
+      <ng-template #valueList>
+        <input class="form-control canvas-object__slicer-search" type="search" placeholder="Search" [attr.aria-label]="'Search ' + item.title"
+          [(ngModel)]="slicerSearch" />
+        <ul class="canvas-object__slicer-list" [attr.aria-label]="item.title">
+          <li *ngFor="let option of slicerShown">
+            <label class="canvas-object__slicer-option">
+              <!-- One handler only: single select keeps one value in toggleValue, and a ticked value can be unticked. -->
+              <input type="checkbox" [checked]="isChosen(option)" (change)="toggleValue(option)" />
+              <span>{{ label(option) }}</span>
+            </label>
+          </li>
+        </ul>
+        <p *ngIf="!slicerShown.length" class="canvas-object__hint">No value matches.</p>
+      </ng-template>
+
+      <ng-container *ngSwitchCase="'dropdown'">
+        <details class="canvas-object__dropdown" (toggle)="dropdownOpen = $any($event.target).open">
+          <summary class="form-control canvas-object__dropdown-button">{{ dropdownText }}</summary>
+          <div class="canvas-object__dropdown-panel"><ng-container *ngTemplateOutlet="valueList"></ng-container></div>
+        </details>
+      </ng-container>
+
+      <div *ngSwitchCase="'tiles'" class="canvas-object__tiles" role="group" [attr.aria-label]="item.title">
+        <button *ngFor="let option of slicerShown" type="button" class="canvas-object__tile-button"
+          [class.canvas-object__tile-button--on]="isChosen(option)" [attr.aria-pressed]="isChosen(option)" (click)="toggleValue(option)">
+          {{ label(option) }}
+        </button>
+      </div>
+
+      <div *ngSwitchCase="'relative'" class="canvas-object__slicer-relative">
+        <span>Last</span>
+        <input #lastN class="form-control" type="number" min="1" max="1000" [attr.aria-label]="item.title + ': how many'"
+          [value]="item.slicer?.last?.n ?? ''" placeholder="n" (change)="setRelative(lastN.value, lastUnit.value)" />
+        <select #lastUnit class="form-control" [attr.aria-label]="item.title + ': days, months or years'"
+          (change)="setRelative(lastN.value, lastUnit.value)">
+          <option *ngFor="let unit of relativeUnits" [value]="unit" [selected]="(item.slicer?.last?.unit ?? 'days') === unit">{{ unit }}</option>
+        </select>
+      </div>
+
+      <ng-container *ngSwitchCase="'between'">
+        <div class="canvas-object__slicer-range">
+          <input #from class="form-control" [type]="inputType" [placeholder]="slicerLow ? endLabel(slicerLow) : 'From'"
+            [attr.aria-label]="item.title + ' from'" [value]="rangeValue(0)" (change)="setRange(0, from.value)" />
+          <input #to class="form-control" [type]="inputType" [placeholder]="slicerHigh ? endLabel(slicerHigh) : 'To'"
+            [attr.aria-label]="item.title + ' to'" [value]="rangeValue(1)" (change)="setRange(1, to.value)" />
+        </div>
+        <div *ngIf="canSlide" class="canvas-object__slider">
+          <input type="range" [min]="slideMin" [max]="slideMax" [step]="slideStep" [value]="slideAt(0)"
+            [attr.aria-label]="item.title + ' lowest'" (change)="slide(0, $any($event.target).value)" />
+          <input type="range" [min]="slideMin" [max]="slideMax" [step]="slideStep" [value]="slideAt(1)"
+            [attr.aria-label]="item.title + ' highest'" (change)="slide(1, $any($event.target).value)" />
+        </div>
+      </ng-container>
+
+      <div *ngSwitchCase="'before'" class="canvas-object__slicer-range canvas-object__slicer-range--one">
+        <label class="canvas-object__hint" [attr.for]="item.id + '-before'">Up to</label>
+        <input #upTo [id]="item.id + '-before'" class="form-control" [type]="inputType" [placeholder]="slicerHigh ? endLabel(slicerHigh) : ''"
+          [value]="rangeValue(1)" (change)="setRange(1, upTo.value)" />
+      </div>
+
+      <div *ngSwitchCase="'after'" class="canvas-object__slicer-range canvas-object__slicer-range--one">
+        <label class="canvas-object__hint" [attr.for]="item.id + '-after'">From</label>
+        <input #fromOn [id]="item.id + '-after'" class="form-control" [type]="inputType" [placeholder]="slicerLow ? endLabel(slicerLow) : ''"
+          [value]="rangeValue(0)" (change)="setRange(0, fromOn.value)" />
+      </div>
+
+      <ng-container *ngSwitchDefault><ng-container *ngTemplateOutlet="valueList"></ng-container></ng-container>
+
+      <button *ngIf="item.slicer?.values?.length || item.slicer?.last" type="button" class="canvas-object__slicer-clear" (click)="clearSlicer()">Clear</button>
+    </div>
+
+    <p *ngIf="limited" class="canvas-object__hint">The first {{ result?.rows?.length }} rows only.</p>
+    <p *ngIf="seriesCut" class="canvas-object__hint">The 8 biggest Legend values only.</p>
+    <p *ngIf="skippedNote" class="canvas-object__hint">{{ skippedNote }}</p>
+  </ng-container>
+</ng-container>

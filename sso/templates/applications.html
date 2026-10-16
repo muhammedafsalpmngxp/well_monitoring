@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Applications · Al Tasnim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #f5f5f7;
+    --surface:   #ffffff;
+    --surface-2: #f8fafc;
+    --border:    rgba(0,0,0,0.08);
+    --border-2:  #e2e8f0;
+    --txt-1:     #1a1a2e;
+    --txt-2:     #3a3a5c;
+    --txt-dim:   rgba(60,60,80,0.6);
+    --txt-muted: #94a3b8;
+    --accent:    #3a6fd8;
+    --blue:      #2563eb;
+    --blue-2:    #3b82f6;
+    --green:     #16a34a;
+    --red:       #dc2626;
+    --amber:     #d97706;
+    --teal:      #0d9488;
+    --purple:    #7c3aed;
+    --orange:    #f97316;
+    --indigo:    #1d4ed8;
+    --sidebar-w: 248px;
+    --topbar-h:  56px;
+  }
+
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--txt-1);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ── Shell ───────────────────────────────────────────────────────── */
+  .shell { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar (light theme — matches dashboard) ───────────────────── */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: #ffffff;
+    border-right: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.25s ease, transform 0.25s ease;
+  }
+  .shell.sidebar-collapsed .sidebar {
+    width: 0;
+    border-right: none;
+    transform: translateX(-100%);
+  }
+
+  /* Sidebar toggle button */
+  .sb-toggle {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: border-color .15s;
+    flex-shrink: 0;
+  }
+  .sb-toggle:hover { border-color: #cbd5e1; background: #f8fafc; }
+  .sb-toggle svg { width: 16px; height: 16px; stroke: #64748b; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sb-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .sb-logo-mark {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sb-logo-mark svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .sb-brand-name {
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .sb-brand-sub {
+    color: #94a3b8;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    margin-top: 1px;
+  }
+
+  .sb-nav { padding: 6px 0 20px; flex: 1; overflow-y: auto; }
+
+  .sb-section-label {
+    padding: 14px 18px 6px;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #94a3b8;
+  }
+
+  .sb-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px 9px 12px;
+    cursor: pointer;
+    color: #334155;
+    font-size: 12.5px;
+    font-weight: 400;
+    transition: background 0.15s;
+    border-left: 2px solid transparent;
+    user-select: none;
+    text-decoration: none;
+  }
+  .sb-item:hover { background: #f1f5f9; }
+  .sb-item.active {
+    background: #eff6ff;
+    border-left-color: #2563eb;
+    color: #1e3a8a;
+    font-weight: 600;
+  }
+  .sb-item.active .sb-icon svg { stroke: #2563eb; }
+
+  .sb-icon {
+    width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sb-icon svg {
+    width: 16px; height: 16px;
+    stroke: #94a3b8; fill: none;
+    stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+    transition: stroke 0.15s;
+  }
+  .sb-item:hover .sb-icon svg { stroke: #64748b; }
+
+  .sb-item-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sb-item-badge {
+    font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 10px;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .sb-item-badge.blue {
+    background: #eff6ff;
+    color: #1e3a8a;
+    border: 1px solid #bfdbfe;
+  }
+
+  /* ── Main column ─────────────────────────────────────────────────── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .topbar {
+    height: var(--topbar-h);
+    flex-shrink: 0;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 10px;
+  }
+  .nb-spacer { flex: 1; }
+
+  .nb-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #334155;
+    cursor: pointer;
+    font: inherit; font-size: 12px;
+    transition: border-color .15s;
+  }
+  .nb-pill:hover { border-color: #cbd5e1; }
+  .nb-pill svg { width: 14px; height: 14px; stroke: #64748b; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nb-pill.theme svg { stroke: #d97706; }
+  .nb-pill .caret { width: 10px; height: 10px; }
+
+  .nb-bell {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .15s;
+  }
+  .nb-bell:hover { border-color: #cbd5e1; }
+  .nb-bell svg { width: 15px; height: 15px; stroke: #64748b; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nb-bell::after {
+    content: ''; position: absolute; top: 8px; right: 9px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #ef4444;
+  }
+
+  .nb-user {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 4px 11px 4px 4px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .nb-user:hover { border-color: #cbd5e1; }
+  .nb-user-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .nb-user-meta { display: flex; flex-direction: column; line-height: 1.15; }
+  .nb-user-name { font-size: 12px; font-weight: 600; color: #0f172a; }
+  .nb-user-role { font-size: 10px; color: #94a3b8; }
+
+  /* ── Content area ────────────────────────────────────────────────── */
+  .page-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 22px 28px; }
+
+  /* Page title row — matches Angular .page-title-row card */
+  .page-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 10px;
+  }
+  .page-title { font-size: 20px; font-weight: 600; color: var(--txt-1); letter-spacing: -0.2px; }
+  .page-subtitle { color: #94a3b8; font-size: 12px; margin-top: 3px; line-height: 1.5; }
+  .page-meta-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px;
+    background: rgba(37,99,235,0.10);
+    border: 1px solid rgba(37,99,235,0.25);
+    border-radius: 999px;
+    color: var(--blue);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+
+  /* ── Tile grid (KPI-card aesthetic) ──────────────────────────────── */
+  .apps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 12px;
+  }
+
+  .apps-tile {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    width: 100%;
+    transition: box-shadow .2s ease, transform .15s ease, border-color .15s ease;
+    overflow: hidden;
+  }
+  /* Left accent stripe (matches .kpi::before in dashboard) */
+  .apps-tile::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
+    background: var(--tile-accent, var(--blue));
+    border-radius: 10px 0 0 10px;
+  }
+  .apps-tile:hover {
+    box-shadow: 0 4px 16px rgba(15,23,42,0.08);
+    transform: translateY(-1px);
+    border-color: rgba(37,99,235,0.25);
+  }
+  .apps-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .apps-tile-icon {
+    width: 48px; height: 48px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid transparent;
+  }
+  .apps-tile-icon-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.5px;
+  }
+  .apps-tile-icon svg { width: 24px; height: 24px; }
+
+  .apps-tile-body { flex: 1; min-width: 0; }
+  .apps-tile-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .apps-tile-name {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--txt-1);
+    letter-spacing: 0.1px;
+  }
+  .apps-tile-cat {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--txt-dim);
+    border: 1px solid var(--border-2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .apps-tile-desc {
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--txt-dim);
+    line-height: 1.5;
+  }
+  .apps-tile-chev {
+    color: #64748b;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all .15s ease;
+    position: relative;
+    z-index: 2;
+  }
+  .apps-tile-chev:hover {
+    color: var(--tile-accent, var(--blue));
+    border-color: var(--tile-accent, var(--blue));
+    background: rgba(37,99,235,0.06);
+    transform: translateX(2px);
+  }
+  .apps-tile-chev svg {
+    width: 16px; height: 16px;
+  }
+
+  /* Per-tile accents (left edge + icon background) */
+  .apps-tile.t-ai     { --tile-accent: #2563eb; }
+  .apps-tile.t-vise   { --tile-accent: #0d9488; }
+  .apps-tile.t-acc    { --tile-accent: #f97316; }
+  .apps-tile.t-p6     { --tile-accent: #7c3aed; }
+  .apps-tile.t-sap    { --tile-accent: #1d4ed8; }
+
+  .apps-tile-icon.ai     { background: #dbeafe;  color: #1e3a8a; border-color: #93c5fd; }
+  .apps-tile-icon.vise   { background: #ccfbf1; color: #134e4a; border-color: #5eead4; }
+  .apps-tile-icon.acc    { background: #ffedd5; color: #7c2d12; border-color: #fdba74; }
+  .apps-tile-icon.p6     { background: #ede9fe; color: #4c1d95; border-color: #c4b5fd; }
+  .apps-tile-icon.sap    { background: #dbeafe; color: #1e3a8a; border-color: #93c5fd; }
+
+  /* Compact responsive */
+  @media (max-width: 900px) {
+    .sidebar { width: 64px; }
+    .sb-brand { padding: 12px 12px; }
+    .sb-brand > div:last-child, .sb-section-label, .sb-item-label, .sb-item-badge { display: none; }
+    .sb-item { padding: 9px 12px; justify-content: center; }
+  }
+  @media (max-width: 720px) {
+    .sidebar { display: none; }
+    .nb-pill.lang, .nb-user-meta { display: none; }
+    .page-scroll { padding: 12px 14px 22px; }
+    .apps-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 2 L3 7 V17 L12 22 L21 17 V7 Z"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/></svg>
+      </div>
+      <div>
+        <div class="sb-brand-name">T-Wise</div>
+        <div class="sb-brand-sub"> Dashboard</div>
+      </div>
+    </div>
+
+    <nav class="sb-nav">
+      <div class="sb-section-label">Dashboard</div>
+
+      <a class="sb-item active">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        </div>
+        <span class="sb-item-label">All Applications</span>
+        <span class="sb-item-badge blue">5</span>
+      </a>
+
+
+
+
+      <div class="sb-section-label">Applications</div>
+
+      <a class="sb-item" href="https://wmr-demo.prod-app.in/" target="_blank" id="smartOpsSidebarItem">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        </div>
+        <span class="sb-item-label">T-Wise Dashboard</span>
+      </a>
+
+      <a class="sb-item" href="https://vise.blacksmithsoft.com/" id="viseSidebarItem">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+        </div>
+        <span class="sb-item-label">Vise</span>
+      </a>
+
+      <button type="button" class="sb-item" id="accSidebarBtn">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-4h6v4"/></svg>
+        </div>
+        <span class="sb-item-label">ACC</span>
+      </button>
+
+      <button type="button" class="sb-item" id="p6SidebarBtn">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <span class="sb-item-label">P6</span>
+      </button>
+
+      <button type="button" class="sb-item" id="sapSidebarBtn">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <span class="sb-item-label">SAP</span>
+      </button>
+
+      <div class="sb-section-label">Account</div>
+
+      <button type="button" class="sb-item" id="signOutBtn">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </div>
+        <span class="sb-item-label">Sign out</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ── Main column ─────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Top bar (matches dashboard topbar) -->
+    <div class="topbar">
+      <button class="sb-toggle" type="button" aria-label="Toggle sidebar" id="sidebarToggle">
+        <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="nb-spacer"></div>
+
+      <button class="nb-pill lang" type="button" aria-label="Language">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span>US English</span>
+        <svg class="caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      <button class="nb-pill theme" type="button" aria-label="Theme">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/></svg>
+        <span>Light</span>
+        <svg class="caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      <button class="nb-bell" type="button" aria-label="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
+
+      <button type="button" class="nb-user" aria-label="User menu">
+        <div class="nb-user-avatar">A</div>
+        <div class="nb-user-meta">
+          <span class="nb-user-name">Admin</span>
+          <span class="nb-user-role">Full Access</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- Page content -->
+    <div class="page-scroll">
+
+      <div class="page-title-row">
+        <div>
+          <div class="page-title">All Applications</div>
+          <div class="page-subtitle">Pick an application to launch · click <strong style="color:var(--blue)">T-Wise Dashboard</strong> to open the operational dashboard</div>
+        </div>
+        <span class="page-meta-pill">5 APPS</span>
+      </div>
+
+      <div class="apps-grid">
+
+        <!-- AL TASNIM SMARTOPS -->
+        <div class="apps-tile t-ai" id="smartOpsTile" aria-label="Al Tasnim SmartOps">
+          <div class="apps-tile-icon ai" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="9" rx="1"/>
+              <rect x="14" y="3" width="7" height="5" rx="1"/>
+              <rect x="14" y="12" width="7" height="9" rx="1"/>
+              <rect x="3" y="16" width="7" height="5" rx="1"/>
+            </svg>
+          </div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">T-Wise Dashboard</div>
+              <span class="apps-tile-cat">Insight</span>
+            </div>
+            <div class="apps-tile-desc">Real-time well operations intelligence · KPIs · forecasts · agentic insights</div>
+          </div>
+          <div class="apps-tile-chev" data-url="https://wmr-demo.prod-app.in/" title="Open in new tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+          </div>
+        </div>
+
+        <!-- Vise (T-Wise) -->
+        <div class="apps-tile t-vise" id="viseTile" aria-label="Vise">
+          <div class="apps-tile-icon vise" aria-hidden="true"><span class="apps-tile-icon-text">V</span></div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">Vise</div>
+              <span class="apps-tile-cat">Materials</span>
+            </div>
+            <div class="apps-tile-desc">Material availability · IPM stock buffers · expedite &amp; transfer requests</div>
+          </div>
+          <div class="apps-tile-chev" data-url="https://vise.blacksmithsoft.com/" title="Open in new tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+          </div>
+        </div>
+
+        <!-- ACC -->
+        <button type="button" class="apps-tile t-acc" onclick="alert('ACC is not yet connected.');" aria-label="ACC">
+          <div class="apps-tile-icon acc" aria-hidden="true"><span class="apps-tile-icon-text">A</span></div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">ACC</div>
+              <span class="apps-tile-cat">Engineering</span>
+            </div>
+            <div class="apps-tile-desc">Autodesk Construction Cloud · drawings · RFIs · field issues</div>
+          </div>
+          <div class="apps-tile-chev" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </button>
+
+        <!-- P6 -->
+        <button type="button" class="apps-tile t-p6" onclick="alert('P6 is not yet connected.');" aria-label="P6">
+          <div class="apps-tile-icon p6" aria-hidden="true"><span class="apps-tile-icon-text">P6</span></div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">P6</div>
+              <span class="apps-tile-cat">Planning</span>
+            </div>
+            <div class="apps-tile-desc">Primavera P6 · programme schedule · critical path · resource loading</div>
+          </div>
+          <div class="apps-tile-chev" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </button>
+
+        <!-- SAP -->
+        <button type="button" class="apps-tile t-sap" onclick="alert('SAP is not yet connected.');" aria-label="SAP">
+          <div class="apps-tile-icon sap" aria-hidden="true"><span class="apps-tile-icon-text">S</span></div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">SAP</div>
+              <span class="apps-tile-cat">ERP</span>
+            </div>
+            <div class="apps-tile-desc">Procurement · POs · invoicing · asset master · cost controlling</div>
+          </div>
+          <div class="apps-tile-chev" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- Embedded app iframe (hidden by default) -->
+    <div id="appFrame" style="display:none; flex:1; overflow:hidden; position:relative;">
+      <div id="appLoader" style="position:absolute;inset:0;z-index:10;background:#f5f5f7;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;transition:opacity .3s ease;">
+        <div style="width:40px;height:40px;border:3px solid rgba(37,99,235,0.12);border-top-color:#2563eb;border-radius:50%;animation:frame-spin 0.7s linear infinite;"></div>
+        <div id="appLoaderText" style="font-family:Inter,sans-serif;font-size:14px;font-weight:500;color:#0f172a;">Loading...</div>
+        <div style="font-family:Inter,sans-serif;font-size:11px;color:#94a3b8;">Connecting to application</div>
+      </div>
+      <style>@keyframes frame-spin{to{transform:rotate(360deg)}}</style>
+      <iframe id="appIframe" title="Embedded application" style="width:100%; height:100%; border:none;"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- Loading overlay for Vise launch -->
+<div id="viseOverlay" style="position:fixed;inset:0;z-index:9999;background:rgba(5,10,26,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;">
+  <div style="width:48px;height:48px;border:4px solid rgba(13,148,136,0.2);border-top-color:#0d9488;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+  <div style="font-family:Inter,sans-serif;font-size:16px;font-weight:500;color:rgba(232,236,245,0.85);">Launching Vise...</div>
+  <div style="font-family:Inter,sans-serif;font-size:12px;color:rgba(232,236,245,0.5);">Authenticating and connecting to live dashboard</div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
+<script>
+  (function() {
+    // Access control — redirect to login if not authenticated
+    if (!sessionStorage.getItem('auth_token')) {
+      window.location.href = '/';
+      return;
+    }
+
+    // Display user email in the avatar area
+    var authUser = sessionStorage.getItem('auth_user') || 'User';
+    var nameEl = document.querySelector('.nb-user-name');
+    if (nameEl) nameEl.textContent = authUser.split('@')[0];
+
+    // Sign out handler
+    document.getElementById('signOutBtn').addEventListener('click', function(e) {
+      e.preventDefault();
+      fetch('/auth/api/logout/', { method: 'POST' }).finally(function() {
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_user');
+        sessionStorage.removeItem('auth_pass');
+        window.location.href = '/';
+      });
+    });
+
+    // --- Embedded app launcher logic ---
+    var pageScroll = document.querySelector('.page-scroll');
+    var appFrame = document.getElementById('appFrame');
+    var appIframe = document.getElementById('appIframe');
+    var appLoader = document.getElementById('appLoader');
+    var appLoaderText = document.getElementById('appLoaderText');
+    var allAppsItem = document.querySelector('.sb-item.active');
+    var viseSidebarItem = document.getElementById('viseSidebarItem');
+    var smartOpsSidebarItem = document.getElementById('smartOpsSidebarItem');
+
+    function launchAppInFrame(url, activeSidebarItem, appName) {
+      // Show loader
+      appLoader.style.opacity = '1';
+      appLoader.style.display = 'flex';
+      appLoaderText.textContent = 'Loading ' + (appName || 'application') + '...';
+      appIframe.src = url;
+      pageScroll.style.display = 'none';
+      appFrame.style.display = 'flex';
+      // Update sidebar active state
+      document.querySelectorAll('.sb-item').forEach(function(el) { el.classList.remove('active'); });
+      if (activeSidebarItem) activeSidebarItem.classList.add('active');
+    }
+
+    // Hide loader when iframe finishes loading
+    appIframe.addEventListener('load', function() {
+      appLoader.style.opacity = '0';
+      setTimeout(function() { appLoader.style.display = 'none'; }, 300);
+    });
+
+    function showAllApps() {
+      appIframe.src = '';
+      appFrame.style.display = 'none';
+      pageScroll.style.display = '';
+      // Restore sidebar active state
+      document.querySelectorAll('.sb-item').forEach(function(el) { el.classList.remove('active'); });
+      if (allAppsItem) allAppsItem.classList.add('active');
+    }
+
+    // Arrow buttons — open in new tab
+    document.querySelectorAll('.apps-tile-chev[data-url]').forEach(function(arrow) {
+      arrow.addEventListener('click', function(e) {
+        e.stopPropagation();
+        window.open(this.dataset.url, '_blank');
+      });
+    });
+
+    // Al Tasnim SmartOps tile body — open within the dashboard
+    document.getElementById('smartOpsTile').addEventListener('click', function(e) {
+      if (e.target.closest('.apps-tile-chev')) return;
+      launchAppInFrame('https://wmr-demo.prod-app.in/', smartOpsSidebarItem, 'Al Tasnim SmartOps');
+    });
+
+    // Vise tile body — open within the dashboard via proxy
+    document.getElementById('viseTile').addEventListener('click', function(e) {
+      if (e.target.closest('.apps-tile-chev')) return;
+      launchAppInFrame('/auth/launch/vise/', viseSidebarItem, 'Vise');
+    });
+
+    // Vise sidebar link — open within the dashboard via proxy
+    if (viseSidebarItem) {
+      viseSidebarItem.addEventListener('click', function(e) {
+        e.preventDefault();
+        launchAppInFrame('/auth/launch/vise/', viseSidebarItem, 'Vise');
+      });
+    }
+
+    // All Applications sidebar link — return to grid
+    if (allAppsItem) {
+      allAppsItem.addEventListener('click', function(e) {
+        e.preventDefault();
+        showAllApps();
+      });
+    }
+
+    // Unavailable app handlers (sidebar buttons)
+    var unavailableMsg = ' is not yet connected.';
+    ['acc', 'p6', 'sap'].forEach(function(app) {
+      var btn = document.getElementById(app + 'SidebarBtn');
+      if (btn) btn.addEventListener('click', function() { alert(app.toUpperCase() + unavailableMsg); });
+    });
+
+    // Sidebar toggle
+    var sidebarToggleBtn = document.getElementById('sidebarToggle');
+    var shellEl = document.querySelector('.shell');
+    if (sidebarToggleBtn && shellEl) {
+      var syncSidebarToggleAria = function() {
+        var isCollapsed = shellEl.classList.contains('sidebar-collapsed');
+        sidebarToggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
+      };
+      syncSidebarToggleAria();
+      sidebarToggleBtn.addEventListener('click', function() {
+        shellEl.classList.toggle('sidebar-collapsed');
+        syncSidebarToggleAria();
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,270 @@
+.formula {
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  // FontSizeService zooms the app, so 100vh is divided by the zoom factor (DESIGN.md 2).
+  max-height: calc(100vh / var(--app-zoom-factor, 1) - 2 * var(--spacing-md));
+  overflow: auto;
+  padding: var(--spacing-xl);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+
+  &__overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-md);
+    background: var(--color-bg-overlay);
+  }
+
+  // Header and buttons stay in view while the middle of the dialog scrolls, on any screen height.
+  &__header {
+    position: sticky;
+    top: calc(-1 * var(--spacing-xl));
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin: calc(-1 * var(--spacing-xl)) calc(-1 * var(--spacing-xl)) var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-xl);
+    background: var(--color-bg-card);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  &__title { margin: 0; font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+
+  &__notice {
+    margin: 0 0 var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-left: 3px solid var(--color-warning);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-app);
+    color: var(--color-text-primary);
+    font-size: 13px;
+  }
+
+  &__close {
+    display: inline-flex;
+    padding: var(--spacing-xs);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-label);
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); color: var(--color-text-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  &__body { display: flex; flex-direction: column; }
+
+  &__modes {
+    display: inline-flex;
+    align-self: flex-start;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-xs);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+  }
+
+  &__mode {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: 0;
+    border-radius: var(--radius-full);
+    background: none;
+    color: var(--color-text-primary);
+    font-weight: 500;
+    cursor: pointer;
+
+    &--active { background: var(--color-primary); color: var(--color-text-inverse); }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  }
+
+  &__part,
+  &__choice {
+    margin: 0 0 var(--spacing-md);
+    padding: var(--spacing-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+
+    legend { padding: 0 var(--spacing-xs); font-size: 13px; font-weight: 600; }
+  }
+
+  &__choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    font-size: 13px;
+
+    label { display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; }
+  }
+
+  &__row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-sm); }
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-xs) 0 var(--spacing-sm);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  &__text { font-family: monospace; resize: vertical; }
+
+  // The formula and the function list side by side; the dialog widens to hold both.
+  &--wide { width: min(980px, 100%); }
+
+  // The calculated-column dialog keeps one size whichever way the column is written, so switching modes does not jump.
+  &--fixed { height: min(760px, calc(100vh / var(--app-zoom-factor, 1) - 2 * var(--spacing-md))); }
+
+  &__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--spacing-md);
+    align-items: start;
+  }
+
+  &__main { min-width: 0; }
+
+  &__starts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    font-size: 13px;
+
+    .btn[aria-pressed='true'] { background: var(--color-primary-50); color: var(--color-primary); }
+  }
+
+  &__starts-label { font-weight: 600; color: var(--color-text-primary); }
+
+  &__rule {
+    display: grid;
+    grid-template-columns: 56px repeat(4, minmax(0, 1fr)) 32px;
+    gap: var(--spacing-sm);
+    align-items: end;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px dashed var(--color-border-subtle);
+    animation: formula-rule-in 0.18s ease-out;
+
+    .form-group { margin-bottom: 0; }
+  }
+
+  &__rule-label {
+    align-self: center;
+    padding-top: 18px;
+    color: var(--color-primary);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  &__rule-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    color: var(--color-text-label);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { border-color: var(--color-danger); color: var(--color-danger); }
+    &:disabled { opacity: 0.4; cursor: default; }
+    ::ng-deep svg { width: 14px; height: 14px; }
+  }
+
+  &__builder { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+
+  &__add { align-self: flex-start; }
+
+  &__otherwise { max-width: 360px; }
+
+  &__row--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  &__built {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-primary-200, var(--color-border));
+    border-radius: var(--radius-md);
+    background: var(--color-primary-50);
+  }
+
+  &__built-head { display: flex; align-items: center; justify-content: space-between; }
+
+  &__built-code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 12px;
+    color: var(--color-text-primary);
+    word-break: break-word;
+  }
+
+  &__built-sentence { margin: 0; font-size: 12px; color: var(--color-text-label); }
+
+  &__sentence {
+    margin: 0 0 var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    background: var(--color-primary-50);
+    color: var(--color-text-primary);
+    font-size: 13px;
+  }
+
+  &__sentence-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-label);
+    text-transform: uppercase;
+  }
+
+  &__actions {
+    position: sticky;
+    bottom: calc(-1 * var(--spacing-xl));
+    z-index: 2;
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-md) calc(-1 * var(--spacing-xl)) calc(-1 * var(--spacing-xl));
+    padding: var(--spacing-sm) var(--spacing-xl);
+    background: var(--color-bg-card);
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -4px 12px rgba(16, 24, 40, 0.06);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+
+  @media (max-width: 768px) {
+    &__row { grid-template-columns: 1fr; }
+    &__layout { grid-template-columns: 1fr; }
+    &__rule { grid-template-columns: 1fr; }
+    &__rule-label { padding-top: 0; }
+  }
+
+  @media (max-width: 480px) {
+    padding: var(--spacing-md);
+  }
+}
+
+@keyframes formula-rule-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+// In the fixed-size dialog the form fills the height, so the buttons sit at the bottom in every mode.
+.formula--fixed .formula__body { flex: 1 0 auto; }
+.formula--fixed .formula__actions { margin-top: auto; }

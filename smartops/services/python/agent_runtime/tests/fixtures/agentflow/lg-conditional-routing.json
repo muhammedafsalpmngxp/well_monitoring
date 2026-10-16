@@ -1,0 +1,106 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "conditional-routing",
+    "description": "Runtime branching with conditional edges",
+    "created_at": "2026-09-22T11:08:33.271Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [
+      {
+        "name": "category",
+        "type": "str",
+        "reducer": "last",
+        "description": "Triage decision"
+      }
+    ],
+    "routers": [
+      {
+        "name": "route_by_category",
+        "source": "triage",
+        "routes": [
+          {
+            "condition": "'billing' in (state.get('category') or '').lower()",
+            "target": "billing"
+          },
+          {
+            "condition": "'technical' in (state.get('category') or '').lower()",
+            "target": "technical"
+          }
+        ],
+        "default_target": "END"
+      }
+    ],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "triage",
+        "role": "a support triage agent",
+        "goal": "Classify the request as exactly one word: billing, technical, or other",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "category"
+      },
+      {
+        "name": "billing",
+        "role": "a billing specialist",
+        "goal": "Resolve billing questions",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      },
+      {
+        "name": "technical",
+        "role": "a technical support engineer",
+        "goal": "Resolve technical problems",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [
+      {
+        "name": "classify",
+        "description": "Reply with exactly one word: billing, technical, or other.",
+        "tools": [],
+        "agent": "triage",
+        "expected_output": "One word"
+      }
+    ],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

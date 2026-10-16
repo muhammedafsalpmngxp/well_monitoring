@@ -1,0 +1,165 @@
+<div class="formula__overlay" (click)="cancelled.emit()">
+  <div appDialog (dialogClose)="cancelled.emit()" #dialog class="formula formula--wide formula--fixed" role="dialog" aria-modal="true" aria-labelledby="column-title"
+    (click)="$event.stopPropagation()" (keydown)="onKeydown($event)">
+    <header class="formula__header">
+      <h2 id="column-title" class="formula__title">{{ title }}</h2>
+      <button type="button" class="formula__close" aria-label="Close without saving" (click)="cancelled.emit()">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </header>
+    <p *ngIf="notice" class="formula__notice" role="note">{{ notice }}</p>
+
+    <form class="formula__body" (ngSubmit)="submit()" (input)="clearServerError()" (change)="clearServerError()">
+      <div class="form-group">
+        <label for="column-name">Column name</label>
+        <input #nameInput id="column-name" class="form-control" name="name" maxlength="128" placeholder="For example Task year"
+          [(ngModel)]="name" />
+      </div>
+
+      <div class="formula__modes" role="tablist" aria-label="How to write the column">
+        <button type="button" role="tab" class="formula__mode" [class.formula__mode--active]="mode === 'formula'"
+          [attr.aria-selected]="mode === 'formula'" (click)="setMode('formula')">Formula</button>
+        <button type="button" role="tab" class="formula__mode" [class.formula__mode--active]="mode === 'conditional'"
+          [attr.aria-selected]="mode === 'conditional'" (click)="setMode('conditional')">Conditional column</button>
+        <button type="button" role="tab" class="formula__mode" [class.formula__mode--active]="mode === 'bins'"
+          [attr.aria-selected]="mode === 'bins'" (click)="setMode('bins')">Bins</button>
+      </div>
+
+      <!-- Formula: typed, with the field list ([) and the function library -->
+      <div *ngIf="mode === 'formula'" class="formula__layout">
+        <div class="formula__main">
+          <div class="form-group">
+            <label for="column-formula">Formula</label>
+            <textarea #textInput id="column-formula" class="form-control formula__text" name="text" rows="5" spellcheck="false"
+              [attr.aria-invalid]="shownError ? 'true' : null"
+              [attr.aria-describedby]="shownError ? 'column-formula-error' : 'column-formula-hint'"
+              [(ngModel)]="text" (ngModelChange)="textError = null"></textarea>
+            <app-field-suggest [target]="textInput" [fields]="suggestFields" listId="column-suggest"
+              (applied)="applySuggestion($event)"></app-field-suggest>
+            <p id="column-formula-hint" class="form-hint">
+              Works on one row at a time, for example {{ source.alias }}.column * 60 or IF({{ source.alias }}.column > 8, 'Long', 'Short').
+              Type [ to pick a field of {{ source.alias }}, or pick a function in the list to insert an example.
+            </p>
+            <p *ngIf="shownError as error" id="column-formula-error" class="form-error" aria-live="polite"
+              [attr.role]="textError ? 'alert' : null">
+              {{ error.message }} (at character {{ error.start + 1 }})
+            </p>
+          </div>
+          <p class="formula__sentence" aria-live="polite">
+            <span class="formula__sentence-label">Reads as</span>
+            {{ sentence }}
+          </p>
+        </div>
+        <app-function-list class="formula__aside" mode="row" [columns]="exampleColumns" (insert)="insertExample($event)"></app-function-list>
+      </div>
+
+      <!-- Conditional column: rules in order, the first that holds gives the value -->
+      <div *ngIf="mode === 'conditional'" class="formula__builder">
+        <p class="form-hint">The first rule that holds gives the row its value; a row that meets none gets Otherwise.</p>
+        <div *ngFor="let rule of rules; let i = index" class="formula__rule">
+          <span class="formula__rule-label">{{ i === 0 ? 'If' : 'Else if' }}</span>
+          <div class="form-group">
+            <label [attr.for]="'rule-column-' + i">Column</label>
+            <select [id]="'rule-column-' + i" class="form-control" [(ngModel)]="rule.column" [ngModelOptions]="{ standalone: true }">
+              <option value="" disabled>Choose a column</option>
+              <option *ngFor="let field of tableFields" [value]="field.columnName">{{ field.columnName }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label [attr.for]="'rule-op-' + i">Test</label>
+            <select [id]="'rule-op-' + i" class="form-control" [(ngModel)]="rule.op" [ngModelOptions]="{ standalone: true }">
+              <option *ngFor="let comparison of comparisons" [value]="comparison[0]">{{ comparison[1] }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label [attr.for]="'rule-value-' + i">Value</label>
+            <input [id]="'rule-value-' + i" class="form-control" placeholder="For example 8" [(ngModel)]="rule.value"
+              [ngModelOptions]="{ standalone: true }" />
+          </div>
+          <div class="form-group">
+            <label [attr.for]="'rule-result-' + i">Then</label>
+            <input [id]="'rule-result-' + i" class="form-control" placeholder="For example Long" [(ngModel)]="rule.result"
+              [ngModelOptions]="{ standalone: true }" />
+          </div>
+          <button type="button" class="formula__rule-remove" [disabled]="rules.length === 1"
+            [attr.aria-label]="'Remove rule ' + (i + 1)" (click)="removeRule(i)">
+            <app-icon name="close" aria-hidden="true"></app-icon>
+          </button>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm formula__add" (click)="addRule()">+ Add a rule</button>
+        <div class="form-group formula__otherwise">
+          <label for="rule-otherwise">Otherwise</label>
+          <input id="rule-otherwise" class="form-control" placeholder="For example Normal (or leave blank)" [(ngModel)]="otherwise"
+            [ngModelOptions]="{ standalone: true }" />
+        </div>
+        <ng-container *ngTemplateOutlet="builtFormula"></ng-container>
+      </div>
+
+      <!-- Bins: groups of a number column -->
+      <div *ngIf="mode === 'bins'" class="formula__builder">
+        <p class="form-hint">Groups a number column: into bins of equal width (0, 10, 20, ...), or into named ranges between boundaries.</p>
+        <div class="formula__row">
+          <div class="form-group">
+            <label for="bins-column">Number column</label>
+            <select id="bins-column" class="form-control" [(ngModel)]="bins.column" [ngModelOptions]="{ standalone: true }">
+              <option value="" disabled>Choose a number column</option>
+              <option *ngFor="let field of numberFields" [value]="field.columnName">{{ field.columnName }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="bins-mode">Bins</label>
+            <select id="bins-mode" class="form-control" [(ngModel)]="bins.mode" [ngModelOptions]="{ standalone: true }">
+              <option value="width">Of equal width</option>
+              <option value="ranges">Named ranges</option>
+            </select>
+          </div>
+          <div *ngIf="bins.mode === 'width'" class="form-group">
+            <label for="bins-width">Width of each bin</label>
+            <input id="bins-width" class="form-control" inputmode="decimal" placeholder="For example 10"
+              [(ngModel)]="bins.width" [ngModelOptions]="{ standalone: true }" />
+          </div>
+        </div>
+        <div *ngIf="bins.mode === 'ranges'" class="formula__row formula__row--two">
+          <div class="form-group">
+            <label for="bins-bounds">Boundaries, smallest first</label>
+            <input id="bins-bounds" class="form-control" placeholder="For example 4, 8"
+              [(ngModel)]="bins.bounds" [ngModelOptions]="{ standalone: true }" />
+          </div>
+          <div class="form-group">
+            <label for="bins-labels">Labels, one more than the boundaries</label>
+            <input id="bins-labels" class="form-control" placeholder="For example Short, Normal, Long"
+              [(ngModel)]="bins.labels" [ngModelOptions]="{ standalone: true }" />
+          </div>
+        </div>
+        <p *ngIf="bins.mode === 'ranges'" class="form-hint">
+          With 4, 8 and Short, Normal, Long: below 4 is Short, 4 up to 8 is Normal, 8 and above is Long.
+        </p>
+        <p *ngIf="bins.mode === 'width'" class="form-hint">
+          With 10: 0 to 9.99 is 0, 10 to 19.99 is 10, and so on. Each row gets the start of its bin.
+        </p>
+        <ng-container *ngTemplateOutlet="builtFormula"></ng-container>
+      </div>
+
+      <ng-template #builtFormula>
+        <div class="formula__built" aria-live="polite">
+          <div class="formula__built-head">
+            <span class="formula__sentence-label">Formula</span>
+            <button *ngIf="built && 'text' in built" type="button" class="btn btn-ghost btn-sm" (click)="editAsFormula()">Edit as formula</button>
+          </div>
+          <code *ngIf="built && 'text' in built; else waiting" class="formula__built-code">{{ formulaText }}</code>
+          <ng-template #waiting><p class="form-hint">{{ built && 'problem' in built ? built.problem : '' }}</p></ng-template>
+          <p *ngIf="built && 'text' in built" class="formula__built-sentence">{{ sentence }}</p>
+        </div>
+      </ng-template>
+
+      <p *ngIf="problem" class="form-error" role="alert">{{ problem }}</p>
+      <p *ngIf="serverError" class="form-error" role="alert">{{ serverError }}</p>
+      <p *ngIf="!serverError && !problem && check.problem" class="form-error" aria-live="polite">{{ check.problem }}</p>
+
+      <div class="formula__actions">
+        <app-button variant="secondary" (clicked)="cancelled.emit()">Cancel</app-button>
+        <app-button variant="primary" type="submit" [loading]="saving">Save column</app-button>
+      </div>
+    </form>
+  </div>
+</div>

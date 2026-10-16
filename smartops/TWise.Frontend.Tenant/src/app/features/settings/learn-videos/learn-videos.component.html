@@ -1,0 +1,90 @@
+<app-page-header title="Learn Videos"
+  subtitle="Set the video each builder's Learn button plays. Files are hosted on S3; only the link is stored here."
+  [breadcrumbs]="breadcrumbs">
+  <span page-header-icon class="lv-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white"
+      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="10 8 16 12 10 16 10 8" />
+    </svg>
+  </span>
+</app-page-header>
+
+<div class="page-content lv">
+  <p *ngIf="error" class="lv__error" role="alert">{{ error }}</p>
+  <app-loader *ngIf="loading" size="lg"></app-loader>
+
+  <table class="lv__table" *ngIf="!loading">
+    <thead>
+      <tr><th>Screen</th><th>Title</th><th>Video URL</th><th>Chapters</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of rows">
+        <td><strong>{{ row.name }}</strong><br /><span class="lv__key">{{ row.key }}</span></td>
+        <td>{{ row.video?.title || '—' }}</td>
+        <td class="lv__url">{{ row.video?.videoUrl || 'Not configured' }}</td>
+        <td>{{ row.video?.chapters?.length || 0 }}</td>
+        <td>
+          <span class="lv__badge" [class.lv__badge--on]="row.video?.isActive" [class.lv__badge--off]="row.video && !row.video.isActive">
+            {{ !row.video ? 'Missing' : row.video.isActive ? 'Active' : 'Inactive' }}
+          </span>
+        </td>
+        <td class="lv__actions"><button *ngIf="canEdit(row)" type="button" class="btn btn-primary" (click)="openEdit(row)">{{ row.video ? 'Edit' : 'Set video' }}</button></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Edit dialog -->
+<div class="dialog-backdrop" *ngIf="editing" (click)="closeEdit()">
+  <form appDialog (dialogClose)="closeEdit()" class="dialog dialog--lg" role="dialog" aria-modal="true" aria-labelledby="lv-dialog-title" (click)="$event.stopPropagation()" (ngSubmit)="save()">
+    <div class="dialog__header">
+      <h3 id="lv-dialog-title">{{ editing.name }} — Learn video</h3>
+      <button type="button" class="dialog__close" aria-label="Close" [disabled]="saving" (click)="closeEdit()">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+          <path d="M13.8 7.8L7.8 13.8M7.8 7.8L13.8 13.8M20.8 10.8C20.8 16.3 16.3 20.8 10.8 20.8C5.3 20.8 0.8 16.3 0.8 10.8C0.8 5.3 5.3 0.8 10.8 0.8C16.3 0.8 20.8 5.3 20.8 10.8Z"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
+    <div class="dialog__panel">
+      <div class="dialog__body lv__form">
+        <label>Title
+          <input id="lv-title" type="text" [(ngModel)]="form.title" name="title" required />
+        </label>
+        <label>Video URL (S3 object or CloudFront, https)
+          <input id="lv-url" type="url" [(ngModel)]="form.videoUrl" name="videoUrl" required
+            placeholder="https://<bucket>.s3.<region>.amazonaws.com/learn/chart-builder-overview.mp4" (change)="previewState = 'idle'" />
+        </label>
+        <label>Poster image URL <span class="lv__optional">(optional)</span>
+          <input id="lv-poster" type="url" [(ngModel)]="form.posterUrl" name="posterUrl" placeholder="https://…/poster.jpg" />
+        </label>
+
+        <!-- Preview proves the link is reachable from the browser before it is saved -->
+        <div class="lv__preview" *ngIf="form.videoUrl.trim()">
+          <video controls preload="metadata" [src]="form.videoUrl.trim()" (loadedmetadata)="previewState = 'ok'" (error)="previewState = 'failed'"></video>
+          <small class="lv__hint" *ngIf="previewState === 'ok'">The video loads — {{ 'the file is reachable.' }}</small>
+          <small class="lv__hint lv__hint--bad" *ngIf="previewState === 'failed'">The browser could not load this URL. Check the object exists, is public (or served via CloudFront), and the bucket's CORS allows this site.</small>
+        </div>
+
+        <fieldset class="lv__chapters">
+          <legend>Quick Chapters</legend>
+          <div class="lv__chapter" *ngFor="let c of form.chapters; let i = index">
+            <input type="text" [(ngModel)]="c.label" [name]="'label' + i" placeholder="Label" aria-label="Chapter label" />
+            <input type="number" min="0" [(ngModel)]="c.time" [name]="'time' + i" placeholder="Start (s)" aria-label="Start second" />
+            <input type="text" [(ngModel)]="c.durationLabel" [name]="'dur' + i" placeholder="1:20" aria-label="Duration label" />
+            <button type="button" class="lv__remove" (click)="removeChapter(i)" aria-label="Remove chapter">&times;</button>
+          </div>
+          <button type="button" class="btn btn-secondary" (click)="addChapter()">Add chapter</button>
+        </fieldset>
+
+        <label class="lv__inline"><input type="checkbox" [(ngModel)]="form.isActive" name="isActive" /> Active (shown to users)</label>
+        <p *ngIf="formError" class="lv__error" role="alert">{{ formError }}</p>
+      </div>
+      <div class="dialog__footer">
+        <button type="button" class="btn btn-secondary" (click)="closeEdit()" [disabled]="saving">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving || !canSave">{{ saving ? 'Saving…' : 'Save' }}</button>
+      </div>
+    </div>
+  </form>
+</div>

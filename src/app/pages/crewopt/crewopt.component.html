@@ -1,0 +1,259 @@
+<div id="page-crewopt" class="page active co-body">
+
+  <!-- <div class="breadcrumb">
+    <a data-page="cmdoverview">{{ 'SIDEBAR.FIELD_OPERATIONS' | translate }}</a>
+    <span>›</span>
+    <span class="current">Crew Optimization</span>
+  </div> -->
+
+  <!-- Page header -->
+  <div class="page-title-row">
+    <div class="co-title-wrap">
+      <div class="page-title co-page-title">
+        Crew Optimization
+        <span class="co-badge-new">NEW</span>
+      </div>
+      <div class="page-subtitle">AI-driven crew → activity matching · auto-routes the best crew to every well based on P-rating, distance, materials and predecessors</div>
+    </div>
+  </div>
+
+  <!-- KPI tiles -->
+  <div class="co-kpi-strip">
+
+    <div class="co-kpi blue">
+      <div class="co-kpi-head">
+        <span class="co-kpi-label">Total Crews</span>
+        <span class="co-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+      </div>
+      <div class="co-kpi-val" id="coKpiTotalCrews">500</div>
+      <div class="co-kpi-sub">Active: <span id="coKpiActiveCrews">412</span></div>
+    </div>
+
+    <div class="co-kpi green">
+      <div class="co-kpi-head">
+        <span class="co-kpi-label">Wells <span class="co-kpi-info" title="Wells under active operations">ⓘ</span></span>
+        <span class="co-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </span>
+      </div>
+      <div class="co-kpi-val" id="coKpiTotalWells">148</div>
+      <div class="co-kpi-sub">Active: <span id="coKpiActiveWells">126</span></div>
+    </div>
+
+    <div class="co-kpi red">
+      <div class="co-kpi-head">
+        <span class="co-kpi-label">Critical Activities <span class="co-kpi-info" title="Activities flagged P1 / Critical">ⓘ</span></span>
+        <span class="co-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+      </div>
+      <div class="co-kpi-val" id="coKpiCritical">23</div>
+      <div class="co-kpi-sub">Next 7 Days</div>
+    </div>
+
+    <div class="co-kpi purple">
+      <div class="co-kpi-head">
+        <span class="co-kpi-label">Assignments (Tomorrow) <span class="co-kpi-info" title="Crew → activity assignments scheduled for the next operating day">ⓘ</span></span>
+        <span class="co-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+      </div>
+      <div class="co-kpi-val" id="coKpiAssignments">126</div>
+      <div class="co-kpi-sub">Auto Assigned: <strong><span id="coKpiAutoAssigned">112 (89.0%)</span></strong></div>
+    </div>
+
+    <div class="co-kpi amber">
+      <div class="co-kpi-head">
+        <span class="co-kpi-label">High Performers (P8)</span>
+        <span class="co-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </span>
+      </div>
+      <div class="co-kpi-val" id="coKpiHighPerf">67</div>
+      <div class="co-kpi-sub">Available Tomorrow</div>
+    </div>
+
+    <div class="co-kpi green-fill">
+      <div class="co-kpi-head">
+        <span class="co-kpi-label">Optimization Score</span>
+        <span class="co-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        </span>
+      </div>
+      <div class="co-kpi-val co-kpi-val-big" id="coKpiOptScore">92.0%</div>
+      <div class="co-kpi-sub co-kpi-excellent" id="coKpiOptScoreLbl">Excellent</div>
+    </div>
+
+  </div>
+
+  <!-- Optimization inputs -->
+  <div class="card co-inputs-card">
+    <div class="co-inputs-head">
+      <span class="co-inputs-title">Optimization Inputs</span>
+      <div class="co-inputs-actions">
+        <button type="button" class="co-more-filters">More Filters</button>
+        <button type="button" class="co-btn-primary" onclick="coOpenOptPlan()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Generate Optimization Plan
+        </button>
+      </div>
+    </div>
+    <div class="co-inputs-grid">
+      <div class="co-input-block">
+        <label>Time Horizon</label>
+        <select id="coTimeHorizon">
+          <option value="1d">1 Day</option>
+          <option value="3d">3 Days</option>
+          <option value="1w" selected>1 Week</option>
+          <option value="2w">2 Weeks</option>
+          <option value="1m">1 Month</option>
+        </select>
+      </div>
+      <div class="co-input-block">
+        <label>Well(s)</label>
+        <select id="coWells">
+          <option value="all" selected>All Wells</option>
+          <option value="critical">Critical Only</option>
+          <option value="nimr">NIMR Cluster</option>
+          <option value="alburj">AL BURJ Cluster</option>
+          <option value="amin">AMIN Cluster</option>
+          <option value="marmul">MARMUL Cluster</option>
+        </select>
+      </div>
+      <div class="co-input-block">
+        <label>Activity Type</label>
+        <select id="coActivityType">
+          <option value="all" selected>All Activities</option>
+          <option value="welding">Welding</option>
+          <option value="civil">Civil</option>
+          <option value="rigging">Rigging</option>
+          <option value="hydro">Hydro Testing</option>
+          <option value="electrical">Electrical / Cable</option>
+        </select>
+      </div>
+      <div class="co-input-block">
+        <label>Crew Group</label>
+        <select id="coCrewGroup">
+          <option value="all" selected>All Groups (61)</option>
+          <option value="frl">FRL — Rigging Logistics</option>
+          <option value="fwp">FWP — Welding Pipework</option>
+          <option value="fcv">FCV — Civil Earthworks</option>
+          <option value="fit">FIT — Hydro Test</option>
+          <option value="fec">FEC — Electrical</option>
+        </select>
+      </div>
+      <div class="co-input-block">
+        <label>Priority</label>
+        <select id="coPriority">
+          <option value="all" selected>All</option>
+          <option value="critical">Critical Only</option>
+          <option value="high">High &amp; above</option>
+          <option value="medium">Medium &amp; above</option>
+        </select>
+      </div>
+      <div class="co-toggle-row">
+        <label class="co-toggle">
+          <span>Include Travel Time</span>
+          <input type="checkbox" checked /><span class="co-toggle-track"></span>
+        </label>
+        <label class="co-toggle">
+          <span>Check Materials</span>
+          <input type="checkbox" checked /><span class="co-toggle-track"></span>
+        </label>
+        <label class="co-toggle">
+          <span>Check Equipment</span>
+          <input type="checkbox" checked /><span class="co-toggle-track"></span>
+        </label>
+        <label class="co-toggle">
+          <span>Respect Predecessors</span>
+          <input type="checkbox" checked /><span class="co-toggle-track"></span>
+        </label>
+        <label class="co-toggle">
+          <span>Auto Replan <span class="co-kpi-info" title="Automatically re-run when inputs change">ⓘ</span></span>
+          <input type="checkbox" checked /><span class="co-toggle-track"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommended Assignments -->
+  <div class="card co-assign-card">
+    <div class="co-assign-head">
+      <div>
+        <div class="co-assign-title" id="coAssignTitle">Recommended Assignments</div>
+        <div class="co-assign-sub" id="coAssignSub">Plan window · loading…</div>
+      </div>
+      <div class="co-assign-controls">
+        <div class="co-date-range">
+          <label>From</label>
+          <input type="date" id="coDateFrom" onchange="renderCrewOpt()" />
+          <label>To</label>
+          <input type="date" id="coDateTo" onchange="renderCrewOpt()" />
+          <button type="button" class="co-date-quick" onclick="coSetDateQuick('tomorrow')" title="Tomorrow only">Tomorrow</button>
+          <button type="button" class="co-date-quick" onclick="coSetDateQuick('week')" title="Next 7 days">Week</button>
+        </div>
+        <button type="button" class="co-edit-toggle" id="coEditToggle" onclick="coToggleEdit()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span id="coEditToggleLbl">Edit Plan</span>
+        </button>
+        <span class="co-auto-badge" id="coAutoBadge">112 Auto Assigned</span>
+      </div>
+    </div>
+    <div id="coAssignGrid" class="ag-theme-alpine"></div>
+    <a class="co-view-all" href="javascript:void(0)">View all assignments →</a>
+  </div>
+
+  <!-- Well Map & Crew Routing -->
+  <div class="card co-map-card">
+    <div class="co-map-head">
+      <div>
+        <div class="co-map-title" id="coMapTitle">Well Map &amp; Crew Routing</div>
+        <div class="co-map-sub" id="coMapSub">Tomorrow</div>
+        <div class="co-map-legend">
+          <span class="co-leg-item"><span class="co-leg-dot co-leg-dot--high"></span>High Priority</span>
+          <span class="co-leg-item"><span class="co-leg-dot co-leg-dot--medium"></span>Medium Priority</span>
+          <span class="co-leg-item"><span class="co-leg-dot co-leg-dot--normal"></span>Normal</span>
+        </div>
+      </div>
+      <div class="co-map-controls">
+        <div class="co-date-range">
+          <label>From</label>
+          <input type="date" id="coMapDateFrom" onchange="renderCrewOpt()" />
+          <label>To</label>
+          <input type="date" id="coMapDateTo" onchange="renderCrewOpt()" />
+          <button type="button" class="co-date-quick" onclick="coSetMapDateQuick('tomorrow')" title="Tomorrow only">Tomorrow</button>
+          <button type="button" class="co-date-quick" onclick="coSetMapDateQuick('week')" title="Next 7 days">Week</button>
+        </div>
+        <div class="co-map-tabs">
+          <button type="button" class="co-map-tab active">Map</button>
+          <button type="button" class="co-map-tab">List</button>
+          <button type="button" class="co-map-tab co-map-expand" title="Full screen">⛶</button>
+        </div>
+      </div>
+    </div>
+    <div class="co-map-row">
+      <div class="co-map-canvas-wrap">
+        <svg id="coMapCanvas" viewBox="0 0 720 380" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="co-route-summary">
+        <div class="co-route-title">Routing Summary</div>
+        <div class="co-route-block">
+          <div class="co-route-label">Total Distance</div>
+          <div class="co-route-val">1,248 km</div>
+        </div>
+        <div class="co-route-block">
+          <div class="co-route-label">Total Travel Time</div>
+          <div class="co-route-val">18:45</div>
+        </div>
+        <div class="co-route-block">
+          <div class="co-route-label">Avg. Travel / Crew</div>
+          <div class="co-route-val">02:35</div>
+        </div>
+        <a class="co-route-link" href="javascript:void(0)">View full route plan →</a>
+      </div>
+    </div>
+  </div>
+
+</div>

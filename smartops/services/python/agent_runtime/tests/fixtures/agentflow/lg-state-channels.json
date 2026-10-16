@@ -1,0 +1,100 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "state-channels",
+    "description": "Typed state with reducers",
+    "created_at": "2026-09-22T11:08:33.271Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [
+      {
+        "name": "findings",
+        "type": "list",
+        "reducer": "append",
+        "description": "Each node appends its findings"
+      },
+      {
+        "name": "scratch",
+        "type": "dict",
+        "reducer": "merge",
+        "description": "Shared scratchpad, merged per key"
+      },
+      {
+        "name": "topic",
+        "type": "str",
+        "reducer": "last",
+        "description": "Current topic; last writer wins"
+      }
+    ],
+    "routers": [],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "collector",
+        "role": "a data collector",
+        "goal": "Collect facts and record them in state",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "topic"
+      },
+      {
+        "name": "summarizer",
+        "role": "a summarizer",
+        "goal": "Summarize everything collected so far",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [
+      {
+        "name": "collect",
+        "description": "Collect three facts about the topic.",
+        "tools": [],
+        "agent": "collector",
+        "expected_output": "Three facts"
+      },
+      {
+        "name": "summarize",
+        "description": "Summarize the collected facts.",
+        "tools": [],
+        "agent": "summarizer",
+        "expected_output": "A short summary"
+      }
+    ],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

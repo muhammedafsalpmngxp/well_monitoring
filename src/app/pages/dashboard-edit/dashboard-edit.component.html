@@ -1,0 +1,52 @@
+<div id="page-dashboard-edit" class="page active">
+        <div class="breadcrumb">
+          <a onclick="navigate('dashboards', document.getElementById('nav-dashboards'))">{{ 'DASHBOARD_EDIT.BREADCRUMB_DASHBOARDS' | translate }}</a><span>›</span>
+          <span class="current" id="dbEditCrumb">{{ 'DASHBOARD_EDIT.NEW_DASHBOARD' | translate }}</span>
+        </div>
+
+        <div class="db-builder">
+          <!-- LEFT: canvas -->
+          <div class="db-canvas-wrap">
+            <div class="db-canvas-toolbar">
+              <input type="text" class="db-canvas-name" id="dbName" [placeholder]="'DASHBOARD_EDIT.UNTITLED_PLACEHOLDER' | translate"/>
+              <select class="db-canvas-cat" id="dbCatSelect" title="Category"></select>
+              <span style="font-size:10.5px;color:var(--txt-muted);font-family:JetBrains Mono,monospace" id="dbWidgetCount">{{ 'DASHBOARD_EDIT.WIDGETS_DEFAULT' | translate }}</span>
+              <div class="db-canvas-tools">
+                <button class="db-canvas-btn danger" onclick="dbClearCanvas()" [title]="'DASHBOARD_EDIT.REMOVE_ALL_TITLE' | translate">
+                  <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+                  {{ 'DASHBOARD_EDIT.CLEAR' | translate }}
+                </button>
+                <button class="db-canvas-btn" onclick="dbCancelBuilder()">{{ 'DASHBOARD_EDIT.CANCEL' | translate }}</button>
+                <button class="db-canvas-btn primary" onclick="dbSaveDashboard()">
+                  <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  {{ 'DASHBOARD_EDIT.SAVE_DASHBOARD' | translate }}
+                </button>
+              </div>
+            </div>
+            <div class="db-canvas" id="dbCanvas">
+              <div class="db-canvas-inner">
+                <div class="db-canvas-empty" id="dbCanvasEmpty">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+                  <div class="em-title">{{ 'DASHBOARD_EDIT.EMPTY_TITLE' | translate }}</div>
+                  <div [innerHTML]="'DASHBOARD_EDIT.EMPTY_INSTRUCTIONS' | translate"></div>
+                </div>
+                <div class="db-grid-canvas" id="dbGridCanvas"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: widget palette -->
+          <div class="db-palette">
+            <div class="db-palette-head">
+              <div class="db-palette-title">
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                {{ 'DASHBOARD_EDIT.WIDGET_LIBRARY' | translate }}
+              </div>
+              <input type="text" class="db-palette-search" id="dbPaletteSearch" [placeholder]="'DASHBOARD_EDIT.SEARCH_PLACEHOLDER' | translate" oninput="dbRenderPalette()"/>
+            </div>
+            <div class="db-palette-body" id="dbPaletteBody">
+              <!-- palette injected -->
+            </div>
+          </div>
+        </div>
+      </div><!-- /page-dashboard-edit -->

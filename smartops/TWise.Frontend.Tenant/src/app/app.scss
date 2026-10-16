@@ -1,0 +1,13 @@
+// FontSizeService zooms this host element (not <html>/<body>). `zoom` scales
+// how descendants render but not the zoomed element's own box, so app-root
+// just needs to plainly fill body/html.
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+:host > app-confirmation-dialog {
+  position: relative;
+  z-index: 1300;
+}

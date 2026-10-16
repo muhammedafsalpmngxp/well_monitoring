@@ -1,0 +1,1717 @@
+:host {
+  // Fills the app shell's scroll box so only .scrollAccordionMain (not the
+  // header/filter bar above it) ends up scrollable.
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+
+  > app-page-header {
+    flex-shrink: 0;
+  }
+}
+
+:host ::ng-deep .ag-column-panel {
+  overflow-y: auto;
+}
+
+:host ::ng-deep .ag-column-panel .ag-column-drop-vertical {
+  min-height: 88px;
+}
+
+:host ::ng-deep .ag-column-panel .ag-column-drop-vertical-list {
+  overflow-y: auto;
+}
+
+.rv-export-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #101828;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-family-base);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.24);
+  animation: rv-export-toast-in 0.18s ease;
+
+  &--error {
+    background: #B42318;
+  }
+
+  &__spinner {
+    animation: rv-export-toast-spin 0.8s linear infinite;
+    color: #93C5FD;
+  }
+}
+
+.odc-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin: 0 24px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 8px;
+  color: #065F46;
+  font-size: 13px;
+  font-weight: 500;
+  animation: slideDown 0.2s ease-out;
+
+  svg {
+    color: #10B981;
+    flex-shrink: 0;
+  }
+}
+
+@keyframes rv-export-toast-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rv-export-toast-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.report-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--font-family-base);
+  margin-top: 16px;
+  // Not the scroll box itself — :host pins the header/filter bar above it, and
+  // .scrollAccordionMain below owns the actual inner scrollbar.
+  overflow: hidden;
+
+  > :not(.scrollAccordionMain) {
+    flex-shrink: 0;
+  }
+
+  &__grid-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 360px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+
+    > ag-grid-angular {
+      width: 100%;
+      flex: 1;
+      min-height: 400px;
+    }
+  }
+
+  // ─── Excel-like page tabs (read-only) ───────────────────────────────────
+  .rv-sheet-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    padding: 0 6px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-app, #f1f4f9);
+
+    &__tab {
+      height: 36px;
+      min-width: 84px;
+      max-width: 220px;
+      padding: 0 16px;
+      border: 1px solid transparent;
+      border-bottom: none;
+      background: transparent;
+      color: var(--color-text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+
+      &:hover {
+        background: rgba(33, 64, 154, 0.06);
+      }
+
+      &.active {
+        background: var(--color-bg-card, #fff);
+        color: var(--color-primary);
+        font-weight: 600;
+        border-color: var(--color-border);
+        border-top: 2px solid var(--color-primary);
+        border-radius: 6px 6px 0 0;
+      }
+    }
+  }
+
+  // ─── Grid toolbar (search, density, CSV) ────────────────────────────────
+  .rv-grid-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #F9FAFB;
+    border-bottom: 1px solid var(--color-border);
+    gap: 12px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+
+    &__left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    &__right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    &__count {
+      font-size: 12px;
+      color: #667085;
+      white-space: nowrap;
+    }
+
+    &__btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #344054;
+      background: #fff;
+      border: 1px solid #D0D5DD;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #F0F4FF;
+        border-color: #21409A;
+        color: #21409A;
+      }
+    }
+  }
+
+  .rv-grid-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: #fff;
+    border: 1px solid #D0D5DD;
+    border-radius: 6px;
+    min-width: 200px;
+
+    input {
+      border: none;
+      outline: none;
+      font-size: 13px;
+      color: #344054;
+      width: 100%;
+      background: transparent;
+
+      &::placeholder {
+        color: #667085;
+      }
+    }
+  }
+
+  .rv-view-toggle {
+    display: flex;
+    border: 1px solid #D0D5DD;
+    border-radius: 6px;
+    overflow: hidden;
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 30px;
+      background: #fff;
+      border: none;
+      cursor: pointer;
+      color: #98A2B3;
+      transition: all 0.15s ease;
+
+      &:not(:last-child) {
+        border-right: 1px solid #D0D5DD;
+      }
+
+      &:hover {
+        background: #F0F4FF;
+        color: #21409A;
+      }
+
+      &.active {
+        background: #EEF4FF;
+        color: #21409A;
+      }
+    }
+  }
+
+  ::ng-deep .ag-header-cell-label,
+  ::ng-deep .ag-header-group-cell-label {
+    align-items: center;
+    white-space: pre-line;
+  }
+
+  ::ng-deep .ag-header-cell-text,
+  ::ng-deep .ag-header-group-text {
+    line-height: 1.2;
+    white-space: pre-line;
+  }
+
+  // Baseline header/body separator for header cells the shared util doesn't style inline (the
+  // auto "#" column and group header cells) — AG's own headerRowBorder is disabled so a manual
+  // bottom border can't stack with it. Leaf headers' inline box-shadow overrides this.
+  ::ng-deep .ag-header-cell,
+  ::ng-deep .ag-header-group-cell {
+    box-shadow: inset 0 -1px 0 0 #E2E7EF;
+  }
+
+  // Vertical (bottom-to-top) header text — rotates only the label, not the icons.
+  ::ng-deep .rb-header-vertical .ag-header-cell-label,
+  ::ng-deep .rb-header-vertical .pin-header__label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
+  // Vertical-orientation cells: the text is rotated by the cell renderer (on the inner <span>),
+  // not here — rotating the whole cell would flip its border sides 180° (a top/left border would
+  // paint on the visual bottom/right and double with neighbours). These rules only size the
+  // content so the rotated text wraps into columns within the getRowHeight row.
+  ::ng-deep .ag-cell.rb-cell-vertical {
+    .ag-cell-wrapper {
+      overflow: visible;
+      height: 100%;
+      align-items: stretch;
+    }
+
+    .ag-cell-value,
+    .ag-group-value {
+      height: 100%;
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      word-break: break-word;
+    }
+  }
+  // Grouped label cells stay on one line with an ellipsis (full text on hover via the auto
+  // group column's tooltip) instead of wrapping and overflowing the fixed row height, which
+  // would overlap the rows below. The flex chain (cell → wrapper → value) needs min-width:0 —
+  // the default min-width:auto otherwise blocks truncation. Vertical cells above (more
+  // specific) opt back into wrapping.
+  ::ng-deep .ag-cell .ag-cell-wrapper {
+    min-width: 0;
+    overflow: hidden;
+  }
+  ::ng-deep .ag-group-value {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  // Per-header horizontal alignment.
+  ::ng-deep .rb-header-align-left .ag-header-cell-label { justify-content: flex-start; }
+  ::ng-deep .rb-header-align-center .ag-header-cell-label { justify-content: center; }
+  ::ng-deep .rb-header-align-right .ag-header-cell-label { justify-content: flex-end; }
+  // The custom column header renders its own label element, so align its text directly.
+  ::ng-deep .rb-header-align-left .pin-header__label { text-align: left; }
+  ::ng-deep .rb-header-align-center .pin-header__label { text-align: center; }
+  ::ng-deep .rb-header-align-right .pin-header__label { text-align: right; }
+
+  // Keep the sort/filter/menu icons pinned to the column's right edge in a fixed order,
+  // independent of the header text alignment (the label grows and comes first).
+  ::ng-deep .ag-header-cell .ag-cell-label-container { width: 100%; flex-direction: row; }
+  ::ng-deep .ag-header-cell .ag-header-cell-label { flex: 1 1 auto; order: 0; }
+  ::ng-deep .ag-header-cell .ag-header-cell-filter-button { order: 1; }
+  ::ng-deep .ag-header-cell .ag-header-cell-menu-button { order: 2; }
+  // Subtotal, grand-total and pinned total rows: bold + a fixed body+2pt size. These rows
+  // intentionally do NOT follow the "Footer Font Size" setting (that only sizes the banner).
+  ::ng-deep .ag-row.report-total-row {
+    .ag-cell,
+    .ag-cell-value,
+    .ag-group-value {
+      font-weight: 700 !important;
+      font-size: calc(var(--ag-font-size, 14px) + 2px) !important;
+    }
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-family: var(--font-family-base);
+  }
+
+  &__error {
+    padding: 16px;
+    color: #DC2626;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  &__badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: var(--color-bg-app);
+    color: var(--color-text-secondary);
+
+    &--status {
+      background: #ECFDF5;
+      color: #065F46;
+      text-transform: capitalize;
+    }
+
+    &--draft {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+  }
+
+  &__meta {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-left: auto;
+  }
+
+  &__report-banner {
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 0 0 8px 8px;
+    border-top: none;
+  }
+
+  &__group-row th {
+    background: #E8ECF6;
+    color: #21409A;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center !important;
+    border-color: #D5DCEE;
+  }
+
+  &__subgroup-row th {
+    background: #F1F4FA;
+    color: #45507A;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center !important;
+    border-color: #E2E7F3;
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+
+  &__load-more {
+    padding: 6px 16px;
+    border: 1px solid var(--color-primary);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: var(--color-primary);
+      color: #fff;
+    }
+  }
+
+  &__sentinel {
+    height: 1px;
+  }
+
+  &__loading-more {
+    padding: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  &__table-wrap {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: auto;
+
+
+    &.rv-table-wrap--compact .report-viewer__table th,
+    &.rv-table-wrap--compact .report-viewer__table td {
+      padding: 6px 10px;
+    }
+
+    &.rv-table-wrap--dense .report-viewer__table th,
+    &.rv-table-wrap--dense .report-viewer__table td {
+      padding: 3px 8px;
+      font-size: 12px;
+    }
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+
+    th,
+    td {
+      padding: 10px 14px;
+      border: 1px solid var(--color-border);
+      text-align: left;
+      white-space: nowrap;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th {
+   background: #E8F0FC;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      cursor: grab;
+
+      &:active {
+        cursor: grabbing;
+      }
+    }
+
+    .report-viewer__th--drag-over {
+      border-left: 3px solid var(--color-primary, #21409A);
+    }
+
+    td {
+      color: var(--color-text-primary);
+      background: #F7F9FD!important;
+    }
+
+
+
+    tr:hover td {
+      background: #F0F4FF;
+    }
+  }
+
+  &__slno-col {
+    text-align: center !important;
+    width: 50px;
+    min-width: 50px;
+    max-width: 60px;
+  }
+
+  .rv-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #E9F9EF;
+    color: #0F7B3D;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  &__col-context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    padding: 4px 0;
+    min-width: 150px;
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 14px;
+      border: none;
+      background: none;
+      font-size: 13px;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      white-space: nowrap;
+
+      &:hover {
+        background: var(--color-bg-app, #f3f4f6);
+      }
+    }
+  }
+}
+
+.viewer-page-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #7C3AED;
+  flex-shrink: 0;
+}
+
+.viewer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+
+  &__export { order: 1; }
+  &__edit { order: 2; }
+  &__publish { order: 3; }
+  &__filter { order: 4; }
+
+  &__icon-btn {
+    display: flex;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid var(--color-primary, #21409A);
+    background: #FFF;
+    color: var(--color-primary, #21409A);
+    cursor: pointer;
+    transition: background 0.12s ease;
+
+    &:hover:not(:disabled) {
+      background: var(--color-bg-app, #f3f4f6);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    &--danger {
+      border-color: #DC2626;
+      color: #DC2626;
+
+      &:hover {
+        background: #FEF2F2;
+      }
+    }
+  }
+
+  &__spinner {
+    animation: viewer-spin 0.9s linear infinite;
+  }
+
+  &__btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--color-primary, #21409A);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--color-primary, #21409A);
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font-family-base);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s ease;
+
+  }
+
+  &__publish-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--color-primary, #21409A);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--color-primary, #21409A);
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font-family-base);
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
+@keyframes viewer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.viewer-export-dropdown {
+  position: relative;
+
+  &__menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 200px;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 100;
+    padding: 6px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: var(--font-family-base);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: background 0.12s ease;
+
+    &:hover {
+      background: var(--color-bg-app);
+    }
+  }
+}
+
+// ─── Hierarchy filter bar ──────────────────────────────────────────────────
+
+.rv-filter-bar {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 12px;
+  padding: 16px 44px 16px 16px;
+  border-radius: 10px;
+  border: 1px solid #E2E7EF;
+  background: #FFF;
+  box-shadow: 0 1px 8px 0 rgba(0, 0, 0, 0.06);
+  overflow: visible;
+
+  &__pin {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #98A2B3;
+    cursor: pointer;
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--color-bg-app);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+}
+
+.rv-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 96px;
+  max-width: 180px;
+
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #667085;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.rv-filter-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  border: 1px solid #C9D3E2;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--font-family-base);
+  color: #172033;
+  user-select: none;
+
+  &:hover {
+    border-color: #A0ABBE;
+  }
+
+  &.open {
+    border-color: var(--color-primary);
+
+    > svg {
+      transform: rotate(180deg);
+    }
+  }
+
+  > span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  > svg {
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+
+  > svg.rv-filter-lock {
+    display: none;
+  }
+
+  &-placeholder {
+    color: #667085;
+  }
+
+  &-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    min-width: 100%;
+    width: 200px;
+    max-height: 160px;
+    overflow-y: auto;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+    box-shadow: 0 4px 14px 0 rgba(16, 24, 40, 0.10);
+    z-index: 200;
+  }
+
+  &-option {
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #344054;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &:hover {
+      background: #F9FAFB;
+    }
+
+    &.active {
+      color: var(--color-primary);
+      font-weight: 500;
+      background: #EEF2FF;
+    }
+  }
+
+  &--locked {
+    opacity: 0.7;
+    pointer-events: none;
+    background: #F2F4F7 !important;
+    border-color: #E2E7EF !important;
+    cursor: default;
+    > svg.rv-filter-chevron { display: none !important; }
+    > svg.rv-filter-lock { display: block !important; flex-shrink: 0; width: 14px; height: 14px; }
+  }
+}
+
+.rv-filter-date {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    padding: 8px 32px 8px 12px;
+    background: var(--color-bg-card);
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    &::-webkit-calendar-picker-indicator {
+      opacity: 0;
+      width: 24px;
+      cursor: pointer;
+    }
+  }
+
+  svg {
+    position: absolute;
+    right: 10px;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+}
+
+.rv-filter-date--trigger {
+  height: 36px;
+  padding: 0 32px 0 12px;
+  border: 1px solid #C9D3E2;
+  border-radius: 10px;
+  background: var(--color-bg-card);
+  box-sizing: border-box;
+  cursor: pointer;
+
+  span {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    color: #172033;
+  }
+
+  .rv-filter-date-placeholder {
+    color: #667085;
+  }
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+
+  &.rv-filter-date--disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+
+    &:hover {
+      border-color: #C9D3E2;
+    }
+  }
+}
+
+.rv-filter-icon-btn {
+  position: relative;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-primary);
+  border-radius: 10px;
+  background: var(--color-bg-card);
+  color: var(--color-primary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-bg-legend, #DCE8FF);
+  }
+
+  &[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 8px;
+    background: #172B4D;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    padding: 7px 12px;
+    white-space: pre-line;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 200;
+  }
+
+  &[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid #172B4D;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 201;
+  }
+
+  &[data-tooltip]:hover::after,
+  &[data-tooltip]:hover::before,
+  &[data-tooltip]:focus-visible::after,
+  &[data-tooltip]:focus-visible::before {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  &--advanced {
+    border: 1px solid #21409A;
+    background: #21409A;
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+
+    &:hover {
+      background: #1b357f;
+      border-color: #1b357f;
+    }
+  }
+}
+
+// ─── Company / job progress banner ─────────────────────────────────────────
+
+.rv-banner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 31px 24px;
+  border-radius: 12px;
+  color: #fff;
+
+  &__company {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 68px;
+    height: 68px;
+    border-radius: 12px;
+    background: #fff;
+    flex-shrink: 0;
+    padding: 8px;
+  }
+
+  &__company-text {
+    min-width: 0;
+  }
+
+  &__company-name {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin-bottom: 5px;
+  }
+
+  &__contract {
+margin-top: 3px;
+  font-size: 14px;
+  color: #D8DDE7;
+  font-weight: 500;
+  }
+
+  &__report {
+    text-align: right;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  &__report-label {
+font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 4px;
+  }
+
+  &__report-title {
+    margin-top: 2px;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  &__report-period {
+    margin-top: 3px;
+    font-size: 13px;
+    color: #D9D9D9;
+    font-weight: 500;
+  }
+
+  &__right-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 68px;
+    height: 68px;
+    border-radius: 12px;
+    background: #fff;
+    flex-shrink: 0;
+    padding: 8px;
+  }
+
+  &__logo-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  &__logo-placeholder {
+    font-size: 11px;
+    font-weight: 600;
+    color: #667085;
+  }
+}
+
+// ─── KPI summary strip ──────────────────────────────────────────────────────
+
+.rv-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.rv-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 19px 18px;
+  border-radius: 12px;
+  border: 1px solid #E2E7EF;
+  background: #FFF;
+  box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.06);
+
+  &__head {
+    display: flex;
+ align-items: start;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #344054;
+    margin-bottom: 5px;
+  }
+
+  &__icon {
+    display: flex;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    flex-shrink: 0;
+
+    &--blue {
+      background: #EAF4FF;
+      color: #2563EB;
+    }
+
+    &--purple {
+      background: #F3E8FF;
+      color: #7C3AED;
+    }
+
+    &--red {
+      background: #FEECEC;
+      color: #CE2A1E;
+    }
+
+    &--green {
+      background: #EAFBF1;
+      color: #0C804A;
+    }
+  }
+
+  &__value {
+font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #101828;
+  margin-top: 10px;
+  }
+
+  &__hint {
+  font-size: 12px;
+  color: #667085;
+  font-weight: 400;
+  }
+}
+
+// ─── Tabs / search / density toolbar ────────────────────────────────────────
+
+.rv-toolbar {
+display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid #E6EBF2;
+  border-radius: 12px;
+  box-shadow: 0px 1px 4px 0px #10182814;
+  padding: 15px;
+  background: #fff;
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+  }
+}
+
+.rv-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rv-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+padding: 10px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 12px;
+  background: #fff;
+  color: #667085;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &--all.active {
+
+  background: #E8F0FF;
+
+  border-bottom: 2px solid var(--color-primary);
+  }
+
+  &--grouped.active {
+
+  background: #E8F0FF;
+ 
+  border-bottom: 2px solid var(--color-primary);
+  }
+
+  &--weekly.active {
+
+  background: #E8F0FF;
+
+  border-bottom: 2px solid var(--color-primary);
+  }
+}
+
+.rv-tab__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: #fff;
+  flex-shrink: 0;
+
+  &--all { background: #21409A; }
+  &--grouped { background: #45B85A; }
+  &--weekly { background: #F5A000; }
+}
+
+.rv-search {
+ display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0px 32px;
+  border: 1px solid #E2E7EF;
+  border-radius: 10px;
+  background: #fff;
+  color: #98A2B3;
+  max-width: 200px;
+  position: relative;
+  svg{
+    position: absolute;
+    left: 10px;
+  }
+
+  input {
+    border: none;
+    outline: none;
+    font-size: 13px;
+    font-family: var(--font-family-base);
+    color: var(--color-text-primary);
+    width: 160px;
+
+    &::placeholder {
+      color: #667085;
+    }
+  }
+}
+
+.rv-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0px;
+  border: 1px #E2E7EF solid;
+  border-radius: 12px;
+  background: #fff;
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #98A2B3;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+    &.active {
+background: #E8F0FF;
+  color: #21409A;
+  border: 1px solid #21409A;
+    }
+  }
+}
+
+// ─── Grouped chips row ──────────────────────────────────────────────────────
+
+.rv-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rv-chips-row__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #667085;
+}
+
+.rv-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--color-bg-app, #f3f4f6);
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &--pinned {
+    border-color: #21409A;
+    background: #21409A;
+    color: #fff;
+    font-weight: 600;
+    cursor: default;
+  }
+
+  &.active:nth-of-type(3n+1) {
+    border-color: #86EFAC;
+    background: #DCFCE7;
+    color: #15803D;
+  }
+
+  &.active:nth-of-type(3n+2) {
+    border-color: #5EEAD4;
+    background: #CCFBF1;
+    color: #0F766E;
+  }
+
+  &.active:nth-of-type(3n) {
+    border-color: #93C5FD;
+    background: #DBEAFE;
+    color: #1D4ED8;
+  }
+}
+
+// ─── Responsive breakpoints ───────────────────────────────────────────────────
+
+@media (max-width: 768px) {
+  .viewer-header-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+
+    ::ng-deep .btn {
+      font-size: 13px;
+      padding: 5px 10px;
+    }
+  }
+
+  .report-viewer {
+    gap: 10px;
+
+    &__meta {
+      margin-left: 0;
+      width: 100%;
+      font-size: 11px;
+    }
+
+    &__report-header {
+      padding: 12px 14px;
+    }
+
+    &__report-title {
+      font-size: 15px;
+    }
+
+    &__report-subtitle {
+      font-size: 12px;
+    }
+
+    &__table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-height: calc(100vh - 200px);
+      border-radius: 8px;
+    }
+
+    &__table {
+      font-size: 12px;
+
+      th,
+      td {
+        padding: 8px 10px;
+        max-width: 180px;
+      }
+    }
+
+    &__footer {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .viewer-header-actions {
+    gap: 4px;
+
+    ::ng-deep .btn {
+      font-size: 12px;
+      padding: 4px 8px;
+    }
+  }
+
+  .report-viewer {
+    &__report-title {
+      font-size: 14px;
+    }
+
+    &__report-header {
+      padding: 10px 12px;
+    }
+
+    &__table {
+      font-size: 11px;
+
+      th,
+      td {
+        padding: 6px 8px;
+        max-width: 140px;
+      }
+    }
+  }
+}
+
+.whiteBgSecMainallwidth{
+  border: 1px solid #E6EBF2;
+  border-radius: 12px;
+  box-shadow: 0px 1px 4px 0px rgba(16, 24, 40, 0.0784313725);
+  padding: 15px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap:16px;
+  flex: 1 0 auto;
+
+  > :not(.report-viewer__grid-wrap) {
+    flex-shrink: 0;
+  }
+}
+
+.tabButtonMainAll{
+  border: 1px #ddd solid;
+}
+
+
+.grouped-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  white-space: nowrap;
+}
+
+.grouped-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #667085;
+}
+
+/* Common button style */
+.group-btn {
+  border: 0;
+  outline: 0;
+  padding: 7px 13px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Active Resource Details */
+.group-btn.active {
+display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #3159a8;
+  background: #E8F0FF;
+
+  border-radius: 100px;
+
+  border: 1px solid #21409A;
+  box-shadow: 0px 2px 8px 0px #21409A29;
+}
+
+.check-icon {
+  width: 16px;
+  height: 16px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  color: #3159a8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Week 1 */
+.group-btn.week-1 {
+  color: #428d55;
+  background: #dff2d8;
+}
+
+/* Week 2 */
+.group-btn.week-2 {
+  color: #218b8b;
+  background: #d9f1ef;
+}
+
+/* Week 3 */
+.group-btn.week-3 {
+  color: #2864d7;
+  background: #dcecff;
+}
+
+.group-btn.inactive {
+  color: #98A2B3;
+  background: #F3F4F6;
+}
+
+.scrollAccordionMain {
+  // Fills the remaining space below the pinned header/filter bar instead of
+  // a viewport-relative magic-number height, so it stays correct whether the
+  // filter bar is shown or hidden.
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+}
+
+// ─── Expanded table modal ─────────────────────────────────────────────────
+.rv-expand-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 900;
+  padding: 24px;
+}
+
+.rv-expand-modal {
+  display: flex;
+  flex-direction: column;
+  width: 90vw;
+  height: 90vh;
+  min-width: 480px;
+  min-height: 320px;
+  max-width: 98vw;
+  max-height: 96vh;
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  resize: both;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+
+    h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--color-text-primary);
+    }
+  }
+
+  &__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app);
+    }
+  }
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    gap: 10px;
+
+    // Banner keeps its natural height; the grid takes the rest.
+    > .rv-banner {
+      flex-shrink: 0;
+    }
+  }
+}
+
+.rv-expand-grid {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: block;
+}
+
+.rv-expand-report-banner {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  font-weight: 500;
+  border-radius: 0 0 8px 8px;
+}

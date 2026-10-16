@@ -1,0 +1,229 @@
+<div id="page-projoverview" class="page active">
+        <div class="po-body">
+          <div class="breadcrumb">
+            <a onclick="navigate('cmdoverview', document.querySelector('#nav-cmdoverview'))">{{ 'PROJOVERVIEW.BREADCRUMB_1' | translate }}</a>
+            <span>›</span>
+            <a onclick="navigate('cmdoverview', document.querySelector('#nav-cmdoverview'))">{{ 'PROJOVERVIEW.BREADCRUMB_2' | translate }}</a>
+            <span>›</span>
+            <span class="current">{{ 'PROJOVERVIEW.BREADCRUMB_CURRENT' | translate }}</span>
+          </div>
+
+          <!-- Hero banner -->
+          <div class="po-hero">
+            <div>
+              <div class="po-hero-title">
+                <span class="po-hero-proj" id="po-projid">NL0010</span>
+                <span class="po-hero-name" id="po-projname">Nimr Field · SWER81 Series</span>
+              </div>
+              <div class="po-hero-sub" id="po-projsub">20 active wells · 2,016 activities · PDO-IPM contract · Week 16, April 2026</div>
+            </div>
+            <div class="po-hero-progress">
+              <div class="po-hero-pct">57<span style="font-size:16px;font-weight:600">%</span></div>
+              <div class="po-hero-pct-sub">1,141 of 2,016 {{ 'PROJOVERVIEW.ACTIVITIES_COMPLETE' | translate }}</div>
+              <div class="po-hero-track">
+                <div class="po-hero-fill" style="width:57%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Dates -->
+          <div class="po-dates">
+            <div class="po-card-head">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              {{ 'PROJOVERVIEW.PROJECT_DATES' | translate }}
+            </div>
+            <div class="po-dates-grid">
+              <div class="po-date-row">
+                <div class="po-date-cell">
+                  <div class="po-date-lbl">{{ 'PROJOVERVIEW.SCHEDULE_START' | translate }}</div>
+                  <div class="po-date-val">01 Sep 2024</div>
+                </div>
+                <div class="po-date-arrow">→</div>
+                <div class="po-date-cell">
+                  <div class="po-date-lbl">{{ 'PROJOVERVIEW.SCHEDULE_END' | translate }}</div>
+                  <div class="po-date-val">16 Apr 2028</div>
+                </div>
+              </div>
+              <div class="po-date-row">
+                <div class="po-date-cell">
+                  <div class="po-date-lbl">{{ 'PROJOVERVIEW.TARGET_START' | translate }}</div>
+                  <div class="po-date-val">01 Sep 2024</div>
+                </div>
+                <div class="po-date-arrow">→</div>
+                <div class="po-date-cell">
+                  <div class="po-date-lbl">{{ 'PROJOVERVIEW.TARGET_END' | translate }}</div>
+                  <div class="po-date-val">16 Apr 2028</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2-column layout -->
+          <div class="po-layout">
+
+            <!-- LEFT: Wells in project (AG Grid) -->
+            <div class="po-card" style="padding:0">
+              <div class="po-card-top">
+                <div class="po-card-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                  {{ 'PROJOVERVIEW.WELLS_IN_PROJECT' | translate }}
+                  <span class="po-card-count" id="poWellCount">20 {{ 'PROJOVERVIEW.TOTAL_WELLS' | translate }}</span>
+                </div>
+                <div style="font-size:11px;color:var(--txt-muted);display:inline-flex;align-items:center;gap:6px">
+                  <span style="background:rgba(22,163,74,0.1);color:#16a34a;border:1px solid rgba(22,163,74,0.3);font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#16a34a;display:inline-block"></span>{{ 'PROJOVERVIEW.LIVE' | translate }}
+                  </span>
+                </div>
+              </div>
+              <div id="poPresetBanner" style="display:none;align-items:center;gap:10px;padding:9px 14px;margin-bottom:12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#16a34a;font-size:12.5px;font-weight:600"></div>
+              <div id="poWellsGrid" class="ag-theme-alpine-dark" style="width:100%;height:520px"></div>
+            </div>
+
+            <!-- RIGHT RAIL: Milestones / Activities / Delayed -->
+            <div class="po-rail">
+
+              <!-- Milestones -->
+              <div class="po-card">
+                <div class="po-card-top">
+                  <div class="po-card-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8 22 9 17 14 18 21 12 18 6 21 7 14 2 9 9 8 12 2"/></svg>
+                    {{ 'PROJOVERVIEW.MILESTONES' | translate }}
+                    <span class="po-card-count">5 {{ 'PROJOVERVIEW.UPCOMING' | translate }}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="po-mile-row">
+                    <div class="po-mile-date">01 Sep 2024</div>
+                    <div class="po-mile-name" title="LCMS1000-31008 — Construction Start">LCMS1000-31008 — Construction Start</div>
+                    <span class="po-status done"><span class="dot"></span>{{ 'PROJOVERVIEW.DONE' | translate }}</span>
+                  </div>
+                  <div class="po-mile-row">
+                    <div class="po-mile-date">01 Sep 2024</div>
+                    <div class="po-mile-name" title="LCMS1000-31489 — Construction Start">LCMS1000-31489 — Construction Start</div>
+                    <span class="po-status done"><span class="dot"></span>{{ 'PROJOVERVIEW.DONE' | translate }}</span>
+                  </div>
+                  <div class="po-mile-row">
+                    <div class="po-mile-date">01 Sep 2024</div>
+                    <div class="po-mile-name" title="LCMS1000-31478 — Construction Start">LCMS1000-31478 — Construction Start</div>
+                    <span class="po-status done"><span class="dot"></span>{{ 'PROJOVERVIEW.DONE' | translate }}</span>
+                  </div>
+                  <div class="po-mile-row">
+                    <div class="po-mile-date">01 Sep 2024</div>
+                    <div class="po-mile-name" title="LCMS1000-27150 — Construction Start">LCMS1000-27150 — Construction Start</div>
+                    <span class="po-status done"><span class="dot"></span>{{ 'PROJOVERVIEW.DONE' | translate }}</span>
+                  </div>
+                  <div class="po-mile-row">
+                    <div class="po-mile-date">01 Sep 2024</div>
+                    <div class="po-mile-name" title="LCMS1000-30423 — Construction Start">LCMS1000-30423 — Construction Start</div>
+                    <span class="po-status done"><span class="dot"></span>{{ 'PROJOVERVIEW.DONE' | translate }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Activity Feed -->
+              <div class="po-card">
+                <div class="po-card-top">
+                  <div class="po-card-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="12 6 12 12 16 14"/><circle cx="12" cy="12" r="10"/></svg>
+                    {{ 'PROJOVERVIEW.ACTIVITY' | translate }}
+                    <span class="po-card-count">3 {{ 'PROJOVERVIEW.TODAY' | translate }}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="po-act-row">
+                    <div class="po-act-icon">→</div>
+                    <div class="po-act-date">24/04/2026<br>08:24 AM</div>
+                    <div class="po-act-comment">
+                      <div class="po-act-title">Final Grading and Compaction for Well Pad</div>
+                      <div class="po-act-meta">Weightage set to 0.0999, Data set to {{ '{' }}"purpose_value": "3919.35", "step_type": "LOC"{{ '}' }}</div>
+                      <div class="po-act-meta" style="margin-top:3px">— <span class="po-act-agent">agent1.acc&#64;altasnim.com</span></div>
+                    </div>
+                  </div>
+                  <div class="po-act-row">
+                    <div class="po-act-icon">→</div>
+                    <div class="po-act-date">24/04/2026<br>08:24 AM</div>
+                    <div class="po-act-comment">
+                      <div class="po-act-title">HDPE liner laying works</div>
+                      <div class="po-act-meta">Weightage set to 0.0999, Data set to {{ '{' }}"purpose_value": "3919.35", "step_type": "LOC"{{ '}' }}</div>
+                      <div class="po-act-meta" style="margin-top:3px">— <span class="po-act-agent">agent1.acc&#64;altasnim.com</span></div>
+                    </div>
+                  </div>
+                  <div class="po-act-row">
+                    <div class="po-act-icon">→</div>
+                    <div class="po-act-date">24/04/2026<br>08:24 AM</div>
+                    <div class="po-act-comment">
+                      <div class="po-act-title">Layer wise Leveling, Watering &amp; Compaction of Well Pad</div>
+                      <div class="po-act-meta">Weightage set to 0.0999, Data set to {{ '{' }}"purpose_value": "3919.35", "step_type": "LOC"{{ '}' }}</div>
+                      <div class="po-act-meta" style="margin-top:3px">— <span class="po-act-agent">agent1.acc&#64;altasnim.com</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Delayed Tasks -->
+              <div class="po-card">
+                <div class="po-card-top">
+                  <div class="po-card-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    {{ 'PROJOVERVIEW.DELAYED_TASKS' | translate }}
+                    <span class="po-card-count">7 {{ 'PROJOVERVIEW.OPEN' | translate }}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="po-del-row">
+                    <div class="po-del-icon">!</div>
+                    <div class="po-del-date">23/04/2026</div>
+                    <div class="po-del-name">Test Pack Submission to ATNM QS</div>
+                    <div class="po-del-prog">0.00</div>
+                  </div>
+                  <div class="po-del-row">
+                    <div class="po-del-icon">!</div>
+                    <div class="po-del-date">23/04/2026</div>
+                    <div class="po-del-name">Construction of Access Road</div>
+                    <div class="po-del-prog">0.00</div>
+                  </div>
+                  <div class="po-del-row">
+                    <div class="po-del-icon">!</div>
+                    <div class="po-del-date">23/04/2026</div>
+                    <div class="po-del-name">Excavation of Cellar in Normal Soil</div>
+                    <div class="po-del-prog">0.00</div>
+                  </div>
+                  <div class="po-del-row">
+                    <div class="po-del-icon">!</div>
+                    <div class="po-del-date">23/04/2026</div>
+                    <div class="po-del-name">Excavation of Cellar in Hard Soil</div>
+                    <div class="po-del-prog">0.00</div>
+                  </div>
+                  <div class="po-del-row">
+                    <div class="po-del-icon">!</div>
+                    <div class="po-del-date">23/04/2026</div>
+                    <div class="po-del-name">Test Pack Submission to ATNM QS</div>
+                    <div class="po-del-prog">0.00</div>
+                  </div>
+                  <div class="po-del-row">
+                    <div class="po-del-icon">!</div>
+                    <div class="po-del-date">23/04/2026</div>
+                    <div class="po-del-name">Test Pack Submission to ATNM QS</div>
+                    <div class="po-del-prog">0.00</div>
+                  </div>
+                  <div class="po-del-row">
+                    <div class="po-del-icon">!</div>
+                    <div class="po-del-date">23/04/2026</div>
+                    <div class="po-del-name">HDPE liner laying works</div>
+                    <div class="po-del-prog">0.00</div>
+                  </div>
+                  <div class="po-del-row">
+                    <div class="po-del-icon">!</div>
+                    <div class="po-del-date">22/04/2026</div>
+                    <div class="po-del-name">Final Closeout</div>
+                    <div class="po-del-prog">0.00</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </div>

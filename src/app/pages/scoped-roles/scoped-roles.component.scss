@@ -1,0 +1,156 @@
+#page-scoped-roles {
+
+  .sr-title-wrap { flex: 1; }
+  .sr-demo-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 8pt;
+    font-weight: 700;
+    border-radius: 999px;
+    background: rgba(41, 55, 141, 0.10);
+    color: #29378d;
+  }
+
+  .sr-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr 1fr;
+    gap: 14px;
+    margin-top: 12px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .sr-grid { grid-template-columns: 1fr; }
+  }
+
+  .sr-col {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .sr-col-head {
+    font-size: 9pt;
+    font-weight: 700;
+    color: var(--txt-1);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 10px;
+  }
+
+  /* ── Users ── */
+  .sr-user {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.12s, box-shadow 0.12s, opacity 0.12s;
+  }
+  .sr-user:hover { border-color: #29378d; }
+  .sr-user.active {
+    border-color: #29378d;
+    box-shadow: 0 0 0 2px rgba(41, 55, 141, 0.16);
+  }
+  .sr-user.dim { opacity: 0.5; }
+  .sr-user-top { display: flex; align-items: center; justify-content: space-between; }
+  .sr-user-name { font-size: 10pt; font-weight: 700; color: var(--txt-1); }
+  .sr-user-badge { color: #16a34a; font-size: 11pt; line-height: 1; }
+  .sr-user-email { font-size: 8.5pt; color: var(--txt-muted); margin-bottom: 6px; }
+
+  .sr-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .sr-chip {
+    font-size: 8pt;
+    font-weight: 600;
+    padding: 2px 7px;
+    border: 1px solid;
+    border-radius: 999px;
+    background: transparent;
+    white-space: nowrap;
+  }
+  .sr-chip-at { opacity: 0.55; margin: 0 1px; }
+
+  /* ── Scope tree ── */
+  .sr-tree { font-size: 9.5pt; }
+  .sr-node {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .sr-node:hover { background: rgba(41, 55, 141, 0.06); }
+  .sr-node.active {
+    background: rgba(41, 55, 141, 0.14);
+    font-weight: 700;
+  }
+  .sr-node-toggle {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 0; padding: 0; cursor: pointer;
+    color: var(--txt-muted);
+  }
+  .sr-node-toggle svg { width: 14px; height: 14px; transition: transform 0.12s; }
+  .sr-node-toggle svg.collapsed { transform: rotate(-90deg); }
+  .sr-node-toggle--leaf { cursor: default; }
+
+  .sr-node-level {
+    font-size: 7pt;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .sr-level-ALL     { background: #eef2ff; color: #4338ca; }
+  .sr-level-cluster { background: #e0f2fe; color: #0369a1; }
+  .sr-level-site    { background: #dcfce7; color: #15803d; }
+  .sr-level-plant   { background: #fef3c7; color: #b45309; }
+  .sr-node-label { color: var(--txt-1); }
+
+  /* ── Effective permissions ── */
+  .sr-active-scope { font-size: 8.5pt; font-weight: 500; color: var(--txt-muted); margin-top: 3px; }
+
+  .sr-noaccess {
+    padding: 16px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    color: var(--txt-muted);
+    font-size: 9.5pt;
+    text-align: center;
+  }
+
+  .sr-perm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+  .sr-perm-table th, .sr-perm-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+  .sr-perm-table th { color: var(--txt-muted); font-weight: 700; font-size: 8.5pt; text-transform: uppercase; }
+  .sr-perm-table th:first-child, .sr-mod { text-align: left; }
+  .sr-mod { font-weight: 600; color: var(--txt-1); }
+  .sr-cell { color: var(--txt-muted); font-weight: 700; }
+  .sr-cell.on { color: #16a34a; }
+  .sr-off { opacity: 0.4; }
+
+  .sr-contrib { margin-top: 14px; }
+  .sr-contrib-head {
+    font-size: 8.5pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.03em; color: var(--txt-muted); margin-bottom: 6px;
+  }
+  .sr-contrib-item {
+    font-size: 9pt;
+    color: var(--txt-1);
+    padding: 5px 0;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .sr-contrib-note { font-size: 8pt; color: var(--txt-muted); }
+}

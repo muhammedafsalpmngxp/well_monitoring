@@ -1,0 +1,27 @@
+#page-agentruns {
+  .ar-title-wrap {
+    flex: 1;
+  }
+
+  #arRunsGrid {
+    width: 100%;
+  }
+}
+
+/* ── Light theme ── */
+html.navbar-light #page-agentruns {
+  .breadcrumb a { color: var(--txt-2); }
+  .breadcrumb .current { color: var(--txt-1); }
+  .page-title { color: #1F3864; }
+  .page-subtitle { color: var(--txt-muted); }
+  .fd-list-card { background: var(--surface); border-color: var(--border); }
+}
+
+/* ── Dark theme ── */
+html:not(.navbar-light) #page-agentruns {
+  .breadcrumb a { color: var(--txt-2); }
+  .breadcrumb .current { color: var(--txt-1); }
+  .page-title { color: var(--txt-1); }
+  .page-subtitle { color: var(--txt-muted); }
+  .fd-list-card { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.1); }
+}

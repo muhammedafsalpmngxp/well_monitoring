@@ -1,0 +1,374 @@
+<header *ngIf="!presenting" class="canvas-editor__toolbar">
+  <div class="canvas-editor__title">
+    <a class="canvas-editor__crumb" [routerLink]="listRoute">Canvases</a>
+    <span class="canvas-editor__crumb-sep" aria-hidden="true">/</span>
+    <img *ngIf="brand?.logo" class="canvas-editor__brand-logo" [src]="brand?.logo" alt="" />
+    <h1 class="canvas-editor__name" [title]="canvas?.dashboardName || 'Canvas'">{{ canvas?.dashboardName || 'Canvas' }}</h1>
+  </div>
+  <div *ngIf="canvas" class="canvas-editor__ribbon" role="toolbar" aria-label="Canvas">
+    <div class="canvas-editor__group">
+      <button *ngIf="editing && canChangeModel && model" type="button" class="canvas-editor__new-measure" (click)="openMeasure(null)">
+        <app-icon name="measure" aria-hidden="true"></app-icon>New measure
+      </button>
+      <div *ngIf="editing && canChangeModel && model" class="canvas-editor__export">
+        <button type="button" class="canvas-editor__new-measure" aria-haspopup="menu" [attr.aria-expanded]="columnMenu"
+          (click)="newColumn()">
+          <app-icon name="column_add" aria-hidden="true"></app-icon>New column
+        </button>
+        <div *ngIf="columnMenu" class="canvas-editor__export-menu canvas-editor__export-menu--left" role="menu" aria-label="New column in">
+          <button *ngFor="let source of model.dataset.sources" type="button" role="menuitem" (click)="columnMenu = false; openColumn(source)">
+            {{ source.caption || source.alias }}
+          </button>
+        </div>
+      </div>
+      <app-button *ngIf="canOpenModel && datasetId !== null" variant="ghost" size="sm" (clicked)="openModel()">Open model</app-button>
+    </div>
+    <div class="canvas-editor__group">
+      <app-button variant="ghost" size="sm" (clicked)="refreshAll()">Refresh all</app-button>
+      <app-button variant="ghost" size="sm" (clicked)="resetFilters()">Reset filters</app-button>
+      <div class="canvas-editor__export">
+        <app-button variant="ghost" size="sm" (clicked)="bookmarkMenu = !bookmarkMenu">Bookmarks{{ bookmarks.length ? ' (' + bookmarks.length + ')' : '' }}</app-button>
+        <div *ngIf="bookmarkMenu" class="canvas-editor__export-menu canvas-editor__bookmarks" role="menu" aria-label="Bookmarks">
+          <div *ngFor="let mark of bookmarks" class="canvas-editor__bookmark">
+            <button type="button" role="menuitem" (click)="applyBookmark(mark)">{{ mark.name }}<small>{{ mark.sheet }}</small></button>
+            <button *ngIf="editing" type="button" class="canvas-editor__bookmark-remove" [attr.aria-label]="'Remove the bookmark ' + mark.name"
+              (click)="removeBookmark(mark)"><app-icon name="close" aria-hidden="true"></app-icon></button>
+          </div>
+          <p *ngIf="!bookmarks.length">No bookmarks yet.</p>
+          <form *ngIf="editing" class="canvas-editor__bookmark-add" (submit)="$event.preventDefault(); addBookmark()">
+            <input class="form-control" maxlength="60" placeholder="Name this view" aria-label="Bookmark name" [(ngModel)]="bookmarkName" name="bookmarkName" />
+            <app-button variant="secondary" size="sm" type="submit">Add</app-button>
+          </form>
+          <p *ngIf="editing">A bookmark keeps the open sheet, slicers, filters and chosen points. Save the canvas to keep it.</p>
+        </div>
+      </div>
+      <app-button variant="ghost" size="sm" (clicked)="openComments()">Comments{{ commentCount ? ' (' + commentCount + ')' : '' }}</app-button>
+      <app-button variant="ghost" size="sm" [loading]="exporting" (clicked)="openExport()">Export</app-button>
+      <app-button variant="ghost" size="sm" (clicked)="present()">Present</app-button>
+      <app-button *ngIf="canSchedule" variant="ghost" size="sm" (clicked)="scheduleOpen = true">Schedule</app-button>
+    </div>
+    <div class="canvas-editor__group">
+      <app-button *ngIf="canUnpublish" variant="ghost" size="sm" (clicked)="unpublish()">Unpublish</app-button>
+      <app-button *ngIf="canPublish" variant="ghost" size="sm" (clicked)="publish()">Publish</app-button>
+    </div>
+    <div class="canvas-editor__group">
+      <app-button *ngIf="!readonly" variant="primary" size="sm" [loading]="saving" (clicked)="save()">Save</app-button>
+      <button type="button" class="canvas-editor__close" aria-label="Close and go back to the canvases" title="Close" (click)="close()">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div *ngIf="toast" class="canvas-editor__toast" [ngClass]="toast.kind === 'error' ? 'category-modal__error' : 'category-modal__toast'"
+  role="status">{{ toast.text }}</div>
+
+<div *ngIf="loading" class="canvas-editor__loading"><app-loader type="skeleton-bars"></app-loader></div>
+<p *ngIf="error" class="category-modal__error canvas-editor__error" role="alert">{{ error }}</p>
+
+<div *ngIf="canvas && !loading" class="canvas-editor" [class.canvas-editor--presenting]="presenting">
+  <p *ngIf="published && !presenting" class="canvas-editor__notice" role="note">
+    This canvas is published. Everyone who can open canvases finds it under Published. Unpublish it to make changes.
+  </p>
+
+  <p *ngIf="editing && foreignCount" class="canvas-editor__notice" role="note">
+    {{ foreignCount }} object{{ foreignCount === 1 ? '' : 's' }} on this canvas still
+    use{{ foreignCount === 1 ? 's' : '' }} another data model than {{ datasetName || 'the canvas data model' }}.
+    They still show their data. Select one to move it to the canvas data model.
+  </p>
+
+  <div class="canvas-editor__body" [class.canvas-editor__body--view]="!editing"
+    [class.canvas-editor__body--visuals-folded]="folded.visuals" [class.canvas-editor__body--data-folded]="folded.data"
+    [class.canvas-editor__body--filters-folded]="folded.filters">
+    <div class="canvas-editor__main">
+      <section #stage class="canvas-editor__stage" aria-label="Sheet" [class.canvas-editor__stage--plain]="page?.showGrid === false || !!page?.wallpaper"
+        [class.canvas-editor__stage--paged]="!!pageSize" [ngStyle]="stageStyle" (pointerdown)="deselectFromSheet($event)">
+        <app-empty-state *ngIf="!items.length" class="canvas-editor__empty" image="assets/images/new-dashboard-img.svg"
+          title="This sheet is empty"
+          [description]="editing ? 'Pick a visual, then drag fields from the Data pane.' : 'Nothing has been added to this sheet yet.'">
+        </app-empty-state>
+        <div class="canvas-editor__page" [class.canvas-editor__page--fixed]="!!pageSize" [ngStyle]="pageBoxStyle">
+        <div class="canvas-editor__page-inner" [ngStyle]="pageInnerStyle">
+        <gridster [options]="options" class="canvas-editor__grid" [ngStyle]="pageStyles.sheet">
+          <gridster-item *ngFor="let item of gridItems; let i = index; trackBy: trackItem" [item]="item" [attr.data-item-id]="item.id" class="canvas-editor__item"
+            [class.canvas-editor__item--selected]="item.id === selectedId" [class.canvas-editor__item--untitled]="item.style?.showTitle === false"
+            [ngStyle]="frameFor(item)" (pointerdown)="selectFromSheet(item)" (dblclick)="openTextEditor(item)">
+            <div *ngIf="editing || item.style?.showTitle !== false" class="canvas-editor__item-header canvas-editor__handle"
+              [class.canvas-editor__item-header--ghost]="item.style?.showTitle === false">
+              <div class="canvas-editor__item-titles" [ngStyle]="titleFor(item)">
+                <button type="button" class="canvas-editor__item-title" [disabled]="!editing" [attr.aria-label]="'Select ' + item.title"
+                  [ngStyle]="titleFor(item)" (click)="select(item)">{{ item.style?.showTitle === false ? '' : item.title }}</button>
+                <span *ngIf="item.style?.subtitle && item.style?.showTitle !== false" class="canvas-editor__item-subtitle">{{ item.style?.subtitle }}</span>
+              </div>
+              <button *ngIf="!presenting" type="button" class="canvas-editor__item-action canvas-editor__item-action--more"
+                [attr.aria-label]="'More options for ' + item.title" aria-haspopup="menu" [attr.aria-expanded]="itemMenu?.item?.id === item.id"
+                title="More options" (pointerdown)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (click)="toggleItemMenu(item, $event)">
+                <app-icon name="more_vert" aria-hidden="true"></app-icon>
+              </button>
+            </div>
+            <app-canvas-object class="canvas-editor__object" [item]="item" [index]="i" [refreshToken]="refreshToken" [filters]="filtersFor(item)" [highlight]="highlightOf(item)" [labels]="fields.names" [brandColors]="brand?.colors" [fieldKind]="fieldKinds.get(item.dimensions[0]) ?? 'text'" [draft]="!published" [theme]="page?.theme" [interactive]="!editing"
+              (pointClick)="onPointClick(item, $event)" (slicerChange)="onSlicerChange(item, $event)"></app-canvas-object>
+          </gridster-item>
+        </gridster>
+        <div *ngFor="let item of floatItems; trackBy: trackItem" class="canvas-editor__float" [attr.data-item-id]="item.id"
+          [class.canvas-editor__float--editing]="editing" [class.canvas-editor__float--selected]="item.id === selectedId"
+          [style.left.px]="item.float?.x" [style.top.px]="item.float?.y" [style.width.px]="item.float?.w" [style.height.px]="item.float?.h"
+          [ngStyle]="frameFor(item)" (pointerdown)="startFloatDrag(item, $event, 'move')" (dblclick)="openTextEditor(item)">
+          <app-canvas-object class="canvas-editor__object" [item]="item" [interactive]="!editing"></app-canvas-object>
+          <button *ngIf="editing" type="button" class="canvas-editor__item-action canvas-editor__item-action--more canvas-editor__float-more"
+            [attr.aria-label]="'More options for ' + item.title" aria-haspopup="menu" title="More options"
+            (pointerdown)="$event.stopPropagation()" (click)="toggleItemMenu(item, $event)">
+            <app-icon name="more_vert" aria-hidden="true"></app-icon>
+          </button>
+          <span *ngIf="editing && item.id === selectedId" class="canvas-editor__float-resize" aria-hidden="true"
+            (pointerdown)="startFloatDrag(item, $event, 'resize')"></span>
+        </div>
+        </div>
+        </div>
+      </section>
+
+      <div class="canvas-editor__sheets">
+        <div class="canvas-editor__tabs" role="tablist" aria-label="Sheets">
+          <ng-container *ngFor="let sheet of sheets.sheets; trackBy: trackSheet">
+            <input *ngIf="renaming && sheet.id === sheets.activeId; else tab" class="form-control canvas-editor__rename" aria-label="Sheet name"
+              maxlength="60" [(ngModel)]="renameValue" (keydown.enter)="finishRename()" (keydown.escape)="renaming = false"
+              (blur)="finishRename()" />
+            <ng-template #tab>
+              <button type="button" role="tab" class="canvas-editor__tab" [class.canvas-editor__tab--active]="sheet.id === sheets.activeId"
+                [attr.aria-selected]="sheet.id === sheets.activeId" [title]="editing ? 'Double-click to rename' : sheet.name"
+                (click)="selectSheet(sheet.id)" (dblclick)="editing && startRename()">{{ sheet.name }}</button>
+            </ng-template>
+          </ng-container>
+          <button *ngIf="editing" type="button" class="canvas-editor__tab-add" aria-label="Add sheet" title="Add sheet" (click)="addSheet()">+</button>
+        </div>
+        <button *ngIf="crossFilter" type="button" class="canvas-editor__filter" [attr.aria-label]="'Clear the filter ' + crossFilterLabel"
+          [title]="'Clear the filter ' + crossFilterLabel" (click)="clearCrossFilter()">
+          <span class="canvas-editor__filter-text">Filtered by {{ crossFilterLabel }}</span>
+          <app-icon name="close" aria-hidden="true"></app-icon>
+        </button>
+        <div *ngIf="pageSize" class="canvas-editor__zoom" role="group" aria-label="Zoom">
+          <button type="button" class="canvas-editor__zoom-step" aria-label="Zoom out" title="Zoom out" [disabled]="pageScale <= zoomLevels[0]"
+            (click)="zoomBy(-1)">&minus;</button>
+          <button type="button" class="canvas-editor__zoom-level" [class.canvas-editor__zoom-level--fit]="!zoom"
+            [title]="zoom ? 'Fit the page to the screen' : 'The page fits the screen'" (click)="zoom = null">
+            {{ zoom ? (pageScale * 100 | number: '1.0-0') + '%' : 'Fit ' + (pageScale * 100 | number: '1.0-0') + '%' }}
+          </button>
+          <button type="button" class="canvas-editor__zoom-step" aria-label="Zoom in" title="Zoom in"
+            [disabled]="pageScale >= zoomLevels[zoomLevels.length - 1]" (click)="zoomBy(1)">+</button>
+        </div>
+        <div *ngIf="editing" class="canvas-editor__sheet-actions">
+          <button type="button" class="canvas-editor__sheet-action" (click)="startRename()">Rename</button>
+          <button type="button" class="canvas-editor__sheet-action" [disabled]="sheetIndex <= 0" (click)="moveSheet(-1)">Move left</button>
+          <button type="button" class="canvas-editor__sheet-action" [disabled]="sheetIndex >= sheets.sheets.length - 1" (click)="moveSheet(1)">
+            Move right
+          </button>
+          <button type="button" class="canvas-editor__sheet-action" [disabled]="!sheets.canDelete" (click)="deleteActiveSheet()">Delete</button>
+        </div>
+        <div *ngIf="presenting" class="canvas-editor__sheet-actions">
+          <app-button variant="ghost" size="sm" (clicked)="refreshAll()">Refresh all</app-button>
+          <app-button variant="ghost" size="sm" (clicked)="resetFilters()">Reset filters</app-button>
+          <ng-container *ngIf="viewOnly; else exitPresent">
+            <app-button variant="ghost" size="sm" (clicked)="present()">Full screen</app-button>
+            <app-button variant="secondary" size="sm" (clicked)="close()">Close</app-button>
+          </ng-container>
+          <ng-template #exitPresent>
+            <app-button variant="secondary" size="sm" (clicked)="stopPresenting()">Exit present mode</app-button>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+    <button *ngIf="editing && folded.filters" type="button" class="canvas-editor__strip" aria-label="Show the Filters pane"
+      (click)="fold('filters', false)">
+      <app-icon name="chevron_left" aria-hidden="true"></app-icon><span>Filters</span>
+    </button>
+    <app-canvas-filters *ngIf="editing && !folded.filters" class="canvas-editor__pane" [item]="selected" [pageFilters]="sheetFilterList"
+      [canvasFilters]="canvasFilters" [dataset]="model?.dataset ?? null" [columns]="model?.columns ?? noColumns" [draft]="!published"
+      [dragging]="dragging" [labels]="fields.names" (itemChange)="updateItem($event)" (pageFiltersChange)="setSheetFilters($event)"
+      (canvasFiltersChange)="canvasFilters = $event" (collapse)="fold('filters', true)">
+    </app-canvas-filters>
+
+    <button *ngIf="editing && folded.visuals" type="button" class="canvas-editor__strip" aria-label="Show the Visualizations pane"
+      (click)="fold('visuals', false)">
+      <app-icon name="chevron_left" aria-hidden="true"></app-icon><span>Visualizations</span>
+    </button>
+    <app-canvas-properties *ngIf="editing && !folded.visuals" class="canvas-editor__pane" [item]="selected" [canvasDatasetId]="datasetId"
+      [datasetName]="datasetName" [dragging]="dragging" [page]="page" [otherSheets]="otherSheets" [labels]="fields.names"
+      [fieldKind]="(selected && fieldKinds.get(selected.dimensions[0])) || 'text'" (pageChange)="setPage($event)" (collapse)="fold('visuals', true)"
+      [canvasName]="canvas?.dashboardName ?? ''" [canvasDescription]="canvas?.description ?? null" (detailsChange)="setDetails($event)"
+      (add)="addVisual($event)" (itemChange)="updateItem($event)" (remove)="removeItem($event)" (closed)="selectedId = null"
+      (editText)="openTextEditor($event)" (floatChange)="selected && setFloating(selected, $event)" [brand]="brand" [pageSize]="pageSize" (brandChange)="setBrand($event)"
+      (pageSizeChange)="setPageSize($event)" (insertLogo)="insertLogo()"
+      [savedKits]="savedKits" [kitMessage]="kitMessage" (applyKit)="applySavedKit($event)" (saveKit)="saveKit($event)" (deleteKit)="deleteKit($event)">
+    </app-canvas-properties>
+
+    <button *ngIf="editing && folded.data" type="button" class="canvas-editor__strip" aria-label="Show the Data pane" (click)="fold('data', false)">
+      <app-icon name="chevron_left" aria-hidden="true"></app-icon><span>Data</span>
+    </button>
+    <app-canvas-data-pane *ngIf="editing && !folded.data" class="canvas-editor__pane" (collapse)="fold('data', true)" [datasets]="datasets" [datasetId]="datasetId"
+      [dataset]="model?.dataset ?? null" [columns]="model?.columns ?? noColumns" [loading]="modelLoading" [canChangeModel]="canChangeModel"
+      (datasetChange)="chooseDataset($event)" (dragStarted)="dragging = $event" (dragEnded)="dragging = null" (picked)="pick($event)"
+      (editMeasure)="openMeasure($event)" (newColumn)="openColumn($event)" [fieldNames]="fields.names" [hiddenFields]="fields.hidden"
+      [hasSelection]="!!selected" (renameField)="renameField($event.key, $event.name)" (hideField)="hideField($event.key, $event.hidden)"
+      (addFilter)="addFilterFrom($event.scope, $event.drag.name, $event.drag.fieldKind ?? 'text')">
+    </app-canvas-data-pane>
+  </div>
+</div>
+
+<app-formula-builder *ngIf="formula && model" [dataset]="model.dataset" [columns]="model.columns" [measure]="formula.measure"
+  [start]="formula.start" [notice]="modelNotice" [saving]="busy" [serverError]="formulaError" [startInText]="true"
+  (save)="saveMeasure($event)" (cancelled)="formula = null"></app-formula-builder>
+
+<app-calculated-column-dialog *ngIf="columnDialog && model" [dataset]="model.dataset" [columns]="model.columns"
+  [source]="columnDialog.source" [column]="null" [notice]="modelNotice" [saving]="busy" [serverError]="formulaError"
+  (save)="saveColumn($event)" (cancelled)="columnDialog = null"></app-calculated-column-dialog>
+
+<div *ngIf="itemMenu as menu" class="canvas-editor__item-menu" role="menu" [attr.aria-label]="'Options for ' + menu.item.title"
+  [style.left.px]="menu.x" [style.top.px]="menu.y" (click)="$event.stopPropagation()">
+  <button *ngIf="menuObject?.canExport" type="button" role="menuitem" (click)="itemMenu = null; menuObject?.exportExcel()">
+    <app-icon name="download" aria-hidden="true"></app-icon>Export data to Excel
+  </button>
+  <button *ngIf="menuObject?.canExport && model && menu.item.type !== 'slicer'" type="button" role="menuitem" (click)="showRecords(menu.item)">
+    <app-icon name="database_view" aria-hidden="true"></app-icon>Show records
+  </button>
+  <button type="button" role="menuitem" (click)="openComments(menu.item)">
+    <app-icon name="description" aria-hidden="true"></app-icon>Comment on this visual
+  </button>
+  <button *ngIf="menuObject?.canRefresh" type="button" role="menuitem" (click)="menuObject?.refresh(); itemMenu = null">
+    <app-icon name="refresh" aria-hidden="true"></app-icon>Refresh data
+  </button>
+  <ng-container *ngIf="editing">
+    <button type="button" role="menuitem" (click)="cloneItem(menu.item); itemMenu = null">
+      <app-icon name="copy" aria-hidden="true"></app-icon>Clone<span class="canvas-editor__item-menu-key">Ctrl+C, Ctrl+V</span>
+    </button>
+    <button type="button" role="menuitem" class="canvas-editor__item-menu-danger" (click)="itemMenu = null; removeItem(menu.item)">
+      <app-icon name="close" aria-hidden="true"></app-icon>Remove
+    </button>
+  </ng-container>
+  <p *ngIf="menuObject?.result as result" class="canvas-editor__item-menu-note">Data as of {{ result.fetchedAt | date: 'd MMM, HH:mm' }}</p>
+</div>
+
+<aside *ngIf="commentsOpen" class="canvas-editor__comments" aria-label="Comments">
+  <header class="canvas-editor__dialog-header">
+    <h2 class="canvas-editor__dialog-title">Comments</h2>
+    <button type="button" class="canvas-editor__close" aria-label="Close the comments" (click)="commentsOpen = false">
+      <app-icon name="close" aria-hidden="true"></app-icon>
+    </button>
+  </header>
+  <div class="canvas-editor__comment-list">
+    <p *ngIf="!commentList.length" class="form-hint">No comments yet. Write the first one below.</p>
+    <article *ngFor="let comment of commentList" class="canvas-editor__comment">
+      <p class="canvas-editor__comment-meta"><strong>{{ comment.authorDisplayName }}</strong> {{ comment.createdAt | date: 'd MMM, HH:mm' }}
+        <button type="button" class="canvas-editor__comment-action" (click)="deleteComment(comment)">Delete</button></p>
+      <p class="canvas-editor__comment-body">{{ comment.body }}</p>
+      <div *ngFor="let reply of comment.replies" class="canvas-editor__comment canvas-editor__comment--reply">
+        <p class="canvas-editor__comment-meta"><strong>{{ reply.authorDisplayName }}</strong> {{ reply.createdAt | date: 'd MMM, HH:mm' }}
+          <button type="button" class="canvas-editor__comment-action" (click)="deleteComment(reply)">Delete</button></p>
+        <p class="canvas-editor__comment-body">{{ reply.body }}</p>
+      </div>
+      <button *ngIf="replyTo !== comment.commentId" type="button" class="canvas-editor__comment-action" (click)="replyTo = comment.commentId; replyDraft = ''">Reply</button>
+      <form *ngIf="replyTo === comment.commentId" class="canvas-editor__comment-form" (submit)="$event.preventDefault(); postComment(comment.commentId)">
+        <textarea class="form-control" rows="2" maxlength="2000" aria-label="Reply" [(ngModel)]="replyDraft" name="replyDraft"></textarea>
+        <app-button variant="secondary" size="sm" type="submit" [disabled]="!replyDraft.trim() || commentsBusy">Reply</app-button>
+      </form>
+    </article>
+  </div>
+  <form class="canvas-editor__comment-form" (submit)="$event.preventDefault(); postComment()">
+    <textarea class="form-control" rows="3" maxlength="2000" aria-label="New comment" placeholder="Write a comment" [(ngModel)]="commentDraft" name="commentDraft"></textarea>
+    <app-button variant="primary" size="sm" type="submit" [disabled]="!commentDraft.trim() || commentsBusy">Post</app-button>
+  </form>
+</aside>
+
+<div *ngIf="records as list" class="canvas-editor__overlay" (click)="records = null">
+  <section appDialog (dialogClose)="records = null" class="canvas-editor__text-dialog canvas-editor__records" role="dialog" aria-modal="true" aria-labelledby="canvas-records-title"
+    (click)="$event.stopPropagation()">
+    <header class="canvas-editor__dialog-header">
+      <h2 id="canvas-records-title" class="canvas-editor__dialog-title">Records behind {{ list.title }}</h2>
+      <button type="button" class="canvas-editor__close" aria-label="Close the records" (click)="records = null">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </header>
+    <p *ngIf="list.loading" class="form-hint">Reading the rows...</p>
+    <p *ngIf="list.error" class="canvas-editor__records-error" role="alert">{{ list.error }}</p>
+    <div *ngIf="!list.loading && !list.error" class="canvas-editor__records-table">
+      <table>
+        <thead><tr><th *ngFor="let column of list.columns" scope="col">{{ recordHeader(column) }}</th></tr></thead>
+        <tbody><tr *ngFor="let row of list.rows"><td *ngFor="let column of list.columns">{{ recordCell(row[column]) }}</td></tr></tbody>
+      </table>
+    </div>
+    <footer class="canvas-editor__dialog-actions">
+      <span class="form-hint">{{ list.rows.length }} rows{{ list.rows.length >= 500 ? ', the first 500 only' : '' }}</span>
+      <app-button variant="secondary" [disabled]="!list.rows.length" (clicked)="exportRecords()">Export to Excel</app-button>
+      <app-button variant="primary" (clicked)="records = null">Close</app-button>
+    </footer>
+  </section>
+</div>
+
+<div *ngIf="exportDialog as dialog" class="canvas-editor__overlay" (click)="exportDialog = null">
+  <section appDialog (dialogClose)="exportDialog = null" class="canvas-editor__text-dialog canvas-editor__export-dialog" role="dialog" aria-modal="true" aria-labelledby="canvas-export-title"
+    (click)="$event.stopPropagation()">
+    <header class="canvas-editor__dialog-header">
+      <h2 id="canvas-export-title" class="canvas-editor__dialog-title">Export</h2>
+      <button type="button" class="canvas-editor__close" aria-label="Close without exporting" (click)="exportDialog = null">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </header>
+
+    <fieldset class="canvas-editor__export-group">
+      <legend>Format</legend>
+      <label><input type="radio" name="export-kind" value="pdf" [checked]="dialog.kind === 'pdf'" (change)="dialog.kind = 'pdf'" /> PDF, one page per sheet</label>
+      <label><input type="radio" name="export-kind" value="pptx" [checked]="dialog.kind === 'pptx'" (change)="dialog.kind = 'pptx'" /> PowerPoint, one slide per sheet</label>
+      <label><input type="radio" name="export-kind" value="png" [checked]="dialog.kind === 'png'" (change)="dialog.kind = 'png'" /> Image (PNG), one file per sheet</label>
+    </fieldset>
+
+    <fieldset class="canvas-editor__export-group">
+      <legend>Sheets</legend>
+      <label><input type="radio" name="export-sheets" [checked]="dialog.sheets === 'current'" (change)="dialog.sheets = 'current'" /> This sheet ({{ sheets.active?.name }})</label>
+      <label><input type="radio" name="export-sheets" [checked]="dialog.sheets === 'all'" (change)="dialog.sheets = 'all'" /> All sheets ({{ sheets.sheets.length }})</label>
+      <label><input type="radio" name="export-sheets" [checked]="dialog.sheets === 'chosen'" (change)="dialog.sheets = 'chosen'" /> Selected sheets</label>
+      <div *ngIf="dialog.sheets === 'chosen'" class="canvas-editor__export-sheets">
+        <label *ngFor="let sheet of sheets.sheets">
+          <input type="checkbox" [checked]="dialog.chosen.has(sheet.id)" (change)="toggleExportSheet(sheet.id)" /> {{ sheet.name }}
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="canvas-editor__export-group">
+      <legend>Size</legend>
+      <label><input type="radio" name="export-size" [checked]="dialog.size === 'fit'" (change)="dialog.size = 'fit'" />
+        Fit to width: {{ dialog.kind === 'pdf' ? 'A4 landscape pages' : dialog.kind === 'pptx' ? 'standard 16:9 slides' : '1920 pixels wide' }}</label>
+      <label><input type="radio" name="export-size" [checked]="dialog.size === 'actual'" (change)="dialog.size = 'actual'" />
+        Actual size: each page as big as the sheet</label>
+    </fieldset>
+    <p class="form-hint">Excel: use Export data to Excel in a chart's or table's menu.</p>
+
+    <footer class="canvas-editor__dialog-actions">
+      <app-button variant="secondary" (clicked)="exportDialog = null">Cancel</app-button>
+      <app-button variant="primary" [disabled]="!exportSheetIds(dialog).length" (clicked)="runExport(dialog)">Export</app-button>
+    </footer>
+  </section>
+</div>
+
+<div *ngIf="textEdit as edit" class="canvas-editor__overlay" (click)="textEdit = null">
+  <section appDialog (dialogClose)="textEdit = null" class="canvas-editor__text-dialog" role="dialog" aria-modal="true" aria-labelledby="canvas-text-dialog-title"
+    (click)="$event.stopPropagation()">
+    <header class="canvas-editor__dialog-header">
+      <h2 id="canvas-text-dialog-title" class="canvas-editor__dialog-title">Edit text: {{ edit.title }}</h2>
+      <button type="button" class="canvas-editor__close" aria-label="Close without applying" (click)="textEdit = null">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </header>
+    <app-rich-text-editor [large]="true" [html]="edit.html" (htmlChange)="edit.html = $event"></app-rich-text-editor>
+    <footer class="canvas-editor__dialog-actions">
+      <app-button variant="secondary" (clicked)="textEdit = null">Cancel</app-button>
+      <app-button variant="primary" (clicked)="applyText()">Apply</app-button>
+    </footer>
+  </section>
+</div>
+
+<app-confirmation-dialog [isOpen]="!!confirm" [title]="confirm?.title ?? ''" [message]="confirm?.message ?? ''"
+  [confirmLabel]="confirm?.confirmLabel ?? 'Confirm'" (confirmed)="runConfirmed()" (cancelled)="confirm = null">
+</app-confirmation-dialog>
+
+<app-schedule-dialog *ngIf="scheduleOpen && canvas" [target]="{ type: 'Canvas', id: canvas.dashboardId, name: canvas.dashboardName }"
+  (closed)="scheduleOpen = false"></app-schedule-dialog>

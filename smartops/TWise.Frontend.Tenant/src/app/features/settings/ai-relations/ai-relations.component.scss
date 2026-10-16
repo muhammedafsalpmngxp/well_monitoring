@@ -1,0 +1,24 @@
+.rel {
+  &__grid { display: grid; grid-template-columns: minmax(320px, 560px) minmax(0, 1fr); gap: 16px; align-items: start; @media (max-width: 1100px) { grid-template-columns: 1fr; } }
+  &__svg { width: 100%; height: auto; display: block; line { stroke: #c7d2fe; stroke-width: 2; stroke-dasharray: 5 4; } circle { fill: #21409a; } }
+  &__edge--confirmed { stroke: #21409a !important; stroke-dasharray: none !important; stroke-width: 2.5 !important; }
+  &__node--import { fill: #067647 !important; }
+  &__node-count { fill: #fff; font-size: 11px; font-weight: 700; }
+  &__node-label { fill: #344054; font-size: 11px; }
+  &__legend { margin: 8px 0 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  &__swatch { display: inline-block; width: 18px; height: 0; border-top: 2px dashed #c7d2fe; &--confirmed { border-top: 2.5px solid #21409a; } }
+  &__tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  &__status { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #f2f4f7; color: #475467;
+    &--confirmed { background: #ecfdf3; color: #067647; } &--rejected { background: #fef3f2; color: #b42318; } &--suggested { background: #eef2ff; color: #3538cd; } }
+  &__actions { white-space: nowrap; display: flex; gap: 6px; }
+  &__pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; max-height: 320px; overflow: auto; padding: 8px 0; font-size: 13px;
+    label { display: flex; gap: 6px; align-items: center; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; span { overflow: hidden; text-overflow: ellipsis; } } }
+  &__pick-all { grid-column: 1 / -1; font-weight: 600; }
+  &__add { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: end;
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: #344054; }
+    input, select { font-size: 13px; padding: 6px 8px; border: 1px solid #d0d5dd; border-radius: 6px; }
+    .ai__actions { grid-column: 1 / -1; }
+    @media (max-width: 900px) { grid-template-columns: 1fr 1fr; } }
+}
+.ai__tab { all: unset; cursor: pointer; font-size: 12px; padding: 4px 10px; border-radius: 999px; color: #475467; &--on { background: #eef2ff; color: #21409a; font-weight: 600; } }
+.btn-sm { padding: 4px 10px; font-size: 12px; }

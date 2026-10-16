@@ -1,0 +1,281 @@
+<div id="page-smartalerts" class="page active">
+
+  <!-- ══════════════ ADMIN (legacy, view-only) ══════════════ -->
+  <ng-container *ngIf="admin">
+    <div class="sa-toolbar">
+      <div class="sa-breadcrumb">
+        <span class="sa-title">{{ 'SMARTALERTS.TITLE' | translate }}</span>
+        <span>›</span>
+        <span class="sa-active-count">● 17 {{ 'SMARTALERTS.ACTIVE_LABEL' | translate }}</span>
+      </div>
+    </div>
+
+    <div class="atg-kpi-grid">
+      <div class="kpi k-blue"><div class="kpi-head"><span class="kpi-label">{{ 'SMARTALERTS.TOTAL_ACTIVE' | translate }}</span></div><div class="kpi-val blue">17</div></div>
+      <div class="kpi k-red"><div class="kpi-head"><span class="kpi-label">{{ 'SMARTALERTS.CRITICAL' | translate }}</span></div><div class="kpi-val red">1</div></div>
+      <div class="kpi k-gold"><div class="kpi-head"><span class="kpi-label">{{ 'SMARTALERTS.HIGH' | translate }}</span></div><div class="kpi-val amber">4</div></div>
+      <div class="kpi k-gold"><div class="kpi-head"><span class="kpi-label">{{ 'SMARTALERTS.MEDIUM' | translate }}</span></div><div class="kpi-val amber">7</div></div>
+      <div class="kpi k-green"><div class="kpi-head"><span class="kpi-label">{{ 'SMARTALERTS.LOW_PLUS_INFO' | translate }}</span></div><div class="kpi-val green">5</div></div>
+      <div class="kpi k-grey"><div class="kpi-head"><span class="kpi-label">{{ 'SMARTALERTS.ACKNOWLEDGED' | translate }}</span></div><div class="kpi-val grey">0</div></div>
+    </div>
+
+    <div class="sa-filter-bar">
+      <div class="sa-search">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="sa-search-input" [placeholder]="'SMARTALERTS.SEARCH_PLACEHOLDER' | translate" oninput="renderAlerts()"/>
+      </div>
+      <div class="sa-fpill active" onclick="saSetStatus('ALL',this)">{{ 'SMARTALERTS.ALL' | translate }} (17)</div>
+      <div class="sa-fpill" onclick="saSetStatus('ACTIVE',this)">{{ 'SMARTALERTS.ACTIVE_UPPER' | translate }} (17)</div>
+      <div class="sa-fpill" onclick="saSetStatus('ACKNOWLEDGED',this)">{{ 'SMARTALERTS.ACKNOWLEDGED_UPPER' | translate }} (0)</div>
+      <div class="sa-sep"></div>
+      <div class="sa-sev-pill active" onclick="saSetSev('ALL',this)">{{ 'SMARTALERTS.ALL' | translate }}</div>
+      <div class="sa-sev-pill" onclick="saSetSev('CRITICAL',this)"><span class="sa-sev-dot critical"></span> {{ 'SMARTALERTS.CRITICAL_UPPER' | translate }} 1</div>
+      <div class="sa-sev-pill" onclick="saSetSev('HIGH',this)"><span class="sa-sev-dot high"></span> {{ 'SMARTALERTS.HIGH_UPPER' | translate }} 4</div>
+      <div class="sa-sev-pill" onclick="saSetSev('MEDIUM',this)"><span class="sa-sev-dot medium"></span> {{ 'SMARTALERTS.MEDIUM_UPPER' | translate }} 7</div>
+      <div class="sa-sev-pill" onclick="saSetSev('LOW',this)"><span class="sa-sev-dot low"></span> {{ 'SMARTALERTS.LOW_UPPER' | translate }} 3</div>
+      <div class="sa-sev-pill" onclick="saSetSev('INFO',this)"><span class="sa-sev-dot info"></span> {{ 'SMARTALERTS.INFO' | translate }} 2</div>
+      <select class="sa-sort-select"><option>{{ 'SMARTALERTS.SORT_SEVERITY' | translate }}</option></select>
+      <span class="sa-count-label" id="sa-count-label">17 / 17 {{ 'SMARTALERTS.ALERTS' | translate }}</span>
+    </div>
+
+    <div id="sa-alert-list"></div>
+  </ng-container>
+
+  <!-- ══════════════ USER (actionable board) ══════════════ -->
+  <div class="sau" *ngIf="!admin">
+
+    <!-- Header -->
+    <div class="sau-head">
+      <div>
+        <div class="sau-h1">Smart Alerts</div>
+        <div class="sau-sub">Your assigned alerts — act before the SLA runs out.</div>
+      </div>
+      <div class="sau-headcounts">
+        <span class="sau-hc"><b>{{ counts.open }}</b> open</span>
+        <span class="sau-hc sau-hc--risk" *ngIf="counts.atRisk">{{ counts.atRisk }} breaching &lt; 1h</span>
+        <span class="sau-hc sau-hc--breach" *ngIf="counts.breached">{{ counts.breached }} past SLA</span>
+      </div>
+    </div>
+
+    <!-- AI summary -->
+    <div class="sau-ai">
+      <span class="sau-ai-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 5.6L20 9l-4.5 3.8L17 19l-5-3-5 3 1.5-6.2L4 9l5.6-1.4z"/></svg> AI</span>
+      <span class="sau-ai-txt">{{ aiSummary }}</span>
+    </div>
+
+    <!-- Personal SLA + performance strip -->
+    <div class="sau-stats">
+      <div class="sau-stat"><div class="sau-stat-v">{{ counts.critical }}</div><div class="sau-stat-l">Critical open</div></div>
+      <div class="sau-stat"><div class="sau-stat-v" [class.warn]="counts.atRisk">{{ counts.atRisk }}</div><div class="sau-stat-l">Breaching &lt; 1h</div></div>
+      <div class="sau-stat"><div class="sau-stat-v" [class.bad]="counts.breached">{{ counts.breached }}</div><div class="sau-stat-l">Past SLA</div></div>
+      <div class="sau-stat"><div class="sau-stat-v good">{{ perf.onTimePct }}%</div><div class="sau-stat-l">Closed on time</div></div>
+      <div class="sau-stat"><div class="sau-stat-v">{{ perf.avgResponseMins }}m</div><div class="sau-stat-l">Avg response</div></div>
+      <div class="sau-stat"><div class="sau-stat-v">{{ perf.closed }}</div><div class="sau-stat-l">Total closed</div></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="sau-toolbar">
+      <div class="sau-search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search alerts, wells, rules…" [(ngModel)]="search" (input)="onSearch()"/>
+      </div>
+      <div class="sau-pills">
+        <button class="sau-pill" [class.on]="statusFilter==='open'" (click)="setStatus('open')">Open ({{ counts.open }})</button>
+        <button class="sau-pill" [class.on]="statusFilter==='acknowledged'" (click)="setStatus('acknowledged')">Ack ({{ counts.acknowledged }})</button>
+        <button class="sau-pill" [class.on]="statusFilter==='snoozed'" (click)="setStatus('snoozed')">Snoozed ({{ counts.snoozed }})</button>
+        <button class="sau-pill" [class.on]="statusFilter==='closed'" (click)="setStatus('closed')">Closed ({{ counts.closed }})</button>
+        <button class="sau-pill" [class.on]="statusFilter==='all'" (click)="setStatus('all')">All ({{ counts.all }})</button>
+      </div>
+      <span class="sau-tb-sp"></span>
+      <div class="sau-sevpills">
+        <button class="sau-sevpill" [class.on]="sevFilter==='ALL'" (click)="setSev('ALL')">All sev</button>
+        <button class="sau-sevpill" *ngFor="let s of sevOptions" [class.on]="sevFilter===s" (click)="setSev(s)"><span class="sau-dot" [ngClass]="s.toLowerCase()"></span>{{ s }}</button>
+      </div>
+      <select class="sau-select" [(ngModel)]="sort" (change)="setSort(sort)">
+        <option value="priority">Sort: Priority</option>
+        <option value="sla">Sort: SLA (soonest)</option>
+        <option value="severity">Sort: Severity</option>
+        <option value="newest">Sort: Newest</option>
+      </select>
+      <button class="sau-ghost" [class.on]="groupByWell" (click)="toggleGroup()" title="Group by well">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Group by well
+      </button>
+    </div>
+
+    <!-- Bulk bar -->
+    <div class="sau-bulk" *ngIf="selected.size">
+      <span class="sau-bulk-n">{{ selected.size }} selected</span>
+      <button class="sau-btn" (click)="bulkAck()">Acknowledge</button>
+      <button class="sau-btn" (click)="bulkSnooze(4)">Snooze 4h</button>
+      <button class="sau-btn sau-btn--primary" (click)="openBulkClose()">Close…</button>
+      <button class="sau-btn sau-btn--ghost" (click)="selectAllVisible()">Select all</button>
+      <button class="sau-btn sau-btn--ghost" (click)="clearSelection()">Clear</button>
+    </div>
+
+    <!-- List -->
+    <ng-container *ngIf="flat.length; else emptyTpl">
+
+      <!-- Flat -->
+      <div class="sau-list" *ngIf="!groupByWell">
+        <ng-container *ngFor="let a of flat; trackBy: trackById">
+          <ng-container *ngTemplateOutlet="cardTpl; context: { a: a }"></ng-container>
+        </ng-container>
+      </div>
+
+      <!-- Grouped by well -->
+      <div class="sau-groups" *ngIf="groupByWell">
+        <div class="sau-group" *ngFor="let g of groups">
+          <div class="sau-group-head"><span class="sau-group-well">Well {{ g.well }}</span><span class="sau-group-n">{{ g.alerts.length }} alert(s)</span></div>
+          <div class="sau-list">
+            <ng-container *ngFor="let a of g.alerts; trackBy: trackById">
+              <ng-container *ngTemplateOutlet="cardTpl; context: { a: a }"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+
+    </ng-container>
+
+    <ng-template #emptyTpl>
+      <div class="sau-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div>No alerts match this view.</div>
+      </div>
+    </ng-template>
+
+  </div>
+
+  <!-- ══════════════ Alert card template ══════════════ -->
+  <ng-template #cardTpl let-a="a">
+    <div class="sau-card" [class.risk]="a.atRisk" [class.breached]="a.breached" [class.closed]="a.effectiveStatus==='closed'">
+      <label class="sau-card-check" *ngIf="a.effectiveStatus!=='closed'">
+        <input type="checkbox" [checked]="isSelected(a.id)" (change)="toggleSelect(a.id, $event)">
+      </label>
+
+      <div class="sau-card-main">
+        <div class="sau-card-top">
+          <span [class]="sevClass(a.sev)">{{ a.sev }}</span>
+          <span class="sau-card-title">{{ a.ruleName }}</span>
+          <span class="sau-well" (click)="openWell(a)" title="Open well grid">Well {{ a.well }}</span>
+          <span class="sau-status sau-status--{{ a.effectiveStatus }}">{{ a.effectiveStatus }}</span>
+          <span class="sau-prio" title="Triage priority">P{{ a.priority }}</span>
+          <span class="sau-tb-sp"></span>
+          <span class="sau-sla sau-sla--{{ slaClass(a) }}" *ngIf="a.effectiveStatus!=='closed'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+            {{ slaLabel(a) }}
+          </span>
+        </div>
+
+        <div class="sau-why"><b>Why:</b> {{ a.desc }}<span *ngIf="currentValue(a)"> · <b>Now:</b> {{ currentValue(a) }}</span></div>
+
+        <div class="sau-meta">
+          <span *ngIf="a.state.assignee" class="sau-assignee">↳ Reassigned to {{ a.state.assignee }}</span>
+          <span *ngIf="a.state.ackAt" class="sau-ackd">✓ Acknowledged by {{ a.state.ackBy }} · {{ fmtWhen(a.state.ackAt) }}</span>
+          <span *ngIf="a.effectiveStatus==='snoozed'" class="sau-snoozed">💤 Snoozed until {{ fmtWhen(a.state.snoozeUntil) }}</span>
+          <span *ngIf="a.effectiveStatus==='closed'" class="sau-closedmeta">✓ Closed · {{ a.state.resolution }} · {{ fmtWhen(a.state.closedAt) }}</span>
+          <span *ngIf="a.atRisk || a.breached" class="sau-escal">Escalates to {{ a.escalateTo }} if unacknowledged</span>
+        </div>
+
+        <!-- Actions -->
+        <div class="sau-actions">
+          <ng-container *ngIf="a.effectiveStatus!=='closed'">
+            <button class="sau-btn sau-btn--ok" *ngIf="a.effectiveStatus==='active'" (click)="ack(a)">Acknowledge</button>
+            <button class="sau-btn sau-btn--primary" (click)="openClose(a)">Close…</button>
+            <button class="sau-btn" (click)="snooze(a, 4)">Snooze 4h</button>
+            <button class="sau-btn" (click)="openReassign(a)">Reassign</button>
+          </ng-container>
+          <button class="sau-btn sau-btn--ok" *ngIf="a.effectiveStatus==='closed'" (click)="reopen(a)">Reopen</button>
+          <button class="sau-btn sau-btn--ghost" (click)="toggleExpand(a.id)">
+            {{ isExpanded(a.id) ? 'Hide details' : 'Details' }}
+            <span class="sau-cmtn" *ngIf="a.state.comments?.length">💬 {{ a.state.comments.length }}</span>
+          </button>
+        </div>
+
+        <!-- Details / context / collaboration -->
+        <div class="sau-details" *ngIf="isExpanded(a.id)">
+          <div class="sau-ctx">
+            <div class="sau-ctx-row"><span class="sau-ctx-lbl">Recommended</span><span>{{ a.runbook }}</span></div>
+            <div class="sau-ctx-row"><span class="sau-ctx-lbl">Escalation</span><span>{{ a.escalateTo }} (if unacknowledged within SLA)</span></div>
+            <div class="sau-ctx-row"><span class="sau-ctx-lbl">Source</span><span><a class="sau-link" (click)="openWell(a)">Open well {{ a.well }} grid ›</a></span></div>
+          </div>
+
+          <div class="sau-more-actions" *ngIf="a.effectiveStatus!=='closed'">
+            <button class="sau-mini" (click)="snooze(a,1)">Snooze 1h</button>
+            <button class="sau-mini" (click)="snooze(a,24)">Snooze 1d</button>
+          </div>
+
+          <!-- History on this well -->
+          <div class="sau-hist" *ngIf="historyFor(a).length">
+            <div class="sau-sec-lbl">Other alerts on well {{ a.well }}</div>
+            <div class="sau-hist-item" *ngFor="let h of historyFor(a)">
+              <span [class]="sevClass(h.sev)">{{ h.sev }}</span>
+              <span class="sau-hist-name">{{ h.ruleName }}</span>
+              <span class="sau-hist-status">{{ h.effectiveStatus }}</span>
+            </div>
+          </div>
+
+          <!-- Comments -->
+          <div class="sau-comments">
+            <div class="sau-sec-lbl">Discussion</div>
+            <div class="sau-cmt" *ngFor="let c of a.state.comments">
+              <span class="sau-cmt-a">{{ c.author }}</span>
+              <span class="sau-cmt-t">{{ c.text }}</span>
+              <span class="sau-cmt-w">{{ fmtWhen(c.at) }}</span>
+            </div>
+            <div class="sau-cmt-add">
+              <input type="text" placeholder="Add a comment or @mention a colleague…" [(ngModel)]="commentDraft[a.id]" (keyup.enter)="postComment(a)">
+              <button class="sau-btn sau-btn--primary" (click)="postComment(a)">Post</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-template>
+
+  <!-- ══════════════ Close modal ══════════════ -->
+  <div class="sau-modal-back" *ngIf="closeModal.open" (click)="cancelClose()"></div>
+  <div class="sau-modal" *ngIf="closeModal.open">
+    <div class="sau-modal-head">Close {{ closeModal.ids.length > 1 ? closeModal.ids.length + ' alerts' : 'alert' }}</div>
+    <div class="sau-modal-body">
+      <label class="sau-mfield">
+        <span>Resolution</span>
+        <select [(ngModel)]="closeModal.resolution">
+          <option value="">— Select a resolution —</option>
+          <option *ngFor="let r of resolutionCodes" [value]="r">{{ r }}</option>
+        </select>
+      </label>
+      <div class="sau-msuggest" *ngIf="closeModal.single && suggestion(closeModal.single)">
+        Suggested: <a (click)="closeModal.resolution = suggestion(closeModal.single!)">{{ suggestion(closeModal.single) }}</a>
+      </div>
+      <label class="sau-mfield">
+        <span>Note (optional)</span>
+        <textarea rows="3" [(ngModel)]="closeModal.note" placeholder="What did you do?"></textarea>
+      </label>
+    </div>
+    <div class="sau-modal-foot">
+      <button class="sau-btn sau-btn--ghost" (click)="cancelClose()">Cancel</button>
+      <button class="sau-btn sau-btn--primary" [disabled]="!closeModal.resolution" (click)="confirmClose()">Close alert</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ Reassign modal ══════════════ -->
+  <div class="sau-modal-back" *ngIf="reassignModal.open" (click)="cancelReassign()"></div>
+  <div class="sau-modal" *ngIf="reassignModal.open">
+    <div class="sau-modal-head">Reassign alert</div>
+    <div class="sau-modal-body">
+      <label class="sau-mfield">
+        <span>Assign to</span>
+        <select [(ngModel)]="reassignModal.assignee">
+          <option value="">— Select a colleague —</option>
+          <option *ngFor="let u of userOptions" [value]="u">{{ u }}</option>
+        </select>
+      </label>
+    </div>
+    <div class="sau-modal-foot">
+      <button class="sau-btn sau-btn--ghost" (click)="cancelReassign()">Cancel</button>
+      <button class="sau-btn sau-btn--primary" [disabled]="!reassignModal.assignee" (click)="confirmReassign()">Reassign</button>
+    </div>
+  </div>
+
+</div><!-- /page-smartalerts -->

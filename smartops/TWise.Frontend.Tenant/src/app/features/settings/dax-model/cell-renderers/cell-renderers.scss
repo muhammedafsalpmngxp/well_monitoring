@@ -1,0 +1,82 @@
+.dax-model-table__source-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &--view {
+    background: #E6FBFA;
+    color: #0EA5A4;
+  }
+
+  &--table {
+    background: #F3ECFF;
+    color: #7C3AED;
+  }
+}
+
+.dax-model-table__tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dax-model-table__tag {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #EAF1FF;
+  color: #4D5D93;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dax-model-table__used-in-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  height: 26px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #EAF1FF;
+  border: 1px solid #C7D7FE;
+  color: #21409A;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dax-model-table__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dax-model-table__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #E7ECF3;
+  border-radius: 8px;
+  background: #fff;
+  color: #475467;
+  cursor: pointer;
+
+  &--danger {
+    color: #D92D20;
+    border-color: #FECACA;
+  }
+}

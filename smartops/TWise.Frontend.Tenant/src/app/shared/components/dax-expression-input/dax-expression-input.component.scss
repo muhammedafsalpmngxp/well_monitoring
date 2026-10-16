@@ -1,0 +1,66 @@
+:host { display: block; }
+
+.dax-compose {
+  position: relative;
+
+  // Host styles a textarea class passed in via [ngClass] (e.g. `dax-create-modal__expression`),
+  // but that class's `resize` rule lives in the HOST's stylesheet and is view-encapsulated to the
+  // host's own template — it never reaches this element since it's rendered here, in THIS
+  // component's template. Default browser `resize: both` then let users drag the textarea wider
+  // than its `width: 100%` container, overflowing the modal. Set it here instead, where it
+  // actually applies; keep only vertical resize so the width always stays locked to the container.
+  textarea {
+    width: 100%;
+    max-width: 100%;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+
+  &__list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 30;
+    margin: 4px 0 0;
+    padding: 4px 0;
+    list-style: none;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+  }
+
+  &__item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+
+    &.active { background: #eef2ff; }
+  }
+
+  &__label { font-family: Consolas, 'SFMono-Regular', monospace; color: #101828; font-weight: 600; }
+  &__detail { color: #667085; font-size: 12px; white-space: nowrap; }
+
+  &__hint {
+    padding: 6px 12px;
+    border-top: 1px solid #eaecf0;
+    color: #475467;
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  &__signature {
+    margin-top: 4px;
+    color: #475467;
+    font-size: 12px;
+    line-height: 17px;
+
+    code { font-family: Consolas, 'SFMono-Regular', monospace; color: #21409a; }
+  }
+}

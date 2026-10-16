@@ -1,0 +1,225 @@
+// Shared by Schedules, Mail groups and Delivery Log: the Smart Alerts look (stat tiles, filter bar, chips, tabs) on theme tokens.
+
+.dp-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.dp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--font-family-base);
+
+  button, input, select, textarea { font-family: var(--font-family-base); }
+}
+
+.dp-tabs {
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dp-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover { color: var(--color-text-primary); }
+  &.active { color: var(--color-primary); font-weight: 700; border-bottom-color: var(--color-primary); }
+  &:focus-visible { outline: 2px solid var(--color-primary); }
+}
+
+.dp-count {
+  padding: 0 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.dp-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+
+  @media (max-width: 1000px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 520px) { grid-template-columns: 1fr; }
+}
+
+.dp-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+
+  &__dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-primary-50);
+    color: var(--color-primary);
+    font-size: 18px;
+    font-weight: 700;
+
+    &--good { background: var(--color-good-bg); color: var(--color-good); }
+    &--warn { background: var(--color-warn-bg); color: var(--color-warn); }
+    &--bad { background: var(--color-bad-bg); color: var(--color-bad); }
+  }
+
+  &__label { display: block; font-size: 13px; font-weight: 500; color: var(--color-text-secondary); }
+  &__value { display: block; font-size: 24px; font-weight: 700; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+}
+
+.dp-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 24px;
+  padding: 14px 16px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: var(--color-text-label); }
+  .form-control { height: 32px; padding-top: 0; padding-bottom: 0; }
+}
+
+.dp-search {
+  width: 240px;
+  max-width: 100%;
+}
+
+.dp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.dp-chip {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover { border-color: var(--color-primary); }
+  &.active { border-color: var(--color-primary); background: var(--color-primary-50); color: var(--color-primary); }
+  &:focus-visible { outline: 2px solid var(--color-primary); }
+}
+
+.dp-type {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--canvas { background: var(--color-warn-bg); color: var(--color-warn); }
+  &--dashboard { background: var(--color-good-bg); color: var(--color-good); }
+}
+
+.dp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--color-bg-app);
+  color: var(--color-text-secondary);
+
+  &::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  &--sent, &--active { background: var(--color-good-bg); color: var(--color-good); }
+  &--skipped, &--paused { background: var(--color-warn-bg); color: var(--color-warn); }
+  &--failed { background: var(--color-bad-bg); color: var(--color-bad); }
+}
+
+.dp-toast {
+  padding: 10px var(--spacing-md);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: 13px;
+
+  &--error { border-color: var(--color-danger); }
+}
+
+.dp-error { color: var(--color-danger); }
+
+.dp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  background: var(--color-bg-overlay);
+}
+
+.dp-modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+
+  &__title { margin: 0 0 var(--spacing-md); font-size: 18px; font-weight: 600; }
+  &__actions { display: flex; justify-content: flex-end; gap: var(--spacing-sm); margin-top: var(--spacing-md); }
+}
+
+.dp-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  &:focus-visible { outline: 2px solid var(--color-primary); }
+  &--danger:hover:not(:disabled) { border-color: var(--color-danger); color: var(--color-danger); }
+}

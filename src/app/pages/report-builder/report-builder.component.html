@@ -1,0 +1,264 @@
+<div id="page-report-builder" class="page active" [class.view-mode]="viewMode">
+
+  <div class="breadcrumb">
+    <a onclick="navigate('reports', this)">{{ 'SIDEBAR.REPORTS' | translate }}</a>
+    <span>›</span>
+    <span class="current">{{ reportId ? reportName : ('REPORT_BUILDER.NEW_REPORT' | translate) }}</span>
+  </div>
+
+  <!-- Top bar -->
+  <div class="rb-topbar">
+    <div class="rb-tb-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    </div>
+    <div class="rb-tb-meta">
+      <input type="text" class="rb-tb-name" [(ngModel)]="reportName" [readOnly]="viewMode" [placeholder]="'REPORT_BUILDER.REPORT_NAME_PLACEHOLDER' | translate" [ngModelOptions]="{standalone: true}" />
+      <input type="text" class="rb-tb-desc" [(ngModel)]="reportDescription" [readOnly]="viewMode" [placeholder]="'REPORT_BUILDER.DESCRIPTION_PLACEHOLDER' | translate" [ngModelOptions]="{standalone: true}" />
+    </div>
+    <div class="rb-tb-actions">
+      <button class="rb-btn ghost" (click)="onCancel()">{{ viewMode ? ('REPORT_BUILDER.BACK' | translate) : ('REPORT_BUILDER.CANCEL' | translate) }}</button>
+      <button class="rb-btn outline" (click)="enterEdit()" *ngIf="viewMode && reportId">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        {{ 'REPORT_BUILDER.EDIT' | translate }}
+      </button>
+      <button class="rb-btn primary" (click)="onSave()" *ngIf="!viewMode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        {{ 'REPORT_BUILDER.SAVE_REPORT' | translate }}
+      </button>
+    </div>
+  </div>
+
+  <div class="rb-body">
+    <!-- ────────── Configuration pane ────────── -->
+    <aside class="rb-config" *ngIf="!viewMode">
+      <div class="rb-config-section">
+        <div class="rb-config-label">
+          <span class="rb-step-num">1</span>
+          {{ 'REPORT_BUILDER.SECTION_SOURCE' | translate }}
+        </div>
+        <select class="rb-select" [(ngModel)]="sourceTableId" (ngModelChange)="onSourceChange()" [ngModelOptions]="{standalone: true}">
+          <option value="">— {{ 'REPORT_BUILDER.SELECT' | translate }} —</option>
+          <option *ngFor="let t of tables" [value]="t.id">{{ t.name }} ({{ t.dbName }})</option>
+        </select>
+        <div class="rb-config-hint">{{ currentTable?.description }}</div>
+      </div>
+
+      <!-- Report Layout — optional pre-built formatted layout -->
+      <div class="rb-config-section">
+        <div class="rb-config-label">
+          <span class="rb-step-num">2</span>
+          Report Layout
+        </div>
+        <select class="rb-select" [(ngModel)]="layoutId" (ngModelChange)="onLayoutChange()" [ngModelOptions]="{standalone: true}">
+          <option value="">— Standard (chart / list) —</option>
+          <optgroup label="Built-in" *ngIf="layouts.length">
+            <option *ngFor="let l of layouts" [value]="l.id">{{ l.name }}</option>
+          </optgroup>
+          <optgroup label="Uploaded" *ngIf="uploadedLayouts.length">
+            <option *ngFor="let l of uploadedLayouts" [value]="l.id">{{ l.name }}</option>
+          </optgroup>
+        </select>
+        <div class="rb-config-hint">{{ layoutDescription || 'Pick a ready-made layout to output the report in a fixed, formatted style.' }}</div>
+
+        <!-- Upload a new layout (HTML template or image) -->
+        <button type="button" class="rb-upload-btn" (click)="triggerLayoutUpload()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload layout
+        </button>
+        <input type="file" id="rbLayoutFile" accept=".html,.htm,image/*" style="display:none" (change)="onLayoutFile($event)"/>
+
+        <!-- Already-uploaded layouts — click to select -->
+        <div class="rb-layout-list" *ngIf="uploaded.length">
+          <div class="rb-layout-item" *ngFor="let u of uploaded" [class.active]="layoutId === u.id" (click)="selectLayout(u.id)">
+            <span class="rb-layout-ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </span>
+            <span class="rb-layout-name">{{ u.name }}<span class="rb-layout-kind">{{ u.kind === 'image' ? 'Image' : 'HTML' }}</span></span>
+            <button type="button" class="rb-layout-x" (click)="removeUploadedLayout(u.id, $event)" title="Remove layout" aria-label="Remove">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columns — choose which source columns the report includes -->
+      <div class="rb-config-section" *ngIf="currentTable && !isLayoutMode">
+        <div class="rb-config-label">
+          <span class="rb-step-num">3</span>
+          Columns
+        </div>
+        <div class="rb-config-hint">Only the ticked columns are included in the report.</div>
+        <label class="rb-check rb-check--all" [class.on]="allColsSelected()">
+          <input type="checkbox" [checked]="allColsSelected()" (change)="toggleAllCols()">
+          <span class="rb-check-body">
+            <span class="rb-check-name">Select all columns</span>
+          </span>
+        </label>
+        <div class="rb-check-list">
+          <label class="rb-check" *ngFor="let c of currentTable.columns" [class.on]="hasCol(c.id)">
+            <input type="checkbox" [checked]="hasCol(c.id)" (change)="toggleCol(c.id)">
+            <span class="rb-check-body">
+              <span class="rb-check-name">{{ c.label }}</span>
+              <span class="rb-check-desc">{{ c.type }} column</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="rb-config-section" *ngIf="!isLayoutMode">
+        <div class="rb-config-label">
+          <span class="rb-step-num">4</span>
+          {{ 'REPORT_BUILDER.SECTION_VIZ' | translate }}
+        </div>
+        <div class="rb-viz-grid">
+          <button *ngFor="let v of vizCatalogue" type="button"
+                  class="rb-viz-tile"
+                  [class.active]="vizType === v.id"
+                  [attr.data-viz]="v.id"
+                  (click)="pickViz(v.id)">
+            <span class="rb-viz-icon" [ngSwitch]="v.id">
+              <svg *ngSwitchCase="'bar'"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <svg *ngSwitchCase="'line'"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <svg *ngSwitchCase="'pie'"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+              <svg *ngSwitchCase="'donut'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+              <svg *ngSwitchCase="'kpi'"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              <svg *ngSwitchCase="'list'"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="0.8" fill="currentColor"/><circle cx="3.5" cy="12" r="0.8" fill="currentColor"/><circle cx="3.5" cy="18" r="0.8" fill="currentColor"/></svg>
+            </span>
+            <span class="rb-viz-name">{{ v.name }}</span>
+          </button>
+        </div>
+        <div class="rb-config-hint">{{ vizCatalogue[0].description }}</div>
+      </div>
+
+      <div class="rb-config-section" *ngIf="!isLayoutMode && vizType !== 'list'">
+        <div class="rb-config-label">
+          <span class="rb-step-num">5</span>
+          {{ 'REPORT_BUILDER.SECTION_GROUP' | translate }}
+        </div>
+        <select class="rb-select" [(ngModel)]="groupBy" (ngModelChange)="onConfigChange()" [ngModelOptions]="{standalone: true}">
+          <option value="">— {{ 'REPORT_BUILDER.SELECT' | translate }} —</option>
+          <option *ngFor="let c of groupableColumns" [value]="c.id">{{ c.label }}</option>
+        </select>
+      </div>
+
+      <div class="rb-config-section" *ngIf="!isLayoutMode && vizType !== 'list'">
+        <div class="rb-config-label">
+          <span class="rb-step-num">6</span>
+          {{ 'REPORT_BUILDER.SECTION_AGGREGATE' | translate }}
+        </div>
+        <div class="rb-row-2">
+          <select class="rb-select" [(ngModel)]="aggregateFn" (ngModelChange)="onConfigChange()" [ngModelOptions]="{standalone: true}">
+            <option value="">— {{ 'REPORT_BUILDER.SELECT' | translate }} —</option>
+            <option value="count">Count</option>
+            <option value="sum">Sum</option>
+            <option value="avg">Average</option>
+            <option value="min">Minimum</option>
+            <option value="max">Maximum</option>
+          </select>
+          <select class="rb-select"
+                  [(ngModel)]="aggregateColumn"
+                  (ngModelChange)="onConfigChange()"
+                  [disabled]="!needsAggregateColumn"
+                  [ngModelOptions]="{standalone: true}">
+            <option value="">{{ needsAggregateColumn ? '— ' + ('REPORT_BUILDER.SELECT_NUMERIC' | translate) + ' —' : ('REPORT_BUILDER.NA' | translate) }}</option>
+            <option *ngFor="let c of numericColumns" [value]="c.id">{{ c.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Headline metrics -->
+      <div class="rb-config-section" *ngIf="!isLayoutMode && vizType !== 'list'">
+        <div class="rb-config-label">
+          <span class="rb-step-num">7</span>
+          Headline metrics
+        </div>
+        <div class="rb-config-hint">Choose the summary cards shown at the top of the report.</div>
+        <div class="rb-check-list">
+          <label class="rb-check" *ngFor="let m of metricCatalogue" [class.on]="hasMetric(m.id)">
+            <input type="checkbox" [checked]="hasMetric(m.id)" (change)="toggleMetric(m.id)">
+            <span class="rb-check-body">
+              <span class="rb-check-name">{{ m.label }}</span>
+              <span class="rb-check-desc">{{ m.desc }}</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Filters shown when the report opens -->
+      <div class="rb-config-section" *ngIf="!isLayoutMode">
+        <div class="rb-config-label">
+          <span class="rb-step-num">8</span>
+          Filters
+        </div>
+        <div class="rb-config-hint">Columns picked here appear as dropdown filters when the report is opened.</div>
+        <div class="rb-check-list" *ngIf="filterableColumns.length; else noFilterCols">
+          <label class="rb-check" *ngFor="let c of filterableColumns" [class.on]="hasFilter(c.id)">
+            <input type="checkbox" [checked]="hasFilter(c.id)" (change)="toggleFilter(c.id)">
+            <span class="rb-check-body">
+              <span class="rb-check-name">{{ c.label }}<span *ngIf="c.type === 'date'" class="rb-check-tag">date range</span></span>
+              <span class="rb-check-desc">{{ c.type === 'date' ? 'From / To range on ' : 'Slice the report by ' }}{{ c.label | lowercase }}</span>
+            </span>
+          </label>
+        </div>
+        <ng-template #noFilterCols>
+          <div class="rb-config-hint">This source has no columns to filter by.</div>
+        </ng-template>
+      </div>
+    </aside>
+
+    <!-- ────────── Preview pane ────────── -->
+    <main class="rb-preview">
+      <div class="rb-preview-head">
+        <div>
+          <div class="rb-preview-title">{{ 'REPORT_BUILDER.PREVIEW_TITLE' | translate }}</div>
+          <div class="rb-preview-sub">{{ currentTable?.name || ('REPORT_BUILDER.SELECT' | translate) }}<span *ngIf="vizType"> · {{ vizType | titlecase }} Chart</span></div>
+        </div>
+        <div class="rb-preview-meta" *ngIf="currentTable">
+          <span class="rep-pill" data-color="blue">{{ currentTable.rows.length }} rows</span>
+        </div>
+      </div>
+
+      <!-- Live filters (mirror what shows when the report opens) -->
+      <div class="rb-preview-filters" *ngIf="previewFilters.length">
+        <ng-container *ngFor="let f of previewFilters">
+          <label class="rb-pv-filter" *ngIf="f.type !== 'date'">{{ f.label }}:
+            <select [(ngModel)]="f.value" (ngModelChange)="onPreviewFilterChange()" [ngModelOptions]="{standalone: true}">
+              <option value="All">All</option>
+              <option *ngFor="let o of f.options" [value]="o">{{ o }}</option>
+            </select>
+          </label>
+          <label class="rb-pv-filter" *ngIf="f.type === 'date'">{{ f.label }}:
+            <input type="date" [(ngModel)]="f.from" (ngModelChange)="onPreviewFilterChange()" [ngModelOptions]="{standalone: true}" title="From">
+            <span>–</span>
+            <input type="date" [(ngModel)]="f.to" (ngModelChange)="onPreviewFilterChange()" [ngModelOptions]="{standalone: true}" title="To">
+          </label>
+        </ng-container>
+      </div>
+
+      <!-- Headline metric cards (reflect the ticked metrics) -->
+      <div class="rb-preview-metrics" *ngIf="previewStats.length">
+        <div class="rb-pv-metric" *ngFor="let s of previewStats" [attr.data-variant]="s.variant">
+          <div class="rb-pv-metric-lbl">{{ s.lbl }}</div>
+          <div class="rb-pv-metric-num">{{ s.num }}</div>
+          <div class="rb-pv-metric-sd">{{ s.sd }}</div>
+        </div>
+      </div>
+
+      <div class="rb-preview-canvas-wrap">
+        <canvas id="rb-chart-host"></canvas>
+        <div id="rb-list-host" class="rb-list-host"></div>
+        <div id="rb-kpi-host" class="rb-kpi-host"></div>
+      </div>
+
+      <!-- View-mode summary footer -->
+      <div class="rb-preview-summary" *ngIf="viewMode">
+        <div class="rb-summary-grid">
+          <div><span class="rb-summary-label">Source</span><span>{{ currentTable?.name }}</span></div>
+          <div><span class="rb-summary-label">Type</span><span>{{ vizType | titlecase }}</span></div>
+          <div *ngIf="vizType !== 'list'"><span class="rb-summary-label">Group by</span><span>{{ groupBy || '—' }}</span></div>
+          <div *ngIf="vizType !== 'list'"><span class="rb-summary-label">Aggregate</span><span>{{ aggregateFn | titlecase }}{{ needsAggregateColumn && aggregateColumn ? ' of ' + aggregateColumn : '' }}</span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

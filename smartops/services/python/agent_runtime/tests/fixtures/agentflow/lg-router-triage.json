@@ -1,0 +1,111 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "router-triage",
+    "description": "Four-way conditional routing",
+    "created_at": "2026-09-22T11:08:33.272Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [
+      {
+        "name": "intent",
+        "type": "str",
+        "reducer": "last",
+        "description": "Detected intent"
+      }
+    ],
+    "routers": [
+      {
+        "name": "route_intent",
+        "source": "classifier",
+        "routes": [
+          {
+            "condition": "'sales' in (state.get('intent') or '').lower()",
+            "target": "sales"
+          },
+          {
+            "condition": "'support' in (state.get('intent') or '').lower()",
+            "target": "support"
+          },
+          {
+            "condition": "'refund' in (state.get('intent') or '').lower()",
+            "target": "refunds"
+          }
+        ],
+        "default_target": "END"
+      }
+    ],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "classifier",
+        "role": "an intent classifier",
+        "goal": "Reply with exactly one word: sales, support, refund, or other",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "intent"
+      },
+      {
+        "name": "sales",
+        "role": "a sales rep",
+        "goal": "Answer pre-sales questions",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      },
+      {
+        "name": "support",
+        "role": "a support engineer",
+        "goal": "Resolve product problems",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      },
+      {
+        "name": "refunds",
+        "role": "a refunds agent",
+        "goal": "Handle refund requests",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

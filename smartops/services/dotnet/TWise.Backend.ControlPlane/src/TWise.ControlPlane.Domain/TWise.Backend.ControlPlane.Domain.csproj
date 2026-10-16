@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>TWise.Backend.ControlPlane.Domain</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\shared\dotnet\SmartOps.Shared\SmartOps.Shared.csproj" />
+  </ItemGroup>
+</Project>

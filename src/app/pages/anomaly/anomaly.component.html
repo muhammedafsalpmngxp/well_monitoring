@@ -1,0 +1,119 @@
+<div id="page-anomaly" class="page active ad-body">
+
+    <!-- <div class="ad-breadcrumb">
+      <span>{{ 'ANOMALY.OVERVIEW' | translate }}</span><span class="ad-sep">&nbsp;›&nbsp;</span>
+      <span>{{ 'ANOMALY.AI_INTELLIGENCE' | translate }}</span><span class="ad-sep">&nbsp;›&nbsp;</span>
+      <span class="ad-bc-cur">{{ 'ANOMALY.ANOMALY_DETECTION' | translate }}</span><span class="ad-sep">&nbsp;›&nbsp;</span>
+      <span>BL0010 &ndash; Nimr &ndash;</span>
+      <span class="ad-bc-badge">{{ 'ANOMALY.ACTIVE' | translate }}</span>
+    </div> -->
+
+    <div class="ad-toolbar">
+      <div class="ad-period-group">
+        <button class="ad-period-btn ad-active">{{ 'ANOMALY.MONTHLY' | translate }}</button>
+        <button class="ad-period-btn">{{ 'ANOMALY.WEEKLY' | translate }}</button>
+        <button class="ad-period-btn">{{ 'ANOMALY.DAILY' | translate }}</button>
+      </div>
+      <div class="ad-toolbar-right">
+        <button class="ad-tb-btn">&#128197; Feb 2026</button>
+        <button class="ad-tb-btn ad-tb-export"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> {{ 'ANOMALY.EXPORT_CSV' | translate }}</button>
+        <button class="ad-tb-btn ad-tb-btn-green">&#8635; {{ 'ANOMALY.SYNC_NOW' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="ad-title-row">
+      <div>
+        <div class="ad-title-block">
+          <!-- <div class="ad-title-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div> -->
+          <div class="ad-title">{{ 'ANOMALY.OPERATIONAL_ANOMALY_DETECTION' | translate }}</div>
+          <!-- <span class="ad-ai-badge">{{ 'ANOMALY.AI' | translate }}</span> -->
+        </div>
+        <div class="ad-subtitle">{{ 'ANOMALY.SUBTITLE' | translate }}</div>
+      </div>
+      <div class="ad-title-actions">
+        <select class="ad-select"><option>{{ 'ANOMALY.ALL_TYPES' | translate }} &#9662;</option></select>
+        <button class="ad-btn-detect">{{ 'ANOMALY.DETECT_ANOMALIES' | translate }}</button>
+        <button class="ad-btn-refresh">&#8635;</button>
+      </div>
+    </div>
+
+    <div class="ad-kpi-grid">
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:var(--txt-1)"></div>
+        <div class="atg-kpi-label">{{ 'ANOMALY.SNAPSHOTS_CHECKED' | translate }}</div>
+        <div class="atg-kpi-val" style="color:var(--txt-1)">20</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">&nbsp;</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'ANOMALY.CRITICAL_ANOMALIES' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">142</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'ANOMALY.ANOMALIES_NOW' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22d3ee"></div>
+        <div class="atg-kpi-label">{{ 'ANOMALY.DATA_ANOMALIES' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22d3ee">145</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'ANOMALY.DATA_SCORE_EVENTS' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22c55e"></div>
+        <div class="atg-kpi-label">{{ 'ANOMALY.OPERATIONAL' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22c55e">1</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'ANOMALY.PER_WEEK' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'ANOMALY.AVG_ANOMALY_SCORE' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">90</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'ANOMALY.UNIT_EVENTS' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'ANOMALY.PROGRESS_JUMPS' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">9</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'ANOMALY.LOC_READS' | translate }}</div>
+      </div>
+    </div>
+
+    <div class="ad-panels">
+      <!-- Anomaly Score Distribution -->
+      <div class="ad-panel">
+        <div class="ad-panel-title"><span style="color:#a78bfa">&#9632;</span> {{ 'ANOMALY.ANOMALY_SCORE_DISTRIBUTION' | translate }}</div>
+        <div class="ad-panel-sub">&nbsp;</div>
+        <div style="position:relative;height:280px"><canvas id="ad-chart-dist"></canvas></div>
+      </div>
+      <!-- Weekly Progress Delta -->
+      <div class="ad-panel">
+        <div class="ad-panel-title"><span style="color:#a78bfa">&#9632;</span> {{ 'ANOMALY.WEEKLY_PROGRESS_DELTA' | translate }}</div>
+        <div class="ad-panel-sub">&nbsp;</div>
+        <div style="position:relative;height:280px"><canvas id="ad-chart-delta"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Investigation Queue -->
+    <div class="ad-iq-header">
+      <div class="ad-iq-title"><span>&#9679;</span> {{ 'ANOMALY.INVESTIGATION_QUEUE' | translate }}</div>
+      <div class="ad-iq-count">{{ 'ANOMALY.ITEMS_COUNT' | translate }}</div>
+    </div>
+    <div id="ad-iq-list"></div>
+
+    <!-- Full Anomaly Log -->
+    <div class="ad-table-card">
+      <div class="ad-table-header">
+        <div class="ad-panel-title"><span style="color:#a78bfa">&#9632;</span> {{ 'ANOMALY.FULL_ANOMALY_LOG' | translate }}</div>
+        <div class="ad-table-meta">{{ 'ANOMALY.RECORDS_COUNT' | translate }}</div>
+      </div>
+      <table class="ad-table">
+        <thead>
+          <tr>
+            <th>{{ 'ANOMALY.WELL' | translate }}</th><th>{{ 'ANOMALY.WEEK' | translate }}</th><th>{{ 'ANOMALY.ANOMALY_TYPE' | translate }}</th><th>{{ 'ANOMALY.FIELD' | translate }}</th><th>{{ 'ANOMALY.EXPECTED' | translate }}</th><th>{{ 'ANOMALY.ACTUAL' | translate }}</th><th>{{ 'ANOMALY.DELTA' | translate }}</th><th>{{ 'ANOMALY.Z_SCORE' | translate }}</th><th>{{ 'ANOMALY.ANOMALY_SCORE' | translate }}</th><th>{{ 'ANOMALY.CLASSIFICATION' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody id="ad-log-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /page-anomaly -->

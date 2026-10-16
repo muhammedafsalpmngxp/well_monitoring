@@ -1,0 +1,214 @@
+<div class="get-data__overlay" (click)="close()">
+  <div appDialog (dialogClose)="close()" #dialog class="get-data" role="dialog" aria-modal="true" aria-labelledby="get-data-title"
+    (click)="$event.stopPropagation()" (keydown)="onKeydown($event)">
+    <header class="get-data__header">
+      <h2 id="get-data-title" class="get-data__title">Get data</h2>
+      <button type="button" class="get-data__close" aria-label="Close without loading" (click)="close()">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </header>
+
+    <div class="get-data__body">
+      <nav class="get-data__tree" aria-label="Sources to load">
+        <div *ngIf="connections.length > 1" class="get-data__database">
+          <label for="get-data-database" class="get-data__database-label">
+            <app-icon name="database_view" aria-hidden="true"></app-icon>Database
+          </label>
+          <select id="get-data-database" class="form-control" [ngModel]="connectionId" (ngModelChange)="chooseDatabase($event)"
+            [disabled]="switching || loading" aria-describedby="get-data-database-hint">
+            <option *ngFor="let c of connections" [ngValue]="c.id" [disabled]="c.joinable === false"
+              [title]="c.joinable === false ? c.reason : c.connectionName">
+              {{ c.databaseName }}{{ c.id === dataset.connectionId ? ' (this model)' : c.joinable === false ? ' (cannot be joined)' : '' }}
+            </option>
+          </select>
+          <p id="get-data-database-hint" class="get-data__hint">
+            Tables of any database on this model's server can be loaded and joined. Views and uploaded files come from this model's own database.
+          </p>
+        </div>
+        <input #searchInput class="form-control" type="search" placeholder="Search names and columns"
+          aria-label="Search names and columns" [(ngModel)]="search" />
+        <app-loader *ngIf="listing || switching" type="skeleton-table" role="status" aria-label="Reading the sources"></app-loader>
+
+        <section *ngFor="let group of groups" class="get-data__group" [class.get-data__group--open]="isOpen(group)"
+          [attr.aria-labelledby]="'get-data-group-' + group">
+          <button type="button" [id]="'get-data-group-' + group" class="get-data__group-title" [attr.aria-expanded]="isOpen(group)"
+            (click)="toggleFold(group)">
+            <app-icon class="get-data__chevron" name="chevron_right" aria-hidden="true"></app-icon>
+            <span class="get-data__group-icon"><app-icon [name]="groupIcons[group]" aria-hidden="true"></app-icon></span>
+            <span class="get-data__group-name">{{ groupLabels[group] }}</span>
+            <span *ngIf="checkedIn(group)" class="get-data__picked">{{ checkedIn(group) }} ticked</span>
+            <span class="get-data__count">{{ itemsIn(group).length }}</span>
+          </button>
+
+          <div *ngIf="isOpen(group)" class="get-data__group-body">
+            <div *ngFor="let section of sectionsIn(group); trackBy: trackSection" class="get-data__section">
+              <div *ngIf="section.label !== null" class="get-data__schema">
+                <button type="button" class="get-data__schema-toggle" [attr.aria-expanded]="isOpen(section.key)"
+                  (click)="toggleFold(section.key)">
+                  <app-icon class="get-data__chevron" [class.get-data__chevron--open]="isOpen(section.key)" name="chevron_right" aria-hidden="true"></app-icon>
+                  <span class="get-data__schema-name">{{ section.label }}</span>
+                  <span *ngIf="section.database" class="get-data__db" [title]="'Database ' + section.database">{{ section.database }}</span>
+                  <span class="get-data__count">{{ section.items.length }}</span>
+                </button>
+                <button type="button" class="get-data__select-all" (click)="toggleSection(section)"
+                  [attr.aria-label]="(sectionState(section) === 'all' ? 'Clear every table of ' : 'Tick every table of ') + section.label">
+                  {{ sectionState(section) === 'all' ? 'Clear' : 'Select all' }}
+                </button>
+              </div>
+              <ul *ngIf="section.label === null || isOpen(section.key)" class="get-data__items">
+                <li *ngFor="let item of section.items; trackBy: trackItem" class="get-data__item"
+                  [class.get-data__item--blocked]="item.reasons.length > 0" [class.get-data__item--focused]="focused?.key === item.key"
+                  [class.get-data__item--checked]="checked.has(item.key)">
+                  <input type="checkbox" [checked]="checked.has(item.key)" [disabled]="item.disabled"
+                    [attr.aria-label]="'Load ' + item.label" (change)="toggle(item)" />
+                  <button type="button" class="get-data__item-name" [attr.aria-pressed]="focused?.key === item.key" (click)="focus(item)"
+                    [title]="item.note ? 'Not a plain view: ' + item.note.join(' ') : ''">
+                    <span class="get-data__item-label" [title]="item.database ? item.database + '.' + item.label : item.label">{{ shortLabel(item) }}</span>
+                    <span class="get-data__item-detail">{{ item.detail }}</span>
+                  </button>
+                  <span *ngIf="item.added" class="get-data__added">Added</span>
+                  <span *ngIf="item.reasons.length" class="get-data__blocked" title="Fails the view contract">!</span>
+                </li>
+              </ul>
+            </div>
+            <p *ngIf="!itemsIn(group).length && !listing" class="get-data__hint get-data__empty">
+              {{ search.trim() ? 'Nothing matches "' + search + '".' : group === 'files' ? 'No files uploaded yet.' : 'None here yet.' }}
+            </p>
+            <p *ngIf="group === 'views'" class="get-data__hint">Only views saved on this data model's database are listed.</p>
+            <div *ngIf="group === 'files' && canUpload" class="get-data__upload">
+              <input #fileInput type="file" accept=".xlsx,.xls,.csv" hidden (change)="chooseFile($event)" />
+              <app-button variant="secondary" size="sm" [disabled]="previewing || loading" (clicked)="fileInput.click()">
+                <app-icon name="publish" aria-hidden="true"></app-icon>Upload a file
+              </app-button>
+              <p class="get-data__hint">Excel (.xlsx or .xls) or CSV, up to 10 MB.</p>
+              <form class="get-data__sheet-link" (submit)="$event.preventDefault(); chooseGoogleSheet()">
+                <label for="get-data-sheet-link" class="get-data__hint">Or a Google Sheet shared as "Anyone with the link can view"</label>
+                <input id="get-data-sheet-link" class="form-control" name="sheetLink" type="url"
+                  placeholder="https://docs.google.com/spreadsheets/d/..." [(ngModel)]="sheetLink" />
+                <app-button type="submit" variant="secondary" size="sm" [disabled]="!sheetLink.trim() || previewing || loading">
+                  Read Google Sheet
+                </app-button>
+              </form>
+              <app-button *ngIf="sheetCount > 1" variant="secondary" size="sm" [disabled]="previewing || loading" (clicked)="tickAllSheets()">
+                Tick all {{ sheetCount }} sheets
+              </app-button>
+            </div>
+          </div>
+        </section>
+      </nav>
+
+      <section class="get-data__detail" aria-label="Preview and load settings">
+        <div *ngIf="!focused" class="get-data__welcome">
+          <span class="get-data__welcome-icon" aria-hidden="true"><app-icon name="database_view"></app-icon></span>
+          <h3>Pick the data for this model</h3>
+          <p>Select a name on the left to see its first rows and columns. Tick the tables, views or file sheets to load, then choose Load.</p>
+          <ul>
+            <li><strong>Database tables</strong> come from the database chosen at the top, this data model's own unless you pick another, grouped by schema.</li>
+            <li><strong>Views</strong> are the saved views that pass the view contract. A view that does not, but is DECLAREs and one SELECT, can be added as a saved view that runs as written.</li>
+            <li><strong>Uploaded files</strong> load an Excel or CSV sheet as a table. A Google Sheet shared by link loads the same way; tick one sheet or all of them.</li>
+          </ul>
+        </div>
+
+        <ng-container *ngIf="focused as item">
+          <h3 class="get-data__detail-title">{{ item.label }}</h3>
+          <dl *ngIf="focusedOrigin as origin" class="get-data__origin" aria-label="Where it comes from">
+            <div *ngFor="let row of origin.rows"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div>
+          </dl>
+
+          <div *ngIf="item.note" class="get-data__note" role="note">
+            <strong>Added as a saved view: it runs exactly as written, and its variables can be bound to fields in Properties.</strong>
+            <p>It is not a plain view because:</p>
+            <ul><li *ngFor="let reason of item.note">{{ reason }}</li></ul>
+          </div>
+
+          <div *ngIf="item.reasons.length" class="get-data__reasons" role="note">
+            <strong>This view cannot be loaded. Fix it in View Builder:</strong>
+            <ul><li *ngFor="let reason of item.reasons">{{ reason }}</li></ul>
+          </div>
+
+          <div *ngIf="item.imported" class="get-data__actions">
+            <input #replaceInput type="file" accept=".xlsx,.xls,.csv" hidden (change)="chooseFile($event, item.imported)" />
+            <app-button variant="secondary" size="sm" [disabled]="previewing || loading" (clicked)="replaceInput.click()">
+              Replace with a new file
+            </app-button>
+          </div>
+
+          <ng-container *ngIf="item.sheet && settingsOf(item) as s">
+            <div class="get-data__range">
+              <div class="form-group">
+                <label for="get-data-header-row">Header row</label>
+                <input id="get-data-header-row" class="form-control" type="number" min="1" [(ngModel)]="s.headerRow" (change)="changeRange(item)" />
+              </div>
+              <div class="form-group">
+                <label for="get-data-last-row">Last data row</label>
+                <input id="get-data-last-row" class="form-control" type="number" min="2" [(ngModel)]="s.lastRow" (change)="changeRange(item)" />
+              </div>
+              <div *ngIf="!upload?.replacing" class="form-group">
+                <label for="get-data-table-name">Table name</label>
+                <input id="get-data-table-name" class="form-control" maxlength="100" [(ngModel)]="s.tableName" />
+              </div>
+            </div>
+
+            <table *ngIf="sheetPreview?.sheet === item.sheet" class="table get-data__types">
+              <caption>Column types</caption>
+              <thead><tr><th scope="col">Column</th><th scope="col">Type</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let column of sheetPreview!.columns; let i = index">
+                  <td>{{ column.name }}</td>
+                  <td>
+                    <select class="form-control" [attr.aria-label]="'Type of ' + column.name" [ngModel]="s.types?.[i]"
+                      (ngModelChange)="changeType(item, i, $event)">
+                      <option *ngFor="let choice of typeChoices" [ngValue]="choice[0]">{{ choice[1] }}</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div *ngIf="upload?.replacing as replacing" class="get-data__actions">
+              <app-button variant="primary" size="sm" [loading]="loading" [disabled]="previewing || !s.types?.length" (clicked)="replace(item)">
+                Replace {{ replacing.tableName }}
+              </app-button>
+            </div>
+          </ng-container>
+
+          <p *ngIf="previewMessage" class="get-data__hint" role="status">{{ previewMessage }}</p>
+          <app-loader *ngIf="previewing" type="skeleton-table" role="status" aria-label="Reading the first rows"></app-loader>
+          <ag-grid-angular *ngIf="columnDefs.length" class="get-data__grid" [theme]="gridTheme" [columnDefs]="columnDefs"
+            [defaultColDef]="defaultColDef" [rowData]="previewRows" [suppressFieldDotNotation]="true"></ag-grid-angular>
+          <p *ngIf="!columnDefs.length && !previewing && columnsOf(item).length" class="get-data__hint">
+            Columns: {{ columnsOf(item).join(', ') }}
+          </p>
+
+          <form *ngIf="checked.has(item.key) && settingsOf(item) as s" class="get-data__settings" (submit)="$event.preventDefault()">
+            <div class="form-group">
+              <label for="get-data-alias">Name in this data model</label>
+              <input id="get-data-alias" class="form-control" name="alias" maxlength="64" [(ngModel)]="s.alias" />
+              <p class="form-hint">Its fields appear as {{ s.alias || 'name' }}.column. Letters, digits and underscores.</p>
+            </div>
+            <fieldset class="get-data__choice">
+              <legend>Who sees which rows?</legend>
+              <label><input type="radio" name="rlsMode" value="plant" [(ngModel)]="s.rlsMode" /> Each user sees only the rows of their plants</label>
+              <label><input type="radio" name="rlsMode" value="none" [(ngModel)]="s.rlsMode" /> Everyone sees all rows</label>
+            </fieldset>
+            <div *ngIf="s.rlsMode === 'plant'" class="form-group">
+              <label for="get-data-plant">Column that holds the plant code</label>
+              <select id="get-data-plant" class="form-control" name="plantColumn" [(ngModel)]="s.plantColumn">
+                <option value="" disabled>Choose a column</option>
+                <option *ngFor="let column of columnsOf(item)" [value]="column">{{ column }}</option>
+              </select>
+            </div>
+            <p class="form-hint">This choice is required. There is no default, so no table is shared by accident.</p>
+          </form>
+        </ng-container>
+      </section>
+    </div>
+
+    <footer class="get-data__footer">
+      <p *ngIf="error" class="get-data__error" role="alert">{{ error }}</p>
+      <p *ngIf="!error && checked.size" class="get-data__status" role="status">{{ loadProblem || checked.size + ' selected' }}</p>
+      <app-button variant="secondary" (clicked)="close()">Cancel</app-button>
+      <app-button variant="primary" [loading]="loading" [disabled]="!!loadProblem || loading || previewing" (clicked)="load()">Load</app-button>
+    </footer>
+  </div>
+</div>

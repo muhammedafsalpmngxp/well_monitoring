@@ -1,0 +1,306 @@
+<div id="page-form-details" class=" active" [class.fill-mode]="fillMode">
+
+  <div class="breadcrumb" *ngIf="!fillMode">
+    <a data-page="cmdoverview">{{ 'SIDEBAR.AGENTIC_AI' | translate }}</a>
+    <span>›</span>
+    <a data-page="forms">{{ 'SIDEBAR.FORMS' | translate }}</a>
+    <span>›</span>
+    <span class="current">{{ 'FORM_DETAILS.TITLE' | translate }}</span>
+  </div>
+
+  <div class="breadcrumb" *ngIf="fillMode">
+    <a>{{ 'SIDEBAR.CATALOGUE' | translate }}</a>
+    <span>›</span>
+    <a data-page="requestportal">{{ 'SIDEBAR.REQUEST_PORTAL' | translate }}</a>
+    <span>›</span>
+    <span class="current">{{ formTitle || ('FORM_DETAILS.TITLE' | translate) }}</span>
+  </div>
+
+  <!-- ── Top bar ─────────────────────────────────── -->
+  <div class="fb-topbar">
+    <button class="fb-tb-back" (click)="onBack()" [title]="'FORM_DETAILS.BACK_TO_FORMS' | translate">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="fb-tb-meta">
+      <div class="fb-tb-title">{{ fillMode ? (formTitle || ('FORM_DETAILS.SUBMIT_REQUEST' | translate)) : ('FORM_DETAILS.TITLE' | translate) }}</div>
+      <div class="fb-tb-sub">{{ fillMode ? ('FORM_DETAILS.FILL_SUBTITLE' | translate) : ('FORM_DETAILS.SUBTITLE' | translate) }}</div>
+    </div>
+    <div class="fb-tb-actions">
+      <button class="fb-tb-btn ghost" (click)="onBack()">{{ 'FORM_DETAILS.CANCEL' | translate }}</button>
+      <button class="fb-tb-btn outline" (click)="onPreview()" *ngIf="!fillMode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        {{ 'FORM_DETAILS.PREVIEW' | translate }}
+      </button>
+      <button class="fb-tb-btn primary" (click)="onSave()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        {{ fillMode ? ('FORM_DETAILS.SUBMIT_REQUEST' | translate) : ('FORM_DETAILS.SAVE_FORM' | translate) }}
+      </button>
+    </div>
+  </div>
+
+  <div class="fb-body">
+
+    <!-- ── Left palette ───────────────────────────── -->
+    <aside class="fb-palette" *ngIf="!fillMode">
+
+      <!-- Header strip -->
+      <div class="fb-pal-header">
+        <div class="fb-pal-header-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </div>
+        <div class="fb-pal-header-meta">
+          <div class="fb-pal-header-title">{{ 'FORM_DETAILS.PALETTE_TITLE' | translate }}</div>
+          <div class="fb-pal-header-sub">{{ 'FORM_DETAILS.PALETTE_SUBTITLE' | translate }}</div>
+        </div>
+      </div>
+
+      <!-- Components panel -->
+      <div class="fb-tab-panel">
+        <div class="fb-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="fb-search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="fb-search-input" [placeholder]="'FORM_DETAILS.SEARCH_COMPONENTS' | translate" [(ngModel)]="paletteSearch" />
+        </div>
+
+        <!-- ── Forms AI Agent ──────────────────────────── -->
+        <div class="fb-cat-title-static">{{ 'FORM_DETAILS.AI_POWERED' | translate }}</div>
+        <button class="fb-ai-tile" type="button" (click)="aiOpen()">
+          <span class="fb-ai-tile-thumb">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </span>
+          <span class="fb-ai-tile-info">
+            <span class="fb-ai-tile-name">
+              {{ 'FORM_DETAILS.AI_AGENT_NAME' | translate }}
+              <span class="fb-ai-tag">NEW</span>
+            </span>
+            <span class="fb-ai-tile-desc">{{ 'FORM_DETAILS.AI_AGENT_DESC' | translate }}</span>
+          </span>
+        </button>
+
+        <div class="fb-category" *ngFor="let cat of categories; trackBy: trackById" [class.collapsed]="cat.collapsed">
+          <button class="fb-cat-title" (click)="toggleCategory(cat)" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" class="fb-cat-chev"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="fb-cat-name">{{ cat.title | translate }}</span>
+            <span class="fb-cat-count" *ngIf="!cat.premium">{{ filteredTiles(cat).length }}</span>
+            <svg *ngIf="cat.premium" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="fb-lock"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </button>
+
+          <div class="fb-cat-body" *ngIf="!cat.collapsed">
+            <div class="fb-tiles-grid" *ngIf="!cat.premium">
+              <button
+                class="fb-tile"
+                *ngFor="let tile of filteredTiles(cat); trackBy: trackById"
+                [attr.data-color]="tile.color"
+                (click)="onTileClick(tile)"
+                [title]="('FORM_DETAILS.DRAG_TO_ADD' | translate) + ' ' + (tile.label | translate)"
+              >
+                <span class="fb-tile-grip" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/></svg>
+                </span>
+                <span class="fb-tile-icon" [ngSwitch]="tile.iconKey">
+              <svg *ngSwitchCase="'hash'"      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+              <svg *ngSwitchCase="'user'"      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <svg *ngSwitchCase="'mail'"      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
+              <svg *ngSwitchCase="'pin'"       viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span *ngSwitchCase="'tletter'"  class="fb-letter">T</span>
+              <span *ngSwitchCase="'hletter'"  class="fb-letter">H</span>
+              <svg *ngSwitchCase="'check'"     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg *ngSwitchCase="'radio'"     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></svg>
+              <svg *ngSwitchCase="'upload'"    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <svg *ngSwitchCase="'chevron'"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg *ngSwitchCase="'image'"     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span *ngSwitchCase="'paragraph'" class="fb-letter">¶</span>
+              <svg *ngSwitchCase="'section'"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              <svg *ngSwitchCase="'button'"    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="8" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+            </span>
+                <span class="fb-tile-label">{{ tile.label | translate }}</span>
+              </button>
+            </div>
+
+            <div class="fb-premium-cta" *ngIf="cat.premium">
+              {{ 'FORM_DETAILS.PREMIUM_CTA' | translate }}
+              <span class="fb-premium-arrow">→</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer hint -->
+      <div class="fb-pal-foot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        {{ 'FORM_DETAILS.TIP_CLICK_TILE' | translate }}
+      </div>
+    </aside>
+
+    <!-- ── Right canvas ───────────────────────────── -->
+    <main class="fb-canvas">
+      <div class="fb-form-card">
+
+        <header class="fb-form-head">
+          <input class="fb-form-title-input" [placeholder]="'FORM_DETAILS.FORM_NAME_PLACEHOLDER' | translate" [(ngModel)]="formTitle" [readOnly]="fillMode" [ngModelOptions]="{standalone: true}" />
+          <input class="fb-form-desc-input"  [placeholder]="'FORM_DETAILS.FORM_DESC_PLACEHOLDER' | translate" [(ngModel)]="formDescription" [readOnly]="fillMode" [ngModelOptions]="{standalone: true}" />
+        </header>
+
+        <div class="fb-form-grid" *ngIf="canvasFields.length > 0">
+          <div
+            *ngFor="let f of canvasFields; let i = index; trackBy: trackById"
+            class="fb-canvas-field"
+            [class.span-half]="f.width === 'half'"
+            [class.span-third]="f.width === 'third'"
+            [class.span-full]="f.width === 'full'"
+            [class.selected]="selectedFieldId === f.id"
+            [attr.data-type]="f.type"
+            (click)="selectField(f.id)"
+          >
+            <div class="fb-label-row" *ngIf="f.type !== 'section'">
+              <input class="fb-label fb-label-edit" [(ngModel)]="f.label" [name]="'lbl-' + f.id" [placeholder]="'FORM_DETAILS.FIELD_LABEL_PLACEHOLDER' | translate" [readOnly]="fillMode" [ngModelOptions]="{standalone: true}" />
+              <span class="fb-label-req" *ngIf="f.required" [title]="'FORM_DETAILS.MANDATORY' | translate">*</span>
+            </div>
+
+            <ng-container [ngSwitch]="f.type">
+              <input *ngSwitchCase="'name'"        class="fb-input" type="text" [placeholder]="'FORM_DETAILS.PH_ENTER_NAME' | translate" [(ngModel)]="f.value" [name]="'val-' + f.id" [disabled]="!fillMode" [ngModelOptions]="{standalone: true}" />
+              <input *ngSwitchCase="'email'"       class="fb-input" type="email" [placeholder]="'FORM_DETAILS.PH_EMAIL' | translate" [(ngModel)]="f.value" [name]="'val-' + f.id" [disabled]="!fillMode" [ngModelOptions]="{standalone: true}" />
+              <input *ngSwitchCase="'phone'"       class="fb-input" type="tel" placeholder="+968 9123 4567" [(ngModel)]="f.value" [name]="'val-' + f.id" [disabled]="!fillMode" [ngModelOptions]="{standalone: true}" />
+              <input *ngSwitchCase="'numbers'"     class="fb-input" type="number" [placeholder]="f.placeholder || '0'" [(ngModel)]="f.value" [name]="'val-' + f.id" [disabled]="!fillMode" [ngModelOptions]="{standalone: true}" />
+              <input *ngSwitchCase="'address'"     class="fb-input" type="text" [placeholder]="f.placeholder || ('FORM_DETAILS.PH_ADDRESS' | translate)" [(ngModel)]="f.value" [name]="'val-' + f.id" [disabled]="!fillMode" [ngModelOptions]="{standalone: true}" />
+              <input *ngSwitchCase="'single-line'" class="fb-input" type="text" [placeholder]="f.placeholder || ('FORM_DETAILS.PH_SHORT_TEXT' | translate)" [(ngModel)]="f.value" [name]="'val-' + f.id" [disabled]="!fillMode" [ngModelOptions]="{standalone: true}" />
+              <textarea *ngSwitchCase="'paragraph'" class="fb-input fb-textarea" rows="4" [placeholder]="f.placeholder || ('FORM_DETAILS.PH_LONG_TEXT' | translate)" [(ngModel)]="f.value" [name]="'val-' + f.id" [disabled]="!fillMode" [ngModelOptions]="{standalone: true}"></textarea>
+
+              <div *ngSwitchCase="'upload-file'" class="fb-upload" [class.fb-upload-active]="fillMode">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="fb-upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div class="fb-upload-main">{{ 'FORM_DETAILS.UPLOAD_MAIN' | translate }} <a class="fb-upload-link">{{ 'FORM_DETAILS.UPLOAD_HERE' | translate }}</a></div>
+                <div class="fb-upload-sub">{{ f.placeholder || ('FORM_DETAILS.UPLOAD_SUB' | translate) }}</div>
+              </div>
+
+              <div *ngSwitchCase="'dropdown'" class="fb-select">
+                <select [(ngModel)]="f.value" [name]="'val-' + f.id" [disabled]="!fillMode" [ngModelOptions]="{standalone: true}">
+                  <option [ngValue]="undefined">{{ 'FORM_DETAILS.SELECT_PLACEHOLDER' | translate }}</option>
+                  <option *ngFor="let o of f.options" [ngValue]="o">{{ o }}</option>
+                </select>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="fb-select-chev"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+
+              <div *ngSwitchCase="'checkbox'" class="fb-opt-list">
+                <label class="fb-opt-line" *ngFor="let o of f.options; let oi = index">
+                  <input type="checkbox" [disabled]="!fillMode" [checked]="isOptionChecked(f, o)" (change)="toggleCheckboxOption(f, o)" />
+                  <span>{{ o }}</span>
+                </label>
+              </div>
+
+              <div *ngSwitchCase="'single-choice'" class="fb-opt-list">
+                <label class="fb-opt-line" *ngFor="let o of f.options; let oi = index">
+                  <input type="radio" [name]="'sc-' + f.id" [disabled]="!fillMode" [checked]="f.value === o" (change)="setRadioValue(f, o)" />
+                  <span>{{ o }}</span>
+                </label>
+              </div>
+
+              <div *ngSwitchCase="'toggle'" class="fb-toggle-group">
+                <label class="fb-toggle">
+                  <input type="radio" [name]="'t-' + f.id" value="yes" [(ngModel)]="f.value" />
+                  <span class="fb-toggle-pill"></span>
+                  <span class="fb-toggle-label">{{ 'FORM_DETAILS.YES' | translate }}</span>
+                </label>
+                <label class="fb-toggle">
+                  <input type="radio" [name]="'t-' + f.id" value="no" [(ngModel)]="f.value" />
+                  <span class="fb-toggle-pill"></span>
+                  <span class="fb-toggle-label">{{ 'FORM_DETAILS.NO' | translate }}</span>
+                </label>
+              </div>
+
+              <div *ngSwitchCase="'heading'" class="fb-heading-preview">{{ f.label }}</div>
+
+              <div *ngSwitchCase="'image'" class="fb-image-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>{{ 'FORM_DETAILS.IMAGE_PLACEHOLDER' | translate }}</span>
+              </div>
+
+              <hr *ngSwitchCase="'section'" class="fb-section-divider" />
+
+              <button *ngSwitchCase="'button'" class="fb-btn-preview" type="button" (click)="onCanvasSubmit($event)">{{ f.label }}</button>
+            </ng-container>
+
+            <!-- Hover/active actions overlay -->
+            <div class="fb-field-actions" (click)="$event.stopPropagation()" *ngIf="!fillMode">
+              <button class="fb-fa-btn" (click)="changeWidth(f, 'full', $event)" [class.active]="f.width === 'full'" [title]="'FORM_DETAILS.WIDTH_FULL' | translate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/></svg>
+              </button>
+              <button class="fb-fa-btn" (click)="changeWidth(f, 'half', $event)" [class.active]="f.width === 'half'" [title]="'FORM_DETAILS.WIDTH_HALF' | translate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="11" y2="12"/><line x1="13" y1="12" x2="21" y2="12"/></svg>
+              </button>
+              <button class="fb-fa-btn" (click)="changeWidth(f, 'third', $event)" [class.active]="f.width === 'third'" [title]="'FORM_DETAILS.WIDTH_THIRD' | translate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="8" y2="12"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="16" y1="12" x2="21" y2="12"/></svg>
+              </button>
+              <span class="fb-fa-divider"></span>
+              <button class="fb-fa-btn" (click)="moveField(f.id, -1, $event)" [disabled]="i === 0" [title]="'FORM_DETAILS.MOVE_UP' | translate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+              </button>
+              <button class="fb-fa-btn" (click)="moveField(f.id, 1, $event)" [disabled]="i === canvasFields.length - 1" [title]="'FORM_DETAILS.MOVE_DOWN' | translate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <button class="fb-fa-btn" (click)="duplicateField(f.id, $event)" [title]="'FORM_DETAILS.DUPLICATE' | translate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+              <button class="fb-fa-btn danger" (click)="removeField(f.id, $event)" [title]="'FORM_DETAILS.DELETE' | translate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="fb-empty-canvas" *ngIf="canvasFields.length === 0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="13" y2="14"/></svg>
+          <div class="fb-empty-canvas-title">{{ 'FORM_DETAILS.EMPTY_TITLE' | translate }}</div>
+          <div class="fb-empty-canvas-sub">{{ 'FORM_DETAILS.EMPTY_SUB' | translate }}</div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ── Forms AI Agent modal ───────────────────────── -->
+  <div class="fd-modal-backdrop" [class.open]="aiModalOpen" (click)="aiMaybeClose($event)">
+    <div class="fd-modal fd-modal--ai" (click)="$event.stopPropagation()">
+      <div class="fd-modal-head">
+        <div class="aia-modal-head-meta">
+          <h3 class="aia-modal-title">
+            <span class="aia-modal-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </span>
+            {{ 'FORM_DETAILS.AI_AGENT_NAME' | translate }}
+          </h3>
+          <div class="fd-modal-sub">{{ 'FORM_DETAILS.AI_MODAL_SUB' | translate }}</div>
+        </div>
+        <button class="fd-modal-close" (click)="aiClose()" type="button">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="db-ai-modal-body">
+        <div class="aia-label">{{ 'FORM_DETAILS.AI_DESCRIBE_LABEL' | translate }}</div>
+        <textarea
+          class="db-ai-prompt-area"
+          [ngModel]="aiPrompt"
+          (ngModelChange)="aiOnPromptChange($event)"
+          [placeholder]="'FORM_DETAILS.AI_PROMPT_PLACEHOLDER' | translate"
+        ></textarea>
+        <div class="aia-help">{{ 'FORM_DETAILS.AI_TIP' | translate }}</div>
+        <div class="db-ai-suggestions">
+          <button type="button" class="db-ai-suggestion" *ngFor="let s of aiSuggestions" (click)="aiSetPrompt(s)" [disabled]="aiBusy">{{ s.label }}</button>
+        </div>
+        <div *ngIf="aiTrace.length > 0">
+          <div class="aia-trace-heading">{{ 'FORM_DETAILS.AI_REASONING' | translate }}</div>
+          <div class="db-ai-trace">
+            <div *ngFor="let l of aiTrace" class="db-ai-trace-line" [class.thinking]="l.kind === 'thinking'" [class.tool]="l.kind === 'tool'" [class.ok]="l.kind === 'ok'">{{ l.msg }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="fd-modal-foot">
+        <div class="aia-foot-hint">{{ 'FORM_DETAILS.AI_FOOT_HINT' | translate }}</div>
+        <button class="fd-btn" type="button" (click)="aiClose()" [disabled]="aiBusy">{{ 'FORM_DETAILS.CANCEL' | translate }}</button>
+        <button class="fd-btn fd-btn--ai-generate" type="button" (click)="aiGenerate()" [disabled]="aiBusy">
+          <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          {{ 'FORM_DETAILS.AI_GENERATE' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

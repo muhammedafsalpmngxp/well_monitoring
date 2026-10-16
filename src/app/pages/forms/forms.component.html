@@ -1,0 +1,24 @@
+<div id="page-forms" class="page active">
+  <div class="breadcrumb">
+    <a>{{ 'SIDEBAR.CATALOGUE' | translate }}</a><span>›</span>
+    <span class="current">{{ 'SIDEBAR.REQUEST_FORMS' | translate }}</span>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-left">
+        <div class="card-title">{{ 'FORMS.LIBRARY_TITLE' | translate }}</div>
+        <div class="card-sub" *ngIf="items.length === 0">{{ 'FORMS.LIBRARY_EMPTY_HINT' | translate }}</div>
+        <div class="card-sub" *ngIf="items.length > 0">{{ items.length }} {{ items.length === 1 ? ('FORMS.COUNT_SINGULAR' | translate) : ('FORMS.COUNT_PLURAL' | translate) }}</div>
+      </div>
+      <button class="aw-btn export" (click)="onNewForm()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        {{ 'FORMS.NEW_FORM' | translate }}
+      </button>
+    </div>
+
+    <div *ngIf="items.length > 0" class="forms-table-wrap">
+      <div id="formsGrid" class="ag-theme-alpine-dark"></div>
+    </div>
+  </div>
+</div>

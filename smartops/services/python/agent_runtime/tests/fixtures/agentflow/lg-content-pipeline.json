@@ -1,0 +1,129 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "content-pipeline",
+    "description": "Full pipeline with an approval gate",
+    "created_at": "2026-09-22T11:08:33.272Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "sqlite",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [
+      {
+        "name": "sources",
+        "type": "list",
+        "reducer": "append",
+        "description": "Sources gathered"
+      }
+    ],
+    "routers": [],
+    "interrupts": [
+      {
+        "node": "publisher",
+        "kind": "static",
+        "message": "Approve this step?",
+        "resume_key": "approval"
+      }
+    ],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "researcher",
+        "role": "a researcher",
+        "goal": "Gather the source material",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "research"
+      },
+      {
+        "name": "drafter",
+        "role": "a drafter",
+        "goal": "Write the first draft from the research",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "draft"
+      },
+      {
+        "name": "reviewer",
+        "role": "a reviewer",
+        "goal": "Review the draft for accuracy and tone",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "review"
+      },
+      {
+        "name": "publisher",
+        "role": "a publisher",
+        "goal": "Publish the approved piece",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [
+      {
+        "name": "research",
+        "description": "Gather source material on the topic.",
+        "tools": [],
+        "agent": "researcher",
+        "expected_output": "Notes with sources"
+      },
+      {
+        "name": "draft",
+        "description": "Write the article from the research notes.",
+        "tools": [],
+        "agent": "drafter",
+        "expected_output": "A full draft"
+      },
+      {
+        "name": "review",
+        "description": "Review for accuracy, tone and structure.",
+        "tools": [],
+        "agent": "reviewer",
+        "expected_output": "Review notes"
+      },
+      {
+        "name": "publish",
+        "description": "Produce the final published version.",
+        "tools": [],
+        "agent": "publisher",
+        "expected_output": "The final article"
+      }
+    ],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

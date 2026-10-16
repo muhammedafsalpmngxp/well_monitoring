@@ -1,0 +1,5951 @@
+:host {
+  text-transform: capitalize;
+  // Fills the app shell's scroll box instead of growing with content, so only
+  // .ops-dashboard (not the header/filter bar above it) ends up scrollable.
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+
+  > app-page-header,
+  > app-dashboard-branding {
+    flex-shrink: 0;
+  }
+}
+
+:host ::ng-deep > app-page-header.ops-dashboard-page-header--branded .page-header__title-block {
+  display: none;
+}
+
+:host.ops-dashboard-public {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh / var(--app-zoom-factor, 1));
+  overflow: auto;
+  padding: 10px;
+
+  >app-page-header,
+  >app-dashboard-branding {
+    flex-shrink: 0;
+  }
+
+  >.ops-dashboard {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+
+  .scrollAccordionMain {
+  overflow: auto;
+  height: calc(100dvh / var(--app-zoom-factor, 1) - 200px) !important;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+}
+}
+
+.wv-period-tabs {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 10px;
+    background: #fff;
+    border: 1px solid #C9D3E2;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font-family-base);
+    color: #344054;
+    cursor: pointer;
+    white-space: nowrap;
+
+    svg {
+      flex-shrink: 0;
+    }
+
+    &:hover,
+    &.open {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+  }
+
+  &__icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    text-transform: capitalize;
+  }
+
+  &__menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: -11px;
+    min-width: 125px;
+    background: #fff;
+    border: 1px solid #E7ECF3;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    z-index: 200;
+    padding: 6px;
+    list-style: none;
+    margin: 0;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: var(--font-family-base);
+      color: #344054;
+      cursor: pointer;
+      text-transform: capitalize;
+      transition: background 0.12s;
+
+      &:hover {
+        background: #F9FAFB;
+      }
+
+      &.active {
+        color: #21409A;
+        font-weight: 600;
+      }
+    }
+  }
+
+  &__more {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    padding: 3px 5px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: #667085;
+    cursor: pointer;
+
+    &:hover,
+    &.open {
+      background: #EEF2F8;
+      color: var(--color-primary);
+    }
+  }
+
+  // Submenu flies out to the left of the menu (which sits near the card's right edge), aligned to its top.
+  &__picker {
+    position: absolute;
+    top: 0;
+    right: calc(100% + 10px);
+    cursor: default;
+    text-transform: none;
+    width: 190px;
+    background: #fff;
+    border: 1px solid #E7ECF3;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    z-index: 200;
+    padding: 8px;
+  }
+
+  &__picker-title {
+    margin: 0 0 4px;
+    padding: 0 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475467;
+  }
+
+  &__picker-empty {
+    margin: 4px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+
+  &__picker-list {
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  &__picker-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 4px;
+    font-size: 13px;
+    color: #344054;
+    cursor: pointer;
+  }
+
+  &__picker-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid #E7ECF3;
+
+    button {
+      padding: 4px 8px;
+      border: 1px solid #C9D3E2;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12px;
+      color: #344054;
+      cursor: pointer;
+    }
+  }
+
+  &__picker-apply {
+    margin-left: auto;
+    border-color: var(--color-primary) !important;
+    background: var(--color-primary) !important;
+    color: #fff !important;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.ops-version-select {
+  position: relative;
+
+  &__trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    width: 166px;
+    padding: 0 10px;
+    border-radius: 10px;
+    border: 1px solid #21409A;
+    background: #FFF;
+    color: #101828;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  &__chevron {
+    margin-left: auto;
+    transition: transform 0.15s ease;
+
+    &--open {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 260px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px 0 rgba(16, 24, 40, 0.12), 0 2px 6px 0 rgba(16, 24, 40, 0.06);
+    z-index: 200;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__panel-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #101828;
+    padding: 0 4px 10px;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  &__option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    border: none;
+    background: none;
+    padding: 6px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      background: #F3F6FF;
+    }
+
+    &--active {
+      border: 1px solid #DEE7FF;
+      background: #EEF4FF;
+    }
+  }
+
+  &__check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  &__option-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__option-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__option-version {
+    font-size: 14px;
+    font-weight: 600;
+    color: #101828;
+  }
+
+  &__option-date {
+    font-size: 12px;
+    font-weight: 400;
+    color: #667085;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 10px;
+    height: 24px;
+    border-radius: 20px;
+
+    &--latest {
+      border-radius: 20px;
+      border: 1px solid #ABEFC6;
+      background: #ECFDF3;
+      color: #027A48;
+    }
+
+    &--previous {
+      color: #7A5AF8;
+      background: #F4F3FF;
+    }
+  }
+
+  &__history {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border: none;
+    border-top: 1px solid #E7ECF3;
+    background: none;
+    color: #21409A;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    span {
+      flex: 1;
+    }
+
+    &:hover {
+      color: #17316f;
+    }
+  }
+}
+
+.ops-export-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ops-export-progress {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 272px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px 0 rgba(16, 24, 40, 0.12), 0 2px 6px 0 rgba(16, 24, 40, 0.06);
+  z-index: 200;
+  padding: 14px 16px;
+
+  &__spinner {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #E7ECF3;
+    border-top-color: #21409A;
+    border-radius: 50%;
+    animation: ops-export-progress-spin 0.8s linear infinite;
+  }
+
+  &__text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #101828;
+    font-family: var(--font-family-base);
+  }
+}
+
+@keyframes ops-export-progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ops-export-modal {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 272px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px 0 rgba(16, 24, 40, 0.12), 0 2px 6px 0 rgba(16, 24, 40, 0.06);
+  z-index: 200;
+  padding: 8px;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px 10px;
+    margin: 0 2px;
+    border-bottom: 1px solid #E7ECF3;
+    margin-bottom: 6px;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #101828;
+    font-family: var(--font-family-base);
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: none;
+    border: none;
+
+
+    // &:hover {
+    //   background: #E5E7EB;
+    //   color: #101828;
+    // }
+  }
+
+  &__option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 10px 10px 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    margin-bottom: 6px;
+    transition: filter 0.12s ease;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    // &:hover {
+    //   filter: brightness(0.97);
+    // }
+
+    &--pdf {
+      border-radius: 12px;
+      border: 1px solid #F8CDD2;
+      background: #FEF3F4;
+      padding-left: 10px;
+    }
+
+    &--png {
+      border-radius: 12px;
+      border: 1px solid #FDE4D1;
+      background: #FEF6F2;
+      padding-left: 10px;
+    }
+
+    &--pptx {
+      border-radius: 12px;
+      border: 1px solid #F6D0C4;
+      background: #FDF0EB;
+      padding-left: 10px;
+    }
+
+    &--deck {
+      border-radius: 12px;
+      border: 1px solid #C7D2FE;
+      background: #EEF2FF;
+      padding-left: 10px;
+    }
+
+    &--csv {
+      border-radius: 12px;
+      border: 1px solid #DEF8E3;
+      background: #F3FDF5;
+      padding-left: 10px;
+    }
+
+    &--xlsx {
+      border-radius: 12px;
+      border: 1px solid #D3EDE4;
+      background: #F4FBF8;
+      padding-left: 10px;
+    }
+  }
+
+  &__toggles {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 2px 10px 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #E7ECF3;
+  }
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #344054;
+    cursor: pointer;
+
+    input[type="checkbox"] {
+      accent-color: #21409A;
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+
+    &--pdf {
+      background: #FDE1E2;
+      color: #C3281C;
+    }
+
+    &--png {
+      background: #FEE8D7;
+      color: #A14A0E;
+    }
+
+    &--pptx {
+      background: #FBDED3;
+      color: #B23C20;
+    }
+
+    &--csv {
+      background: #E1FAE7;
+      color: #0C804A;
+    }
+
+    &--xlsx {
+      background: #E1F6ED;
+      color: #027944;
+    }
+
+  }
+
+  &__info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #000000;
+    font-family: var(--font-family-base);
+  }
+
+  &__desc {
+    font-size: 12px;
+    color: #667085;
+    font-family: var(--font-family-base);
+  }
+
+  &__arrow {
+    flex-shrink: 0;
+    color: #667085;
+  }
+}
+
+.ops-dashboard-page-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #0F6CBD;
+  flex-shrink: 0;
+}
+
+.ops-dashboard-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+
+  &__icon-btn {
+    position: relative;
+    overflow: visible;
+    display: flex;
+    width: 36px;
+    height: 36px;
+    padding: 8px 12px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    border-radius: 10px;
+    border: 1px solid #21409A;
+    background: #FFF;
+    cursor: pointer;
+
+    &[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      border-radius: 8px;
+      background: #172B4D;
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 400;
+      font-family: var(--font-family-base);
+      line-height: 1.5;
+      padding: 7px 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 200;
+    }
+
+    &[data-tooltip]::before {
+      content: '';
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid #172B4D;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 201;
+    }
+
+    &[data-tooltip]:hover::after,
+    &[data-tooltip]:hover::before {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    &:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+  }
+
+  // Only shown in the off-canvas filter breakpoint (see the 1199px media query below)
+  &__adv-filter-mobile {
+    display: none;
+  }
+
+  &__btn {
+    position: relative;
+    overflow: visible;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 8px 12px;
+    border: 1px solid #21409A;
+    border-radius: 10px;
+    background: #fff;
+    color: #21409A;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: var(--font-family-base);
+
+    &[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      border-radius: 8px;
+      background: #172B4D;
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 400;
+      font-family: var(--font-family-base);
+      line-height: 1.5;
+      padding: 7px 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 200;
+    }
+
+    &[data-tooltip]::before {
+      content: '';
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid #172B4D;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 201;
+    }
+
+    &[data-tooltip]:hover::after,
+    &[data-tooltip]:hover::before {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    // &:hover {
+    //   border-color: var(--color-primary);
+    //   color: var(--color-text-primary);
+    // }
+
+    &--disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    &.active {
+      border: 1px solid #21409A;
+      border-radius: 10px;
+      background: #fff;
+      color: #21409A;
+    }
+  }
+
+  &__btn--comment {
+    border: none;
+    border-radius: 10px;
+    background: #21409A;
+    color: #fff;
+
+    &:hover {
+      background: #17316f;
+    }
+
+    &.active {
+      border: none;
+      background: #17316f;
+      color: #fff;
+    }
+  }
+
+  &__comment-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #E8F0FF;
+    color: #21409A;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+}
+
+// ─── Comments panel (slides in from the right) ───────────────────────────────
+.ops-comments-backdrop {
+  position: fixed;
+  top: 61px;
+  right: 0;
+  bottom: 35px;
+  left: 0;
+  background: rgba(16, 24, 40, 0.25);
+  z-index: 999;
+}
+
+@keyframes ops-comments-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ops-comments-panel {
+  position: fixed;
+  top: 61px;
+  right: 0;
+  bottom: 35px;
+  width: 390px;
+  max-width: 100vw;
+  background: #fff;
+  box-shadow: -8px 0 24px 0 rgba(16, 24, 40, 0.14);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  animation: ops-comments-slide-in 0.22s ease-out;
+  font-family: var(--font-family-base);
+
+  // &__gradient-bar {
+  //   height: 4px;
+  //   flex-shrink: 0;
+  //   background: linear-gradient(90deg, #0A2468 0%, #21409A 45%, #5E4A73 78%, #F58220 100%);
+  // }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #E7ECF3;
+    flex-shrink: 0;
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: #E9EEF8;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 700;
+    color: #101828;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+
+    &:hover {
+      background: #F9FAFB;
+    }
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 20px;
+    padding: 8px 12px;
+    border: 1px solid #E2E7EF;
+    border-radius: 10px;
+    flex-shrink: 0;
+
+    input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      color: #101828;
+      font-family: var(--font-family-base);
+
+      &::placeholder {
+        color: #667085;
+      }
+    }
+  }
+
+  &__list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 4px 20px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #21409A transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #21409A;
+      border-radius: 30px;
+    }
+  }
+
+  &__empty {
+    padding: 24px 0;
+    text-align: center;
+    color: #98A2B3;
+    font-size: 14px;
+  }
+
+  &__thread {
+    padding: 14px 0;
+    border-bottom: 1px solid #F0F2F7;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__comment {
+    display: flex;
+    gap: 10px;
+    border-radius: 10px;
+    transition: background-color 0.3s ease;
+
+    &--highlight {
+      background: #FFF3D6;
+      animation: ops-comment-flash 1.5s ease-in-out 2;
+    }
+  }
+
+  @keyframes ops-comment-flash {
+
+    0%,
+    100% {
+      background: #FFF3D6;
+    }
+
+    50% {
+      background: #FFE49A;
+    }
+  }
+
+  &__avatar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+
+    &--sm {
+      width: 28px;
+      height: 28px;
+      font-size: 11px;
+    }
+
+    &--input {
+      width: 30px;
+      height: 30px;
+    }
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__meta {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__author {
+    font-size: 14px;
+    font-weight: 700;
+    color: #101828;
+  }
+
+  &__time {
+    font-size: 12px;
+    color: #98A2B3;
+    margin-left: auto;
+  }
+
+  &__more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    border: none;
+    background: none;
+    padding: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  &__menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px 0 rgba(16, 24, 40, 0.12), 0 2px 6px 0 rgba(16, 24, 40, 0.06);
+    z-index: 10;
+    padding: 4px;
+    min-width: 110px;
+
+    button {
+      display: block;
+      width: 100%;
+      border: none;
+      background: none;
+      padding: 8px 10px;
+      border-radius: 6px;
+      text-align: left;
+      font-size: 13px;
+      color: #D92D20;
+      cursor: pointer;
+
+      &:hover {
+        background: #FEF3F2;
+      }
+    }
+  }
+
+  &__text {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #667085;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  &__target {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid #C8D2E8;
+    background: #F4F6FB;
+  }
+
+  &__target-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #667085;
+  }
+
+  &__target-chips {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  &__chip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #EAF1FF;
+    flex-shrink: 0;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 1px 10px;
+    border-radius: 100px;
+    border: 1px solid #C9D3E2;
+    background: #F9FAFB;
+    font-size: 12px;
+    font-weight: 400;
+    color: #667085;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 6px;
+  }
+
+  &__link {
+    border: none;
+    background: none;
+    padding: 0;
+    color: #21409A;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__reply {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-left: 8px;
+    border-left: 2px solid #F0F2F7;
+
+    .ops-comments-panel__meta {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto 20px;
+      align-items: start;
+    }
+
+    .ops-comments-panel__author {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .ops-comments-panel__time {
+      white-space: nowrap;
+    }
+
+    .ops-comments-panel__more {
+      width: 20px;
+      height: 20px;
+      align-self: start;
+    }
+  }
+
+  &__reply-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+
+    input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid #E2E7EF;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      font-family: var(--font-family-base);
+    }
+  }
+
+  &__mention-dropdown {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 6px);
+    width: 240px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #E2E7EF;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+    z-index: 20;
+
+    button {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      text-align: left;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+
+      &:hover {
+        background: #F5F7FB;
+      }
+    }
+  }
+
+  &__reply-post {
+    border: none;
+    background: #21409A;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  &__composer {
+    display: flex;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid #E7ECF3;
+    flex-shrink: 0;
+  }
+
+  &__composer-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  &__composer-input {
+    position: relative;
+    border: 1px solid #E2E7EF;
+    border-radius: 10px;
+    padding: 8px 10px;
+
+    textarea {
+      display: block;
+      width: 100%;
+      resize: vertical;
+      min-height: 40px;
+      max-height: 200px;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      color: #101828;
+      font-family: var(--font-family-base);
+
+      &::placeholder {
+        color: #667085;
+      }
+    }
+  }
+
+  &__mention-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #101828;
+  }
+
+  &__mention-email {
+    font-size: 11px;
+    color: #98A2B3;
+  }
+
+  &__composer-resize {
+    position: absolute;
+    right: 8px;
+    bottom: 6px;
+    display: flex;
+    pointer-events: none;
+  }
+
+  &__composer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__composer-icons {
+    display: flex;
+    gap: 8px;
+  }
+
+  &__composer-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+    cursor: pointer;
+
+    &:hover {
+      background: #F9FAFB;
+    }
+  }
+
+  &__composer-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  &__cancel-btn {
+    border: 1px solid #21409A;
+    height: 32px;
+    background: #fff;
+    color: #21409A;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  &__post-btn {
+    border: none;
+    background: #21409A;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    height: 32px;
+    padding: 6px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.ops-dashboard__filter-bar {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid #E2E7EF;
+  background: #FFF;
+  box-shadow: 0 1px 8px 0 rgba(0, 0, 0, 0.06);
+  grid-template-columns: repeat(11, 1fr);
+  margin-bottom: 0px;
+
+  // Add a gap between the filter bar and the chart section only when the
+  // board branding section is shown above.
+  .ops-dashboard--branded & {
+    margin-bottom: 10px;
+  }
+
+  // Hidden on desktop — this is only the off-canvas drawer's header. The
+  // media query below re-declares it as a real fixed (non-scrolling) header
+  // once the filter bar switches to that fixed drawer at <=1199px.
+  &__mobile-header {
+    display: none;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 10px;
+    margin: 0 0 2px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #101828;
+    font-family: var(--font-family-base);
+    border-bottom: 1px solid #E7ECF3;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--color-bg-app);
+      color: var(--color-text-primary);
+    }
+  }
+
+  // On desktop the wrapper is transparent to layout — its field children
+  // participate directly in the 10-column grid above, unchanged.
+  &__scroll {
+    display: contents;
+  }
+}
+
+// Off-canvas backdrop for the mobile filter panel — hidden on desktop
+.ops-dashboard__filter-backdrop {
+  display: none;
+}
+
+// backdrop is now injected directly into <body> via TypeScript to bypass CSS zoom
+
+.ops-dashboard__filter-pin {
+  position: absolute;
+  top: 14px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:hover {
+    background: var(--color-bg-app);
+    color: var(--color-text-primary);
+  }
+}
+
+.ops-dashboard__filter-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (max-width: 700px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  &--actions {
+
+    align-items: end;
+
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+}
+
+.ops-dashboard__filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #667085;
+  }
+
+  select,
+  input[type='text'],
+  input[type='date'] {
+    height: 36px;
+    padding: 8px 12px;
+    background: var(--color-bg-card);
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    color: #172033;
+    transition: border-color 0.15s ease;
+    font-weight: 400;
+    width: 100%;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    &:disabled {
+      color: var(--color-text-muted);
+      cursor: not-allowed;
+    }
+  }
+
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18' fill='none'%3E%3Cpath d='M4.5 6.75L9 11.25L13.5 6.75' stroke='%23667085' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 18px 18px;
+    cursor: pointer;
+
+    &:has(option[value=""]:checked) {
+      color: #98A2B3;
+    }
+  }
+}
+
+.ops-dashboard__filter-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  border: 1px solid #C9D3E2;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--font-family-base);
+  color: #172033;
+  user-select: none;
+
+  &:hover {
+    border-color: #A0ABBE;
+  }
+
+  &.open {
+    border-color: var(--color-primary);
+
+    >svg {
+      transform: rotate(180deg);
+    }
+  }
+
+  >span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  >svg {
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+
+  &-placeholder {
+    color: #667085;
+  }
+
+  &-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    min-width: 100%;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+    box-shadow: 0 4px 14px 0 rgba(16, 24, 40, 0.10);
+    z-index: 200;
+    max-height: 136px;
+    overflow-y: auto;
+    padding: 4px;
+    width: 200px;
+  }
+
+  &-option {
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #344054;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &:hover {
+      background: #F9FAFB;
+    }
+
+    &.active {
+      color: var(--color-primary);
+      font-weight: 500;
+      background: #EEF2FF;
+    }
+
+    &--clear {
+      color: #98A2B3;
+      font-style: italic;
+      border-bottom: 1px solid #E2E7EF;
+      margin-bottom: 4px;
+    }
+  }
+}
+
+.ops-dashboard__filter-date {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding-right: 32px;
+
+    // hide native calendar picker icon
+    &::-webkit-calendar-picker-indicator {
+      opacity: 0;
+      width: 24px;
+      cursor: pointer;
+    }
+  }
+
+  svg {
+    position: absolute;
+    right: 10px;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+}
+
+.ops-dashboard__filter-date--trigger {
+  height: 36px;
+  padding: 0 32px 0 12px;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid #C9D3E2;
+  border-radius: 10px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+
+  span {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    color: #172033;
+  }
+
+  .ops-dashboard__filter-date-placeholder {
+    color: #667085;
+  }
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+
+  &.ops-dashboard__filter-date--disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+
+    &:hover {
+      border-color: #C9D3E2;
+    }
+  }
+}
+
+.filterBtnDivMainAll {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.board-toast {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 8px 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &--success {
+    background: #ECFDF5;
+    color: #065F46;
+  }
+
+  &--error {
+    background: #FEF2F2;
+    color: #991B1B;
+  }
+}
+
+// ─── Saved Filter dropdown ────────────────────────────────────────────
+.board-filterbar__saved-wrap {
+  position: relative;
+}
+
+.saved-filter-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 430px;
+  background: #fff;
+  border: 1px solid #E7ECF3;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
+  z-index: 300;
+  padding: 16px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  &__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 18px;
+    background: #EEF2FF;
+    color: #21409A;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    margin-left: auto;
+
+    &:hover {
+      background: #F2F4F7;
+    }
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+    margin-bottom: 10px;
+
+    svg {
+      flex-shrink: 0;
+      color: #667085;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      font-family: var(--font-family-base);
+      color: var(--color-text-primary);
+
+      &::placeholder {
+        color: #667085;
+      }
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 230px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #21409A transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #21409A;
+      border-radius: 30px;
+    }
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: none;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-family-base);
+    transition: border-color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+      border-color: #B7C6EA;
+    }
+
+    &--default {
+      background: #F1F6FF;
+    }
+
+    &--active {
+      border: 1px solid #21409A;
+      background: #E8F0FF;
+    }
+  }
+
+  &__chevron {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: #667085;
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    flex-shrink: 0;
+
+    &--default {
+      background: #DCE8FF;
+      color: #2563EB;
+    }
+
+    &--purple {
+      background: #F3ECFF;
+      color: #7549F2;
+    }
+
+    &--green {
+      background: #E9F8F3;
+      color: #177E54;
+    }
+
+    &--orange {
+      background: #FFF1E8;
+      color: #9F5414;
+    }
+
+    &--yellow {
+      background: #FFF6DB;
+      color: #956800;
+    }
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__meta {
+    font-size: 12px;
+    color: #667085;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__star {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+  }
+
+  &__menu-wrap {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+  }
+
+  &__menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #667085;
+    cursor: pointer;
+
+    &:hover {
+      background: #F2F4F7;
+      color: #344054;
+    }
+  }
+
+  &__menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 120px;
+    background: #fff;
+    border: 1px solid #E7ECF3;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.14);
+    z-index: 320;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+
+    button {
+      padding: 8px 10px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: left;
+      color: #344054;
+      cursor: pointer;
+
+      &:hover {
+        background: #F9FAFB;
+      }
+    }
+
+    &-delete {
+      color: #D92D20 !important;
+    }
+  }
+
+  &__empty {
+    padding: 24px 8px;
+    text-align: center;
+    color: #98A2B3;
+    font-size: 13px;
+  }
+}
+
+// ─── Save Filter modal ────────────────────────────────────────────────
+.save-filter-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
+}
+
+.save-filter-modal {
+  width: 100%;
+  max-width: 680px;
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(90deg, #0A2468 0%, #21409A 45%, #5E4A73 78%, #F58220 100%);
+  border-radius: 16px;
+  overflow: visible;
+  font-family: var(--font-family-base);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 24px;
+    border-radius: 20px 20px 0 0;
+  }
+
+  &__header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 8px;
+    border-radius: 10px;
+    background: #0F6CBD;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+
+  &__info {
+    display: inline-flex;
+    align-items: center;
+    cursor: default;
+    position: relative;
+
+    &[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      border-radius: 8px;
+      background: #172B4D;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.5;
+      padding: 7px 12px;
+      white-space: pre-line;
+      width: 200px;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 1100;
+    }
+
+    &[data-tooltip]:hover::after {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    margin-left: auto;
+    flex-shrink: 0;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  &__body {
+    background: #fff;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    border-radius: 16px;
+  }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #344054;
+    margin-top: 10px;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  &__form-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #BFCDF2;
+    background: linear-gradient(95deg, #D4DFFF 0%, #E3D6FF 42%, #FFDCC2 100%);
+
+    .save-filter-modal__label:first-child {
+      margin-top: 0;
+    }
+  }
+
+  &__required {
+    color: #E11D48;
+    margin-left: 2px;
+  }
+
+  &__info-i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 2px;
+    cursor: default;
+  }
+
+  &__input {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+    font-size: 14px;
+    color: #101828;
+    outline: none;
+    font-family: inherit;
+
+    &:focus {
+      border-color: #21409A;
+    }
+
+    &::placeholder {
+      color: #667085;
+    }
+  }
+
+  &__chips-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    height: 28px;
+    border-radius: 23px;
+    border: 1px solid #C8D1F3;
+    background: #EEF4FF;
+    font-weight: 400;
+    color: #21409A;
+    font-size: 13px;
+
+    strong {
+      font-weight: 500;
+      margin-left: 3px;
+    }
+  }
+
+  &__hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: #21409A;
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 10px !important;
+    }
+  }
+}
+
+.ops-dashboard__filter-icon-btn {
+  position: relative;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #21409A;
+  background: #fff;
+  cursor: pointer;
+
+  &[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 8px;
+    background: #172B4D;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 400;
+    font-family: var(--font-family-base);
+    line-height: 1.5;
+    padding: 5px 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 200;
+  }
+
+  &[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid #172B4D;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 201;
+  }
+
+  &[data-tooltip]:hover::after,
+  &[data-tooltip]:hover::before,
+  &[data-tooltip]:focus-visible::after,
+  &[data-tooltip]:focus-visible::before {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+  }
+
+  &--saved {
+    border: 1px solid #21409A;
+    background: #fff;
+    color: #21409A;
+
+    &:hover {
+      background: #EEF4FF;
+    }
+  }
+
+  &--advanced {
+    border: 1px solid #21409A;
+    background: #21409A;
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+
+    &[data-tooltip]::after {
+      white-space: pre-line;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    &:hover {
+      background: #1b357f;
+      border-color: #1b357f;
+    }
+  }
+}
+
+.ops-dashboard__filter-fs-close {
+  position: fixed;
+  top: 70px;
+  right: 40px;
+  z-index: 1202;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  // width: 34px;
+  // height: 34px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+
+
+
+}
+
+.ops-dashboard__filter-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 32px;
+  min-width: 112px;
+  padding: 0 13px;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background: var(--color-bg-card);
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--color-bg-legend);
+  }
+}
+
+.ops-dashboard__filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -4px 0 12px;
+
+  >svg {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+}
+
+.ops-dashboard__filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 6px 0 10px;
+  background: var(--color-bg-app);
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+
+  strong {
+    color: var(--color-text-primary);
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 50%;
+
+    &:hover {
+      background: var(--color-border);
+      color: var(--color-text-primary);
+    }
+  }
+}
+
+.ops-dashboard {
+  --accent: var(--color-primary);
+  --accent-2: var(--color-primary);
+
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  padding: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+
+  // Not the scroll box itself anymore — :host pins the header/filter bar above
+  // it, and .ops-dashboard__saved-layout below owns the actual inner scrollbar.
+  overflow: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+
+  // "200px" approximates app-navbar + app-page-header, which sit above this div and
+  // are unaffected by FontSizeService's zoom in their own layout size (only their
+  // rendered/visual size scales with it, like any normal element under a zoomed
+  // ancestor — see font-size.service.ts). Dividing only the dvh term (not the whole
+  // expression) compensates for that: at zoom factor F this lays out at 100dvh/F -
+  // 200px, which *zoom* then renders back down/up to exactly (100dvh - 200px*F) on
+  // screen — matching the navbar+header's own actual rendered height at any zoom,
+  // not just Medium (100%).
+  // height: calc(100dvh / var(--app-zoom-factor, 1) - 200px);
+
+  &--purple {
+    --accent: #7C3AED;
+    --accent-2: #A78BFA;
+  }
+
+  &--blue {
+    --accent: #2563EB;
+    --accent-2: #60A5FA;
+  }
+
+  &--green {
+    --accent: #16A34A;
+    --accent-2: #4ADE80;
+  }
+
+  &--orange {
+    --accent: #F97316;
+    --accent-2: #FDBA74;
+  }
+
+  &__kpis {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 14px;
+    margin-top: 14px;
+
+    // No filter bar above when hidden — collapse the reserved gap instead of
+    // leaving dead space at the bottom of the page.
+    .ops-dashboard--filter-hidden & {
+      margin-top: 0;
+    }
+
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    @media (max-width: 700px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  &__kpi {
+    position: relative;
+    // NOTE: this element only owns layout/tooltip now — it must stay overflow:visible so its own
+    // [data-tooltip] bubble below never gets clipped. Internal scrolling (for a tile sized smaller
+    // than its content in a saved layout) lives on the `&__kpi-content` child instead. Do NOT put
+    // overflow-y:auto/overflow-x:hidden back on THIS element — that has regressed to clip the
+    // tooltip multiple times before (see repo memory: kpi-tile-tooltip-zindex-stacking-context).
+    overflow: visible;
+    min-height: 116px;
+    padding: 12px 10px;
+    border-radius: 12px;
+    border: 1px solid #E7ECF3;
+    background: #FFF;
+    // Establishes a real stacking context so the hover z-index bump below can
+    // actually raise this tile (and its tooltip) above sibling grid tiles.
+    z-index: 0;
+    container-type: inline-size;
+    container-name: ops-kpi;
+
+    &:hover {
+      z-index: 50;
+    }
+
+    // Dark tooltip — reveals the full tile name when the label is truncated with an ellipsis.
+    // Lives on the tile (not the label) because the label's own overflow:hidden would clip it.
+    // Positioned fully above the tile (not overlapping it) so it never gets painted over by a
+    // neighboring grid cell.
+    &[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      border-radius: 6px;
+      background: #172B4D;
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 400;
+      font-family: var(--font-family-base);
+      line-height: 1.5;
+      padding: 7px 8px;
+      white-space: normal;
+      // Clamped to the tile's own (container query) width so the bubble never overflows past a
+      // narrow 5/3/2-col grid tile and gets clipped left/right by a neighboring cell or the page.
+      max-width: min(200px, 90cqw);
+      width: max-content;
+      text-align: left;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 200;
+    }
+
+    &[data-tooltip]::before {
+      content: '';
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid #172B4D;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 201;
+    }
+
+    &[data-tooltip]:hover::after,
+    &[data-tooltip]:hover::before {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  // Inner scroll box: holds all visible tile content. A tile sized smaller than its content
+  // (saved layout) scrolls here instead of spilling/clipping — kept off the outer `&__kpi` so
+  // scrolling never clips that element's own overflowing tooltip (see note on `&__kpi` above).
+  &__kpi-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    // "safe" centres only while it all fits — plain centre would push the overflow above the
+    // top edge, out of scroll reach.
+    justify-content: center;
+    justify-content: safe center;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-color: #21409A transparent;
+    gap: 4px;
+
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #21409A;
+      border-radius: 30px;
+    }
+
+    // In a short (scrolling) tile, flex would otherwise squeeze the children to fit — and the
+    // label (overflow:hidden, so its min-height is 0) collapsed to nothing. Keep every row at its
+    // natural size and let the content box scroll instead.
+    > * {
+      flex-shrink: 0;
+    }
+  }
+
+  &__kpi-icon {
+    @each $name, $color, $background in ('amber', #F59E0B, #FFFBEB), ('teal', #14B8A6, #F0FDFA), ('gray', #9CA3AF, #F3F4F6) {
+      &--#{$name} {
+        color: $color;
+        background: $background;
+      }
+    }
+
+    display: flex;
+    width: 52px;
+    height: 52px;
+    justify-content: center;
+    align-items: center;
+    aspect-ratio: 1/1;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    svg {
+      width: 26px;
+      height: 26px;
+    }
+
+    &--blue {
+      background: #EFF6FF;
+      color: #2563EB;
+    }
+
+    &--green {
+      background: #F0FDF4;
+      color: #12B76A;
+    }
+
+    &--red {
+      background: #FEF3F2;
+      color: #D92D20;
+    }
+
+    &--purple {
+      background: #F5F3FF;
+      color: #7C3AED;
+    }
+
+    &--orange {
+      background: #FFF7ED;
+      color: #F58220;
+    }
+  }
+
+  &__kpi-label {
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: #344054;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  &__kpi-label-accent {
+    display: inline-block;
+    width: 14px;
+    height: 2px;
+    margin-left: 6px;
+    border-radius: 1px;
+    vertical-align: middle;
+
+    &--blue {
+      background: #2563EB;
+    }
+
+    &--green {
+      background: #12B76A;
+    }
+
+    &--red {
+      background: #D92D20;
+    }
+
+    &--purple {
+      background: #7C3AED;
+    }
+  }
+
+  &__kpi-value-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  &__kpi-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #101828;
+
+    &--critical {
+      color: #D92D20;
+    }
+
+    &--good {
+      color: #079455;
+    }
+  }
+
+  &__kpi-value-suffix {
+    font-size: 14px;
+    font-weight: 500;
+    color: #667085;
+  }
+
+  // Status badge. The pill shape applies to EVERY status — it used to apply only to
+  // critical/good, so a tile with any other status (colours set inline from footerColor) showed
+  // its badge as bare, larger, unpadded text. flex-shrink:0 keeps it a full pill when the tile
+  // is short enough to scroll.
+  &__kpi-footer {
+    display: inline-flex;
+    flex-shrink: 0;
+    width: fit-content;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+
+    &--critical {
+      color: #B42318;
+      background: #FEE4E2;
+    }
+
+    &--good {
+      color: #067647;
+      background: #EAF8F0;
+    }
+  }
+
+  &__kpi-breakdown {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 100%;
+  }
+
+  &__kpi-breakdown-row {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #667085;
+    gap: 2px;
+    white-space: nowrap;
+  }
+
+  &__kpi-breakdown-sep {
+    color: #98A2B3;
+    line-height: 1;
+    margin-right: 4px;
+  }
+
+  &__kpi-breakdown-val {
+    font-weight: 600;
+    color: #344054;
+  }
+
+  &__row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+
+    @media (max-width: 1100px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.ops-dashboard__saved-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+    scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: #21409A;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+// Saved builder layout uses the same 20-column, 24px-row geometry as Gridster.
+.ops-dashboard__saved-layout--active {
+  display: grid;
+  grid-template-columns: repeat(20, minmax(0, 1fr));
+  // Must match the builder's Gridster fixedRowHeight (24) and margin (8): an item spanning N rows
+  // is then N*24 + (N-1)*8 px tall in both places. Without a fixed track size every row was sized
+  // by its content, so a saved height was never actually honoured here.
+  grid-auto-rows: 24px;
+
+  gap: 8px;
+  padding: 0px;
+  align-items: stretch;
+  // KPI/chart wrappers are display:contents here, so their margins are ignored;
+  // add the gap below the global filter bar on the grid container itself.
+  margin-top: 12px;
+
+  // No filter bar above when hidden — collapse the reserved gap instead of
+  // leaving dead space at the bottom of the page.
+  .ops-dashboard--filter-hidden & {
+    margin-top: 0;
+  }
+
+  >.ops-dashboard__kpis,
+  >.scrollAccordionMain,
+  >.scrollAccordionMain>.ops-dashboard__chart-grid {
+    display: contents;
+  }
+
+  // Exclude the fullscreen-expanded card: it is position:fixed and relies on its
+  // own left/right insets (width:auto). This scoped rule's width:100% would otherwise
+  // win by specificity and force it back to full-viewport width (no side margins).
+  // height:auto drops the shared card shell's fixed 415px (and the KPI tile's min-height) so the
+  // item stretches to exactly its saved grid area; the chart then adapts to the card, never the
+  // card to the chart.
+  .ops-dashboard__kpi,
+  .ops-dashboard__card:not(.ops-dashboard__card--expanded) {
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
+// Dynamic chart grid
+.ops-dashboard__chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+
+  .ops-dashboard__card {
+
+    min-width: 0;
+    justify-self: stretch;
+
+
+  }
+
+  &--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  &--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+    gap: 10px;
+
+    &--3,
+    &--4 {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+// Shared card shell reused by ODC / Wells Readiness / Cluster Health / Crew P-Rating / Work Load cards
+.ops-dashboard__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #DCE3ED;
+  background: #FFF;
+  width: 100%;
+  min-height: 415px;
+  height: 415px;
+  justify-content: flex-start;
+  // The card is the widget's ONE scroll container: header, filters, chart, legend and inline data
+  // table all scroll together. Nothing inside it may scroll on its own (see chart-body/data-table).
+  overflow: auto;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+
+  // Lets the chart-type/export/expand controls collapse based on this card's own resized
+  // width (not the viewport) — see the @container rule near .ops-dashboard__card-icon-btn.
+  container-type: inline-size;
+  container-name: ops-card;
+
+  &--compact {
+    padding: 12px 12px 10px;
+    min-height: 415px;
+    height: 415px;
+
+    .ops-dashboard__card-head {
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+    .ops-dashboard__card-title {
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    .ops-dashboard__card-controls {
+      margin-left: auto;
+    }
+
+    .ops-dashboard__card-select {
+      width: 108px;
+      min-width: 108px;
+      height: 32px;
+      font-size: 12px;
+      padding: 6px 10px;
+    }
+
+    .ops-dashboard__card-select-dropdown {
+      width: 108px;
+    }
+
+    .ops-dashboard__card-select-menu {
+      min-width: 108px;
+      width: 108px;
+    }
+
+    // Sized to the table (see the base rule) rather than scrolling inside the card.
+    .ops-dashboard__chart-data-table {
+      display: block;
+
+      table {
+        min-width: 520px;
+        width: max-content;
+      }
+    }
+
+    .ops-dashboard__card-score-badge,
+    .ops-dashboard__card-info-btn,
+    .ops-export-wrap,
+    .ops-dashboard__card-icon-btn {
+      display: none !important;
+    }
+  }
+
+  &--expanded {
+    position: fixed;
+    top: 61px;
+    left: var(--sidebar-collapsed-width);
+    // Divide by zoom factor so the physical gap is constant at any AA zoom level
+    right: calc(24px / var(--app-zoom-factor, 1));
+    bottom: calc(41px / var(--app-zoom-factor, 1));
+    height: auto;
+    width: auto;
+    z-index: 1000;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: 0;
+    scrollbar-width: thin;
+    scrollbar-color: #21409A transparent;
+    justify-content: flex-start;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #21409A;
+      border-radius: 30px;
+    }
+
+    .ops-dashboard__card-head,
+    .ops-dashboard__card-inline-filter,
+    .ops-dashboard__card-stats,
+    .ops-dashboard__card-filters {
+      flex-shrink: 0;
+    }
+
+    // Pin close button — fixed so it never scrolls away with the card content
+    .ops-dashboard__card-expand-close {
+      position: fixed;
+      top: 71px; // card top: 61px + 10px offset
+      right: calc(36px / var(--app-zoom-factor, 1)); // card right: 24px + 12px offset
+      z-index: 1010;
+    }
+
+    // Show filter above the title/controls row; pin it to top while body scrolls
+    .ops-dashboard__card-inline-filter {
+      order: -1;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #FFF;
+      padding-top: 17px; // restore spacing removed from card padding-top
+    }
+
+    .ops-dashboard__card-head {
+      order: 0;
+    }
+
+    .ops-dashboard__chart-body {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      max-height: none;
+
+      .ops-dashboard__chart-visual {
+        display: flex;
+        flex: 65 1 0;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #21409A transparent;
+      }
+
+      highcharts-chart {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: 100% !important;
+        width: 100%;
+      }
+
+      // Force Highcharts SVG to fill the expanded card width
+      ::ng-deep .highcharts-container,
+      ::ng-deep .highcharts-root {
+        width: 100% !important;
+      }
+    }
+
+    .ops-dashboard__chart-data-table {
+      flex: 35 1 0;
+      max-width: none;
+      max-height: none;
+      min-width: 0;
+      height: 100%;
+      margin: 0;
+      overflow: auto;
+      border-radius: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: #21409A transparent;
+
+      &::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: #21409A;
+        border-radius: 30px;
+      }
+    }
+
+    highcharts-chart {
+      flex: 1 1 auto;
+    }
+  }
+
+  highcharts-chart {
+    display: block;
+  }
+
+  ::ng-deep .highcharts-point {
+    stroke: none;
+  }
+}
+
+.ops-dashboard__card-controls-secondary {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.ops-dashboard__card-reset {
+  color: var(--color-primary);
+
+  &:disabled,
+  &:disabled:hover {
+    border-color: #C9D3E2;
+    color: #98A2B3;
+    cursor: default;
+  }
+}
+
+.ops-dashboard__card-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-right: auto;
+}
+
+.ops-dashboard__card-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: auto;
+  min-width: 105px;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #667085;
+    white-space: nowrap;
+  }
+
+  select,
+  input {
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      background-color: var(--color-bg-app);
+    }
+  }
+
+  select {
+    height: 36px;
+    padding: 8px 32px 8px 12px;
+    background: var(--color-bg-card);
+    border: 1px solid #C9D3E2;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    color: #172033;
+    width: 100%;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18' fill='none'%3E%3Cpath d='M4.5 6.75L9 11.25L13.5 6.75' stroke='%23667085' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 18px 18px;
+    cursor: pointer;
+max-width: 123px;
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+  }
+}
+
+.ops-dashboard__card-multi {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.ops-dashboard__card-multi-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--font-family-base);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: var(--color-bg-app);
+  }
+}
+
+.ops-dashboard__card-multi-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.12);
+}
+
+.ops-dashboard__card-multi-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: #edf3ff;
+  }
+
+  input {
+    cursor: pointer;
+  }
+}
+
+.ops-dashboard__card-expand-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #C9D3E2;
+  border-radius: 20px;
+  background: #fff;
+  color: #667085;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.ops-dashboard__card-icon-btn--filter {
+  &.active {
+    border-color: #21409A;
+    background: #EEF2FF;
+    color: #21409A;
+
+    svg path {
+      stroke: #21409A;
+    }
+  }
+}
+
+// Inline filter panel shown inside an expanded card modal
+.ops-dashboard__card-inline-filter {
+  display: grid;
+  gap: 12px;
+  padding: 14px 0 10px;
+  // border-bottom: 1px solid #E2E7EF;
+  // margin-bottom: 10px;
+  grid-template-columns: repeat(10, 1fr);
+
+
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .filterBtnDivMainAll {
+    align-self: flex-end;
+  }
+}
+
+.ops-dashboard__card-head {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.ops-dashboard__card-filters {
+  display: flex!important;
+  gap: 12px;
+  padding: 0px;
+  flex-wrap: wrap;
+
+}
+
+.ops-dashboard__card-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ops-dashboard__card-filter-label {
+  font-size: 12px;
+  color: #475467;
+  white-space: nowrap;
+}
+
+.ops-dashboard__card-filter-select,
+.ops-dashboard__card-filter-input {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid #D0D5DD;
+  border-radius: 6px;
+  background: #fff;
+  min-width: 100px;
+  max-width: 150px;
+}
+
+.ops-dashboard__card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+
+  &--blue {
+    background: #EAF1FE;
+    color: #2563EB;
+  }
+
+  &--green {
+    background: #E9F8EF;
+    color: #107A37;
+  }
+
+  &--red {
+    background: #FEEDEC;
+    color: #D12424;
+  }
+
+  &--purple {
+    background: #F3EEFE;
+    color: #7C3AED;
+  }
+}
+
+.ops-dashboard__card-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ops-dashboard__card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  // auto (not 0%) basis so the wrap test below accounts for the badge's real
+  // content width, instead of letting it overflow past this row's allocated box
+  // and overlap the chart-type select once the card gets too narrow to fit both.
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ops-dashboard__card-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  height: 26px;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  line-height: 1;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &--clickable {
+    cursor: pointer;
+  }
+
+  &--green {
+    color: #16A34A;
+    border: 1px solid #B7E4C7;
+    background: #ECFDF3;
+  }
+
+  &--blue {
+    border: 1px solid #BDD3FF;
+    background: #EEF4FF;
+    color: #2563EB;
+  }
+
+  &--orange {
+    border: 1px solid #FFD3A1;
+    background: #FFF4E8;
+    color: #AE500F;
+  }
+
+  &--red {
+    border: 1px solid #F6B8BE;
+    background: #FEECEE;
+    color: #CE2A1E;
+  }
+}
+
+.ops-dashboard__info-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  &:hover .ops-dashboard__info-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.ops-dashboard__info-tooltip {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  width: 240px;
+  background: linear-gradient(90deg, #EAF3FF 0%, #E3EBFF 42%, #F0E8F3 72%, #FFF0E4 100%);
+  border: 1px solid #D6E0F5;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.14), 0 0 2px 0 rgba(0, 0, 0, 0.12);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #344054;
+  font-weight: 400;
+  font-family: var(--font-family-base);
+  z-index: 300;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 10px;
+    height: 10px;
+    background: #EAF3FF;
+    border-left: 1px solid #D6E0F5;
+    border-top: 1px solid #D6E0F5;
+  }
+}
+
+.ops-dashboard__card-info-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+
+
+}
+
+.ops-dashboard__card-footer {
+  display: flex;
+  align-items: center;
+  padding: 10px 0 0;
+  border-top: 1px solid #E4E7EC;
+  margin-top: auto;
+}
+
+.ops-dashboard__card-analysis-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #21409A;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-family-base);
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    text-decoration: underline;
+    color: #1a337a;
+  }
+}
+
+.ops-dashboard__card-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-transform: capitalize;
+  min-width: 0;
+  position: relative;
+
+  // Dark tooltip — shown below the title to avoid scroll-container clipping
+  &[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    transform: none;
+    border-radius: 8px;
+    background: #172B4D;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 400;
+    font-family: var(--font-family-base);
+    line-height: 1.5;
+    padding: 7px 12px;
+    white-space: normal;
+    // Clamp to the card's own width (container query unit, card has container-type:
+    // inline-size) minus its 12px side padding, so the bubble never extends past the
+    // card's right edge — the saved-layout grid clips card overflow-x, so anything
+    // wider than the card gets cut off instead of just going off-screen.
+    max-width: min(280px, calc(100cqw - 24px));
+    width: max-content;
+    text-align: left;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 200;
+  }
+
+  &[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid #172B4D;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 201;
+  }
+
+  &[data-tooltip]:hover::after,
+  &[data-tooltip]:hover::before {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.ops-dashboard__card-title-text {
+  display: block;
+  // overflow: hidden;
+  // text-overflow: ellipsis;
+  // white-space: nowrap;
+  font-size: 14px!important;
+}
+
+.ops-dashboard__card-subtitle {
+  font-size: 12px;
+  color: #667085;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ops-dashboard__card-stats {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 5px 0px;
+}
+
+.ops-dashboard__card-stats-divider {
+  width: 1px;
+  height: 32px;
+  background: #E4E7EC;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__card-stat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+
+  // Dark tooltip — reveals the full tile name when the label is truncated with an ellipsis.
+  // Lives on this wrapper (not the label) because the label's own overflow:hidden would clip it.
+  &[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    border-radius: 8px;
+    background: #172B4D;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    font-family: var(--font-family-base);
+    line-height: 1.5;
+    padding: 7px 12px;
+    white-space: normal;
+    // Clamp to the card's own width (see .ops-dashboard__card-title) so the bubble
+    // never extends past the card's right edge and gets clipped.
+    max-width: min(240px, calc(100cqw - 24px));
+    width: max-content;
+    text-align: left;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 200;
+  }
+
+  &[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.ops-dashboard__card-stat-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  aspect-ratio: 1/1;
+  border-radius: 10px;
+
+  &--blue {
+    background: #EAF4FF;
+    color: #2563EB;
+  }
+
+  &--green {
+    background: #EAFBF1;
+    color: #0C804A;
+  }
+
+  &--red {
+    background: #FEECEC;
+    color: #CE2A1E;
+  }
+
+  &--purple {
+    background: #F3E8FF;
+    color: #7C3AED;
+  }
+
+  &--amber {
+    background: #FFFBEB;
+    color: #AD5F04;
+  }
+
+  &--teal {
+    background: #F0FDFA;
+    color: #0B7D73;
+  }
+}
+
+.ops-dashboard__card-stat-breakdown {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+
+  &-sep {
+    color: #D0D5DD;
+  }
+
+  &-label {
+    font-size: 11px;
+    color: #667085;
+    font-family: var(--font-family-base);
+  }
+
+  &-value {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-family: var(--font-family-base);
+  }
+}
+
+.ops-dashboard__card-stat-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  strong {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    line-height: 1.2;
+    font-family: var(--font-family-base);
+  }
+
+  span {
+    font-size: 12px;
+    color: #667085;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 400;
+    font-family: var(--font-family-base);
+  }
+}
+
+.ops-dashboard__card-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: #EAFBF1;
+  color: #057D48;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid #B1E8CF;
+
+  &--orange {
+    background: #FEF1E7;
+    color: #AE500F;
+    border-color: #FCD9B8;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.ops-dashboard__card-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__card-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  // Wrap onto a second line instead of overflowing past the card's edge (where
+  // overflow-x:hidden on narrow/custom-sized cards would clip the expand button).
+  flex-wrap: wrap;
+  row-gap: 6px;
+  gap: 6px;
+}
+
+.ops-dashboard__card-select {
+  display: flex;
+  align-items: center;
+  width: 140px;
+  gap: 10px;
+  height: 32px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid #C9D3E2;
+  background: #FFF;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-family-base);
+
+  svg {
+    flex-shrink: 0;
+    display: block;
+
+    &:last-child {
+      margin-left: auto;
+    }
+  }
+
+  &:hover,
+  &.open {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.ops-dashboard__card-select-dropdown {
+  position: relative;
+}
+
+.ops-dashboard__card-select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 140px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+
+    svg {
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: var(--color-bg-app);
+    }
+
+    &.active {
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+  }
+}
+
+.ops-dashboard__card-icon-btn {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  padding: 8px 14px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  aspect-ratio: 1/1;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid #C9D3E2;
+  background: #FFF;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover,
+  &.open {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  &--filter {
+    border: 1px solid #E4E7EC;
+    color: #475467;
+
+    &:hover {
+      background: var(--color-bg-legend);
+    }
+  }
+}
+
+// Hidden by default — the @container rule below reveals it once the card is too narrow for the
+// chart-type dropdown, export button, and expand button to sit side by side.
+.ops-dashboard__card-controls-toggle {
+  display: none;
+  position: relative;
+}
+
+.ops-dashboard__card-controls-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #E7ECF3;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 210;
+  padding: 8px;
+}
+
+.ops-dashboard__card-controls-popover-section + .ops-dashboard__card-controls-popover-section {
+  border-top: 1px solid #F1F3F6;
+  padding-top: 8px;
+}
+
+.ops-dashboard__card-controls-popover-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #98A2B3;
+  margin-bottom: 4px;
+}
+
+.ops-dashboard__card-controls-popover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #344054;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s;
+
+    &:hover {
+      background: #F9FAFB;
+    }
+
+    &.active {
+      color: #21409A;
+      font-weight: 600;
+      background: #EEF2FF;
+    }
+  }
+}
+
+.ops-dashboard__card-controls-popover-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+
+  &--green {
+    color: #16A34A;
+    border: 1px solid #B7E4C7;
+    background: #ECFDF3;
+  }
+
+  &--blue {
+    border: 1px solid #BDD3FF;
+    background: #EEF4FF;
+    color: #2563EB;
+  }
+
+  &--orange {
+    border: 1px solid #FFD3A1;
+    background: #FFF4E8;
+    color: #AE500F;
+  }
+
+  &--red {
+    border: 1px solid #F6B8BE;
+    background: #FEECEE;
+    color: #CE2A1E;
+  }
+}
+
+.ops-dashboard__card-controls-popover-score-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+// Below this width, the card is too narrow for the title + score badge to share a row with the
+// chart-type dropdown, export button, and expand button without cramming/overlapping — collapse
+// the score badge and all three controls into the single combined-popover toggle instead, freeing
+// up room for the title.
+@container ops-card (max-width: 450px) {
+  .ops-dashboard__card-score-badge,
+  .ops-dashboard__card-select-dropdown,
+  .ops-export-wrap {
+    display: none;
+  }
+
+  .ops-dashboard__card-actions-row > button.ops-dashboard__card-icon-btn {
+    display: none;
+  }
+
+  .ops-dashboard__card-controls-toggle {
+    display: flex;
+  }
+}
+
+// ODC Overall Status
+.ops-dashboard__odc-body {
+  display: flex;
+  gap: 24px;
+
+  @media (max-width: 1100px) {
+    flex-direction: column;
+  }
+}
+
+.ops-dashboard__odc-donut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+  width: 287px;
+}
+
+.ops-dashboard__odc-donut-chart {
+  position: relative;
+  width: 100%;
+
+  highcharts-chart {
+    display: block;
+  }
+
+  ::ng-deep .highcharts-point {
+    stroke: none;
+  }
+}
+
+.ops-dashboard__odc-donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.ops-dashboard__odc-donut-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.ops-dashboard__odc-donut-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.ops-dashboard__odc-legend {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: start;
+  gap: 5px 11px;
+}
+
+.ops-dashboard__odc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.ops-dashboard__odc-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__odc-columns {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ops-dashboard__odc-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  min-width: 0;
+
+  &:not(:last-child) {
+    padding-right: 32px;
+    border-right: 1px solid var(--color-border);
+  }
+
+  @media (max-width: 900px) {
+    &:not(:last-child) {
+      padding-right: 0;
+      border-right: none;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--color-border);
+    }
+  }
+}
+
+.ops-dashboard__odc-column-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 16px;
+}
+
+.ops-dashboard__odc-column-icon {
+  flex-shrink: 0;
+
+  &--green {
+    color: #16A34A;
+  }
+
+  &--orange {
+    color: #F59E0B;
+  }
+
+  &--red {
+    color: #DC2626;
+  }
+}
+
+.ops-dashboard__odc-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+
+  &--muted {
+
+    .ops-dashboard__odc-row-label,
+    .ops-dashboard__odc-row-value,
+    .ops-dashboard__odc-row-percent {
+      color: #98A2B3;
+    }
+  }
+}
+
+.ops-dashboard__odc-row-label {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: #344054;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ops-dashboard__odc-row-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.ops-dashboard__odc-row-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ops-dashboard__odc-row-bar-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 15px;
+  border-radius: 2px;
+  background: #EDF0F5;
+}
+
+.ops-dashboard__odc-row-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+
+  &--green {
+    background: #66BB6A;
+  }
+
+  &--orange {
+    background: #FFCA28;
+  }
+
+  &--red {
+    background: #EF5350;
+  }
+
+  &--blue {
+    background: #42A5F5;
+  }
+
+  &--gray {
+    background: #D0D5DD;
+  }
+}
+
+.ops-dashboard__odc-row-bar-divider {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 20px;
+  border-radius: 2px;
+  background: #344054;
+  transform: translate(-50%, -50%);
+}
+
+.ops-dashboard__odc-row-value-block {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  flex-shrink: 0;
+
+}
+
+.ops-dashboard__odc-row-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.ops-dashboard__odc-row-percent {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+// Wells Readiness Overall Status
+.ops-dashboard__readiness-tabs {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid var(--color-border);
+  max-width: 281px;
+}
+
+.ops-dashboard__readiness-tab {
+  position: relative;
+  padding: 0 0 10px;
+  border: none;
+  background: transparent;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-family-base);
+
+  &:hover {
+    color: var(--color-primary);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: transparent;
+    border-radius: 1px 1px 0 0;
+  }
+
+  &.active {
+    color: var(--color-primary);
+
+
+    &::after {
+      background: var(--color-primary);
+    }
+  }
+}
+
+.ops-dashboard__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ops-dashboard__chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #DCE3ED;
+  border-radius: 6px;
+  background: var(--color-bg-card);
+  color: #101828;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 200px;
+
+  &.active {
+    background: var(--color-bg-legend);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+}
+
+.ops-dashboard__chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ops-dashboard__chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.ops-dashboard__chip-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.ops-dashboard__chip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  flex-shrink: 0;
+
+  &--purple {
+    background: #7C3AED;
+  }
+
+  &--blue {
+    background: #2563EB;
+  }
+
+  &--green {
+    background: #16A34A;
+  }
+
+  &--orange {
+    background: #F97316;
+  }
+}
+
+.ops-dashboard__stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 16px 0px;
+
+  @media (max-width: 700px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.ops-dashboard__stat-tile {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  padding: 0px 20px;
+  border-right: 1px solid var(--color-border);
+  min-width: 0;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.ops-dashboard__stat-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ops-dashboard__stat-tile-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #344054;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ops-dashboard__stat-tile-badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #F2F4F7;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ops-dashboard__stat-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  flex-shrink: 0;
+
+  &--blue {
+    background: #EAF4FF;
+    color: #2563EB;
+  }
+
+  &--orange {
+    background: #FFF3E6;
+    color: #AE500F;
+  }
+
+  &--amber {
+    background: #FFF5D6;
+    color: #7F6514;
+  }
+
+  &--green {
+    background: #EAFBF1;
+    color: #0C804A;
+  }
+}
+
+.ops-dashboard__stat-tile-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #000000;
+}
+
+.ops-dashboard__stat-tile-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #667085;
+  font-weight: 400;
+}
+
+.ops-dashboard__readiness-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px 340px;
+  gap: 16px;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ops-dashboard__mini-card {
+  display: flex;
+  flex-direction: column;
+
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  min-width: 0;
+  gap: 10px;
+}
+
+.ops-dashboard__mini-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #101828;
+  }
+}
+
+.ops-dashboard__mini-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__mini-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:hover {
+    background: var(--color-bg-card);
+    color: var(--color-primary);
+  }
+}
+
+.ops-dashboard__funnel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+}
+
+.ops-dashboard__funnel-shape {
+  flex: 0 0 55%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 220px;
+}
+
+.ops-dashboard__funnel-band {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ops-dashboard__funnel-band-value {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ops-dashboard__funnel-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.ops-dashboard__funnel-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.ops-dashboard__funnel-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.ops-dashboard__funnel-legend-label {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.ops-dashboard__funnel-legend-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  margin-top: 1px;
+}
+
+.ops-dashboard__breakdown-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 83px;
+  align-items: start;
+  gap: 12px;
+  padding: 9px 0;
+  justify-content: space-between;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+.ops-dashboard__breakdown-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__breakdown-label {
+  min-width: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+.ops-dashboard__breakdown-value-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__breakdown-value {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ops-dashboard__breakdown-tag {
+  font-size: 12px;
+  color: #667085;
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+.ops-dashboard__breakdown-chevron {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.ops-dashboard__backlog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ops-dashboard__backlog-donut {
+  align-self: center;
+  width: 160px;
+  height: 160px;
+
+  highcharts-chart {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  ::ng-deep .highcharts-point {
+    stroke: none;
+  }
+}
+
+.ops-dashboard__backlog-legend {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ops-dashboard__backlog-item {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: start;
+  gap: 8px;
+  padding: 8px 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+.ops-dashboard__backlog-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__backlog-label {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.ops-dashboard__backlog-value-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__backlog-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ops-dashboard__backlog-percent {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+// Mini stat cards
+.ops-dashboard__mini-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ops-dashboard__mini-stat {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+
+  &--red {
+    background: #FFFBFB;
+    border-color: #FFE7E6;
+  }
+
+  &--green {
+    background: #F6FFF6;
+    border-color: #D1FFD3;
+  }
+
+  &--blue {
+    background: #FBFDFF;
+    border-color: #E0F1FF;
+  }
+
+  &--red .ops-dashboard__mini-stat-icon {
+    background: #FEEDEC;
+    color: #D12424;
+  }
+
+  &--green .ops-dashboard__mini-stat-icon {
+    background: #E9F8EF;
+    color: #107A37;
+  }
+
+  &--blue .ops-dashboard__mini-stat-icon {
+    background: #EAF1FE;
+    color: #2563EB;
+  }
+
+  &--red .ops-dashboard__mini-stat-value {
+    color: #D92D20;
+  }
+
+  &--green .ops-dashboard__mini-stat-value {
+    color: #079455;
+  }
+
+  &--blue .ops-dashboard__mini-stat-value {
+    color: #2563EB;
+  }
+}
+
+.ops-dashboard__mini-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__mini-stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ops-dashboard__mini-stat-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.ops-dashboard__mini-stat-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.ops-dashboard__mini-stat-subtitle {
+  font-size: 12px;
+  color: #667085;
+}
+
+// Cluster Operational Health
+.ops-dashboard__cluster-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.ops-dashboard__cluster-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1.4fr auto auto 20px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--color-border);
+
+  }
+
+  &--head {
+    padding: 0 0 10px;
+    border-bottom: 1px solid var(--color-border);
+
+    span {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+  }
+}
+
+.ops-dashboard__cluster-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.ops-dashboard__cluster-name-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ops-dashboard__cluster-target {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.ops-dashboard__cluster-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+
+  flex-shrink: 0;
+}
+
+.ops-dashboard__cluster-health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ops-dashboard__cluster-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--color-bg-card);
+    font-size: 10px;
+    font-weight: 700;
+  }
+}
+
+.ops-dashboard__cluster-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ops-dashboard__cluster-plan-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ops-dashboard__cluster-plan-pct {
+  font-size: 13px;
+  font-weight: 700;
+  color: #101828;
+  white-space: nowrap;
+}
+
+.ops-dashboard__cluster-plan-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.ops-dashboard__cluster-plan-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: #EDF0F5;
+}
+
+.ops-dashboard__cluster-plan-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.ops-dashboard__cluster-plan-divider {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: #344054;
+  transform: translate(-50%, -50%);
+}
+
+.ops-dashboard__cluster-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ops-dashboard__cluster-count-value {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 4px;
+  width: 43px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &--critical {
+    color: #DC2626;
+    background: #FEE4E2;
+  }
+
+  &--warning {
+    color: #F97316;
+    background: #FEF0E2;
+  }
+}
+
+.ops-dashboard__cluster-chevron {
+  color: var(--color-text-muted);
+  justify-self: end;
+}
+
+// Crew P-Rating Distribution legend
+.ops-dashboard__crew-zones {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ops-dashboard__crew-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+
+  &--low {
+    background: #FEF3F2;
+    color: #D12424;
+  }
+
+  &--average {
+    background: #FEF6E7;
+    color: #A25904;
+  }
+
+  &--top {
+    background: #F0FBF4;
+    color: #11823B;
+  }
+}
+
+.ops-dashboard__crew-zone-face {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.filterBtnDivMainAll {
+  display: flex;
+  gap: 10px;
+  padding-top: 20px;
+}
+
+.odcOverAllStatusMargin {
+  margin-bottom: 16px !important;
+}
+
+.ops-dashboard__chart-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  // Fill the card when there's room (grow) but never shrink below the chart + legend + data table
+  // — the CARD is the widget's single scroll container, so this section must not scroll on its
+  // own. (It used to be overflow-y:auto squeezed to the card's height, which put the chart and the
+  // inline data table in a second, nested scrollbar inside the card's.)
+  flex: 1 0 auto;
+  min-height: 0;
+  min-width: 0;
+
+  highcharts-chart {
+    // Grow to fill the section (chart height is responsive, not a fixed 280px).
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 240px;
+    min-width: 0;
+    overflow: hidden;
+  }
+}
+
+@keyframes ops-dashboard-skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes opsFilterBackdropIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes opsFilterBarSlideIn {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ops-dashboard__chart-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 320px;
+  justify-content: flex-end;
+}
+
+.ops-dashboard__chart-skeleton-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex: 1;
+  padding: 0 4px;
+
+  span {
+    flex: 1;
+    min-height: 8%;
+    border-radius: 6px 6px 0 0;
+    background: linear-gradient(90deg, #EDF0F4 25%, #F7F8FA 37%, #EDF0F4 63%);
+    background-size: 200% 100%;
+    animation: ops-dashboard-skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+.ops-dashboard__chart-skeleton-legend {
+  display: flex;
+  gap: 8px;
+}
+
+.ops-dashboard__chart-skeleton-pill {
+  height: 20px;
+  width: 64px;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #EDF0F4 25%, #F7F8FA 37%, #EDF0F4 63%);
+  background-size: 200% 100%;
+  animation: ops-dashboard-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.ops-dashboard__table-grid {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+
+  app-chart-table {
+    height: 100%;
+  }
+}
+
+.ops-dashboard__chart-table {
+  overflow: auto;
+  height: 280px;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+
+  border-radius: 10px;
+  border: 1px solid #E7ECF3;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-family: var(--font-family-base);
+  }
+
+  th {
+
+    border-bottom: 1px solid #E6EBF2;
+    background: linear-gradient(180deg, #2948A3 0%, #3B58B6 100%);
+    color: #fff;
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-size: 12px;
+  }
+
+  td {
+    padding: 9px 14px;
+    color: #344054;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+
+
+// Inline data table below chart legend — same design as chart-table dropdown
+.ops-dashboard__chart-data-table {
+  border: 1px solid #E7ECF3;
+  border-radius: 12px;
+  // Never a scroll container of its own: the card scrolls chart + table together. The box sizes
+  // to the table (at least full width), so a wide table widens the card's scroll area instead of
+  // getting an inner horizontal scrollbar; clip only trims the rounded corners. (clip, unlike
+  // hidden, doesn't create a scroll container, so the sticky header still sticks to the card.)
+  overflow: hidden;
+  overflow: clip;
+  width: max-content;
+  min-width: 100%;
+  flex-shrink: 0;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-family: var(--font-family-base);
+  }
+
+  th {
+    border-bottom: 1px solid #E6EBF2;
+    background: linear-gradient(180deg, #2948A3 0%, #3B58B6 100%);
+    color: #fff;
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+ 
+    font-size: 12px;
+
+    &:not(:first-child) {
+      text-align: left;
+    }
+  }
+
+  td {
+    padding: 9px 14px;
+    color: #344054;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.ops-cdt__val {
+  text-align: left;
+  font-weight: 500;
+  color: #101828;
+}
+
+.ops-cdt__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__chart-legend {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  // max-height: 120px;
+  // overflow-y: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+}
+
+.ops-dashboard__chart-legend-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 20px;
+  border: 1px solid #E7ECF3;
+  background: #F6F7F9;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  max-width: 100%;
+  min-width: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  // Hidden state when a series/point is toggled off via legend click.
+  &--hidden {
+    opacity: 0.4;
+
+    .ops-dashboard__chart-legend-label {
+      text-decoration: line-through;
+    }
+  }
+
+  // Dark tooltip with the full (untruncated) name — lives on this wrapper because
+  // the label's own overflow:hidden would clip a tooltip placed on the label itself.
+  // Placed ABOVE the pill (not below) so it never overlaps the next stacked/wrapped legend item.
+  &[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 8px;
+    background: #172B4D;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 400;
+    font-family: var(--font-family-base);
+    line-height: 1.5;
+    padding: 6px 10px;
+    white-space: normal;
+    max-width: 240px;
+    width: max-content;
+    text-align: left;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 200;
+  }
+
+  &[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #172B4D;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 201;
+  }
+
+  &[data-tooltip]:hover::after,
+  &[data-tooltip]:hover::before {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.ops-dashboard__chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ops-dashboard__chart-legend-label {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.ops-dashboard__chart-legend-value {
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+// ─── Responsive: 1024px ──────────────────────────────────────────────────────
+@media (max-width: 1024px) {
+  .ops-dashboard-header-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ops-dashboard__odc-donut {
+    width: 100%;
+  }
+
+  .ops-dashboard__odc-legend {
+    grid-template-columns: repeat(2, auto);
+  }
+}
+
+// Off-canvas filter panel — switches over at 1199px (independent of the
+// other 768px mobile layout tweaks below).
+@media (max-width: 1199px) {
+  .ops-dashboard__filter-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(16, 24, 40, 0.45);
+    animation: opsFilterBackdropIn 0.2s ease;
+  }
+
+  .ops-dashboard__filter-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    width: min(85vw, 320px);
+    max-width: 320px;
+    height: 100dvh;
+    margin-bottom: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: 4px 0 24px rgba(16, 24, 40, 0.18);
+    overflow: auto;
+    animation: _ngcontent-ng-c1525882775_opsFilterBarSlideIn 0.25s ease;
+
+    // Fixed header — never scrolls
+    &__mobile-header {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      border-bottom: 1px solid #E2E7EF;
+    }
+
+    &__close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 8px;
+      background: var(--color-bg-app, #f3f4f6);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+    }
+
+    // Scrollable middle section — everything between the header and footer
+    &__scroll {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      overflow-y: auto;
+    }
+  }
+
+  .ops-dashboard__filter-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+
+    &--actions {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .ops-dashboard__filter-add-btn {
+    width: 100%;
+  }
+
+  // Saved filters + Advanced Filter buttons: Advanced Filter is relocated
+  // next to the header's Filter button, Saved filters is hidden.
+  .filterBtnDivMainAll {
+    display: none;
+  }
+
+  .ops-dashboard-header-actions__adv-filter-mobile {
+    display: flex;
+  }
+}
+
+@media (max-width: 768px) {
+  .ops-dashboard-header-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+
+    &__btn {
+
+      justify-content: center;
+      height: 36px;
+    }
+  }
+
+  .ops-dashboard {
+    &__kpis {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    &__kpi {
+      padding: 12px;
+    }
+
+    &__row-2col {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .ops-dashboard__chart-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .ops-dashboard__card {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .ops-dashboard__card-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ops-dashboard__card-title {
+    font-size: 15px;
+    white-space: normal;
+  }
+
+  .ops-dashboard__card-controls {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .ops-dashboard__card-subtitle {
+    white-space: normal;
+  }
+
+  .ops-dashboard__kpi-label {
+    white-space: normal;
+  }
+
+  highcharts-chart,
+  ::ng-deep .highcharts-container,
+  ::ng-deep .highcharts-root {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .ops-dashboard__chart-body {
+    min-width: 0;
+  }
+
+  .ops-dashboard__odc-body {
+    flex-direction: column;
+  }
+
+  .ops-dashboard__odc-donut {
+    width: 100%;
+  }
+
+  .ops-dashboard__odc-legend {
+    grid-template-columns: repeat(2, auto);
+    justify-content: start;
+  }
+
+  .ops-dashboard__odc-columns {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .ops-dashboard__odc-column {
+    &:not(:last-child) {
+      padding-right: 0;
+      border-right: none;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--color-border);
+    }
+  }
+
+  .ops-dashboard__cluster-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ops-dashboard__cluster-row {
+    min-width: 560px;
+  }
+
+  .ops-dashboard__readiness-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-dashboard__stat-tiles {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .ops-dashboard__stat-tile {
+    padding: 0 12px;
+  }
+
+  .ops-dashboard__mini-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .ops-dashboard__funnel {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+  }
+
+  .ops-dashboard__funnel-shape {
+    flex: none;
+    width: 100%;
+    height: 160px;
+  }
+
+  .ops-dashboard__funnel-legend {
+    gap: 12px;
+  }
+
+  .ops-dashboard__chips {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ops-dashboard-header-actions {
+    &__icon-btn {
+      width: 34px;
+      height: 34px;
+    }
+
+    &__btn {
+      font-size: 13px;
+      padding: 0 10px;
+    }
+  }
+
+  .ops-dashboard {
+    &__kpis {
+      grid-template-columns: 1fr;
+    }
+
+    &__kpi-value {
+      font-size: 20px;
+    }
+  }
+
+  .ops-dashboard__filter-row {
+    grid-template-columns: 1fr;
+
+    &--actions {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .ops-dashboard__chip {
+    max-width: 160px;
+    font-size: 13px;
+  }
+
+  .ops-dashboard__readiness-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .ops-dashboard__stat-tiles {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-dashboard__stat-tile {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0 0 12px;
+
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  }
+
+  .ops-dashboard__card-title {
+    font-size: 14px;
+  }
+}
+
+// .scrollAccordionMain intentionally has no height/max-height/overflow rules:
+// .ops-dashboard (the ancestor) is already the page's one scroll container
+// (its own viewport-height + overflow:auto). Giving this inner wrapper its
+// own fixed viewport-based height reserved a second, independent scroll box
+// that stayed full-size even with only a couple of chart cards in it,
+// showing up as a long empty scroll area below the last card.
+
+.scrollAccordionMain {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+  margin-top:10px;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+}
+::ng-deep .ag-menu{
+max-height: 200px !important;
+}
+// ─── Saved builder layout on tablet / phone ────────────────────────────────
+// The saved layout places every tile/chart on a fixed 20-column grid via inline grid-column/
+// grid-row, which squeezes KPI tiles and keeps charts side by side on small screens. Below
+// 1024px switch to a normal flowing layout (in the saved reading order, see savedGridStyle).
+@media (max-width: 1024px) {
+  .ops-dashboard__saved-layout--active {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    > .ops-dashboard__kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 0;
+    }
+
+    > .scrollAccordionMain {
+      display: block;
+    }
+
+    > .scrollAccordionMain > .ops-dashboard__chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .ops-dashboard__kpi,
+    .ops-dashboard__card:not(.ops-dashboard__card--expanded) {
+      grid-column: auto !important;
+      grid-row: auto !important;
+    }
+
+    .ops-dashboard__kpi {
+      min-height: 110px;
+    }
+
+    .ops-dashboard__card:not(.ops-dashboard__card--expanded) {
+      height: 400px;
+      min-height: 400px;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .ops-dashboard__saved-layout--active {
+    > .ops-dashboard__kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    > .scrollAccordionMain > .ops-dashboard__chart-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ops-dashboard__card:not(.ops-dashboard__card--expanded) {
+      height: 380px;
+      min-height: 380px;
+    }
+  }
+}
+
+@media (max-width: 360px) {
+  .ops-dashboard__saved-layout--active > .ops-dashboard__kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// ─── Filter field tooltips (full value of truncated selections / dates) ─────
+// Same dark tooltip as the filter icon buttons; hidden while that field's dropdown is open.
+.ops-dashboard__filter-select[data-tooltip],
+.ops-dashboard__filter-date[data-tooltip] {
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 260px;
+    width: max-content;
+    border-radius: 8px;
+    background: #172B4D;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 400;
+    font-family: var(--font-family-base);
+    line-height: 1.5;
+    padding: 5px 8px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 200;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid #172B4D;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 201;
+  }
+
+  &:hover::after,
+  &:hover::before,
+  &:focus-visible::after,
+  &:focus-visible::before {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  &.open::after,
+  &.open::before {
+    display: none;
+  }
+}

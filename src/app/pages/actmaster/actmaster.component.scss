@@ -1,0 +1,99 @@
+.am-title-flex {
+  flex: 1;
+}
+
+/* ════════════════════════════════════════════════
+   KPI STRIP — matches cmdoverview card design
+   ════════════════════════════════════════════════ */
+#page-actmaster .am-strip .am-kpi {
+  padding: 10px;
+  display: flex; flex-direction: column;
+  cursor: default;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+#page-actmaster .am-strip .am-kpi:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Top accent border (overrides global left-edge 3px bar) */
+#page-actmaster .am-strip .am-kpi::before {
+  top: 0; left: 0; right: 0; bottom: auto;
+  width: auto; height: 1px;
+  border-radius: 10px 10px 0 0;
+  opacity: 0.95;
+}
+
+#page-actmaster .am-strip .kpi-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px;
+}
+
+#page-actmaster .am-strip .am-kpi-label {
+  font-size: 8pt; font-weight: 600; letter-spacing: 0.7px;
+  text-transform: uppercase; color: var(--txt-muted);
+  margin: 0; line-height: 1.2; flex: 1;
+}
+
+#page-actmaster .am-strip .am-kpi-icon {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+#page-actmaster .am-strip .am-kpi-icon svg { width: 14px; height: 14px; }
+
+/* Icon background colors — light mode */
+#page-actmaster .am-strip .k-teal  .am-kpi-icon { background: rgba(0, 176, 240, 0.12);  color: var(--teal); }
+#page-actmaster .am-strip .k-blue  .am-kpi-icon { background: var(--blue-soft);          color: var(--blue); }
+#page-actmaster .am-strip .k-green .am-kpi-icon { background: var(--green-soft);         color: var(--green); }
+#page-actmaster .am-strip .k-gold  .am-kpi-icon { background: var(--amber-soft);         color: var(--amber); }
+
+/* Icon background colors — dark mode */
+html:not(.navbar-light) #page-actmaster .am-strip .k-teal  .am-kpi-icon { background: rgba(0, 176, 240, 0.16);   color: var(--teal); }
+html:not(.navbar-light) #page-actmaster .am-strip .k-blue  .am-kpi-icon { background: rgba(41,55,141, 0.16);  color: var(--blue); }
+html:not(.navbar-light) #page-actmaster .am-strip .k-green .am-kpi-icon { background: rgba(0, 176, 80, 0.16);    color: var(--green); }
+html:not(.navbar-light) #page-actmaster .am-strip .k-gold  .am-kpi-icon { background: rgba(255, 192, 0, 0.18);   color: var(--amber); }
+
+/* KPI value — monospace bold */
+#page-actmaster .am-strip .am-kpi-val {
+  font-family: var(--font-family-mono);
+  font-size: 20pt; font-weight: 700;
+  line-height: 1; margin: 0 0 6px;
+}
+
+/* Color modifiers not in global am-kpi styles */
+#page-actmaster .am-strip .am-kpi-val.blue  { color: var(--blue); }
+#page-actmaster .am-strip .am-kpi-val.amber { color: var(--amber); }
+#page-actmaster .am-strip .am-kpi-val.navy  { color: #1F3864; }
+
+html:not(.navbar-light) #page-actmaster .am-strip .am-kpi-val.blue  { color: #60a5fa; }
+html:not(.navbar-light) #page-actmaster .am-strip .am-kpi-val.amber { color: #fbbf24; }
+html:not(.navbar-light) #page-actmaster .am-strip .am-kpi-val.navy  { color: #D6E4F0; }
+
+/* Sub / unit text */
+#page-actmaster .am-strip .am-kpi-sub {
+  font-size: 9pt; color: var(--txt-dim); margin-top: 0; line-height: 1.4;
+}
+
+.am-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.am-count {
+  font-size: 9pt;
+  color: var(--txt-muted);
+}
+
+.am-table-scroll {
+  overflow-x: auto;
+  max-height: 65vh;
+}
+
+.am-grid-wrap {
+  width: 100%;
+}

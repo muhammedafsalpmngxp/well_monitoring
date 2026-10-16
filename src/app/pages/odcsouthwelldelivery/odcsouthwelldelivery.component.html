@@ -1,0 +1,446 @@
+ 
+ <div id="page-cmdoverview" class="page active">
+<div class="osd-section">
+
+   
+
+      <!-- Section header -->
+      <div class=" osd-header">
+        <div class="osd-header__text">
+          <div class="card-title">{{ boardName }}</div>
+          <div class="card-sub">As on 31 March 2026 (Week-13)</div>
+        </div>
+        <div class="osd-header__actions">
+          <button *ngIf="isEditableBoard" type="button" class="cw-customise-btn" (click)="openBuilder()"
+                  title="Edit this dashboard — add, remove or rearrange charts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span>Edit</span>
+          </button>
+          <button *ngIf="isEditableBoard" type="button" class="cw-customise-btn" (click)="openCustomiseDrawer()"
+                  title="Manage charts on this dashboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
+              <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
+              <line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" />
+              <line x1="17" y1="16" x2="23" y2="16" />
+            </svg>
+            <span>Manage Charts</span>
+          </button>
+          <button *ngIf="!isEditableBoard" type="button" class="cw-customise-btn" (click)="openCustomiseDrawer()"
+                  title="Manage charts on this dashboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
+              <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
+              <line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" />
+              <line x1="17" y1="16" x2="23" y2="16" />
+            </svg>
+            <span>Manage Charts</span>
+          </button>
+          <div class="osd-export-wrap">
+            <button type="button" class="cw-customise-btn" (click)="osdExportOpen = !osdExportOpen"
+                    title="Export the whole dashboard">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Export</span>
+            </button>
+            <div class="osd-export-scrim" *ngIf="osdExportOpen" (click)="osdExportOpen = false"></div>
+            <div class="osd-export-menu" *ngIf="osdExportOpen">
+              <button type="button" (click)="exportDashboard('pdf')">Export as PDF</button>
+              <button type="button" (click)="exportDashboard('png')">Export as PNG</button>
+            </div>
+          </div>
+          <button class="card-fullscreen-btn" title="Fullscreen" (click)="toggleOsdFullscreen($event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+        </div>
+      </div>
+
+         <!-- Top KPI cards -->
+      <div class="osd-kpi-cards">
+
+        <!-- Total Wells -->
+        <div class="dkpi dkpi--drill" data-cw-id="o_total" [hidden]="!isWidgetVisible('o_total')"
+             (click)="drillToWells('drilled')" title="View wells">
+
+          <div class="dkpi-top">
+            <div class="dkpi-label">Total Drilled Wells <span class="dkpi-pct"></span></div>
+            <div class="dkpi-icon ic-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+          </div>
+          <div class="dkpi-val v-indigo">283</div>
+          <div class="dkpi-rows">
+            <div class="dkpi-row"><span class="dkpi-dot dot-blue"></span>Active <span class="dkpi-sep">-</span>253</div>
+            <div class="dkpi-row"><span class="dkpi-dot dot-amber"></span>Suspended <span class="dkpi-sep">-</span> 30</div>
+          </div>
+        </div>
+
+        <!-- Completed Wells -->
+        <div class="dkpi dkpi--drill" data-cw-id="o_completed" [hidden]="!isWidgetVisible('o_completed')"
+             (click)="drillToWells('readycomm')" title="View wells">
+
+          <div class="dkpi-top">
+            <div class="dkpi-label">Ready for commissioning <span class="dkpi-pct"></span></div>
+            <div class="dkpi-icon ic-green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+          </div>
+          <div class="dkpi-val v-green">217</div>
+          <div class="dkpi-rows">
+            <!-- <div class="dkpi-row"><span class="dkpi-dot dot-blue"></span>Due Wells <span class="dkpi-sep">-</span> 50</div>
+            <div class="dkpi-row"><span class="dkpi-dot dot-green"></span>Non Due Wells <span class="dkpi-sep">-</span> 25</div> -->
+          </div>
+        </div>
+
+        <!-- Penalty Exposure -->
+        <div class="dkpi dkpi--drill" data-cw-id="o_penalty" [hidden]="!isWidgetVisible('o_penalty')"
+             (click)="drillToWells('dnc')" title="View wells">
+
+          <div class="dkpi-top">
+            <div class="dkpi-label">Drilled and Not Completed <span class="dkpi-pct"></span></div>
+            <div class="dkpi-icon ic-red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+          </div>
+          <div class="dkpi-val v-red">66</div>
+          <div class="dkpi-badges">
+            <span class="dkpi-badge badge-red">CRITICAL</span>
+          </div>
+        </div>
+
+        <!-- Bonus Potential -->
+        <div class="dkpi dkpi--drill" data-cw-id="o_bonus" [hidden]="!isWidgetVisible('o_bonus')"
+             (click)="drillToWells('early')" title="View wells">
+
+          <div class="dkpi-top">
+            <div class="dkpi-label">Non Due wells Accelerated <span class="dkpi-pct"></span></div>
+            <div class="dkpi-icon ic-green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            </div>
+          </div>
+          <div class="dkpi-val v-green">70</div>
+          <div class="dkpi-badges">
+            <span class="dkpi-badge badge-green">ON TARGET</span>
+          </div>
+        </div>
+
+        <!-- Crews Deployed -->
+        <div class="dkpi dkpi--drill" data-cw-id="o_crews" [hidden]="!isWidgetVisible('o_crews')"
+             (click)="drillToWells('completed')" title="View wells">
+
+          <div class="dkpi-top">
+            <div class="dkpi-label">Due Wells Completed <span class="dkpi-pct dkpi-pct--amber"></span></div>
+            <div class="dkpi-icon ic-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+          </div>
+          <div class="dkpi-val v-blue">147<span class="dkpi-val-sub"></span></div>
+          <!-- <div class="dkpi-badges">
+            <span class="dkpi-badge badge-amber">3 Unassigned</span>
+          </div> -->
+        </div>
+
+      </div>
+
+        <!-- Cluster pie charts -->
+      <div class="osd-grid osd-grid--clusters">
+        <div class="card osd-cluster-card" *ngFor="let c of osdClusters" data-cw-id="o_clusters" [hidden]="!isWidgetVisible('o_clusters')">
+          <div class="card-head">
+            <div class="card-title">{{ c.title }}</div>
+            <div class="osd-card-toolbar">
+              <button class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+              <span class="wfb-wrap" [attr.data-wfb-id]="'osd-cluster-' + c.key"><button class="wfb-btn" title="Filter this widget" (click)="wfbToggle($event, 'osd-cluster-' + c.key)"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button></span>
+              <div class="cwc-chart-style-picker">
+                <label class="cwc-chart-style-picker__lbl">Chart style</label>
+                <select class="cwc-chart-style-picker__sel"
+                        [value]="osdClusterTypes[c.key]"
+                        (change)="onOsdClusterTypeChange(c.key, $any($event.target).value)">
+                  <option *ngFor="let o of osdChartTypeOptions" [value]="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="osd-cluster-body">
+            <div class="osd-cluster-left">
+              <div class="osd-cluster-head">
+                <div class="osd-cluster-head__row osd-kpi-drill" (click)="drillToWells('drilled')" title="View wells">
+                  <div class="osd-kpi-ic">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="3" x2="12" y2="7.5"/><line x1="12" y1="16.5" x2="12" y2="21"/></svg>
+                  </div>
+                  <div class="osd-kpi-body">
+                    <div class="osd-kpi-lbl">{{ c.label }} TOTAL DRILLED</div>
+                    <div class="osd-kpi-num">{{ c.drilled }}</div>
+                  </div>
+                </div>
+                <div class="osd-cluster-head__row osd-kpi-drill" (click)="drillToWells('readycomm')" title="View wells">
+                  <div class="osd-kpi-ic">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  </div>
+                  <div class="osd-kpi-body">
+                    <div class="osd-kpi-lbl">TOTAL READY FOR COMMISSIONING</div>
+                    <div class="osd-kpi-num">{{ c.ready }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div [id]="'osdCluster_' + c.key" class="osd-chart" style="width:100%;height:260px"></div>
+          </div>
+        </div>
+          <!-- Well delivery metrics -->
+      <div class="card" data-cw-id="o_metrics" [hidden]="!isWidgetVisible('o_metrics')">
+        <div class="card-head">
+          <div class="card-title">Well Delivery Metrics</div>
+          <div class="osd-card-toolbar">
+              <button class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+            <span class="wfb-wrap" data-wfb-id="osd-kpi"><button class="wfb-btn" title="Filter this widget" (click)="wfbToggle($event, 'osd-kpi')"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button></span>
+            <div class="cwc-chart-style-picker">
+              <label class="cwc-chart-style-picker__lbl">Chart style</label>
+              <select class="cwc-chart-style-picker__sel"
+                      [value]="osdKpiChartType"
+                      (change)="onOsdKpiTypeChange($any($event.target).value)">
+                <option *ngFor="let o of osdKpiViewOptions" [value]="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="osd-kpi-grid" *ngIf="osdKpiChartType === 'tiles'">
+          <div class="kpi" [ngClass]="k.variant" *ngFor="let k of osdKpis">
+            <div class="kpi-label">{{ k.label }}</div>
+            <div class="kpi-val">{{ k.value }}</div>
+          </div>
+        </div>
+        <div id="osdKpiHc" class="osd-chart" *ngIf="osdKpiChartType !== 'tiles'"
+             style="width:100%;height:320px"></div>
+      </div>
+
+      </div>
+
+    
+    
+
+  
+      <!-- Buffer flowlines + PDO commissioning -->
+      <div class="osd-grid osd-grid--charts">
+        <div class="card" data-cw-id="o_buffer" [hidden]="!isWidgetVisible('o_buffer')">
+          <div class="card-head">
+            <div class="card-title">Buffer Flowlines Ready : 33</div>
+            <div class="osd-card-toolbar">
+              <button class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+              <span class="wfb-wrap" data-wfb-id="osd-buffer"><button class="wfb-btn" title="Filter this widget" (click)="wfbToggle($event, 'osd-buffer')"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button></span>
+              <div class="cwc-chart-style-picker">
+                <label class="cwc-chart-style-picker__lbl">Chart style</label>
+                <select class="cwc-chart-style-picker__sel"
+                        [value]="osdBufferChartType"
+                        (change)="onOsdBufferTypeChange($any($event.target).value)">
+                  <option *ngFor="let o of osdColumnBarOptions" [value]="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div id="osdBufferHc" class="osd-chart" style="width:100%;height:300px"></div>
+        </div>
+
+        <div class="card" data-cw-id="o_comm" [hidden]="!isWidgetVisible('o_comm')">
+          <div class="card-head">
+            <div class="card-title">PDO Commissioning Status — ATNM Ready : 139</div>
+            <div class="osd-card-toolbar">
+              <button class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+              <span class="wfb-wrap" data-wfb-id="osd-comm"><button class="wfb-btn" title="Filter this widget" (click)="wfbToggle($event, 'osd-comm')"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button></span>
+              <div class="cwc-chart-style-picker">
+                <label class="cwc-chart-style-picker__lbl">Chart style</label>
+                <select class="cwc-chart-style-picker__sel"
+                        [value]="osdCommChartType"
+                        (change)="onOsdCommTypeChange($any($event.target).value)">
+                  <option *ngFor="let o of osdDonutPieOptions" [value]="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div id="osdCommHc" class="osd-chart" style="width:100%;height:300px"></div>
+        </div>
+      </div>
+
+      <!-- Work load analysis -->
+      <div class="card" data-cw-id="o_workload" [hidden]="!isWidgetVisible('o_workload')">
+        <div class="card-head">
+          <div class="card-title">Work Load Analysis — Jan'26 to Dec'26</div>
+          <div class="osd-card-toolbar">
+              <button class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+            <span class="wfb-wrap" data-wfb-id="osd-workload"><button class="wfb-btn" title="Filter this widget" (click)="wfbToggle($event, 'osd-workload')"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button></span>
+            <div class="cwc-chart-style-picker">
+              <label class="cwc-chart-style-picker__lbl">Chart style</label>
+              <select class="cwc-chart-style-picker__sel"
+                      [value]="osdWorkloadChartType"
+                      (change)="onOsdWorkloadTypeChange($any($event.target).value)">
+                <option *ngFor="let o of osdColumnBarOptions" [value]="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="osdWorkloadHc" class="osd-chart" style="width:100%;height:360px"></div>
+      </div>
+
+      <!-- Completion gauges -->
+      <div class="osd-grid osd-grid--gauges">
+        <div class="card" data-cw-id="o_due" [hidden]="!isWidgetVisible('o_due')">
+          <div class="card-head">
+            <div class="card-title">% Completed of Due Wells</div>
+            <div class="osd-card-toolbar">
+              <button class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+              <span class="wfb-wrap" data-wfb-id="osd-due-gauge"><button class="wfb-btn" title="Filter this widget" (click)="wfbToggle($event, 'osd-due-gauge')"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button></span>
+              <div class="cwc-chart-style-picker">
+                <label class="cwc-chart-style-picker__lbl">Chart style</label>
+                <select class="cwc-chart-style-picker__sel"
+                        [value]="osdDueGaugeChartType"
+                        (change)="onOsdDueGaugeTypeChange($any($event.target).value)">
+                  <option *ngFor="let o of osdDonutPieOptions" [value]="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div id="osdDueGaugeHc" class="osd-chart" style="width:100%;height:300px"></div>
+        </div>
+
+        <div class="card" data-cw-id="o_drilled" [hidden]="!isWidgetVisible('o_drilled')">
+          <div class="card-head">
+            <div class="card-title">% Completed of Drilled Wells</div>
+            <div class="osd-card-toolbar">
+              <button class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+              <span class="wfb-wrap" data-wfb-id="osd-drilled-gauge"><button class="wfb-btn" title="Filter this widget" (click)="wfbToggle($event, 'osd-drilled-gauge')"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button></span>
+              <div class="cwc-chart-style-picker">
+                <label class="cwc-chart-style-picker__lbl">Chart style</label>
+                <select class="cwc-chart-style-picker__sel"
+                        [value]="osdDrilledGaugeChartType"
+                        (change)="onOsdDrilledGaugeTypeChange($any($event.target).value)">
+                  <option *ngFor="let o of osdDonutPieOptions" [value]="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div id="osdDrilledGaugeHc" class="osd-chart" style="width:100%;height:300px"></div>
+        </div>
+      </div>
+
+    </div>
+
+
+ </div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     Customise-Widgets Drawer (ODC South) — reuses the shared .cw-* styles
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="cw-scrim" [class.open]="custDrawerOpen" (click)="closeCustomiseDrawer()"></div>
+
+<aside class="cw-drawer" [class.open]="custDrawerOpen" role="dialog" aria-modal="false"
+       aria-label="Manage charts">
+
+  <div class="cw-dhead">
+    <div>
+      <div class="cw-dhead__title">Manage Charts</div>
+      <div class="cw-dhead__sub">{{ activeDashboard.name }} · {{ custEnabledCount }} of {{ activeDashboard.widgets.length }} shown</div>
+    </div>
+    <button class="cw-close-x" (click)="closeCustomiseDrawer()" aria-label="Close">&times;</button>
+  </div>
+
+  <div class="cw-dbody">
+
+    <!-- View mode: List / Tree -->
+    <div class="cw-viewseg">
+      <button type="button" [class.on]="custViewMode === 'list'" (click)="setCustView('list')">List</button>
+      <button type="button" [class.on]="custViewMode === 'tree'" (click)="setCustView('tree')">Tree</button>
+    </div>
+
+    <!-- ─────────── LIST VIEW ─────────── -->
+    <ng-container *ngIf="custViewMode === 'list'">
+    <!-- Category → Dashboard selection (drives the widget list + Done navigation) -->
+    <div class="cw-dvs">
+      <div class="cw-dvs-field">
+        <span class="cw-dvs-lbl">Category</span>
+        <select class="dvs-select" [(ngModel)]="selectedCategory" (ngModelChange)="onCustCategoryChange()">
+          <option *ngFor="let c of custCategories" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+      <div class="cw-dvs-field">
+        <span class="cw-dvs-lbl">Dashboard</span>
+        <select class="dvs-select" [(ngModel)]="selectedDashboardId" (ngModelChange)="onCustDashboardChange()">
+          <option *ngFor="let d of custDashboardsInCategory" [value]="d.id">{{ d.name }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="cw-dvs-note">KPI cards &amp; charts for <strong>{{ activeDashboard.name }}</strong></div>
+
+    <ng-container *ngFor="let g of custWidgetGroups">
+      <div class="cw-grp-h">{{ g.name }}</div>
+
+      <div class="cw-row" *ngFor="let w of g.items" [class.cw-row--off]="!isWidgetVisible(w.id)">
+        <button type="button" class="cw-row__main" (click)="drillToWidget(w.id)"
+                title="Open this widget's drill-down">
+          <span class="cw-row__ic" [ngClass]="'cw-row__ic--' + w.type">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3"  width="7" height="9" rx="1" />
+              <rect x="14" y="3" width="7" height="5" rx="1" />
+              <rect x="14" y="12" width="7" height="9" rx="1" />
+              <rect x="3" y="16" width="7" height="5" rx="1" />
+            </svg>
+          </span>
+          <span class="cw-row__info">
+            <span class="cw-row__title">{{ w.title }}</span>
+            <span class="cw-row__type">{{ w.type === 'KPI' ? 'KPI card' : 'Chart / widget' }} · open ›</span>
+          </span>
+        </button>
+        <button type="button" class="cw-toggle" [class.on]="isWidgetVisible(w.id)"
+                role="switch" [attr.aria-checked]="isWidgetVisible(w.id)"
+                [attr.aria-label]="'Toggle ' + w.title"
+                (click)="toggleWidget(w.id)"></button>
+      </div>
+    </ng-container>
+    </ng-container><!-- /list view -->
+
+    <!-- ─────────── TREE VIEW ─────────── -->
+    <div class="cw-tree" *ngIf="custViewMode === 'tree'">
+      <ng-container *ngFor="let cat of custCategories">
+        <button type="button" class="cw-tnode cw-tnode--cat" (click)="toggleTree('cat:' + cat)">
+          <svg class="cw-tcaret" [class.open]="isTreeExpanded('cat:' + cat)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+          <span class="cw-tnode-lbl">{{ cat }}</span>
+          <span class="cw-tnode-meta">Category</span>
+        </button>
+        <div class="cw-tchildren" *ngIf="isTreeExpanded('cat:' + cat)">
+          <ng-container *ngFor="let d of custDashboards">
+            <ng-container *ngIf="d.category === cat">
+              <button type="button" class="cw-tnode cw-tnode--dash" [class.is-active]="d.id === selectedDashboardId"
+                      (click)="selectDashboardNode(d.id); toggleTree('dash:' + d.id)">
+                <svg class="cw-tcaret" [class.open]="isTreeExpanded('dash:' + d.id)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                <span class="cw-tnode-lbl">{{ d.name }}</span>
+                <span class="cw-tnode-meta">{{ d.widgets.length }} widgets</span>
+              </button>
+              <div class="cw-tchildren" *ngIf="isTreeExpanded('dash:' + d.id)">
+                <div class="cw-trow" *ngFor="let w of d.widgets" [class.cw-row--off]="!isWidgetVisible(w.id)">
+                  <span class="cw-row__ic" [ngClass]="'cw-row__ic--' + w.type">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+                  </span>
+                  <span class="cw-trow-info">
+                    <span class="cw-row__title">{{ w.title }}</span>
+                    <span class="cw-row__type">{{ w.type === 'KPI' ? 'KPI card' : 'Chart / widget' }}</span>
+                  </span>
+                  <button type="button" class="cw-toggle" [class.on]="isWidgetVisible(w.id)"
+                          role="switch" [attr.aria-checked]="isWidgetVisible(w.id)"
+                          [attr.aria-label]="'Toggle ' + w.title" (click)="toggleWidget(w.id)"></button>
+                </div>
+              </div>
+            </ng-container>
+          </ng-container>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+
+  <div class="cw-dfoot">
+    <button class="cw-link" (click)="resetWidgets()">↺ Reset to default</button>
+    <button class="dq-btn" (click)="applyCustomiseAndClose()">Done</button>
+  </div>
+
+</aside>

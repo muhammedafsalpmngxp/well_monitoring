@@ -1,0 +1,21 @@
+.ai .ai__card + .ai__card { margin-top: 16px; }
+
+.act {
+  &__filters {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    select, input { font-size: 13px; padding: 6px 8px; border: 1px solid #d0d5dd; border-radius: 6px; }
+    input { min-width: 280px; }
+  }
+  &__table td { vertical-align: top; }
+  &__row { cursor: pointer; &:hover td { background: #f9fafb; } &--open td { background: #f5f7ff; } }
+  &__nowrap { white-space: nowrap; }
+  &__answer { max-width: 420px; color: #475467; }
+  &__detail td { background: #fcfcfd; }
+  &__trace {
+    display: grid; gap: 4px; font-size: 12px;
+    details { border: 1px solid #eaecf0; border-radius: 6px; padding: 4px 8px; background: #fff; }
+    summary { cursor: pointer; }
+    pre { margin: 2px 0 6px; max-height: 240px; overflow: auto; white-space: pre-wrap; font-size: 11px; background: #f9fafb; padding: 6px; border-radius: 4px; }
+  }
+  &__pager { justify-content: flex-end; margin-top: 10px; }
+}

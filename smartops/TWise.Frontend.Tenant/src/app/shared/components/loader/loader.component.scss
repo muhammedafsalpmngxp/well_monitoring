@@ -1,0 +1,152 @@
+// Spinner — global styles in _layout.scss
+
+// Block-level so the component fills its container's width predictably.
+// height:100% lets skeleton shapes stretch to fill a sized ancestor (e.g. a
+// fixed-height card placeholder); it's a no-op when the parent has no
+// explicit height, in which case shapes fall back to their own min-height.
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+// ─── Skeleton loader variants (content-shaped shimmer, for compact/inline use) ───
+
+.app-loader-skeleton {
+  width: 100%;
+  height: 100%;
+}
+
+%app-loader-skeleton-shimmer {
+  background: linear-gradient(90deg, #EDF0F4 25%, #F7F8FA 37%, #EDF0F4 63%);
+  background-size: 200% 100%;
+  animation: app-loader-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes app-loader-skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+// Bar-chart shape — chart preview + legend pills
+.app-loader-skeleton__chart {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  padding: 4px;
+}
+
+.app-loader-skeleton__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 1;
+  padding: 0 4px;
+
+  span {
+    @extend %app-loader-skeleton-shimmer;
+    flex: 1;
+    min-height: 8%;
+    border-radius: 4px 4px 0 0;
+  }
+}
+
+.app-loader-skeleton__legend {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 0 4px;
+
+  span {
+    @extend %app-loader-skeleton-shimmer;
+    flex: 1;
+    height: 10px;
+    border-radius: 20px;
+  }
+}
+
+// Table shape — header row + data rows
+.app-loader-skeleton__table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 4px;
+}
+
+.app-loader-skeleton__table-header,
+.app-loader-skeleton__table-row {
+  @extend %app-loader-skeleton-shimmer;
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+}
+
+.app-loader-skeleton__table-header {
+  height: 28px;
+  border-radius: 6px 6px 0 0;
+}
+
+.app-loader-skeleton__table-row {
+  height: 22px;
+}
+
+// Tile shape — icon + name + value + footer (KPI tile card)
+.app-loader-skeleton__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.app-loader-skeleton__tile-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-loader-skeleton__tile-icon,
+.app-loader-skeleton__tile-name,
+.app-loader-skeleton__tile-value,
+.app-loader-skeleton__tile-footer {
+  @extend %app-loader-skeleton-shimmer;
+  border-radius: 6px;
+}
+
+.app-loader-skeleton__tile-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.app-loader-skeleton__tile-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-loader-skeleton__tile-name {
+  width: 70%;
+  height: 13px;
+}
+
+.app-loader-skeleton__tile-value {
+  width: 45%;
+  height: 20px;
+}
+
+.app-loader-skeleton__tile-footer {
+  width: 90%;
+  height: 12px;
+}

@@ -1,0 +1,285 @@
+<app-page-header title="Data Sources"
+  subtitle="Connect SQL databases, Google Sheets, Google Drive and REST APIs as chart and tile inputs."
+  [breadcrumbs]="[{label:'Home'}, {label:'Settings', route:'/settings'}, {label:'Data Sources'}]">
+  <span page-header-icon class="ds-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+      stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <ellipse cx="12" cy="5" rx="8" ry="3" />
+      <path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
+    </svg>
+  </span>
+  <div class="ds-header-actions">
+    <app-button *ngIf="canCreate" variant="primary" (clicked)="openCreate()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M9 3.75V14.25M3.75 9H14.25" stroke="white" stroke-width="1.6" stroke-linecap="round"
+          stroke-linejoin="round" />
+      </svg>
+      Add Data Source
+    </app-button>
+  </div>
+</app-page-header>
+
+<div class="page-content ds-page">
+
+  <div class="ds-banner" *ngIf="banner" [ngClass]="'ds-banner--' + banner.kind" role="status">
+    <span class="ds-banner__text">{{ banner.text }}</span>
+    <button type="button" class="ds-banner__close" (click)="dismissBanner()" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <app-loader *ngIf="loading" size="lg"></app-loader>
+
+  <ng-container *ngIf="!loading">
+
+    <app-empty-state *ngIf="rows.length === 0"
+      title="No data sources yet"
+      message="Connect a SQL database, a Google Sheet, a Drive file or a REST API to use it as a chart source.">
+    </app-empty-state>
+
+    <div class="ds-grid" *ngIf="rows.length > 0">
+      <div class="ds-card" *ngFor="let r of rows; trackBy: trackByKey">
+
+        <div class="ds-card__head">
+          <div class="ds-card__title">
+            <span class="ds-card__name">{{ r.name }}</span>
+            <span class="ds-card__badges">
+              <span class="ds-chip ds-chip--kind">{{ r.typeLabel }}</span>
+              <span class="ds-chip" [ngClass]="r.family === 'sql' ? 'ds-chip--live' : 'ds-chip--pull'">
+                {{ r.family === 'sql' ? 'Live query' : 'Imported' }}
+              </span>
+            </span>
+          </div>
+          <span class="ds-chip" [ngClass]="{
+                'ds-chip--ok': r.status === 'ok',
+                'ds-chip--failed': r.status === 'failed',
+                'ds-chip--idle': r.status === 'idle'
+              }">{{ r.statusLabel }}</span>
+        </div>
+
+        <dl class="ds-card__meta">
+          <div>
+            <dt>{{ r.family === 'sql' ? 'Server' : 'Source' }}</dt>
+            <dd class="ds-card__detail">{{ r.detail }}</dd>
+          </div>
+          <div *ngIf="r.lastCheckedAt">
+            <dt>Last checked</dt>
+            <dd>{{ r.lastCheckedAt | date:'dd MMM yyyy, HH:mm' }}</dd>
+          </div>
+          <div *ngIf="!r.isActive">
+            <dt>State</dt>
+            <dd class="ds-card__disabled">Disabled</dd>
+          </div>
+        </dl>
+
+        <p class="ds-card__error" *ngIf="r.status === 'failed' && r.errorMessage">{{ r.errorMessage }}</p>
+
+        <div class="ds-card__actions">
+          <button type="button" class="ds-btn" *ngIf="canModify" (click)="check(r)" [disabled]="busyId === rowKey(r)">
+            <ng-container *ngIf="busyId === rowKey(r)">Working…</ng-container>
+            <ng-container *ngIf="busyId !== rowKey(r)">{{ r.family === 'sql' ? 'Sync schema' : 'Test' }}</ng-container>
+          </button>
+
+          <button type="button" class="ds-btn ds-btn--primary" *ngIf="canCreate && r.family === 'pull'" (click)="openIngest(r)">
+            Import data
+          </button>
+
+          <a class="ds-btn" *ngIf="r.family === 'sql'" routerLink="/settings/database-view">Build view</a>
+
+          <button type="button" class="ds-btn" *ngIf="canModify && r.isGoogle" (click)="connectGoogle(r)">
+            {{ r.hasCredentials ? 'Reconnect Google' : 'Connect Google' }}
+          </button>
+
+          <button type="button" class="ds-btn" *ngIf="canModify" (click)="openEdit(r)">Edit</button>
+          <button type="button" class="ds-btn ds-btn--danger" *ngIf="canModify" (click)="remove(r)">Delete</button>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>
+
+<!-- ── Create / edit panel ─────────────────────────────────────────────────── -->
+<div class="ds-overlay" *ngIf="panelMode !== 'closed'" (click)="closePanel()"></div>
+
+<aside class="ds-panel" *ngIf="panelMode !== 'closed'">
+  <header class="ds-panel__head">
+    <h2>{{ panelMode === 'create' ? 'Add Data Source' : 'Edit Data Source' }}</h2>
+    <button type="button" class="ds-panel__close" (click)="closePanel()" aria-label="Close">&times;</button>
+  </header>
+
+  <div class="ds-panel__body">
+    <label class="ds-field">
+      <span class="ds-field__label">Name <em>*</em></span>
+      <input type="text" [(ngModel)]="formName" placeholder="Production wells" />
+    </label>
+
+    <label class="ds-field" *ngIf="panelMode === 'create'">
+      <span class="ds-field__label">Type <em>*</em></span>
+      <select [ngModel]="formType" (ngModelChange)="onTypeChange($event)">
+        <optgroup label="Databases (queried live)">
+          <option *ngFor="let p of sqlProviders" [value]="p">{{ sqlProviderLabels[p] }}</option>
+        </optgroup>
+        <optgroup label="Files &amp; APIs (imported)">
+          <option *ngFor="let k of kindOptions" [value]="k.kind">{{ k.label }}</option>
+        </optgroup>
+      </select>
+      <small class="ds-field__help" *ngIf="isSqlForm">
+        Queried live through the View Builder — data is never copied.
+      </small>
+      <small class="ds-field__help" *ngIf="!isSqlForm">{{ activeKindOption?.description }}</small>
+    </label>
+
+    <!-- ── SQL database fields ──────────────────────────────────────────── -->
+    <ng-container *ngIf="isSqlForm">
+      <label class="ds-field">
+        <span class="ds-field__label">Server <em>*</em></span>
+        <input type="text" [(ngModel)]="sqlServer" placeholder="db.example.com" />
+      </label>
+
+      <label class="ds-field">
+        <span class="ds-field__label">Port <em>*</em></span>
+        <input type="number" [(ngModel)]="sqlPort" />
+      </label>
+
+      <label class="ds-field">
+        <span class="ds-field__label">Database <em>*</em></span>
+        <input type="text" [(ngModel)]="sqlDatabase" [placeholder]="formType === 'trino' ? 'catalog.schema' : 'analytics'" />
+        <small class="ds-field__help" *ngIf="formType === 'trino'">Catalog, optionally followed by a schema (for example <code>hive.sales</code>).</small>
+        <small class="ds-field__help" *ngIf="formType === 'clickhouse' || formType === 'trino'">Server may be a host name or a full http(s) URL; the port is the HTTP port.</small>
+      </label>
+
+      <label class="ds-field">
+        <span class="ds-field__label">Username <em>*</em></span>
+        <input type="text" [(ngModel)]="sqlUsername" placeholder="readonly_user" autocomplete="off" />
+      </label>
+
+      <label class="ds-field">
+        <span class="ds-field__label">Password <em *ngIf="panelMode === 'create' && formType !== 'trino'">*</em></span>
+        <input type="password" [(ngModel)]="sqlPassword" autocomplete="new-password" />
+        <small class="ds-field__help" *ngIf="panelMode === 'edit'">
+          Leave blank to keep the stored password.
+        </small>
+      </label>
+
+      <label class="ds-field ds-field--inline">
+        <input type="checkbox" [(ngModel)]="sqlTrustCert" />
+        <span>Trust the server certificate (skip TLS validation)</span>
+      </label>
+    </ng-container>
+
+    <!-- ── Pull-source fields ───────────────────────────────────────────── -->
+    <ng-container *ngIf="!isSqlForm">
+      <label class="ds-field" *ngIf="(activeKindOption?.supportedAuthTypes?.length ?? 0) > 1">
+        <span class="ds-field__label">Authentication</span>
+        <select [(ngModel)]="formAuthType">
+          <option *ngFor="let a of activeKindOption?.supportedAuthTypes" [value]="a">{{ a }}</option>
+        </select>
+      </label>
+
+      <ng-container *ngFor="let f of configFields">
+        <label class="ds-field">
+          <span class="ds-field__label">{{ f.label }} <em *ngIf="f.required">*</em></span>
+
+          <textarea *ngIf="f.fieldType === 'textarea' || f.fieldType === 'keyvalue'" rows="3"
+            [(ngModel)]="formValues[f.name]" [placeholder]="f.placeholder || ''"></textarea>
+
+          <select *ngIf="f.fieldType === 'select'" [(ngModel)]="formValues[f.name]">
+            <option *ngFor="let o of f.options" [value]="o">{{ o }}</option>
+          </select>
+
+          <input *ngIf="f.fieldType !== 'textarea' && f.fieldType !== 'keyvalue' && f.fieldType !== 'select'"
+            [type]="f.fieldType === 'number' ? 'number' : 'text'"
+            [(ngModel)]="formValues[f.name]" [placeholder]="f.placeholder || ''" />
+
+          <small class="ds-field__help" *ngIf="f.helpText">{{ f.helpText }}</small>
+          <small class="ds-field__help" *ngIf="f.fieldType === 'keyvalue'">
+            Enter as JSON, for example <code>&#123;"X-Api-Version": "2"&#125;</code>
+          </small>
+        </label>
+      </ng-container>
+
+      <ng-container *ngIf="secretFields.length > 0">
+        <h3 class="ds-panel__section">Credentials</h3>
+        <p class="ds-panel__note" *ngIf="panelMode === 'edit'">
+          Stored credentials are never shown. Leave these blank to keep them unchanged.
+        </p>
+
+        <label class="ds-field" *ngFor="let f of secretFields">
+          <span class="ds-field__label">{{ f.label }}</span>
+          <input [type]="f.fieldType === 'password' ? 'password' : 'text'"
+            [(ngModel)]="formValues[f.name]" [placeholder]="f.placeholder || ''" autocomplete="new-password" />
+          <small class="ds-field__help" *ngIf="f.helpText">{{ f.helpText }}</small>
+        </label>
+      </ng-container>
+
+      <p class="ds-panel__note" *ngIf="isGoogleKind && panelMode === 'create'">
+        After saving, choose <strong>Connect Google</strong> on the card to authorise access.
+      </p>
+    </ng-container>
+
+    <label class="ds-field ds-field--inline" *ngIf="panelMode === 'edit'">
+      <input type="checkbox" [(ngModel)]="formActive" />
+      <span>Active</span>
+    </label>
+  </div>
+
+  <footer class="ds-panel__foot">
+    <button type="button" class="ds-btn" (click)="closePanel()">Cancel</button>
+    <button type="button" class="ds-btn ds-btn--primary" (click)="save()" [disabled]="saving">
+      {{ saving ? 'Saving…' : 'Save' }}
+    </button>
+  </footer>
+</aside>
+
+<!-- ── Ingest panel ────────────────────────────────────────────────────────── -->
+<div class="ds-overlay" *ngIf="ingestFor" (click)="closeIngest()"></div>
+
+<aside class="ds-panel" *ngIf="ingestFor">
+  <header class="ds-panel__head">
+    <h2>Import from {{ ingestFor.connectionName }}</h2>
+    <button type="button" class="ds-panel__close" (click)="closeIngest()" aria-label="Close">&times;</button>
+  </header>
+
+  <div class="ds-panel__body">
+    <app-loader *ngIf="ingestLoading" size="md"></app-loader>
+
+    <ng-container *ngIf="!ingestLoading">
+      <div class="ds-field" *ngIf="ingestObjects.length > 0">
+        <span class="ds-field__label">What to import <small>({{ ingestSelected.size }} of {{ ingestObjects.length }} selected)</small></span>
+        <ul class="ds-check-list" role="group" aria-label="Files to import">
+          <li *ngIf="ingestObjects.length > 1">
+            <label><input type="checkbox" [checked]="allIngestObjectsSelected" (change)="toggleAllIngestObjects($any($event.target).checked)" /> <strong>Select all</strong></label>
+          </li>
+          <li *ngFor="let o of ingestObjects">
+            <label>
+              <input type="checkbox" [checked]="ingestSelected.has(o.ref)" (change)="toggleIngestObject(o.ref, $any($event.target).checked)" />
+              <span class="ds-check-list__name">{{ o.name }}</span>
+              <span class="ds-check-list__type">{{ objectTypeLabel(o.objectType) }}</span>
+            </label>
+          </li>
+        </ul>
+      </div>
+
+      <p class="ds-panel__note ds-panel__note--warn" *ngIf="ingestObjects.length === 0 && ingestFor.kind === 'google_drive'">
+        No importable files were found in this folder. Supported: Google Sheets, CSV, JSON and Excel (.xlsx) files placed directly in the folder.
+      </p>
+
+      <label class="ds-field" *ngIf="ingestObjects.length > 0 && ingestSelected.size <= 1">
+        <span class="ds-field__label">Dataset name</span>
+        <input type="text" [(ngModel)]="ingestDatasetName" placeholder="Daily plan — September" />
+        <small class="ds-field__help">
+          The imported rows are saved as a dataset you can pick as a chart or tile source.
+        </small>
+      </label>
+
+      <p class="ds-panel__note" *ngIf="ingestSelected.size > 1">Each file is imported as its own dataset, named after the file.</p>
+      <p class="ds-panel__note">A single import can hold up to 10,000 rows.</p>
+    </ng-container>
+  </div>
+
+  <footer class="ds-panel__foot">
+    <button type="button" class="ds-btn" (click)="closeIngest()">Cancel</button>
+    <button type="button" class="ds-btn ds-btn--primary" (click)="runIngest()"
+      [disabled]="ingestLoading || (ingestObjects.length > 0 && ingestSelected.size === 0)">
+      {{ ingestLoading ? 'Working…' : ingestSelected.size > 1 ? 'Import ' + ingestSelected.size + ' files' : 'Import' }}
+    </button>
+  </footer>
+</aside>

@@ -1,0 +1,8 @@
+-r ../../../shared/python/requirements-base.txt
+# LangChain stack — talk to OpenAI / Anthropic / Azure OpenAI
+langchain==0.3.7
+langchain-openai==0.2.8
+langchain-community==0.3.5
+# Whisper (optional — service degrades to Groq-only if not installed)
+faster-whisper==1.0.3
+groq==0.11.0

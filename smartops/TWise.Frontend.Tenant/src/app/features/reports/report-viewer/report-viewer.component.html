@@ -1,0 +1,1459 @@
+<app-date-range-popup
+  [open]="showDateRangePopup"
+  [from]="filterFrom"
+  [to]="filterTo"
+  [anchorTop]="dateRangeAnchorTop"
+  [anchorLeft]="dateRangeAnchorLeft"
+  [maxHeight]="dateRangeMaxHeight"
+  (applyRange)="onDateRangeApply($event)"
+  (cancelRange)="onDateRangeCancel()"
+></app-date-range-popup>
+
+<app-page-header
+  [title]="report?.reportName || 'Report Viewer'"
+  [subtitle]="report ? 'Source: ' + report.sourceName + ' (' + report.sourceType + ')' : ''"
+  [breadcrumbs]="breadcrumbs"
+>
+  <span page-header-icon class="viewer-page-icon">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="white"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+      <line x1="8" y1="13" x2="16" y2="13"></line>
+      <line x1="8" y1="17" x2="13" y2="17"></line>
+    </svg>
+  </span>
+
+  <span
+    page-header-subtitle-suffix
+    *ngIf="report"
+    class="report-viewer__badge report-viewer__badge--status"
+    [class.report-viewer__badge--draft]="report.status === 'draft'"
+    >{{ report.status }}</span
+  >
+
+  <div class="viewer-header-actions">
+    <button
+      class="viewer-header-actions__icon-btn viewer-header-actions__icon-btn--danger"
+      title="Delete"
+      (click)="confirmDelete()"
+      *ngIf="false && report"
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 18 18"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M6.75 2.25H11.25M2.25 4.5H15.75M14.25 4.5L13.724 12.3895C13.6451 13.5731 13.6057 14.165 13.35 14.6138C13.1249 15.0089 12.7854 15.3265 12.3763 15.5248C11.9115 15.75 11.3183 15.75 10.132 15.75H7.86802C6.68168 15.75 6.08852 15.75 5.62376 15.5248C5.21457 15.3265 4.87507 15.0089 4.64998 14.6138C4.39433 14.165 4.35488 13.5731 4.27597 12.3895L3.75 4.5M7.5 7.875V11.625M10.5 7.875V11.625"
+          stroke="#D92D20"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
+
+    <div class="viewer-export-dropdown viewer-header-actions__export" *ngIf="report">
+      <button
+        class="viewer-header-actions__icon-btn"
+        title="Export"
+        [disabled]="isExporting"
+        (click)="toggleExportMenu()"
+      >
+        <svg
+          *ngIf="!isExporting"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <svg
+          *ngIf="isExporting"
+          class="viewer-header-actions__spinner"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="9" stroke-dasharray="42" stroke-dashoffset="14"></circle>
+        </svg>
+      </button>
+      <div class="viewer-export-dropdown__menu" *ngIf="showExportMenu">
+        <button class="viewer-export-dropdown__item" (click)="exportAs('pdf')">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M4.66667 7.33333C4.04669 7.33333 3.73669 7.33333 3.48236 7.40147C2.79218 7.5864 2.25308 8.12553 2.06815 8.81567C2 9.07 2 9.38 2 10V10.8C2 11.9201 2 12.4801 2.21799 12.908C2.40973 13.2843 2.71569 13.5903 3.09202 13.782C3.51984 14 4.07989 14 5.2 14H10.8C11.9201 14 12.4801 14 12.908 13.782C13.2843 13.5903 13.5903 13.2843 13.782 12.908C14 12.4801 14 11.9201 14 10.8V10C14 9.38 14 9.07 13.9319 8.81567C13.7469 8.12553 13.2078 7.5864 12.5177 7.40147C12.2633 7.33333 11.9533 7.33333 11.3333 7.33333M5.33333 4.66667L8 2L10.6667 4.66667M8 2V10"
+              stroke="#21409A"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+
+          Export as PDF
+        </button>
+        <button class="viewer-export-dropdown__item" (click)="exportAs('excel')">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#16A34A"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="8" y1="13" x2="16" y2="13"></line>
+            <line x1="8" y1="17" x2="16" y2="17"></line>
+          </svg>
+          Export as Excel
+        </button>
+        <button class="viewer-export-dropdown__item" (click)="exportAs('csv')">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#0F766E"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="8" y1="13" x2="16" y2="13"></line>
+            <line x1="8" y1="17" x2="16" y2="17"></line>
+          </svg>
+          Export as CSV
+        </button>
+      </div>
+    </div>
+
+    <button
+      class="viewer-header-actions__icon-btn viewer-header-actions__edit"
+      title="Edit"
+      (click)="editReport()"
+      *ngIf="canEditReport && report && report.status !== 'published'"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <g clip-path="url(#clip0_3855_17673)">
+          <path
+            d="M1.91671 12.0771C1.94734 11.8014 1.96266 11.6636 2.00436 11.5348C2.04136 11.4205 2.09364 11.3118 2.15978 11.2114C2.23432 11.0984 2.33238 11.0004 2.5285 10.8042L11.3327 2.00004C12.0691 1.26366 13.263 1.26366 13.9994 2.00004C14.7358 2.73642 14.7358 3.93033 13.9994 4.66671L5.19517 13.4709C4.99904 13.667 4.90098 13.765 4.78794 13.8396C4.68765 13.9058 4.57888 13.958 4.46458 13.995C4.33575 14.0367 4.19792 14.052 3.92226 14.0827L1.66602 14.3334L1.91671 12.0771Z"
+            stroke="#21409A"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </g>
+        <defs>
+          <clipPath id="clip0_3855_17673">
+            <rect width="16" height="16" fill="white" />
+          </clipPath>
+        </defs>
+      </svg>
+    </button>
+
+    <button
+      class="viewer-header-actions__publish viewer-header-actions__publish-btn"
+      title="Publish"
+      (click)="publishReport()"
+      [disabled]="isPublishing"
+      *ngIf="report && report.status !== 'published'"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 10.6667V2.66667M8 2.66667L5.33333 5.33333M8 2.66667L10.6667 5.33333M3.33333 9.33333V12.6667C3.33333 13.403 3.93029 14 4.527 14H11.3333C12.0697 14 12.6667 13.403 12.6667 12.6667V9.33333"
+          stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      {{ isPublishing ? 'Publishing...' : 'Publish' }}
+    </button>
+
+    <button
+      class="viewer-header-actions__publish viewer-header-actions__publish-btn"
+      title="Unpublish"
+      (click)="unpublishReport()"
+      [disabled]="isPublishing"
+      *ngIf="canUnpublishReport"
+    >
+      {{ isPublishing ? 'Unpublishing...' : 'Unpublish' }}
+    </button>
+
+    <button
+      class="viewer-header-actions__btn"
+      title="Email this report on a schedule"
+      (click)="scheduleOpen = true"
+      *ngIf="report && canSchedule"
+      style="display: none;"
+    >
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2.25" y="3.75" width="13.5" height="12" rx="2" stroke="currentColor" stroke-width="1.4" /><path d="M2.25 7.5H15.75M6 2.25V5.25M12 2.25V5.25" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" /></svg>
+      Schedule
+    </button>
+
+    <button
+      class="viewer-header-actions__btn viewer-header-actions__filter"
+      [class.active]="showFilterBar"
+      (click)="toggleFilterBar()"
+      *ngIf="report"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M2.2527 3.77791C1.74847 3.21437 1.49636 2.93259 1.48685 2.69312C1.47859 2.48509 1.56799 2.28515 1.72853 2.15259C1.91333 2 2.29143 2 3.04763 2H12.9429C13.6991 2 14.0772 2 14.262 2.15259C14.4226 2.28515 14.512 2.48509 14.5037 2.69312C14.4942 2.93259 14.242 3.21437 13.7378 3.77791L9.93371 8.0296C9.83317 8.14193 9.78291 8.19813 9.74711 8.26207C9.71531 8.31873 9.69197 8.3798 9.67784 8.4432C9.66191 8.51473 9.66191 8.59013 9.66191 8.74087V12.3056C9.66191 12.4359 9.66191 12.5011 9.64091 12.5575C9.62231 12.6073 9.59211 12.6519 9.55277 12.6877C9.50824 12.7281 9.44771 12.7523 9.32671 12.8008L7.06004 13.7075C6.81497 13.8055 6.69244 13.8545 6.59412 13.834C6.50811 13.8161 6.43264 13.7651 6.38411 13.6918C6.32861 13.6081 6.32861 13.4761 6.32861 13.2123V8.74087C6.32861 8.59013 6.32861 8.51473 6.31269 8.4432C6.29857 8.3798 6.27525 8.31873 6.24347 8.26207C6.20763 8.19813 6.15737 8.14193 6.05686 8.0296L2.2527 3.77791Z"
+          stroke="#21409A"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+
+       {{ showFilterBar ? 'Hide Filter' : 'Show Filter' }}
+      <svg
+        width="10"
+        height="8"
+        viewBox="0 0 12 7"
+        fill="none"
+        style="transition: transform 0.15s ease"
+        [style.transform]="showFilterBar ? 'none' : 'rotate(180deg)'"
+      >
+        <path
+          d="M0.699219 0.699951L5.69922 5.69995L10.6992 0.699951"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
+  </div>
+</app-page-header>
+
+<div class="odc-toast" *ngIf="successMessage">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+  </svg>
+  <span>{{ successMessage }}</span>
+</div>
+
+<div class="page-content report-viewer">
+  <app-loader *ngIf="isLoading"></app-loader>
+
+  <div class="report-viewer__error" *ngIf="error">{{ error }}</div>
+
+  <!-- Hierarchy filter bar -->
+  <div
+    class="rv-filter-bar"
+    *ngIf="showFilterBar && report"
+    (click)="$event.stopPropagation()"
+  >
+    <button class="rv-filter-bar__pin" title="Collapse filters" (click)="toggleFilterBar()">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M5.99935 8.00022H1.33268M11.1273 5.33358H9.70685C9.56817 5.33358 9.49883 5.33358 9.43251 5.31996C9.37367 5.30789 9.31675 5.28792 9.26321 5.26059C9.20295 5.22978 9.14881 5.18647 9.04048 5.09984L7.73235 4.05332C7.17755 3.60949 6.90021 3.38758 6.66675 3.38733C6.46368 3.38711 6.27161 3.47942 6.14501 3.63809C5.99935 3.82054 5.99935 4.17578 5.99935 4.88624V11.1142C5.99935 11.8247 5.99935 12.18 6.14501 12.3624C6.27161 12.5211 6.46368 12.6134 6.66675 12.6132C6.90021 12.6129 7.17755 12.391 7.73235 11.9472L9.04048 10.9006C9.14881 10.814 9.20295 10.7707 9.26321 10.7399C9.31675 10.7126 9.37367 10.6926 9.43251 10.6805C9.49883 10.6669 9.56817 10.6669 9.70685 10.6669H11.1273C11.204 10.6669 11.2424 10.6669 11.2802 10.6712C11.3138 10.6751 11.3471 10.6815 11.3798 10.6904C11.4165 10.7004 11.4521 10.7147 11.5234 10.7432L13.2032 11.4151C13.6933 11.6112 13.9383 11.7092 14.135 11.6683C14.307 11.6326 14.4579 11.5304 14.555 11.3839C14.666 11.2164 14.666 10.9526 14.666 10.4248V5.57574C14.666 5.04794 14.666 4.78403 14.555 4.61658C14.4579 4.47015 14.307 4.36795 14.135 4.33221C13.9383 4.29134 13.6933 4.38934 13.2032 4.58537L11.5234 5.25728C11.4521 5.28579 11.4165 5.30004 11.3798 5.31007C11.3471 5.31898 11.3138 5.32538 11.2802 5.32924C11.2424 5.33358 11.204 5.33358 11.1273 5.33358Z"
+          stroke="#4D555B"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
+    <div class="rv-filter-field">
+      <label>Country</label>
+      <div
+        class="rv-filter-select"
+        [class.open]="openFilterName === 'country'"
+        [class.rv-filter-select--locked]="!isAdmin && filterCountryOptions.length <= 1"
+        [attr.title]="filterCountry || 'Select'"
+        (click)="
+          (isAdmin || filterCountryOptions.length > 1) && toggleFilterDropdown('country', $event)
+        "
+      >
+        <span [class.rv-filter-select-placeholder]="!filterCountry">{{
+          filterCountry || 'Select'
+        }}</span>
+        <svg class="rv-filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M4 6L8 10L12 6"
+            stroke="#667085"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg
+          *ngIf="!isAdmin"
+          class="rv-filter-lock"
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#98A2B3"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0110 0v4"></path>
+        </svg>
+        <div
+          class="rv-filter-select-panel"
+          *ngIf="openFilterName === 'country'"
+          (click)="$event.stopPropagation()"
+        >
+          <div appKeyClick
+            class="rv-filter-select-option rv-filter-select-option--clear"
+            *ngIf="filterCountry !== 'All'"
+            (click)="selectFilterOption('country', 'All')"
+          >
+            All
+          </div>
+          <div appKeyClick
+            class="rv-filter-select-option"
+            *ngFor="let c of filterCountryOptions"
+            [class.active]="c === filterCountry"
+            (click)="selectFilterOption('country', c)"
+          >
+            {{ c }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rv-filter-field">
+      <label>Sector</label>
+      <div
+        class="rv-filter-select"
+        [class.open]="openFilterName === 'sector'"
+        [class.rv-filter-select--locked]="!isAdmin && filterSectorOptions.length <= 1"
+        [attr.title]="filterSector || 'Select'"
+        (click)="
+          (isAdmin || filterSectorOptions.length > 1) && toggleFilterDropdown('sector', $event)
+        "
+      >
+        <span [class.rv-filter-select-placeholder]="!filterSector">{{
+          filterSector || 'Select'
+        }}</span>
+        <svg class="rv-filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M4 6L8 10L12 6"
+            stroke="#667085"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg
+          *ngIf="!isAdmin"
+          class="rv-filter-lock"
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#98A2B3"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0110 0v4"></path>
+        </svg>
+        <div
+          class="rv-filter-select-panel"
+          *ngIf="openFilterName === 'sector'"
+          (click)="$event.stopPropagation()"
+        >
+          <div appKeyClick
+            class="rv-filter-select-option rv-filter-select-option--clear"
+            *ngIf="filterSector !== 'All'"
+            (click)="selectFilterOption('sector', 'All')"
+          >
+            All
+          </div>
+          <div appKeyClick
+            class="rv-filter-select-option"
+            *ngFor="let s of filterSectorOptions"
+            [class.active]="s === filterSector"
+            (click)="selectFilterOption('sector', s)"
+          >
+            {{ s }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rv-filter-field">
+      <label>Business Unit</label>
+      <div
+        class="rv-filter-select"
+        [class.open]="openFilterName === 'businessUnit'"
+        [class.rv-filter-select--locked]="!isAdmin && filterBusinessUnitOptions.length <= 1"
+        [attr.title]="filterBusinessUnit || 'Select'"
+        (click)="
+          (isAdmin || filterBusinessUnitOptions.length > 1) &&
+            toggleFilterDropdown('businessUnit', $event)
+        "
+      >
+        <span [class.rv-filter-select-placeholder]="!filterBusinessUnit">{{
+          filterBusinessUnit || 'Select'
+        }}</span>
+        <svg class="rv-filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M4 6L8 10L12 6"
+            stroke="#667085"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg
+          *ngIf="!isAdmin"
+          class="rv-filter-lock"
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#98A2B3"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0110 0v4"></path>
+        </svg>
+        <div
+          class="rv-filter-select-panel"
+          *ngIf="openFilterName === 'businessUnit'"
+          (click)="$event.stopPropagation()"
+        >
+          <div appKeyClick
+            class="rv-filter-select-option rv-filter-select-option--clear"
+            *ngIf="filterBusinessUnit !== 'All'"
+            (click)="selectFilterOption('businessUnit', 'All')"
+          >
+            All
+          </div>
+          <div appKeyClick
+            class="rv-filter-select-option"
+            *ngFor="let b of filterBusinessUnitOptions"
+            [class.active]="b === filterBusinessUnit"
+            (click)="selectFilterOption('businessUnit', b)"
+          >
+            {{ b }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rv-filter-field">
+      <label>Division</label>
+      <div
+        class="rv-filter-select"
+        [class.open]="openFilterName === 'division'"
+        [class.rv-filter-select--locked]="!isAdmin && filterDivisionOptions.length <= 1"
+        [attr.title]="filterDivision || 'Select'"
+        (click)="
+          (isAdmin || filterDivisionOptions.length > 1) && toggleFilterDropdown('division', $event)
+        "
+      >
+        <span [class.rv-filter-select-placeholder]="!filterDivision">{{
+          filterDivision || 'Select'
+        }}</span>
+        <svg class="rv-filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M4 6L8 10L12 6"
+            stroke="#667085"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg
+          *ngIf="!isAdmin"
+          class="rv-filter-lock"
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#98A2B3"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0110 0v4"></path>
+        </svg>
+        <div
+          class="rv-filter-select-panel"
+          *ngIf="openFilterName === 'division'"
+          (click)="$event.stopPropagation()"
+        >
+          <div appKeyClick
+            class="rv-filter-select-option rv-filter-select-option--clear"
+            *ngIf="filterDivision !== 'All'"
+            (click)="selectFilterOption('division', 'All')"
+          >
+            All
+          </div>
+          <div appKeyClick
+            class="rv-filter-select-option"
+            *ngFor="let d of filterDivisionOptions"
+            [class.active]="d === filterDivision"
+            (click)="selectFilterOption('division', d)"
+          >
+            {{ d }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rv-filter-field">
+      <label>Cluster</label>
+      <div
+        class="rv-filter-select"
+        [class.open]="openFilterName === 'cluster'"
+        [class.rv-filter-select--locked]="!isAdmin && filterClusterOptions.length <= 1"
+        [attr.title]="filterCluster || 'Select'"
+        (click)="
+          (isAdmin || filterClusterOptions.length > 1) && toggleFilterDropdown('cluster', $event)
+        "
+      >
+        <span [class.rv-filter-select-placeholder]="!filterCluster">{{
+          filterCluster || 'Select'
+        }}</span>
+        <svg class="rv-filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M4 6L8 10L12 6"
+            stroke="#667085"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg
+          *ngIf="!isAdmin && filterClusterOptions.length <= 1"
+          class="rv-filter-lock"
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#98A2B3"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0110 0v4"></path>
+        </svg>
+        <div
+          class="rv-filter-select-panel"
+          *ngIf="openFilterName === 'cluster'"
+          (click)="$event.stopPropagation()"
+        >
+          <div appKeyClick
+            class="rv-filter-select-option rv-filter-select-option--clear"
+            *ngIf="filterCluster !== 'All'"
+            (click)="selectFilterOption('cluster', 'All')"
+          >
+            All
+          </div>
+          <div appKeyClick
+            class="rv-filter-select-option"
+            *ngFor="let c of filterClusterOptions"
+            [class.active]="c === filterCluster"
+            (click)="selectFilterOption('cluster', c)"
+          >
+            {{ c }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rv-filter-field">
+      <label>Plant</label>
+      <div
+        class="rv-filter-select"
+        [class.open]="openFilterName === 'plant'"
+        [class.rv-filter-select--locked]="!isAdmin && filterPlantOptions.length <= 1"
+        [attr.title]="filterPlant || 'Select'"
+        (click)="
+          (isAdmin || filterPlantOptions.length > 1) && toggleFilterDropdown('plant', $event)
+        "
+      >
+        <span [class.rv-filter-select-placeholder]="!filterPlant">{{
+          filterPlant || 'Select'
+        }}</span>
+        <svg class="rv-filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M4 6L8 10L12 6"
+            stroke="#667085"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg
+          *ngIf="!isAdmin && filterPlantOptions.length <= 1"
+          class="rv-filter-lock"
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#98A2B3"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0110 0v4"></path>
+        </svg>
+        <div
+          class="rv-filter-select-panel"
+          *ngIf="openFilterName === 'plant'"
+          (click)="$event.stopPropagation()"
+        >
+          <div appKeyClick
+            class="rv-filter-select-option rv-filter-select-option--clear"
+            *ngIf="filterPlant !== 'All'"
+            (click)="selectFilterOption('plant', 'All')"
+          >
+            All
+          </div>
+          <div appKeyClick
+            class="rv-filter-select-option"
+            *ngFor="let p of filterPlantOptions"
+            [class.active]="p === filterPlant"
+            (click)="selectFilterOption('plant', p)"
+          >
+            {{ p }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rv-filter-field">
+      <label>Quick Range</label>
+      <div appKeyClick
+        class="rv-filter-select"
+        [class.open]="openFilterName === 'quickRange'"
+        (click)="toggleFilterDropdown('quickRange', $event)"
+      >
+        <span [class.rv-filter-select-placeholder]="!filterQuickRange">{{
+          filterQuickRange || 'Select'
+        }}</span>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M4 6L8 10L12 6"
+            stroke="#667085"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <div
+          class="rv-filter-select-panel"
+          *ngIf="openFilterName === 'quickRange'"
+          (click)="$event.stopPropagation()"
+        >
+          <div appKeyClick
+            class="rv-filter-select-option"
+            *ngFor="let q of filterQuickRangeOptions"
+            [class.active]="q === filterQuickRange"
+            (click)="selectFilterOption('quickRange', q)"
+          >
+            {{ q }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rv-filter-field">
+      <label>From</label>
+      <div appKeyClick class="rv-filter-date rv-filter-date--trigger" (click)="openDateRangePopup($event)">
+        <span [class.rv-filter-date-placeholder]="!filterFrom">{{ formatFilterDate(filterFrom) || 'mm-dd-yyyy' }}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      </div>
+    </div>
+    <div class="rv-filter-field">
+      <label>To</label>
+      <div appKeyClick class="rv-filter-date rv-filter-date--trigger"
+        [class.rv-filter-date--disabled]="filterQuickRange === 'After'"
+        (click)="filterQuickRange !== 'After' && openDateRangePopup($event)">
+        <span [class.rv-filter-date-placeholder]="!filterTo">{{ formatFilterDate(filterTo) || 'mm-dd-yyyy' }}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      </div>
+    </div>
+    <div class="rv-filter-bar__actions">
+      <button class="rv-filter-icon-btn" title="Reset filters" (click)="resetFilterBar()">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 18 18"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <g clip-path="url(#clip0_5799_18002)">
+            <path
+              d="M12.75 0.5C15.3689 0.5 17.5 2.63114 17.5 5.25C17.5 7.86886 15.3689 10 12.75 10C10.1311 10 8 7.86886 8 5.25C8 2.63114 10.1311 0.5 12.75 0.5ZM12.75 1C10.4061 1 8.5 2.90611 8.5 5.25C8.5 7.59389 10.4061 9.5 12.75 9.5C15.0939 9.5 17 7.59389 17 5.25C17 2.90611 15.0939 1 12.75 1ZM14.0732 3.57324C14.1712 3.47525 14.3288 3.47525 14.4268 3.57324C14.5247 3.67123 14.5247 3.82877 14.4268 3.92676L13.1035 5.25L14.4268 6.57324C14.5247 6.67123 14.5247 6.82877 14.4268 6.92676C14.3778 6.97569 14.3145 7 14.25 7C14.1855 7 14.1222 6.97569 14.0732 6.92676L12.75 5.60352L11.4268 6.92676C11.3778 6.97569 11.3145 7 11.25 7C11.1855 7 11.1222 6.97569 11.0732 6.92676C10.9753 6.82877 10.9753 6.67123 11.0732 6.57324L12.3965 5.25L11.0732 3.92676C10.9753 3.82877 10.9753 3.67123 11.0732 3.57324C11.1712 3.47525 11.3288 3.47525 11.4268 3.57324L12.75 4.89648L14.0732 3.57324ZM6.5 10.5947L6.37402 10.4531L1.1123 4.53418C0.717423 4.08955 0.50008 3.51837 0.5 2.92383C0.5 1.58822 1.58822 0.5 2.92383 0.5H6.75C6.88786 0.5 7 0.612142 7 0.75C7 0.887858 6.88786 1 6.75 1H2.92383C1.86319 1 1 1.86319 1 2.92383C1.00007 3.33655 1.13214 3.7358 1.375 4.06543L1.48535 4.20215L6.93652 10.334V10.335C6.97623 10.3796 6.99902 10.4377 6.99902 10.501V14.876L7.19922 15.0254L8.69922 16.1504L9.49902 16.751V12.001C9.49902 11.8632 9.61127 11.7511 9.74902 11.751C9.88688 11.751 9.99902 11.8631 9.99902 12.001V13.207L10 13.2061V17.25C10 17.3444 9.94664 17.4306 9.86133 17.4736C9.82681 17.4909 9.78922 17.5 9.75 17.5C9.72387 17.5 9.69747 17.4958 9.67188 17.4873L9.59863 17.4492L6.59961 15.2002L6.59863 15.1992C6.53725 15.1533 6.5 15.0795 6.5 15V10.5947Z"
+              fill="#21409A"
+              stroke="#21409A"
+            />
+          </g>
+          <defs>
+            <clipPath id="clip0_5799_18002">
+              <rect width="18" height="18" fill="white" />
+            </clipPath>
+          </defs>
+        </svg>
+      </button>
+      <button class="rv-filter-icon-btn rv-filter-icon-btn--advanced" data-tooltip="Advanced&#10;Filter"
+        title="Advanced filter" (click)="openAdvancedFilter()">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5 10H15M2.5 5H17.5M7.5 15H12.5"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+    </div>
+  </div>
+<div class="scrollAccordionMain">
+  <div class="whiteBgSecMainallwidth" *ngIf="report && !isLoading">
+    <!-- Company / job progress banner -->
+    <div
+      class="rv-banner"
+      *ngIf="report && !isLoading"
+      [style.background]="
+        config?.headerBackgroundColor ||
+        'linear-gradient(90.37deg, #162B6F 0%, #1B3585 30%, #21409A 58%, #2852B1 82%, #315FC2 100%)'
+      "
+      [style.color]="config?.headerTextColor || '#fff'"
+    >
+      <div class="rv-banner__company">
+        <div class="rv-banner__logo" *ngIf="config?.leftLogoUrl">
+          <img [src]="config.leftLogoUrl" alt="Left logo" class="rv-banner__logo-img" />
+        </div>
+        <div class="rv-banner__company-text">
+          <div class="rv-banner__company-name" [style.font-size.px]="config?.headerFontSize">{{ companyName }}</div>
+          <div class="rv-banner__contract" [style.color]="config?.headerTextColor || '#fff'">
+            {{ contractInfo }}
+          </div>
+          <div
+            class="rv-banner__contract"
+            *ngIf="contractInfo2"
+            [style.color]="config?.headerTextColor || '#fff'"
+          >
+            {{ contractInfo2 }}
+          </div>
+        </div>
+      </div>
+      <div class="rv-banner__report">
+        <div class="rv-banner__report-label">{{ reportTypeLabel }}</div>
+        <div class="rv-banner__report-title">{{ bannerTitle }}</div>
+        <div class="rv-banner__report-period" [style.color]="config?.headerTextColor || '#fff'">
+          {{ bannerPeriod }}
+        </div>
+      </div>
+      <div class="rv-banner__right-logo" *ngIf="config?.rightLogoUrl">
+        <img [src]="config.rightLogoUrl" alt="Right logo" class="rv-banner__logo-img" />
+      </div>
+    </div>
+
+    <!-- KPI summary strip (hidden for now) -->
+    <div class="rv-kpis" *ngIf="false && report && !isLoading">
+      <div class="rv-kpi" *ngFor="let kpi of kpiCards">
+        <div class="rv-kpi__head">
+          <span class="rv-kpi__icon rv-kpi__icon--{{ kpi.accent }}">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M17 9L11.5657 14.4343C11.3677 14.6323 11.2687 14.7313 11.1545 14.7684C11.0541 14.8011 10.9459 14.8011 10.8455 14.7684C10.7313 14.7313 10.6323 14.6323 10.4343 14.4343L8.56569 12.5657C8.36768 12.3677 8.26867 12.2687 8.15451 12.2316C8.05409 12.1989 7.94591 12.1989 7.84549 12.2316C7.73133 12.2687 7.63232 12.3677 7.43431 12.5657L3 17M17 13V9H13M7.8 21H16.2C17.8802 21 18.7202 21 19.362 20.673C19.9265 20.3854 20.3854 19.9265 20.673 19.362C21 18.7202 21 17.8802 21 16.2V7.8C21 6.11984 21 5.27976 20.673 4.63803C20.3854 4.07354 19.9265 3.6146 19.362 3.32698C18.7202 3 17.8802 3 16.2 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V16.2C3 17.8802 3 18.7202 3.32698 19.362C3.6146 19.9265 4.07354 20.3854 4.63803 20.673C5.27976 21 6.11984 21 7.8 21Z"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <div>
+            <span class="rv-kpi__label">{{ kpi.label }}</span>
+            <div class="rv-kpi__value">{{ kpi.value }}</div>
+          </div>
+        </div>
+
+        <div class="rv-kpi__hint">{{ kpi.hint }}</div>
+      </div>
+    </div>
+
+    <!-- Tabs + search + density toolbar (hidden for now) -->
+    <div class="rv-toolbar" *ngIf="false && !isLoading && displayColumns.length">
+      <!-- Tabs hidden for now -->
+      <div class="rv-tabs" *ngIf="false">
+        <button
+          class="rv-tab rv-tab--all"
+          [class.active]="activeTab === 'all'"
+          (click)="setTab('all')"
+        >
+          <span class="rv-tab__icon rv-tab__icon--all">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </span>
+          All Data
+        </button>
+        <button
+          *ngFor="let grp of groupChipNames"
+          class="rv-tab rv-tab--grouped"
+          [class.active]="activeTab === 'grouped' && activeGroupName === grp"
+          (click)="switchToGroup(grp)"
+        >
+          <span class="rv-tab__icon rv-tab__icon--grouped">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"></path>
+              <path d="m9 12 2 2 4-4"></path>
+            </svg>
+          </span>
+          {{ grp }}
+        </button>
+      </div>
+      <div class="rv-toolbar__actions">
+        <!-- Search hidden for now -->
+        <div class="rv-search" *ngIf="false">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M14 14L11.1 11.1M12.6667 7.33333C12.6667 10.2789 10.2789 12.6667 7.33333 12.6667C4.38781 12.6667 2 10.2789 2 7.33333C2 4.38781 4.38781 2 7.33333 2C10.2789 2 12.6667 4.38781 12.6667 7.33333Z"
+              stroke="#21409A"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+
+          <input type="text" placeholder="Search" [(ngModel)]="tableSearch" />
+        </div>
+        <div class="rv-view-toggle">
+          <button
+            [class.active]="viewMode === 'comfortable'"
+            title="Comfortable rows"
+            (click)="setViewMode('comfortable')"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 18 18"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M13.35 7.5C14.1901 7.5 14.6102 7.5 14.931 7.33651C15.2132 7.1927 15.4427 6.96323 15.5865 6.68098C15.75 6.36012 15.75 5.94008 15.75 5.1V4.65C15.75 3.80992 15.75 3.38988 15.5865 3.06902C15.4427 2.78678 15.2132 2.5573 14.931 2.41349C14.6102 2.25 14.1901 2.25 13.35 2.25H4.65C3.80992 2.25 3.38988 2.25 3.06902 2.41349C2.78677 2.5573 2.5573 2.78677 2.41349 3.06902C2.25 3.38988 2.25 3.80992 2.25 4.65V5.1C2.25 5.94008 2.25 6.36012 2.41349 6.68098C2.5573 6.96323 2.78677 7.1927 3.06902 7.33651C3.38988 7.5 3.80992 7.5 4.65 7.5H13.35Z"
+                stroke="#21409A"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M13.35 15.75C14.1901 15.75 14.6102 15.75 14.931 15.5865C15.2132 15.4427 15.4427 15.2132 15.5865 14.931C15.75 14.6102 15.75 14.1901 15.75 13.35V12.9C15.75 12.0599 15.75 11.6399 15.5865 11.319C15.4427 11.0368 15.2132 10.8073 14.931 10.6635C14.6102 10.5 14.1901 10.5 13.35 10.5H4.65C3.80992 10.5 3.38988 10.5 3.06902 10.6635C2.78677 10.8073 2.5573 11.0368 2.41349 11.319C2.25 11.6399 2.25 12.0599 2.25 12.9V13.35C2.25 14.1901 2.25 14.6102 2.41349 14.931C2.5573 15.2132 2.78677 15.4427 3.06902 15.5865C3.38988 15.75 3.80992 15.75 4.65 15.75H13.35Z"
+                stroke="#21409A"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            [class.active]="viewMode === 'compact'"
+            title="Compact rows"
+            (click)="setViewMode('compact')"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 18 18"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M13.35 5.25C14.1901 5.25 14.6102 5.25 14.931 5.15658C15.2132 5.0744 15.4427 4.94328 15.5865 4.78199C15.75 4.59864 15.75 4.35862 15.75 3.87857V3.62143C15.75 3.14139 15.75 2.90136 15.5865 2.71801C15.4427 2.55673 15.2132 2.4256 14.931 2.34342C14.6102 2.25 14.1901 2.25 13.35 2.25H4.65C3.80992 2.25 3.38988 2.25 3.06902 2.34342C2.78677 2.4256 2.5573 2.55672 2.41349 2.71801C2.25 2.90136 2.25 3.14138 2.25 3.62143V3.87857C2.25 4.35861 2.25 4.59864 2.41349 4.78199C2.5573 4.94328 2.78677 5.0744 3.06902 5.15658C3.38988 5.25 3.80992 5.25 4.65 5.25H13.35Z"
+                stroke="#8F98A2"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M13.35 10.5C14.1901 10.5 14.6102 10.5 14.931 10.4066C15.2132 10.3244 15.4427 10.1933 15.5865 10.032C15.75 9.84866 15.75 9.60861 15.75 9.12857V8.87143C15.75 8.39139 15.75 8.15134 15.5865 7.968C15.4427 7.80673 15.2132 7.67559 14.931 7.59343C14.6102 7.5 14.1901 7.5 13.35 7.5H4.65C3.80992 7.5 3.38988 7.5 3.06902 7.59343C2.78677 7.67559 2.5573 7.80673 2.41349 7.968C2.25 8.15134 2.25 8.39139 2.25 8.87143V9.12857C2.25 9.60861 2.25 9.84866 2.41349 10.032C2.5573 10.1933 2.78677 10.3244 3.06902 10.4066C3.38988 10.5 3.80992 10.5 4.65 10.5H13.35Z"
+                stroke="#8F98A2"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M13.35 15.75C14.1901 15.75 14.6102 15.75 14.931 15.6566C15.2132 15.5744 15.4427 15.4433 15.5865 15.282C15.75 15.0987 15.75 14.8586 15.75 14.3786V14.1214C15.75 13.6414 15.75 13.4013 15.5865 13.218C15.4427 13.0567 15.2132 12.9256 14.931 12.8434C14.6102 12.75 14.1901 12.75 13.35 12.75H4.65C3.80992 12.75 3.38988 12.75 3.06902 12.8434C2.78677 12.9256 2.5573 13.0567 2.41349 13.218C2.25 13.4013 2.25 13.6414 2.25 14.1214V14.3786C2.25 14.8586 2.25 15.0987 2.41349 15.282C2.5573 15.4433 2.78677 15.5744 3.06902 15.6566C3.38988 15.75 3.80992 15.75 4.65 15.75H13.35Z"
+                stroke="#8F98A2"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            class="tabButtonMainAll"
+            [class.active]="viewMode === 'dense'"
+            title="Dense rows"
+            (click)="setViewMode('dense')"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 18 18"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M13.5111 4C14.3823 4 14.8179 4 15.1507 3.93772C15.4433 3.88293 15.6813 3.79552 15.8304 3.68799C16 3.56576 16 3.40575 16 3.08571V2.91429C16 2.59426 16 2.43424 15.8304 2.31201C15.6813 2.20449 15.4433 2.11707 15.1507 2.06228C14.8179 2 14.3823 2 13.5111 2H4.48889C3.6177 2 3.1821 2 2.84935 2.06228C2.55665 2.11707 2.31868 2.20448 2.16955 2.31201C2 2.43424 2 2.59425 2 2.91429V3.08571C2 3.40574 2 3.56576 2.16955 3.68799C2.31868 3.79552 2.55665 3.88293 2.84935 3.93772C3.1821 4 3.61769 4 4.48889 4H13.5111Z"
+                stroke="#8F98A2"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M13.5111 8C14.3823 8 14.8179 8 15.1507 7.93771C15.4433 7.88294 15.6813 7.79551 15.8304 7.688C16 7.56577 16 7.40574 16 7.08571V6.91429C16 6.59426 16 6.43423 15.8304 6.312C15.6813 6.20449 15.4433 6.11706 15.1507 6.06229C14.8179 6 14.3823 6 13.5111 6H4.48889C3.6177 6 3.1821 6 2.84935 6.06229C2.55665 6.11706 2.31868 6.20449 2.16955 6.312C2 6.43423 2 6.59426 2 6.91429V7.08571C2 7.40574 2 7.56577 2.16955 7.688C2.31868 7.79551 2.55665 7.88294 2.84935 7.93771C3.1821 8 3.61769 8 4.48889 8H13.5111Z"
+                stroke="#8F98A2"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M13.5111 12C14.3823 12 14.8179 12 15.1507 11.9377C15.4433 11.8829 15.6813 11.7955 15.8304 11.688C16 11.5658 16 11.4057 16 11.0857V10.9143C16 10.5943 16 10.4342 15.8304 10.312C15.6813 10.2045 15.4433 10.1171 15.1507 10.0623C14.8179 10 14.3823 10 13.5111 10H4.48889C3.6177 10 3.1821 10 2.84935 10.0623C2.55665 10.1171 2.31868 10.2045 2.16955 10.312C2 10.4342 2 10.5943 2 10.9143V11.0857C2 11.4057 2 11.5658 2.16955 11.688C2.31868 11.7955 2.55665 11.8829 2.84935 11.9377C3.1821 12 3.61769 12 4.48889 12H13.5111Z"
+                stroke="#8F98A2"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M13.5111 16C14.3823 16 14.8179 16 15.1507 15.9377C15.4433 15.8829 15.6813 15.7955 15.8304 15.688C16 15.5658 16 15.4057 16 15.0857V14.9143C16 14.5943 16 14.4342 15.8304 14.312C15.6813 14.2045 15.4433 14.1171 15.1507 14.0623C14.8179 14 14.3823 14 13.5111 14H4.48889C3.6177 14 3.1821 14 2.84935 14.0623C2.55665 14.1171 2.31868 14.2045 2.16955 14.312C2 14.4342 2 14.5943 2 14.9143V15.0857C2 15.4057 2 15.5658 2.16955 15.688C2.31868 15.7955 2.55665 15.8829 2.84935 15.9377C3.1821 16 3.61769 16 4.48889 16H13.5111Z"
+                stroke="#8F98A2"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column picks for selected group -->
+    <!-- Column picks (hidden for now) -->
+    <div
+      class="grouped-wrapper"
+      *ngIf="false && activeTab === 'grouped' && activeGroupName && activeGroupColumns.length"
+    >
+      <span class="grouped-label">Columns:</span>
+
+      <button
+        *ngFor="let col of activeGroupColumns"
+        class="group-btn"
+        [class.active]="isGroupColumnSelected(col)"
+        (click)="toggleGroupColumn(col)"
+      >
+        <span class="check-icon" *ngIf="isGroupColumnSelected(col)">
+          <svg
+            width="12"
+            height="10"
+            viewBox="0 0 16 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M14.3333 1L5.16667 10.1667L1 6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
+        {{ getColumnHeader(col) }}
+      </button>
+    </div>
+
+    <div class="report-viewer__grid-wrap" *ngIf="!isLoading && !error && displayColumns.length">
+      <!-- Grid toolbar -->
+      <div class="rv-grid-toolbar">
+        <div class="rv-grid-toolbar__left">
+          <div class="rv-grid-search">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M14 14L11.1 11.1M12.6667 7.33333C12.6667 10.2789 10.2789 12.6667 7.33333 12.6667C4.38781 12.6667 2 10.2789 2 7.33333C2 4.38781 4.38781 2 7.33333 2C10.2789 2 12.6667 4.38781 12.6667 7.33333Z"
+                stroke="#667085"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search rows..."
+              [(ngModel)]="gridQuickFilterText"
+            />
+          </div>
+        </div>
+        <div class="rv-grid-toolbar__right">
+          <div class="rv-view-toggle">
+            <button
+              [class.active]="viewMode === 'comfortable'"
+              title="Comfortable"
+              (click)="setViewMode('comfortable')"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="7" rx="1" />
+                <rect x="3" y="14" width="18" height="7" rx="1" />
+              </svg>
+            </button>
+            <button
+              [class.active]="viewMode === 'compact'"
+              title="Compact"
+              (click)="setViewMode('compact')"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="5" rx="1" />
+                <rect x="3" y="10" width="18" height="5" rx="1" />
+                <rect x="3" y="17" width="18" height="5" rx="1" />
+              </svg>
+            </button>
+            <button
+              [class.active]="viewMode === 'dense'"
+              title="Dense"
+              (click)="setViewMode('dense')"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="3" y1="4" x2="21" y2="4" />
+                <line x1="3" y1="8" x2="21" y2="8" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="16" x2="21" y2="16" />
+                <line x1="3" y1="20" x2="21" y2="20" />
+              </svg>
+            </button>
+          </div>
+          <button
+            class="rv-grid-toolbar__btn"
+            [class.active]="columnSizingMode === 'auto'"
+            title="Auto-size columns"
+            (click)="autoSizeAllColumns()"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 3H3v18h18V3zM9 3v18M15 3v18" />
+            </svg>
+          </button>
+          <button
+            class="rv-grid-toolbar__btn"
+            title="Expand view"
+            (click)="expandGrid()"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="15 3 21 3 21 9" />
+              <polyline points="9 21 3 21 3 15" />
+              <line x1="21" y1="3" x2="14" y2="10" />
+              <line x1="3" y1="21" x2="10" y2="14" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <ag-grid-angular
+        [gridOptions]="gridOptions"
+        [theme]="gridTheme"
+        [columnDefs]="gridColumnDefs"
+        [defaultColDef]="gridDefaultColDef"
+        [excelStyles]="gridExcelStyles"
+        [rowData]="filteredRows"
+        [rowHeight]="gridRowHeight"
+        [getRowHeight]="getRowHeight"
+        [headerHeight]="gridHeaderHeight"
+        [style.--rb-header-height]="gridHeaderHeight + 'px'"
+        [pagination]="gridPagination"
+        [paginationPageSize]="gridPaginationPageSize"
+        [paginationPageSizeSelector]="gridPaginationPageSizeSelector"
+        [animateRows]="true"
+        [rowSelection]="gridRowSelection"
+        [ensureDomOrder]="true"
+        [quickFilterText]="gridQuickFilterText"
+        [tooltipShowDelay]="0"
+        [tooltipHideDelay]="500"
+        [undoRedoCellEditing]="true"
+        [undoRedoCellEditingLimit]="20"
+        [pinnedBottomRowData]="gridPinnedBottomRowData"
+        [popupParent]="gridPopupParent"
+        [postProcessPopup]="postProcessGridPopup"
+        [suppressColumnVirtualisation]="false"
+        [alwaysShowHorizontalScroll]="true"
+        [alwaysShowVerticalScroll]="true"
+        [suppressDragLeaveHidesColumns]="true"
+        [rowDragMultiRow]="true"
+        [columnHoverHighlight]="true"
+        [sideBar]="gridSideBar"
+        [statusBar]="gridStatusBar"
+        [groupDefaultExpanded]="gridGroupDefaultExpanded"
+        [rowGroupPanelShow]="gridRowGroupPanelShow"
+        [aggFuncs]="gridAggFuncs"
+        [suppressAggFuncInHeader]="true"
+        [pivotMode]="false"
+        [enableCharts]="true"
+        [enableCellSpan]="gridEnableCellSpan"
+        [groupDisplayType]="'multipleColumns'"
+        [suppressGroupChangesColumnVisibility]="'suppressHideOnGroup'"
+        [autoGroupColumnDef]="gridAutoGroupColumnDef"
+        [groupTotalRow]="groupTotalRow"
+        [grandTotalRow]="grandTotalRow"
+        [suppressClipboardPaste]="false"
+        [getRowClass]="getRowClass"
+        [getRowStyle]="getRowStyle"
+        (gridReady)="onGridReady($event)"
+        (firstDataRendered)="onFirstDataRendered($event)"
+        (cellValueChanged)="onCellValueChanged()"
+        (columnRowGroupChanged)="onColumnRowGroupChanged($event)"
+      >
+      </ag-grid-angular>
+    </div>
+
+    <div
+      class="report-viewer__report-banner"
+      *ngIf="config?.bannerText && !isLoading"
+      [style.background]="config.bannerBackgroundColor || '#EDEFF4'"
+      [style.color]="config.bannerTextColor || '#344054'"
+      [style.font-family]="config.fontFamily || 'Inter'"
+      [style.font-size.px]="config.bannerFontSize"
+    >
+      {{ config.bannerText }}
+    </div>
+  </div>
+  </div>
+
+  <app-empty-state
+    *ngIf="!isLoading && !error && !displayColumns.length"
+    title="No Columns Configured"
+    description="This report has no column configuration. Edit it to add columns."
+    icon="description"
+  ></app-empty-state>
+
+  <!-- Excel-like page tabs (read-only) — shown only for multi-page reports -->
+  <div class="rv-sheet-tabs" *ngIf="hasMultipleSheets && !error">
+    <button
+      *ngFor="let sheet of sheets; let i = index"
+      type="button"
+      class="rv-sheet-tabs__tab"
+      [class.active]="i === activeSheetIndex"
+      (click)="selectSheet(i)"
+      [title]="sheet.name"
+    >
+      {{ sheet.name }}
+    </button>
+  </div>
+</div>
+
+<!-- Export progress / result toast -->
+<div class="rv-export-toast" *ngIf="isExporting || exportToastVisible"
+  [class.rv-export-toast--error]="exportToastError && !isExporting">
+  <svg *ngIf="isExporting" class="rv-export-toast__spinner" width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" stroke-opacity="0.25" />
+    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+  </svg>
+  <svg *ngIf="!isExporting && !exportToastError" width="16" height="16" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+  <span>{{ isExporting ? 'Preparing your export…' : exportToastMessage }}</span>
+</div>
+
+<app-confirmation-dialog
+  [isOpen]="showDeleteConfirm"
+  title="Delete Report"
+  [message]="
+    'Are you sure you want to delete \'' +
+    (report?.reportName ?? '') +
+    '\'? This action cannot be undone.'
+  "
+  confirmLabel="Delete"
+  variant="danger"
+  (confirmed)="deleteReport()"
+  (cancelled)="cancelDelete()"
+></app-confirmation-dialog>
+
+<app-schedule-dialog *ngIf="scheduleOpen && report" [target]="{ type: 'Report', id: report.id, name: report.reportName }"
+  (closed)="scheduleOpen = false"></app-schedule-dialog>
+
+<app-advanced-filter #advancedFilter
+  [globalCluster]="filterCluster === 'All' ? '' : filterCluster"
+  [globalPlant]="filterPlant === 'All' ? '' : filterPlant">
+</app-advanced-filter>
+
+<!-- ─── Expanded table modal (full-viewport view with banner + grid tool panels) ── -->
+<div class="rv-expand-backdrop" *ngIf="showExpandModal" (click)="closeExpandModal()">
+  <div appDialog (dialogClose)="closeExpandModal()" class="rv-expand-modal" (click)="$event.stopPropagation()">
+    <div class="rv-expand-modal__header">
+      <h3>View Table</h3>
+      <button class="rv-expand-modal__close" (click)="closeExpandModal()" title="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="rv-expand-modal__body">
+      <!-- Report header banner (mirrors the main viewer banner) -->
+      <div
+        class="rv-banner"
+        [style.background]="
+          config?.headerBackgroundColor ||
+          'linear-gradient(90.37deg, #162B6F 0%, #1B3585 30%, #21409A 58%, #2852B1 82%, #315FC2 100%)'
+        "
+        [style.color]="config?.headerTextColor || '#fff'"
+      >
+        <div class="rv-banner__company">
+          <div class="rv-banner__logo" *ngIf="config?.leftLogoUrl">
+            <img [src]="config.leftLogoUrl" alt="Left logo" class="rv-banner__logo-img" />
+          </div>
+          <div class="rv-banner__company-text">
+            <div class="rv-banner__company-name" [style.font-size.px]="config?.headerFontSize">{{ companyName }}</div>
+            <div class="rv-banner__contract" [style.color]="config?.headerTextColor || '#fff'">
+              {{ contractInfo }}
+            </div>
+            <div
+              class="rv-banner__contract"
+              *ngIf="contractInfo2"
+              [style.color]="config?.headerTextColor || '#fff'"
+            >
+              {{ contractInfo2 }}
+            </div>
+          </div>
+        </div>
+        <div class="rv-banner__report">
+          <div class="rv-banner__report-label">{{ reportTypeLabel }}</div>
+          <div class="rv-banner__report-title">{{ bannerTitle }}</div>
+          <div class="rv-banner__report-period" [style.color]="config?.headerTextColor || '#fff'">
+            {{ bannerPeriod }}
+          </div>
+        </div>
+        <div class="rv-banner__right-logo" *ngIf="config?.rightLogoUrl">
+          <img [src]="config.rightLogoUrl" alt="Right logo" class="rv-banner__logo-img" />
+        </div>
+      </div>
+
+      <ag-grid-angular
+        class="rv-expand-grid"
+        [gridOptions]="expandGridOptions"
+        [theme]="gridTheme"
+        [columnDefs]="gridColumnDefs"
+        [defaultColDef]="gridDefaultColDef"
+        [excelStyles]="gridExcelStyles"
+        [rowData]="filteredRows"
+        [rowHeight]="gridRowHeight"
+        [getRowHeight]="getRowHeight"
+        [headerHeight]="gridHeaderHeight"
+        [style.--rb-header-height]="gridHeaderHeight + 'px'"
+        [pagination]="gridPagination"
+        [paginationPageSize]="gridPaginationPageSize"
+        [paginationPageSizeSelector]="gridPaginationPageSizeSelector"
+        [animateRows]="true"
+        [rowSelection]="gridRowSelection"
+        [ensureDomOrder]="true"
+        [quickFilterText]="gridQuickFilterText"
+        [tooltipShowDelay]="500"
+        [tooltipHideDelay]="2000"
+        [undoRedoCellEditing]="true"
+        [undoRedoCellEditingLimit]="20"
+        [pinnedBottomRowData]="gridPinnedBottomRowData"
+        [popupParent]="gridPopupParent"
+        [postProcessPopup]="postProcessExpandGridPopup"
+        [suppressColumnVirtualisation]="false"
+        [alwaysShowHorizontalScroll]="true"
+        [alwaysShowVerticalScroll]="true"
+        [suppressDragLeaveHidesColumns]="true"
+        [rowDragMultiRow]="true"
+        [columnHoverHighlight]="true"
+        [sideBar]="gridSideBar"
+        [statusBar]="gridStatusBar"
+        [groupDefaultExpanded]="gridGroupDefaultExpanded"
+        [rowGroupPanelShow]="gridRowGroupPanelShow"
+        [aggFuncs]="gridAggFuncs"
+        [suppressAggFuncInHeader]="true"
+        [pivotMode]="false"
+        [enableCharts]="true"
+        [enableCellSpan]="gridEnableCellSpan"
+        [groupDisplayType]="'multipleColumns'"
+        [suppressGroupChangesColumnVisibility]="'suppressHideOnGroup'"
+        [autoGroupColumnDef]="gridAutoGroupColumnDef"
+        [groupTotalRow]="groupTotalRow"
+        [grandTotalRow]="grandTotalRow"
+        [suppressClipboardPaste]="false"
+        [getRowClass]="getRowClass"
+        [getRowStyle]="getRowStyle"
+        (gridReady)="onExpandGridReady($event)"
+        (firstDataRendered)="onExpandFirstDataRendered($event)"
+        (cellValueChanged)="onCellValueChanged()"
+        (columnRowGroupChanged)="onColumnRowGroupChanged($event)"
+      >
+      </ag-grid-angular>
+
+      <!-- Footer banner at the bottom of the expanded table (mirrors the main preview) -->
+      <div
+        class="rv-expand-report-banner"
+        *ngIf="config?.bannerText"
+        [style.background]="config.bannerBackgroundColor || '#EDEFF4'"
+        [style.color]="config.bannerTextColor || '#344054'"
+        [style.font-family]="config.fontFamily || 'Inter'"
+        [style.font-size.px]="config.bannerFontSize"
+      >
+        {{ config.bannerText }}
+      </div>
+    </div>
+  </div>
+</div>

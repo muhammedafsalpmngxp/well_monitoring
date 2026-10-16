@@ -1,0 +1,38 @@
+.data-sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #E2E7EF;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+
+    &--view {
+      color: #2563EB;
+    }
+
+    &--retry,
+    &--run {
+      color: #16A34A;
+    }
+
+    &--edit {
+      color: #667085;
+    }
+
+    &--delete {
+      color: #D92D20;
+    }
+
+    &:hover {
+      background: #F2F4F7;
+    }
+  }
+}

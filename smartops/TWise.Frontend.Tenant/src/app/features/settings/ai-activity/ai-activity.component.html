@@ -1,0 +1,87 @@
+<app-page-header title="AI Activity" subtitle="Every user's Ask AI answers with the steps behind them, and the AI calls that failed." [breadcrumbs]="breadcrumbs">
+  <span page-header-icon class="ai-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white"
+      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3l1.8 4.6L18.4 9.4l-4.6 1.8L12 15.8l-1.8-4.6L5.6 9.4l4.6-1.8z" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+    </svg>
+  </span>
+</app-page-header>
+
+<div class="page-content ai">
+  <p *ngIf="error" class="ai__msg ai__msg--bad" role="alert">{{ error }}</p>
+
+  <section class="ai__card">
+    <div class="ai__card-head">
+      <h3>Answers <span class="ai__hint" *ngIf="!loading">· {{ total | number }} in the period</span></h3>
+      <form class="act__filters" (ngSubmit)="applyFilter()">
+        <select [(ngModel)]="days" name="days" (change)="applyFilter()">
+          <option *ngFor="let d of dayOptions" [ngValue]="d.days">{{ d.label }}</option>
+        </select>
+        <input type="search" [(ngModel)]="search" name="q" placeholder="Search answer, dataset, question or user id" />
+        <button type="submit" class="btn btn-secondary">Search</button>
+      </form>
+    </div>
+
+    <app-loader *ngIf="loading" size="lg"></app-loader>
+    <p class="ai__hint" *ngIf="!loading && !items.length">No answers in this period.</p>
+
+    <table class="ai__table act__table" *ngIf="!loading && items.length">
+      <thead><tr><th>When</th><th>User</th><th>Dataset</th><th>Question</th><th>Answer</th><th>Time</th></tr></thead>
+      <tbody>
+        <ng-container *ngFor="let it of items; trackBy: trackById">
+          <tr class="act__row" [class.act__row--open]="openId === it.messageId" (click)="toggle(it)" tabindex="0" (keydown.enter)="toggle(it)">
+            <td class="act__nowrap">{{ it.createdAt | date:'d MMM HH:mm' }}</td>
+            <td class="act__nowrap">{{ it.userName || it.userId }}</td>
+            <td>{{ it.sourceName }}</td>
+            <td>{{ it.question }}</td>
+            <td class="act__answer">{{ it.answer }}</td>
+            <td class="act__nowrap">{{ it.totalMs !== null ? (it.totalMs | number) + ' ms' : (it.hasQuery ? '' : 'no query') }}</td>
+          </tr>
+          <tr *ngIf="openId === it.messageId" class="act__detail">
+            <td colspan="6">
+              <app-loader *ngIf="traceLoading === it.messageId" size="sm"></app-loader>
+              <p class="ai__hint" *ngIf="!it.hasTrace">No steps kept for this answer (traces are kept 30 days).</p>
+              <p class="ai__hint" *ngIf="it.hasTrace && traceLoading !== it.messageId && traces.get(it.messageId) === null">The steps could not be loaded.</p>
+              <div class="act__trace" *ngIf="traces.get(it.messageId) as steps">
+                <details *ngFor="let s of steps">
+                  <summary><strong>{{ stepNames[s.step] || s.step }}</strong> · {{ s.ms | number }} ms<ng-container *ngIf="s.detail"> · {{ s.detail }}</ng-container></summary>
+                  <ng-container *ngIf="s.prompt">
+                    <div *ngFor="let m of s.prompt"><small class="ai__hint">{{ m.role }}</small><pre>{{ m.content }}</pre></div>
+                    <small class="ai__hint">reply</small><pre>{{ s.reply }}</pre>
+                  </ng-container>
+                </details>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+
+    <div class="ai__actions act__pager" *ngIf="total > pageSize">
+      <button type="button" class="btn btn-secondary" [disabled]="skip === 0 || loading" (click)="page(-1)">Previous</button>
+      <span class="ai__hint">{{ skip + 1 }}–{{ (skip + items.length) }} of {{ total | number }}</span>
+      <button type="button" class="btn btn-secondary" [disabled]="skip + pageSize >= total || loading" (click)="page(1)">Next</button>
+    </div>
+  </section>
+
+  <section class="ai__card">
+    <div class="ai__card-head">
+      <h3>Failed AI calls</h3>
+      <span class="ai__hint">Calls the provider refused or that timed out. Answers that failed before the AI was called are not AI calls.</span>
+    </div>
+    <p class="ai__hint" *ngIf="!failures.length">No failed calls in this period.</p>
+    <table class="ai__table act__table" *ngIf="failures.length">
+      <thead><tr><th>When</th><th>User</th><th>Purpose</th><th>Model</th><th>Latency</th><th>Error</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let f of failures">
+          <td class="act__nowrap">{{ f.createdAt | date:'d MMM HH:mm' }}</td>
+          <td class="act__nowrap">{{ f.userName || f.userId || '—' }}</td>
+          <td>{{ f.purpose }}</td><td>{{ f.model }}</td>
+          <td class="act__nowrap">{{ f.latencyMs | number }} ms</td>
+          <td class="act__answer">{{ f.error }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>

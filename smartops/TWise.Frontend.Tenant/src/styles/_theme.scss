@@ -1,0 +1,85 @@
+// ============================================================
+// CSS Custom Properties (Theme Variables)
+// ============================================================
+@use 'variables' as *;
+
+:root {
+  // Primary
+  --color-primary:        #{$color-primary};
+  --color-primary-dark:   #{$color-primary-dark};
+  --color-primary-light:  #{$color-primary-light};
+  --color-primary-50:     #{$color-primary-50};
+  --color-primary-tint:   #{$color-primary-tint};
+  --color-primary-200:    #{$color-primary-200};
+  --color-accent:         #{$color-accent};
+
+  // Gradients
+  --gradient-primary:     #{$gradient-primary};
+
+  // Secondary
+  --color-secondary:      #{$color-secondary};
+  --color-secondary-dark: #{$color-secondary-dark};
+  --color-secondary-light:#{$color-secondary-light};
+
+  // Semantic
+  --color-success:        #{$color-success};
+  --color-warning:        #{$color-warning};
+  --color-danger:         #{$color-danger};
+  --color-info:           #{$color-info};
+
+  // Background
+  --color-bg-app:         #{$color-bg-app};
+  --color-bg-sidebar:     #{$color-bg-sidebar};
+  --color-bg-card:        #{$color-bg-card};
+  --color-bg-legend:      #{$color-bg-legend};
+  --color-bg-overlay:     #{$color-bg-overlay};
+
+  // Text
+  --color-text-primary:   #{$color-text-primary};
+  --color-text-secondary: #{$color-text-secondary};
+  --color-text-muted:     #{$color-text-muted};
+  --color-text-inverse:   #{$color-text-inverse};
+  --color-text-subtle:    #{$color-text-subtle};
+  --color-text-label:     #{$color-text-label};
+
+  // Border & Shadow
+  --color-border:         #{$color-border};
+  --color-border-subtle:  #{$color-border-subtle};
+  --shadow-sm:            #{$shadow-sm};
+  --shadow-md:            #{$shadow-md};
+  --shadow-lg:            #{$shadow-lg};
+  --shadow-card:          #{$shadow-card};
+  --color-good:           #{$color-good};
+  --color-good-bg:        #{$color-good-bg};
+  --color-warn:           #{$color-warn};
+  --color-warn-bg:        #{$color-warn-bg};
+  --color-bad:            #{$color-bad};
+  --color-bad-bg:         #{$color-bad-bg};
+
+  // Spacing
+  --spacing-xs:  #{$spacing-xs};
+  --spacing-sm:  #{$spacing-sm};
+  --spacing-md:  #{$spacing-md};
+  --spacing-lg:  #{$spacing-lg};
+  --spacing-xl:  #{$spacing-xl};
+  --spacing-2xl: #{$spacing-2xl};
+
+  // Radius
+  --radius-sm:   #{$radius-sm};
+  --radius-md:   #{$radius-md};
+  --radius-lg:   #{$radius-lg};
+  --radius-xl:   #{$radius-xl};
+  --radius-full: #{$radius-full};
+
+  // Typography
+  --font-family-base: #{$font-family-base};
+  --font-size-base:   #{$font-size-base};
+
+  // Layout
+  --sidebar-width:           #{$sidebar-width};
+  --sidebar-collapsed-width: #{$sidebar-collapsed-width};
+  --navbar-height:           #{$navbar-height};
+
+  // Motion
+  --transition-fast: #{$transition-fast};
+}

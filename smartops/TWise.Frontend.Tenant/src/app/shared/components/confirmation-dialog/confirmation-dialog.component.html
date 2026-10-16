@@ -1,0 +1,117 @@
+<div *ngIf="isOpen" class="dialog-backdrop" (click)="onCancel()">
+  <dialog appDialog (dialogClose)="onCancel()"
+    open
+    class="dialog"
+    aria-modal="true"
+    [attr.aria-label]="title"
+    [attr.aria-busy]="busy"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="dialog__header">
+      <div class="dialog__header-left">
+        <span class="dialog__icon" [ngClass]="'dialog__icon--' + variant">
+          <svg
+            *ngIf="variant === 'danger'"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          <svg
+            *ngIf="variant === 'warning'"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+            ></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <svg
+            *ngIf="variant === 'info'"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+        </span>
+        <h3>{{ title }}</h3>
+      </div>
+      <button
+        type="button"
+        class="dialog__close"
+        [disabled]="busy"
+        (click)="onCancel()"
+        title="Close"
+        aria-label="Close"
+      >
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path
+            d="M13.8 7.8L7.8 13.8M7.8 7.8L13.8 13.8M20.8 10.8C20.8 16.3 16.3 20.8 10.8 20.8C5.3 20.8 0.8 16.3 0.8 10.8C0.8 5.3 5.3 0.8 10.8 0.8C16.3 0.8 20.8 5.3 20.8 10.8Z"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+    </div>
+    <div class="dialog__panel">
+      <div class="dialog__body">
+        <p *ngIf="details" class="dialog__details">{{ details }}</p>
+        <p [innerHTML]="message"></p>
+        <ng-content select="[dialogContent]"></ng-content>
+        <p *ngIf="error" class="dialog__error" role="alert">{{ error }}</p>
+      </div>
+      <div class="dialog__footer">
+        <ng-content select="[dialogActions]"></ng-content>
+        <ng-container *ngIf="!customActions">
+        <button *ngIf="secondaryLabel" type="button" class="btn btn-secondary"
+          [disabled]="busy" (click)="secondary.emit()">
+          {{ secondaryLabel }}
+        </button>
+        <button
+          *ngIf="showCancel"
+          type="button"
+          class="btn btn-secondary"
+          [disabled]="busy"
+          (click)="onCancel()"
+        >
+          {{ cancelLabel }}
+        </button>
+        <button
+          type="button"
+          [class]="'btn btn-' + variant"
+          [disabled]="busy"
+          (click)="onConfirm()"
+        >
+          {{ confirmLabel }}
+        </button>
+        </ng-container>
+      </div>
+    </div>
+  </dialog>
+</div>

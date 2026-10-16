@@ -1,0 +1,71 @@
+# Compiled output
+/dist
+/tmp
+/out-tsc
+/bazel-out
+
+# Node
+/node_modules
+npm-debug.log
+yarn-error.log
+
+# IDEs / editors
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/settings.local.json
+
+# Angular
+/.angular/cache
+/.sass-cache/
+/connect.lock
+/coverage
+/libpeerconnection.log
+testem.log
+/typings
+
+# System files
+*.log
+backend/.python-version
+backend/pyproject.toml
+backend/uv.lock
+
+# Integration docs (auto-generated, not tracked)
+docs/crews-deployed-kpi-integration.md
+smartops/services/dotnet/SmartOps.Wells/tests/SmartOps.Wells.IntegrationTests/**
+smartops/services/dotnet/SmartOps.ControlPlane/src/SmartOps.ControlPlane.Infrastructure/Persistence/Migrations/**
+smartops/services/python/etl/.python-version
+smartops/services/python/etl/pyproject.toml
+smartops/services/python/etl/uv.lock
+smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.Infrastructure/Persistence/Migrations/**
+smartops/services/python/etl/dead_letter/**
+smartops/services/python/etl/preload/**
+smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/sql/alter-ProgressDetail-add-columns.sql
+smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/sql/alter-WellDeliveryEvent-add-columns.sql
+smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/sql/alter-WellDocument-add-columns.sql
+smartops/services/python/etl/.env
+
+# Local planning notes, assessments and working files (not part of the product)
+/docs/ASSESSMENT.md
+/docs/DESIGN.md
+/docs/PLAN.md
+/docs/VIEW-CONTRACT.md
+/docs/superpowers/
+/Requirements/
+/.playwright-mcp/
+/graphify-out/
+/.claude/
+~$*
+
+# Local docs, kept on disk and not pushed
+smartops/docs/
+
+# Local fix log, kept on the developer machine only
+smartops/solution.md
+
+
+.venv/

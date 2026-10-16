@@ -1,0 +1,41 @@
+name: Deploy WMR Prod
+on:
+  workflow_dispatch:
+jobs:
+  deploy-prod:
+    name: Deploy to Prod
+    runs-on: [self-hosted, prod]
+    steps:
+      - name: Save rollback image
+        run: docker tag smartops_wells:latest smartops_wells:rollback 2>/dev/null || true
+      - name: Pull latest changes
+        run: |
+          cd /mnt/wellmonitoring
+          git fetch origin main
+          git reset --hard origin/main
+      - name: Build Wells API
+        run: |
+          cd /mnt/wellmonitoring/smartops
+          docker stop smartops_wells_1 || true
+          docker rm smartops_wells_1 || true
+          docker rmi smartops_wells:latest || true
+          docker build -t smartops_wells -f services/dotnet/SmartOps.Wells/src/SmartOps.Wells.API/Dockerfile .
+          docker run -d --name smartops_wells_1 --network smartops_default -p 7002:7002 --env-file .env --restart always smartops_wells
+      - name: Build Frontend
+        run: |
+          cd /mnt/wellmonitoring
+          npm install
+          npm run build
+          cp -r dist/al-tasnim-insight/* /var/www/wellmonitor_web/
+      - name: Health Check
+        run: |
+          sleep 15
+          curl -f https://smartops-wells.prod-app.in/health
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deploy failed! Rolling back..."
+          docker stop smartops_wells_1 || true
+          docker rm smartops_wells_1 || true
+          docker run -d --name smartops_wells_1 --network smartops_default -p 7002:7002 --env-file /mnt/wellmonitoring/smartops/.env --restart always smartops_wells:rollback
+          echo "Rolled back!"

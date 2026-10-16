@@ -1,0 +1,69 @@
+<div id="page-labour" class="page active">
+        <!-- <div class="breadcrumb"><a>{{ 'LABOUR.BREADCRUMB_1' | translate }}</a><span>›</span><span class="current">{{ 'LABOUR.BREADCRUMB_CURRENT' | translate }}</span></div> -->
+        <div class="page-title-row">
+          <div style="flex:1">
+            <div class="page-title">{{ 'LABOUR.TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'LABOUR.SUBTITLE' | translate }}</div>
+          </div>
+          <span class="pa-conf-badge" style="background:rgba(255,0,0,0.08);color:#FF0000;border-color:rgba(255,0,0,0.25)" id="lpAnomalyBadge">{{ 'LABOUR.ANOMALIES_TODAY' | translate }}</span>
+        </div>
+
+        <!-- Offline sync bar -->
+        <div class="lp-sync-bar">
+          <div class="lp-sync-dot pending" id="lpSyncDot"></div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          <span><strong>{{ 'LABOUR.OFFLINE_ACTIVE' | translate }}</strong> {{ 'LABOUR.OFFLINE_DETAIL' | translate }} <strong>06:30 today</strong>.</span>
+          <button class="lp-sync-btn" onclick="lpSimulateSync()">{{ 'LABOUR.SYNC_NOW' | translate }}</button>
+        </div>
+
+        <!-- KPI strip -->
+        <div class="lp-strip" id="lpStrip"></div>
+
+        <!-- Tabs -->
+        <div class="ai-tabs">
+          <div class="ai-tab active" onclick="switchLpTab('capture',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchLpTab('capture',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            {{ 'LABOUR.TAB_FIELD' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchLpTab('attendance',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchLpTab('attendance',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            {{ 'LABOUR.TAB_ATTENDANCE' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchLpTab('productivity',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchLpTab('productivity',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            {{ 'LABOUR.TAB_PRODUCTIVITY' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchLpTab('anomaly',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchLpTab('anomaly',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ 'LABOUR.TAB_ANOMALY' | translate }}
+            <span class="ai-tab-badge" id="lpAnomalyTabBadge">3</span>
+          </div>
+          <div class="ai-tab" onclick="switchLpTab('idle',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchLpTab('idle',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {{ 'LABOUR.TAB_IDLE' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchLpTab('photos',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchLpTab('photos',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            {{ 'LABOUR.TAB_PHOTO' | translate }}
+          </div>
+        </div>
+
+        <div id="lptab-capture" class="ai-tab-content active">
+          <div id="lpCaptureContent"></div>
+        </div>
+        <div id="lptab-attendance" class="ai-tab-content">
+          <div id="lpAttendanceContent"></div>
+        </div>
+        <div id="lptab-productivity" class="ai-tab-content">
+          <div id="lpProductivityContent"></div>
+        </div>
+        <div id="lptab-anomaly" class="ai-tab-content">
+          <div id="lpAnomalyContent"></div>
+        </div>
+        <div id="lptab-idle" class="ai-tab-content">
+          <div id="lpIdleContent"></div>
+        </div>
+        <div id="lptab-photos" class="ai-tab-content">
+          <div id="lpPhotosContent"></div>
+        </div>
+      </div><!-- /page-labour -->

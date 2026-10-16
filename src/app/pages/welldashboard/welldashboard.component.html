@@ -1,0 +1,360 @@
+<div id="page-welldashboard" class="page active">
+  <div class="wd-header">
+    <div class="wd-header__text">
+      <div class="card-title">Well Dashboard</div>
+      <div class="card-sub">Overview of well performance and status</div>
+    </div>
+    <div class="wd-header__actions">
+      <button type="button" class="cw-customise-btn" (click)="openCustomiseDrawer()"
+              title="Customise widgets on this dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
+          <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
+          <line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" />
+          <line x1="17" y1="16" x2="23" y2="16" />
+        </svg>
+        <span>Customise</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ KPI STRIP (6 tiles) ═══ -->
+  <div class="wd-kpi-grid">
+
+    <div data-cw-id="wd_total" [hidden]="!isWidgetVisible('wd_total')" class="kpi k-blue">
+      <div class="wd-kpi-head">
+        <div class="kpi-label">Total Wells</div>
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-val">128</div>
+      <div class="kpi-unit">All wells</div>
+    </div>
+
+    <div data-cw-id="wd_completed" [hidden]="!isWidgetVisible('wd_completed')" class="kpi k-green">
+      <div class="wd-kpi-head">
+        <div class="kpi-label">Completed Wells</div>
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-val green">76</div>
+      <div class="kpi-unit">On schedule</div>
+    </div>
+
+    <div data-cw-id="wd_active" [hidden]="!isWidgetVisible('wd_active')" class="kpi k-gold">
+      <div class="wd-kpi-head">
+        <div class="kpi-label">Active Wells</div>
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-val amber">52</div>
+      <div class="kpi-unit">In progress</div>
+    </div>
+
+    <div data-cw-id="wd_penalty" [hidden]="!isWidgetVisible('wd_penalty')" class="kpi k-red">
+      <div class="wd-kpi-head">
+        <div class="kpi-label">Penalty Exposure</div>
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-val red">$1.2M</div>
+      <div class="kpi-unit">Critical</div>
+    </div>
+
+    <div data-cw-id="wd_bonus" [hidden]="!isWidgetVisible('wd_bonus')" class="kpi k-green">
+      <div class="wd-kpi-head">
+        <div class="kpi-label">Bonus Potential</div>
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-val green">$850K</div>
+      <div class="kpi-unit">On target</div>
+    </div>
+
+    <div data-cw-id="wd_crews" [hidden]="!isWidgetVisible('wd_crews')" class="kpi k-teal">
+      <div class="wd-kpi-head">
+        <div class="kpi-label">Crews Deployed</div>
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </div>
+      </div>
+      <div class="kpi-val teal">34</div>
+      <div class="kpi-unit">On site</div>
+    </div>
+
+  </div>
+
+  <!-- ═══ CHARTS ROW (3 Highcharts widgets, click-to-drilldown) ═══ -->
+  <div class="wd-charts-row">
+
+    <div data-cw-id="wd_drilled" [hidden]="!isWidgetVisible('wd_drilled')" class="card wd-chart-card">
+      <div class="wd-chart-head">
+        <div class="card-title">Total Drilled Wells</div>
+        <div class="wd-chart-actions">
+          <div class="cwc-chart-style-picker">
+            <select class="cwc-chart-style-picker__sel" [value]="donutChartType"
+                    (change)="onDonutChartTypeChange($any($event.target).value)">
+              <option value="doughnut">Doughnut</option>
+              <option value="pie">Pie</option>
+              <option value="bar">Bar</option>
+            </select>
+          </div>
+          <span class="wfb-wrap">
+            <button type="button" class="wfb-btn" [class.active]="donutFilter !== 'all'"
+                    title="Filter this widget" (click)="toggleWfb('donut', $event)">
+              <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+              <span class="wfb-dot" *ngIf="donutFilter !== 'all'"></span>
+            </button>
+            <div class="wfb-popover" [class.open]="wfbOpen === 'donut'" (click)="$event.stopPropagation()">
+              <div class="wfb-popover-head"><span class="wfb-popover-title">Filter — Total Drilled Wells</span></div>
+              <div class="wfb-popover-body">
+                <button type="button" class="wfb-opt" [class.on]="donutFilter === 'all'" (click)="setDonutFilter('all')">All clusters</button>
+                <button type="button" class="wfb-opt" *ngFor="let d of donutData" [class.on]="donutFilter === d.name" (click)="setDonutFilter(d.name)">
+                  <span class="wfb-opt-sw" [style.background]="d.color"></span>{{ d.name }}
+                </button>
+              </div>
+            </div>
+          </span>
+          <button type="button" class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="wdDrilledDonut" class="wd-chart-canvas"></div>
+    </div>
+
+    <div data-cw-id="wd_funnel" [hidden]="!isWidgetVisible('wd_funnel')" class="card wd-chart-card">
+      <div class="wd-chart-head">
+        <div class="card-title">Well Delivery Funnel</div>
+        <div class="wd-chart-actions">
+          <div class="cwc-chart-style-picker">
+            <select class="cwc-chart-style-picker__sel" [value]="funnelChartType"
+                    (change)="onFunnelChartTypeChange($any($event.target).value)">
+              <option value="funnel">Funnel</option>
+              <option value="pyramid">Pyramid</option>
+              <option value="column">Column</option>
+            </select>
+          </div>
+          <span class="wfb-wrap">
+            <button type="button" class="wfb-btn" [class.active]="funnelFilter !== 'all'"
+                    title="Filter this widget" (click)="toggleWfb('funnel', $event)">
+              <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+              <span class="wfb-dot" *ngIf="funnelFilter !== 'all'"></span>
+            </button>
+            <div class="wfb-popover" [class.open]="wfbOpen === 'funnel'" (click)="$event.stopPropagation()">
+              <div class="wfb-popover-head"><span class="wfb-popover-title">Filter — Well Delivery Funnel</span></div>
+              <div class="wfb-popover-body">
+                <button type="button" class="wfb-opt" [class.on]="funnelFilter === 'all'" (click)="setFunnelFilter('all')">All stages</button>
+                <button type="button" class="wfb-opt" *ngFor="let d of funnelData" [class.on]="funnelFilter === d.name" (click)="setFunnelFilter(d.name)">
+                  <span class="wfb-opt-sw" [style.background]="d.color"></span>{{ d.name }}
+                </button>
+              </div>
+            </div>
+          </span>
+          <button type="button" class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="wdFunnelChart" class="wd-chart-canvas"></div>
+    </div>
+
+    <div data-cw-id="wd_execstatus" [hidden]="!isWidgetVisible('wd_execstatus')" class="card wd-chart-card">
+      <div class="wd-chart-head">
+        <div class="card-title">Execution Status</div>
+        <div class="wd-chart-actions">
+          <div class="cwc-chart-style-picker">
+            <select class="cwc-chart-style-picker__sel" [value]="execChartType"
+                    (change)="onExecChartTypeChange($any($event.target).value)">
+              <option value="column">Column</option>
+              <option value="bar">Bar</option>
+              <option value="line">Line</option>
+              <option value="area">Area</option>
+            </select>
+          </div>
+          <span class="wfb-wrap">
+            <button type="button" class="wfb-btn" [class.active]="execFilter !== 'all'"
+                    title="Filter this widget" (click)="toggleWfb('exec', $event)">
+              <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+              <span class="wfb-dot" *ngIf="execFilter !== 'all'"></span>
+            </button>
+            <div class="wfb-popover" [class.open]="wfbOpen === 'exec'" (click)="$event.stopPropagation()">
+              <div class="wfb-popover-head"><span class="wfb-popover-title">Filter — Execution Status</span></div>
+              <div class="wfb-popover-body">
+                <button type="button" class="wfb-opt" [class.on]="execFilter === 'all'" (click)="setExecFilter('all')">All categories</button>
+                <button type="button" class="wfb-opt" *ngFor="let d of execData" [class.on]="execFilter === d.name" (click)="setExecFilter(d.name)">
+                  <span class="wfb-opt-sw" [style.background]="d.color"></span>{{ d.name }}
+                </button>
+              </div>
+            </div>
+          </span>
+          <button type="button" class="card-fullscreen-btn" title="Fullscreen" (click)="toggleFullscreen($event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="wdExecStatusChart" class="wd-chart-canvas"></div>
+    </div>
+
+  </div>
+
+  <!-- ═══ SHARED CHART LEGEND ═══ -->
+  <div class="wd-chart-legend">
+    <span class="wd-legend-item"><span class="wd-legend-sw" style="background:#00B050"></span>Green — Achieved</span>
+    <span class="wd-legend-item"><span class="wd-legend-sw" style="background:#FFC000"></span>Amber — At Risk</span>
+    <span class="wd-legend-item"><span class="wd-legend-sw" style="background:#FF0000"></span>Red — Missed</span>
+    <span class="wd-legend-item"><span class="wd-legend-sw" style="background:#29378d"></span>Blue — Reference</span>
+    <span class="wd-legend-item"><span class="wd-legend-sw" style="background:#9CA3AF"></span>Grey — N/A</span>
+  </div>
+  
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     Customise-Widgets Drawer (Well Dashboard) — reuses the shared .cw-* styles
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="cw-scrim" [class.open]="custDrawerOpen" (click)="closeCustomiseDrawer()"></div>
+
+<aside class="cw-drawer cw-drawer--welldashboard" [class.open]="custDrawerOpen" role="dialog" aria-modal="false"
+       aria-label="Customise widgets">
+
+  <div class="cw-dhead">
+    <div>
+      <div class="cw-dhead__title">Customise widgets</div>
+      <div class="cw-dhead__sub">{{ activeDashboard.name }} · {{ custEnabledCount }} of {{ activeDashboard.widgets.length }} shown</div>
+    </div>
+    <button class="cw-close-x" (click)="closeCustomiseDrawer()" aria-label="Close">&times;</button>
+  </div>
+
+  <div class="cw-dbody">
+
+    <!-- View mode: List / Tree -->
+    <div class="cw-viewseg">
+      <button type="button" [class.on]="custViewMode === 'list'" (click)="setCustView('list')">List</button>
+      <button type="button" [class.on]="custViewMode === 'tree'" (click)="setCustView('tree')">Tree</button>
+    </div>
+
+    <!-- ─────────── LIST VIEW ─────────── -->
+    <ng-container *ngIf="custViewMode === 'list'">
+    <!-- Category → Dashboard selection (drives the widget list + Done navigation) -->
+    <div class="cw-dvs">
+      <div class="cw-dvs-field">
+        <span class="cw-dvs-lbl">Category</span>
+        <select class="dvs-select" [(ngModel)]="selectedCategory" (ngModelChange)="onCustCategoryChange()">
+          <option *ngFor="let c of custCategories" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+      <div class="cw-dvs-field">
+        <span class="cw-dvs-lbl">Dashboard</span>
+        <select class="dvs-select" [(ngModel)]="selectedDashboardId" (ngModelChange)="onCustDashboardChange()">
+          <option *ngFor="let d of custDashboardsInCategory" [value]="d.id">{{ d.name }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="cw-dvs-note">KPI cards &amp; charts for <strong>{{ activeDashboard.name }}</strong></div>
+
+    <ng-container *ngIf="!custWidgetGroups.length">
+      <div class="cw-dvs-note">No widgets on this dashboard yet.</div>
+    </ng-container>
+
+    <ng-container *ngFor="let g of custWidgetGroups">
+      <div class="cw-grp-h">{{ g.name }}</div>
+
+      <div class="cw-row" *ngFor="let w of g.items" [class.cw-row--off]="!isWidgetVisible(w.id)">
+        <button type="button" class="cw-row__main" (click)="drillToWidget(w.id)"
+                title="Open this widget's drill-down">
+          <span class="cw-row__ic" [ngClass]="'cw-row__ic--' + w.type">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3"  width="7" height="9" rx="1" />
+              <rect x="14" y="3" width="7" height="5" rx="1" />
+              <rect x="14" y="12" width="7" height="9" rx="1" />
+              <rect x="3" y="16" width="7" height="5" rx="1" />
+            </svg>
+          </span>
+          <span class="cw-row__info">
+            <span class="cw-row__title">{{ w.title }}</span>
+            <span class="cw-row__type">{{ w.type === 'KPI' ? 'KPI card' : 'Chart / widget' }} · open ›</span>
+          </span>
+        </button>
+        <button type="button" class="cw-toggle" [class.on]="isWidgetVisible(w.id)"
+                role="switch" [attr.aria-checked]="isWidgetVisible(w.id)"
+                [attr.aria-label]="'Toggle ' + w.title"
+                (click)="toggleWidget(w.id)"></button>
+      </div>
+    </ng-container>
+    </ng-container><!-- /list view -->
+
+    <!-- ─────────── TREE VIEW ─────────── -->
+    <div class="cw-tree" *ngIf="custViewMode === 'tree'">
+      <ng-container *ngFor="let cat of custCategories">
+        <button type="button" class="cw-tnode cw-tnode--cat" (click)="toggleTree('cat:' + cat)">
+          <svg class="cw-tcaret" [class.open]="isTreeExpanded('cat:' + cat)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+          <span class="cw-tnode-lbl">{{ cat }}</span>
+          <span class="cw-tnode-meta">Category</span>
+        </button>
+        <div class="cw-tchildren" *ngIf="isTreeExpanded('cat:' + cat)">
+          <ng-container *ngFor="let d of custDashboards">
+            <ng-container *ngIf="d.category === cat">
+              <button type="button" class="cw-tnode cw-tnode--dash" [class.is-active]="d.id === selectedDashboardId"
+                      (click)="selectDashboardNode(d.id); toggleTree('dash:' + d.id)">
+                <svg class="cw-tcaret" [class.open]="isTreeExpanded('dash:' + d.id)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                <span class="cw-tnode-lbl">{{ d.name }}</span>
+                <span class="cw-tnode-meta">{{ d.widgets.length }} widgets</span>
+              </button>
+              <div class="cw-tchildren" *ngIf="isTreeExpanded('dash:' + d.id)">
+                <div class="cw-trow" *ngFor="let w of d.widgets" [class.cw-row--off]="!isWidgetVisible(w.id)">
+                  <span class="cw-row__ic" [ngClass]="'cw-row__ic--' + w.type">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+                  </span>
+                  <span class="cw-trow-info">
+                    <span class="cw-row__title">{{ w.title }}</span>
+                    <span class="cw-row__type">{{ w.type === 'KPI' ? 'KPI card' : 'Chart / widget' }}</span>
+                  </span>
+                  <button type="button" class="cw-toggle" [class.on]="isWidgetVisible(w.id)"
+                          role="switch" [attr.aria-checked]="isWidgetVisible(w.id)"
+                          [attr.aria-label]="'Toggle ' + w.title" (click)="toggleWidget(w.id)"></button>
+                </div>
+              </div>
+            </ng-container>
+          </ng-container>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+
+  <div class="cw-dfoot">
+    <button class="cw-link" (click)="resetWidgets()">↺ Reset to default</button>
+    <button class="dq-btn" (click)="applyCustomiseAndClose()">Done</button>
+  </div>
+
+</aside>

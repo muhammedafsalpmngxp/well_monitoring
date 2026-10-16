@@ -1,0 +1,103 @@
+.pbi {
+  padding: 20px;
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    h2 { margin: 0 0 4px; font-size: 18px; color: #101828; }
+    p  { margin: 0; font-size: 13px; color: #667085; }
+  }
+
+  &__actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  &__conn {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 24px;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #f9fafb;
+    font-size: 12px;
+    color: #475467;
+    strong { color: #344054; margin-right: 6px; }
+  }
+
+  &__error {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid #fda29b;
+    border-radius: 6px;
+    background: #fef3f2;
+    font-size: 13px;
+    color: #b42318;
+  }
+
+  &__muted { font-size: 13px; color: #667085; margin: 0; }
+  &__hint  { font-size: 12px; color: #667085; margin: 0; }
+
+  &__cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #fff;
+    .btn { margin-top: 8px; align-self: flex-start; }
+  }
+  &__name { font-size: 14px; font-weight: 600; color: #101828; }
+  &__meta { font-size: 12px; color: #667085; overflow-wrap: anywhere; }
+
+  &__viewer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    h3 { margin: 0; font-size: 15px; color: #101828; }
+  }
+
+  // Connection dialog body
+  &__form {
+    display: grid;
+    gap: 12px;
+
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: #344054; }
+    input {
+      min-height: 36px;
+      padding: 6px 10px;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      font: inherit;
+      font-weight: 400;
+      color: #101828;
+      &:focus-visible { outline: 2px solid #21409a; outline-offset: 1px; }
+    }
+    .pbi__error { margin: 0; }
+  }
+}
+
+// The embed component sets this class on its host; the iframe fills it.
+:host ::ng-deep .pbi__report {
+  display: block;
+  height: 70vh;
+  min-height: 480px;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+  overflow: hidden;
+  iframe { border: 0; }
+}

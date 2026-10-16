@@ -1,0 +1,119 @@
+<div class="mkt">
+  <header class="mkt__head">
+    <div>
+      <h2>Visual Marketplace</h2>
+      <p>Install chart visuals into this workspace. No deployment is needed.</p>
+    </div>
+    <div class="mkt__actions">
+      <!-- Import .pbiviz hidden for now; may be enabled later.
+      <input #pbiviz type="file" accept=".pbiviz" hidden (change)="importPbiviz(pbiviz)" />
+      <button *ngIf="canCreate" type="button" class="btn btn-secondary" (click)="pbiviz.click()" [disabled]="importing">{{ importing ? 'Importing…' : 'Import .pbiviz' }}</button>
+      -->
+      <button *ngIf="canCreate" type="button" class="btn btn-primary" (click)="openAddForm()">Add Marketplace</button>
+    </div>
+  </header>
+
+  <p *ngIf="error" class="mkt__error" role="alert">{{ error }}</p>
+
+  <p *ngIf="!catalogs.length" class="mkt__muted">
+    No marketplace is registered yet. Use <strong>Add Marketplace</strong> and paste the catalog URL.
+  </p>
+
+  <!-- One accordion panel per registered marketplace; opening a panel loads its visuals -->
+  <section class="mkt__acc" *ngFor="let c of catalogs" [class.mkt__acc--open]="isOpen(c)">
+    <h3 class="mkt__acc-head">
+      <button type="button" class="mkt__acc-toggle" [attr.aria-expanded]="isOpen(c)" [attr.aria-controls]="'mkt-panel-' + c.catalogKey"
+        (click)="toggle(c)">
+        <span class="mkt__acc-chevron" aria-hidden="true">›</span>
+        <span class="mkt__acc-title">{{ c.name }}</span>
+        <span class="mkt__lock" *ngIf="c.hasAuth" title="Authenticated">🔒</span>
+        <span class="mkt__acc-count" *ngIf="c.isBuiltIn">Built-in</span>
+        <span class="mkt__acc-count">
+          <ng-container *ngIf="counts[c.catalogKey] === undefined">Loading…</ng-container>
+          <ng-container *ngIf="counts[c.catalogKey] === null">Unavailable</ng-container>
+          <ng-container *ngIf="counts[c.catalogKey]">{{ counts[c.catalogKey] }} visual{{ counts[c.catalogKey] === 1 ? '' : 's' }}</ng-container>
+          <ng-container *ngIf="counts[c.catalogKey] === 0">No visuals</ng-container>
+        </span>
+      </button>
+      <button type="button" class="mkt__link" *ngIf="canModify && !c.isBuiltIn" (click)="openEditForm(c)" [attr.aria-label]="'Edit marketplace ' + c.name">Edit</button>
+      <button type="button" class="mkt__link mkt__link--danger" *ngIf="canModify && !c.isBuiltIn" (click)="removeCatalog(c)" [attr.aria-label]="'Remove marketplace ' + c.name">Remove</button>
+    </h3>
+
+    <div class="mkt__acc-body" *ngIf="isOpen(c)" [id]="'mkt-panel-' + c.catalogKey">
+      <div class="mkt__acc-tools">
+        <span class="mkt__muted" *ngIf="loading">Loading catalog…</span>
+        <span class="mkt__muted" *ngIf="!loading && !error && !cards.length">This marketplace has no visuals.</span>
+        <span class="mkt__muted" *ngIf="!loading && cards.length">{{ cards.length }} visual{{ cards.length === 1 ? '' : 's' }}</span>
+        <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading">Refresh</button>
+      </div>
+
+      <ul class="mkt__cards" *ngIf="!loading && cards.length">
+        <li class="mkt__card" *ngFor="let card of cards">
+          <!-- Preview: catalog image if given, otherwise the template drawn with sample data -->
+          <div class="mkt__preview">
+            <img *ngIf="card.listing.plugin.imageUrl" [src]="card.listing.plugin.imageUrl" [alt]="card.listing.plugin.name + ' preview'" />
+            <!-- Decorative preview: Highcharts sets role/aria on its own element, so hide a wrapper it does not manage. -->
+            <div *ngIf="card.preview" class="mkt__preview-chart" aria-hidden="true"><highcharts-chart [options]="card.preview"></highcharts-chart></div>
+          </div>
+          <div class="mkt__info">
+            <span class="mkt__name">{{ card.listing.plugin.name }}</span>
+            <span class="mkt__meta">v{{ card.listing.plugin.version }} · {{ card.listing.plugin.publisher }}</span>
+            <span class="mkt__desc">{{ card.listing.plugin.description }}</span>
+            <ul class="mkt__features" *ngIf="card.listing.plugin.features?.length">
+              <li *ngFor="let f of card.listing.plugin.features">{{ f }}</li>
+            </ul>
+            <span class="mkt__meta" *ngIf="card.listing.isInstalled">Installed: v{{ card.listing.installedVersion }}</span>
+          </div>
+          <p class="mkt__pbi" *ngIf="isPowerBiVisual(card.listing)">
+            Power BI visual — runs inside an embedded report. <a routerLink="/settings/power-bi">Open Power BI</a>
+          </p>
+          <div class="mkt__actions" *ngIf="!isPowerBiVisual(card.listing)">
+            <button *ngIf="card.listing.isInstalled ? canModify : canCreate" type="button" class="btn btn-primary" (click)="install(card.listing)"
+              [disabled]="busyPluginId === card.listing.plugin.id || (card.listing.isInstalled && !card.listing.updateAvailable)">
+              {{ busyPluginId === card.listing.plugin.id ? 'Working…' : actionLabel(card.listing) }}
+            </button>
+            <button type="button" class="btn btn-secondary" *ngIf="canModify && card.listing.isInstalled" (click)="uninstall(card.listing)"
+              [disabled]="busyPluginId === card.listing.plugin.id">Remove</button>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<!-- Add / edit a marketplace -->
+<div class="dialog-backdrop" *ngIf="showForm" (click)="closeForm()">
+  <form appDialog (dialogClose)="closeForm()" class="dialog" role="dialog" aria-modal="true" aria-labelledby="mkt-form-title" (click)="$event.stopPropagation()" (ngSubmit)="saveCatalog()">
+    <div class="dialog__header">
+      <h3 id="mkt-form-title">{{ editing ? 'Edit Marketplace' : 'Add Marketplace' }}</h3>
+      <button type="button" class="dialog__close" aria-label="Close" [disabled]="saving" (click)="closeForm()">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+          <path d="M13.8 7.8L7.8 13.8M7.8 7.8L13.8 13.8M20.8 10.8C20.8 16.3 16.3 20.8 10.8 20.8C5.3 20.8 0.8 16.3 0.8 10.8C0.8 5.3 5.3 0.8 10.8 0.8C16.3 0.8 20.8 5.3 20.8 10.8Z"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
+    <div class="dialog__panel">
+      <div class="dialog__body mkt__form">
+        <label>Name
+          <input id="mkt-cat-name" type="text" [(ngModel)]="form.name" name="name" required placeholder="e.g. Company visuals" />
+        </label>
+        <label>Catalog URL
+          <input id="mkt-cat-url" type="url" [(ngModel)]="form.url" name="url" required placeholder="https://…/catalog.json" />
+        </label>
+        <label>Auth header <span class="mkt__optional">(optional)</span>
+          <input id="mkt-cat-header" type="text" [(ngModel)]="form.authHeader" name="authHeader" placeholder="Authorization or X-Api-Key" />
+        </label>
+        <label>Auth value <span class="mkt__optional">(optional)</span>
+          <input id="mkt-cat-value" type="password" [(ngModel)]="form.authValue" name="authValue" autocomplete="off"
+            [placeholder]="editing?.hasAuth ? 'Leave blank to keep the current value' : 'Bearer … or the key'" />
+        </label>
+        <p *ngIf="formError" class="mkt__error" role="alert">{{ formError }}</p>
+      </div>
+      <div class="dialog__footer">
+        <button type="button" class="btn btn-secondary" (click)="closeForm()" [disabled]="saving">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving || !form.name.trim() || !form.url.trim()">{{ saving ? 'Saving…' : 'Save' }}</button>
+      </div>
+    </div>
+  </form>
+</div>

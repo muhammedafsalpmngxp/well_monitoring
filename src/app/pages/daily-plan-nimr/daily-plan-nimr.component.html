@@ -1,0 +1,57 @@
+<div id="page-daily-plan-nimr" class="page active">
+
+  <div class="breadcrumb dpn-bc">
+    <a (click)="back()">Standard Reports</a>
+    <span class="dpn-bc-sep">›</span>
+    <a class="current">Daily Plan-Nimr</a>
+  </div>
+
+  <div class="page-title-row">
+    <div class="dpn-title-wrap">
+      <div class="page-title">Daily Plan-Nimr</div>
+      <div class="page-subtitle">Contract C3100000177 · ODC South · grouped by ATNM / Sub Contractors → Discipline</div>
+    </div>
+    <div class="dpn-actions">
+      <button class="dpn-btn dpn-btn--primary" (click)="exportCsv()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M5 21h14"/></svg>
+        Export CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="dpn-toolbar">
+    <div class="dpn-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" placeholder="Search Well ID, PH name, WBS, category…"
+             [ngModel]="search" (ngModelChange)="onSearch($event)" [ngModelOptions]="{standalone:true}" />
+    </div>
+    <select class="dpn-flt" [ngModel]="discFilter" (ngModelChange)="onDisc($event)" [ngModelOptions]="{standalone:true}">
+      <option value="">All disciplines</option>
+      <option value="Flowline">Flowline</option>
+      <option value="Location">Location</option>
+      <option value="Others">Others</option>
+    </select>
+    <select class="dpn-flt" [ngModel]="locFilter" (ngModelChange)="onLoc($event)" [ngModelOptions]="{standalone:true}">
+      <option value="">All locations</option>
+      <option *ngFor="let o of locationOptions" [value]="o">{{ o }}</option>
+    </select>
+    <select class="dpn-flt" [ngModel]="catFilter" (ngModelChange)="onCat($event)" [ngModelOptions]="{standalone:true}">
+      <option value="">All categories</option>
+      <option *ngFor="let o of categoryOptions" [value]="o">{{ o }}</option>
+    </select>
+    <div class="dpn-tsp"></div>
+    <button class="dpn-btn" (click)="expandAll()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13l5 5 5-5M7 6l5 5 5-5"/></svg>
+      Expand all
+    </button>
+    <button class="dpn-btn" (click)="collapseAll()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 11l-5-5-5 5M17 18l-5-5-5 5"/></svg>
+      Collapse all
+    </button>
+  </div>
+
+  <div class="dpn-grid-wrap">
+    <div id="dpnGrid"></div>
+  </div>
+</div>

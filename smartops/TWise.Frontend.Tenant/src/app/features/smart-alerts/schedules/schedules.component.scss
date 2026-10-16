@@ -1,0 +1,66 @@
+.sch__log-link { margin-left: auto; text-decoration: none; }
+.sch__none { margin: 0; color: var(--color-text-secondary); font-size: 13px; }
+
+.sch__stat {
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:hover:not(:disabled) { border-color: var(--color-primary); }
+  &:disabled { cursor: default; }
+  &--on { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-50); }
+}
+
+.sch__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+.sch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-good);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s, transform 0.15s;
+
+  &:hover { box-shadow: var(--shadow-md); }
+  &--paused { border-left-color: var(--color-warn); }
+
+  &__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+  &__name {
+    margin: 4px 0 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__item { margin: 0; font-size: 13px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &__when { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--color-primary); }
+
+  &__facts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px 12px;
+    margin: 8px 0 0;
+    padding: 10px 0 0;
+    border-top: 1px solid var(--color-border-subtle);
+
+    dt { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-muted); }
+    dd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 0; font-size: 13px; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+  }
+
+  &__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 12px; }
+  &__delete { margin-left: auto; }
+}

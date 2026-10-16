@@ -1,0 +1,811 @@
+<section class="canvas-properties" aria-labelledby="canvas-visuals-title">
+  <header class="canvas-properties__header">
+    <h2 id="canvas-visuals-title" class="canvas-properties__title">Visualizations</h2>
+    <button *ngIf="item" type="button" class="canvas-properties__icon-button" aria-label="Deselect the object" title="Deselect" (click)="closed.emit()">
+      <app-icon name="close" aria-hidden="true"></app-icon>
+    </button>
+    <button type="button" class="canvas-properties__icon-button" aria-label="Collapse the Visualizations pane" title="Collapse" (click)="collapse.emit()">
+      <app-icon name="chevron_right" aria-hidden="true"></app-icon>
+    </button>
+  </header>
+
+  <div class="canvas-properties__tabs" role="tablist" aria-label="Visualizations">
+    <button type="button" role="tab" class="canvas-properties__tab" [class.canvas-properties__tab--active]="tab === 'build'"
+      [attr.aria-selected]="tab === 'build'" (click)="tab = 'build'">
+      <app-icon name="grid_view" aria-hidden="true"></app-icon>Build
+    </button>
+    <button type="button" role="tab" class="canvas-properties__tab" [class.canvas-properties__tab--active]="tab === 'format'"
+      [attr.aria-selected]="tab === 'format'" (click)="tab = 'format'">
+      <app-icon name="format_paint" aria-hidden="true"></app-icon>Format {{ item ? 'visual' : 'page' }}
+    </button>
+  </div>
+
+  <!-- ─────────────── Build: the visual, its fields and its content ─────────────── -->
+  <div *ngIf="tab === 'build'" class="canvas-properties__body">
+    <div class="canvas-properties__visuals" role="group" aria-label="Visuals">
+      <button *ngFor="let visual of visuals" type="button" class="canvas-properties__visual"
+        [class.canvas-properties__visual--active]="visual.id === active" [attr.aria-pressed]="visual.id === active"
+        [attr.aria-label]="visual.label" [title]="visual.label" (click)="chooseVisual(visual)">
+        <span class="canvas-properties__visual-icon">
+          <img *ngIf="visual.image; else ownIcon" [src]="visual.image" alt="" />
+          <ng-template #ownIcon><app-icon [name]="'visual_' + visual.id" aria-hidden="true"></app-icon></ng-template>
+        </span>
+        <span class="canvas-properties__visual-label" aria-hidden="true">{{ visual.short }}</span>
+      </button>
+    </div>
+    <p class="canvas-properties__hint">{{ hint }}</p>
+
+    <ng-container *ngIf="item">
+      <div class="form-group">
+        <label for="canvas-item-title">Title</label>
+        <input id="canvas-item-title" class="form-control" maxlength="100" [ngModel]="item.title" (ngModelChange)="setTitle($event)" />
+      </div>
+
+      <div *ngIf="foreign" class="canvas-properties__notice" role="note">
+        <p>This object uses another data model than the canvas. It still shows its data, but its fields and measures can be
+          changed only after it moves to {{ datasetName || 'the canvas data model' }}. Moving clears them.</p>
+        <app-button variant="secondary" size="sm" [disabled]="canvasDatasetId === null" (clicked)="moveToCanvasDataset()">
+          Move to {{ datasetName || 'the canvas data model' }}
+        </app-button>
+      </div>
+
+      <div *ngFor="let well of wells; trackBy: trackWell" class="canvas-properties__well"
+        [class.canvas-properties__well--ready]="takes(well)"
+        [class.canvas-properties__well--target]="dropTarget === well.id"
+        (dragover)="onDragOver($event, well)" (dragleave)="dropTarget = null" (drop)="onDrop($event, well)">
+        <span class="canvas-properties__well-label" [id]="'canvas-well-' + well.id">{{ well.label }}</span>
+        <span *ngIf="well.hint" class="canvas-properties__well-hint">{{ well.hint }}</span>
+        <ul *ngIf="well.entries.length" class="canvas-properties__entries" [attr.aria-labelledby]="'canvas-well-' + well.id">
+          <li *ngFor="let entry of well.entries" class="canvas-properties__entry" draggable="true" title="Drag to another well to move it"
+            (dragstart)="startMove($event, well, entry)" (dragend)="endMove()">
+            <span class="canvas-properties__entry-name" [title]="entry">{{ entryName(entry) }}</span>
+            <select *ngIf="valueFnsOf(entry).length" #fnSelect class="canvas-properties__entry-fn" [attr.aria-label]="'How ' + entry + ' is added up'"
+              (change)="changeValueFn(entry, $any(fnSelect.value))">
+              <option *ngFor="let fn of valueFnsOf(entry)" [value]="fn" [selected]="item?.aggregates?.[entry]?.fn === fn">{{ valueFnLabels[fn] }}</option>
+            </select>
+            <button type="button" class="canvas-properties__entry-remove" [attr.aria-label]="'Remove ' + entry + ' from ' + well.label"
+              (click)="removeEntry(well, entry)">
+              <app-icon name="close" aria-hidden="true"></app-icon>
+            </button>
+          </li>
+        </ul>
+        <span *ngIf="!well.entries.length" class="canvas-properties__placeholder">
+          Drag {{ well.accepts === 'field' ? 'a field' : 'a measure or a field' }} here, or select one in the Data pane.
+        </span>
+      </div>
+      <p *ngIf="dropProblem" class="canvas-properties__problem" role="alert">{{ dropProblem }}</p>
+
+      <div *ngIf="item.type === 'text'" class="form-group">
+        <div class="canvas-properties__label-row">
+          <label>Text</label>
+          <button type="button" class="canvas-properties__reset" (click)="editText.emit(item)">Open the large editor</button>
+        </div>
+        <app-rich-text-editor [html]="item.style?.html ?? item.text ?? ''" (htmlChange)="setRichText($event)"></app-rich-text-editor>
+      </div>
+
+      <ng-container *ngIf="item.type === 'image'">
+        <div class="form-group">
+          <label for="canvas-item-image">Image</label>
+          <input id="canvas-item-image" class="form-control" type="url" maxlength="500" placeholder="https:// or /assets/..."
+            [ngModel]="item.imageUrl?.startsWith('data:') ? '' : item.imageUrl" (ngModelChange)="setImage($event)" />
+          <div class="canvas-properties__upload">
+            <input #imageFile type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden (change)="uploadImage($event, 'item')" />
+            <app-button variant="secondary" size="sm" (clicked)="imageFile.click()">
+              <app-icon name="publish" aria-hidden="true"></app-icon>Upload an image
+            </app-button>
+            <span *ngIf="item.imageUrl?.startsWith('data:')" class="canvas-properties__muted">Uploaded image in use</span>
+          </div>
+          <p *ngIf="imageProblem" class="canvas-properties__problem" role="alert">{{ imageProblem }}</p>
+          <p class="form-hint">An https address, a path on this site such as /assets/al-tasnim-logo.svg, or an image of up to 300 KB.</p>
+        </div>
+        <div class="form-group">
+          <label for="canvas-item-alt">Description for screen readers</label>
+          <input id="canvas-item-alt" class="form-control" maxlength="200" [ngModel]="item.alt" (ngModelChange)="setAlt($event)" />
+        </div>
+      </ng-container>
+
+      <p *ngIf="problem && !foreign" class="canvas-properties__problem" role="status">{{ problem }}</p>
+      <button type="button" class="btn btn-sm remove-action" (click)="remove.emit(item)">Remove from sheet</button>
+    </ng-container>
+  </div>
+
+  <!-- ─────────────── Format visual ─────────────── -->
+  <div *ngIf="tab === 'format' && item as it" class="canvas-properties__body canvas-properties__body--format">
+    <p class="canvas-properties__hint">How {{ it.title || 'the object' }} looks. Leave a setting empty to keep the default.</p>
+
+    <p class="canvas-properties__group-label">Visual</p>
+
+    <details *ngIf="formats" class="canvas-properties__card">
+      <summary>Values</summary>
+      <ng-container *ngIf="formats">
+        <div class="canvas-properties__row">
+          <div class="form-group">
+            <label for="canvas-number-style">Numbers</label>
+            <select id="canvas-number-style" #numberStyle class="form-control" (change)="setFormat(numberStyle.value)">
+              <option *ngFor="let option of numberStyles" [value]="option.id" [selected]="(it.format?.style ?? '') === option.id">{{ option.label }}</option>
+            </select>
+          </div>
+          <div *ngIf="it.format as format" class="form-group canvas-properties__narrow">
+            <label for="canvas-number-decimals">Decimals</label>
+            <input id="canvas-number-decimals" #decimals class="form-control" type="number" min="0" max="6" [value]="format.decimals"
+              (change)="setFormat(format.style, decimals.value)" />
+          </div>
+        </div>
+        <div *ngIf="it.format?.style === 'currency'" class="form-group">
+          <label for="canvas-number-currency">Currency</label>
+          <select id="canvas-number-currency" #currency class="form-control" (change)="setFormat('currency', undefined, currency.value)">
+            <option *ngFor="let code of currencies" [value]="code" [selected]="it.format?.currency === code">{{ code }}</option>
+          </select>
+        </div>
+      </ng-container>
+      <div *ngIf="canStack" class="form-group">
+        <label for="canvas-stacking">Series</label>
+        <select id="canvas-stacking" #stacking class="form-control" (change)="setStacking(stacking.value)">
+          <option value="" [selected]="!it.stacking">Side by side</option>
+          <option value="normal" [selected]="it.stacking === 'normal'">Stacked</option>
+          <option value="percent" [selected]="it.stacking === 'percent'">Stacked to 100%</option>
+        </select>
+      </div>
+    </details>
+
+    <details *ngIf="it.type === 'slicer'" class="canvas-properties__card" open>
+      <summary>Slicer settings</summary>
+      <div class="form-group">
+        <label for="canvas-slicer-style">Style</label>
+        <select id="canvas-slicer-style" #slicerStyleSelect class="form-control" (change)="setSlicerStyle(slicerStyleSelect.value)">
+          <option *ngFor="let style of slicerStyles" [value]="style" [selected]="slicerStyle === style">{{ slicerStyleLabels[style] }}</option>
+        </select>
+      </div>
+      <div *ngIf="listSlicer" class="form-group">
+        <label for="canvas-slicer-selection">Selection</label>
+        <select id="canvas-slicer-selection" #selection class="form-control" (change)="setSingle(selection.value === 'single')">
+          <option value="multi" [selected]="!it.slicer?.single">Multi-select: tick as many values as needed</option>
+          <option value="single" [selected]="!!it.slicer?.single">Single select: one value at a time</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="canvas-slicer-sync">Sync to other sheets</label>
+        <select id="canvas-slicer-sync" #syncSelect class="form-control" (change)="setSync(syncSelect.value)">
+          <option value="sheet" [selected]="syncMode === 'sheet'">This sheet only</option>
+          <option value="all" [selected]="syncMode === 'all'">All sheets</option>
+          <option value="chosen" [selected]="syncMode === 'chosen'" [disabled]="!otherSheets.length">Chosen sheets</option>
+        </select>
+        <p class="form-hint">The choice made on this slicer also filters the objects of the synced sheets.</p>
+      </div>
+      <ng-container *ngIf="syncMode === 'chosen'">
+        <label *ngFor="let sheet of otherSheets" class="canvas-properties__check">
+          <input #syncSheet type="checkbox" [checked]="isSyncedTo(sheet)" (change)="toggleSyncSheet(sheet, syncSheet.checked)" /> {{ sheet }}
+        </label>
+      </ng-container>
+    </details>
+
+    <!-- Charts: legend, axes and colours -->
+    <ng-container *ngIf="it.type === 'chart'">
+      <details class="canvas-properties__card">
+        <summary>Legend</summary>
+        <label class="canvas-properties__check">
+          <input #legend type="checkbox" [checked]="legendShown" (change)="setStyle({ legend: legend.checked })" /> Show the legend
+        </label>
+        <div class="form-group">
+          <label for="canvas-legend-position">Position</label>
+          <select id="canvas-legend-position" #legendPosition class="form-control"
+            (change)="setStyle({ legendPosition: $any(legendPosition.value) || undefined })">
+            <option value="" [selected]="!it.style?.legendPosition">Bottom (default)</option>
+            <option *ngFor="let p of ['top', 'right', 'left']" [value]="p" [selected]="it.style?.legendPosition === p">{{ p | titlecase }}</option>
+          </select>
+        </div>
+        <div class="canvas-properties__row">
+          <div class="form-group">
+            <label for="canvas-legend-size">Text size</label>
+            <input id="canvas-legend-size" #legendSize class="form-control" type="number" min="8" max="20" placeholder="12" [value]="it.style?.legendSize ?? ''"
+              (change)="setStyleNumber('legendSize', legendSize.value, 8, 20)" />
+          </div>
+          <div class="form-group">
+            <label for="canvas-legend-color">Text colour</label>
+            <div class="canvas-properties__color">
+              <input id="canvas-legend-color" #legendColor type="color" [value]="it.style?.legendColor ?? '#334155'" (change)="setStyle({ legendColor: legendColor.value })" />
+              <button *ngIf="it.style?.legendColor" type="button" class="canvas-properties__reset" (click)="setStyle({ legendColor: undefined })">Reset</button>
+            </div>
+          </div>
+        </div>
+      </details>
+      <details *ngIf="hasAxes" class="canvas-properties__card">
+        <summary>X-axis</summary>
+        <label class="canvas-properties__check">
+          <input #xLabels type="checkbox" [checked]="it.style?.xLabels !== false" (change)="setStyle({ xLabels: xLabels.checked ? undefined : false })" /> Show labels
+        </label>
+        <div class="form-group">
+          <label for="canvas-x-title">Title</label>
+          <input id="canvas-x-title" class="form-control" maxlength="80" [ngModel]="it.style?.xTitle ?? ''" (ngModelChange)="setStyle({ xTitle: $event })" />
+        </div>
+        <div class="form-group">
+          <label for="canvas-x-rotation">Label angle</label>
+          <select id="canvas-x-rotation" #xRotation class="form-control" (change)="setStyle({ xRotation: xRotation.value === '' ? undefined : +xRotation.value })">
+            <option value="" [selected]="it.style?.xRotation === undefined">Automatic</option>
+            <option value="0" [selected]="it.style?.xRotation === 0">Straight</option>
+            <option value="-45" [selected]="it.style?.xRotation === -45">Slanted (45°)</option>
+            <option value="-90" [selected]="it.style?.xRotation === -90">Upright (90°)</option>
+          </select>
+        </div>
+      </details>
+      <details *ngIf="hasAxes" class="canvas-properties__card">
+        <summary>Y-axis</summary>
+        <label class="canvas-properties__check">
+          <input #yLabels type="checkbox" [checked]="it.style?.yLabels !== false" (change)="setStyle({ yLabels: yLabels.checked ? undefined : false })" /> Show labels
+        </label>
+        <div class="form-group">
+          <label for="canvas-y-title">Title</label>
+          <input id="canvas-y-title" class="form-control" maxlength="80" [ngModel]="it.style?.yTitle ?? ''" (ngModelChange)="setStyle({ yTitle: $event })" />
+        </div>
+        <div class="canvas-properties__row">
+          <div class="form-group">
+            <label for="canvas-y-min">Y-axis from</label>
+            <input id="canvas-y-min" #yMin class="form-control" type="number" placeholder="Auto" [value]="it.style?.yMin ?? ''"
+              (change)="setStyleNumber('yMin', yMin.value, -1e15, 1e15)" />
+          </div>
+          <div class="form-group">
+            <label for="canvas-y-max">Y-axis to</label>
+            <input id="canvas-y-max" #yMax class="form-control" type="number" placeholder="Auto" [value]="it.style?.yMax ?? ''"
+              (change)="setStyleNumber('yMax', yMax.value, -1e15, 1e15)" />
+          </div>
+        </div>
+        <div class="canvas-properties__row">
+          <div class="form-group">
+            <label for="canvas-axis-size">Label size</label>
+            <input id="canvas-axis-size" #axisSize class="form-control" type="number" min="8" max="20" placeholder="11" [value]="it.style?.axisFontSize ?? ''"
+              (change)="setStyleNumber('axisFontSize', axisSize.value, 8, 20)" />
+          </div>
+          <div class="form-group">
+            <label for="canvas-axis-color">Label colour</label>
+            <div class="canvas-properties__color">
+              <input id="canvas-axis-color" #axisColor type="color" [value]="it.style?.axisColor ?? '#64748b'" (change)="setStyle({ axisColor: axisColor.value })" />
+              <button *ngIf="it.style?.axisColor" type="button" class="canvas-properties__reset" (click)="setStyle({ axisColor: undefined })">Reset</button>
+            </div>
+          </div>
+        </div>
+        <label class="canvas-properties__check">
+          <input #grid type="checkbox" [checked]="it.style?.gridlines !== false" (change)="setStyle({ gridlines: grid.checked ? undefined : false })" /> Gridlines
+        </label>
+        <p class="form-hint">Label size and colour apply to both axes.</p>
+        <ng-container *ngIf="it.chartType === 'line' || it.chartType === 'area' || it.chartType === 'combo'">
+          <label class="canvas-properties__check">
+            <input #smooth type="checkbox" [checked]="!!it.style?.smooth" (change)="setStyle({ smooth: smooth.checked || undefined })" /> Smooth lines
+          </label>
+          <label class="canvas-properties__check">
+            <input #markers type="checkbox" [checked]="it.style?.markers !== false" (change)="setStyle({ markers: markers.checked ? undefined : false })" /> Point markers
+          </label>
+        </ng-container>
+      </details>
+      <details *ngIf="sortable" class="canvas-properties__card">
+        <summary>Sort</summary>
+        <div class="form-group">
+          <label for="canvas-sort-order">Order</label>
+          <select id="canvas-sort-order" class="form-control" [ngModel]="it.sortOrder ?? ''" (ngModelChange)="setSortOrder($event)">
+            <option value="">As the chart type suggests</option>
+            <option value="axis_asc">{{ it.sortBy ? 'Sort-by field' : 'X-axis' }}, A to Z</option>
+            <option value="axis_desc">{{ it.sortBy ? 'Sort-by field' : 'X-axis' }}, Z to A</option>
+            <option *ngIf="!it.series" value="value_desc">Value, highest first</option>
+            <option *ngIf="!it.series" value="value_asc">Value, lowest first</option>
+          </select>
+        </div>
+        <p class="form-hint">To order month names by month, drag a month number field onto Sort by in the Build tab.</p>
+      </details>
+      <details class="canvas-properties__card">
+        <summary>Data labels</summary>
+        <label *ngIf="hasDataLabels" class="canvas-properties__check">
+          <input #labels type="checkbox" [checked]="!!it.dataLabels" (change)="setDataLabels(labels.checked)" /> Show data labels
+        </label>
+        <div class="form-group">
+          <label for="canvas-label-position">Position</label>
+          <select id="canvas-label-position" #labelPosition class="form-control" (change)="setStyle({ labelPosition: $any(labelPosition.value) || undefined })">
+            <option value="" [selected]="!it.style?.labelPosition">Automatic</option>
+            <option value="inside" [selected]="it.style?.labelPosition === 'inside'">Inside</option>
+            <option value="outside" [selected]="it.style?.labelPosition === 'outside'">Outside</option>
+          </select>
+        </div>
+        <div class="canvas-properties__row">
+          <div class="form-group">
+            <label for="canvas-label-size">Text size</label>
+            <input id="canvas-label-size" #labelSize class="form-control" type="number" min="8" max="20" placeholder="11" [value]="it.style?.labelSize ?? ''"
+              (change)="setStyleNumber('labelSize', labelSize.value, 8, 20)" />
+          </div>
+          <div class="form-group">
+            <label for="canvas-label-color">Text colour</label>
+            <div class="canvas-properties__color">
+              <input id="canvas-label-color" #labelColor type="color" [value]="it.style?.labelColor ?? '#334155'" (change)="setStyle({ labelColor: labelColor.value })" />
+              <button *ngIf="it.style?.labelColor" type="button" class="canvas-properties__reset" (click)="setStyle({ labelColor: undefined })">Reset</button>
+            </div>
+          </div>
+        </div>
+        <p class="form-hint">Numbers in labels follow the Values card's number format.</p>
+      </details>
+      <details class="canvas-properties__card">
+        <summary>Colours</summary>
+        <div class="canvas-properties__swatches">
+          <label *ngFor="let swatch of palette; let i = index" class="canvas-properties__swatch" [style.background]="swatch" [title]="'Colour ' + (i + 1)">
+            <input type="color" [value]="swatch" [attr.aria-label]="'Colour ' + (i + 1)" (change)="setPaletteColor(i, $any($event.target).value)" />
+          </label>
+        </div>
+        <button *ngIf="it.style?.palette" type="button" class="canvas-properties__reset" (click)="setStyle({ palette: undefined })">Use the page theme</button>
+        <p class="form-hint">Series and slices take these colours in order. Without your own, the page theme's are used.</p>
+      </details>
+    </ng-container>
+
+    <!-- Cards -->
+    <ng-container *ngIf="it.type === 'tile'">
+      <details class="canvas-properties__card">
+        <summary>Target and bands</summary>
+        <div class="canvas-properties__row">
+          <div class="form-group">
+            <label for="canvas-target-value">Target value</label>
+            <input id="canvas-target-value" #targetValue class="form-control" type="number" [value]="it.targetValue ?? ''" [disabled]="!!it.target"
+              (change)="setTargetValue(targetValue.value)" />
+          </div>
+          <div class="form-group canvas-properties__narrow">
+            <label for="canvas-warn-at">Amber from %</label>
+            <input id="canvas-warn-at" #warnAt class="form-control" type="number" min="0" max="100" [value]="it.warnAt ?? 90"
+              (change)="setWarnAt(warnAt.value)" />
+          </div>
+        </div>
+        <p class="form-hint">Used when Target has no measure. Green at the target, amber from this share of it, red below.</p>
+        <label class="canvas-properties__check">
+          <input #lower type="checkbox" [checked]="!!it.lowerIsBetter" (change)="setLowerIsBetter(lower.checked)" /> Lower is better
+        </label>
+      </details>
+      <details *ngIf="!it.gauge" class="canvas-properties__card">
+        <summary>Callout value</summary>
+        <div class="canvas-properties__row">
+          <div class="form-group">
+            <label for="canvas-value-size">Size</label>
+            <input id="canvas-value-size" #valueSize class="form-control" type="number" min="14" max="72" placeholder="28" [value]="it.style?.valueSize ?? ''"
+              (change)="setStyleNumber('valueSize', valueSize.value, 14, 72)" />
+          </div>
+          <div class="form-group">
+            <label for="canvas-value-color">Colour</label>
+            <div class="canvas-properties__color">
+              <input id="canvas-value-color" #valueColor type="color" [value]="it.style?.valueColor ?? '#0f172a'" (change)="setStyle({ valueColor: valueColor.value })" />
+              <button *ngIf="it.style?.valueColor" type="button" class="canvas-properties__reset" (click)="setStyle({ valueColor: undefined })">Reset</button>
+            </div>
+          </div>
+        </div>
+        <label class="canvas-properties__check">
+          <input #icon type="checkbox" [checked]="it.style?.showIcon !== false" (change)="setStyle({ showIcon: icon.checked ? undefined : false })" /> Icon
+        </label>
+      </details>
+    </ng-container>
+
+    <!-- Tables and matrices -->
+    <ng-container *ngIf="it.type === 'table' || it.type === 'matrix'">
+      <details class="canvas-properties__card">
+        <summary>Grid</summary>
+        <div class="canvas-properties__row">
+          <div class="form-group">
+            <label for="canvas-font-size">Text size</label>
+            <input id="canvas-font-size" #fontSize class="form-control" type="number" min="10" max="20" placeholder="13" [value]="it.style?.fontSize ?? ''"
+              (change)="setStyleNumber('fontSize', fontSize.value, 10, 20)" />
+          </div>
+          <div class="form-group">
+            <label for="canvas-header-bg">Header</label>
+            <div class="canvas-properties__color">
+              <input id="canvas-header-bg" #headerBg type="color" [value]="it.style?.headerBackground ?? '#f1f5f9'" (change)="setStyle({ headerBackground: headerBg.value })" />
+              <input #headerText type="color" aria-label="Header text colour" [value]="it.style?.headerColor ?? '#334155'" (change)="setStyle({ headerColor: headerText.value })" />
+              <button *ngIf="it.style?.headerBackground || it.style?.headerColor" type="button" class="canvas-properties__reset"
+                (click)="setStyle({ headerBackground: undefined, headerColor: undefined })">Reset</button>
+            </div>
+          </div>
+        </div>
+        <label class="canvas-properties__check">
+          <input #striped type="checkbox" [checked]="!!it.style?.striped" (change)="setStyle({ striped: striped.checked || undefined })" /> Banded rows
+        </label>
+        <div class="form-group">
+          <label for="canvas-density">Row height</label>
+          <select id="canvas-density" #density class="form-control" (change)="setStyle({ density: $any(density.value) || undefined })">
+            <option value="" [selected]="!it.style?.density">Compact (default)</option>
+            <option value="normal" [selected]="it.style?.density === 'normal'">Normal</option>
+            <option value="comfortable" [selected]="it.style?.density === 'comfortable'">Comfortable</option>
+          </select>
+        </div>
+      </details>
+      <details class="canvas-properties__card">
+        <summary>Totals</summary>
+        <label class="canvas-properties__check">
+          <input #totals type="checkbox" [checked]="it.totals !== false" (change)="setTotals(totals.checked)" /> Show the grand total
+        </label>
+        <label *ngIf="it.type === 'matrix' && it.totals !== false" class="canvas-properties__check">
+          <input #subtotals type="checkbox" [checked]="it.style?.subtotals !== false" (change)="setStyle({ subtotals: subtotals.checked ? undefined : false })" /> Show subtotals
+        </label>
+        <ng-container *ngIf="it.totals !== false">
+          <div class="form-group">
+            <label for="canvas-totals-label">Total label</label>
+            <input id="canvas-totals-label" class="form-control" maxlength="40" [placeholder]="it.type === 'matrix' ? 'Grand total' : 'Total'"
+              [ngModel]="it.style?.totalsLabel ?? ''" (ngModelChange)="setStyle({ totalsLabel: $event.trim() || undefined })" />
+          </div>
+          <div class="form-group">
+            <label for="canvas-totals-bg">Background and text colour</label>
+            <div class="canvas-properties__color">
+              <input id="canvas-totals-bg" #totalsBg type="color" [value]="it.style?.totalsBackground ?? '#eef2ff'" (change)="setStyle({ totalsBackground: totalsBg.value })" />
+              <input #totalsText type="color" aria-label="Total text colour" [value]="it.style?.totalsColor ?? '#1e293b'" (change)="setStyle({ totalsColor: totalsText.value })" />
+              <button *ngIf="it.style?.totalsBackground || it.style?.totalsColor" type="button" class="canvas-properties__reset"
+                (click)="setStyle({ totalsBackground: undefined, totalsColor: undefined })">Reset</button>
+            </div>
+          </div>
+        </ng-container>
+        <p class="form-hint">Totals are worked out by the data model, so averages and distinct counts stay right.</p>
+      </details>
+      <details class="canvas-properties__card">
+        <summary>Data bars and heatmap</summary>
+        <table class="canvas-properties__cues">
+          <thead><tr><th scope="col">Value</th><th scope="col">Bars</th><th scope="col">Heatmap</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let name of it.measures">
+              <th scope="row">{{ name }}</th>
+              <td><input type="checkbox" [attr.aria-label]="'Data bars in ' + name" [checked]="!!it.style?.dataBars?.includes(name)" (change)="toggleCue('dataBars', name)" /></td>
+              <td><input type="checkbox" [attr.aria-label]="'Heatmap in ' + name" [checked]="!!it.style?.heatmap?.includes(name)" (change)="toggleCue('heatmap', name)" /></td>
+            </tr>
+          </tbody>
+        </table>
+        <p *ngIf="!it.measures.length" class="form-hint">Add a value to the object first.</p>
+        <div class="form-group">
+          <label for="canvas-bar-color">Bar and heatmap colours</label>
+          <div class="canvas-properties__color">
+            <input id="canvas-bar-color" #barColor type="color" [value]="it.style?.barColor ?? '#6366f1'" (change)="setStyle({ barColor: barColor.value })" />
+            <input #heatColor type="color" aria-label="Heatmap colour" [value]="it.style?.heatColor ?? '#16a34a'" (change)="setStyle({ heatColor: heatColor.value })" />
+          </div>
+        </div>
+        <p class="form-hint">Each cell is drawn against the lowest and highest value of its column; totals stay plain.</p>
+      </details>
+      <details class="canvas-properties__card">
+        <summary>Conditional formatting</summary>
+        <ul *ngIf="it.rules?.length" class="canvas-properties__rules">
+          <li *ngFor="let rule of it.rules; let i = index" class="canvas-properties__rule">
+            <span class="canvas-properties__tone" [ngClass]="'canvas-properties__tone--' + rule.tone" aria-hidden="true"></span>
+            <span class="canvas-properties__rule-text">{{ ruleText(rule) }}</span>
+            <button type="button" class="canvas-properties__entry-remove" [attr.aria-label]="'Remove the rule ' + ruleText(rule)" (click)="removeRule(i)">
+              <app-icon name="close" aria-hidden="true"></app-icon>
+            </button>
+          </li>
+        </ul>
+        <div class="canvas-properties__rule-form">
+          <select class="form-control" aria-label="Field" [(ngModel)]="draftRule.field">
+            <option value="">Field&hellip;</option>
+            <option *ngFor="let field of ruleFields" [value]="field">{{ field }}</option>
+          </select>
+          <select class="form-control" aria-label="Condition" [(ngModel)]="draftRule.op">
+            <option *ngFor="let op of ruleOps" [ngValue]="op.id">{{ op.label }}</option>
+          </select>
+          <input *ngIf="draftRule.op !== 'blank'" class="form-control" aria-label="Value" [(ngModel)]="draftRule.values[0]" />
+          <input *ngIf="draftRule.op === 'between'" class="form-control" aria-label="And" [(ngModel)]="draftRule.values[1]" />
+          <select class="form-control" aria-label="Colour" [(ngModel)]="draftRule.tone">
+            <option *ngFor="let tone of tones" [ngValue]="tone.id">{{ tone.label }}</option>
+          </select>
+          <app-button variant="secondary" size="sm" [disabled]="(it.rules?.length ?? 0) >= maxRules" (clicked)="addRule()">Add rule</app-button>
+        </div>
+        <p *ngIf="ruleError" class="canvas-properties__problem" role="alert">{{ ruleError }}</p>
+      </details>
+    </ng-container>
+
+    <!-- Text and images -->
+    <details *ngIf="it.type === 'text'" class="canvas-properties__card">
+      <summary>Text box</summary>
+      <div class="form-group">
+        <label for="canvas-text-valign">Vertical alignment</label>
+        <select id="canvas-text-valign" #valign class="form-control" (change)="setStyle({ verticalAlign: $any(valign.value) || undefined })">
+          <option value="" [selected]="!it.style?.verticalAlign">Top</option>
+          <option value="middle" [selected]="it.style?.verticalAlign === 'middle'">Middle</option>
+          <option value="bottom" [selected]="it.style?.verticalAlign === 'bottom'">Bottom</option>
+        </select>
+      </div>
+      <label class="canvas-properties__check">
+        <input #floatText type="checkbox" [checked]="!!it.float" (change)="floatChange.emit(floatText.checked)" /> Float over the sheet (place anywhere)
+      </label>
+      <label class="canvas-properties__check">
+        <input #fitText type="checkbox" [checked]="!!it.style?.fitText" (change)="setStyle({ fitText: fitText.checked || undefined })" /> Fit text to the box (no scrollbars)
+      </label>
+    </details>
+    <details *ngIf="it.type === 'image'" class="canvas-properties__card">
+      <summary>Image</summary>
+      <div class="form-group">
+        <label for="canvas-image-fit">Scaling</label>
+        <select id="canvas-image-fit" #fit class="form-control" (change)="setStyle({ fit: $any(fit.value) || undefined })">
+          <option value="" [selected]="!it.style?.fit">Fit (whole image)</option>
+          <option value="cover" [selected]="it.style?.fit === 'cover'">Fill (crop to the box)</option>
+          <option value="fill" [selected]="it.style?.fit === 'fill'">Stretch</option>
+          <option value="none" [selected]="it.style?.fit === 'none'">Actual size</option>
+        </select>
+      </div>
+      <label class="canvas-properties__check">
+        <input #floatImage type="checkbox" [checked]="!!it.float" (change)="floatChange.emit(floatImage.checked)" /> Float over the sheet (place anywhere)
+      </label>
+      <div class="form-group">
+        <label for="canvas-image-link">Opens this link when clicked</label>
+        <input id="canvas-image-link" class="form-control" type="url" placeholder="https://" [ngModel]="it.style?.link ?? ''"
+          (ngModelChange)="setStyle({ link: $event })" />
+        <p class="form-hint">https, mailto: or a path on this site. It opens when the canvas is viewed or presented.</p>
+      </div>
+    </details>
+
+    <p class="canvas-properties__group-label">General</p>
+
+    <details *ngIf="takesInteraction" class="canvas-properties__card">
+      <summary>Interactions</summary>
+      <div class="form-group">
+        <label for="canvas-interaction">When a point on another visual is clicked</label>
+        <select id="canvas-interaction" class="form-control" [ngModel]="it.interaction ?? 'filter'"
+          (ngModelChange)="setInteraction($event)">
+          <option value="filter">Filter this visual</option>
+          <option value="highlight">Highlight in this visual</option>
+          <option value="none">Do nothing</option>
+        </select>
+      </div>
+      <p class="form-hint">Highlight dims what is not chosen in column, bar, line, area and combo charts; other visuals are filtered.
+        Hold Ctrl (Cmd on a Mac) to choose several points.</p>
+    </details>
+
+    <details class="canvas-properties__card">
+      <summary>Title</summary>
+      <label class="canvas-properties__check">
+        <input #showTitle type="checkbox" [checked]="it.style?.showTitle !== false" (change)="setStyle({ showTitle: showTitle.checked ? undefined : false })" /> Show the title
+      </label>
+      <div class="form-group">
+        <label for="canvas-subtitle">Subtitle</label>
+        <input id="canvas-subtitle" class="form-control" maxlength="160" [ngModel]="it.style?.subtitle ?? ''" (ngModelChange)="setStyle({ subtitle: $event })" />
+      </div>
+      <div class="canvas-properties__row">
+        <div class="form-group">
+          <label for="canvas-title-size">Size</label>
+          <input id="canvas-title-size" #titleSize class="form-control" type="number" min="10" max="40" placeholder="13" [value]="it.style?.titleSize ?? ''"
+            (change)="setStyleNumber('titleSize', titleSize.value, 10, 40)" />
+        </div>
+        <div class="form-group">
+          <label for="canvas-title-color">Colour</label>
+          <div class="canvas-properties__color">
+            <input id="canvas-title-color" #titleColor type="color" [value]="it.style?.titleColor ?? '#0f172a'" (change)="setStyle({ titleColor: titleColor.value })" />
+            <button *ngIf="it.style?.titleColor" type="button" class="canvas-properties__reset" (click)="setStyle({ titleColor: undefined })">Reset</button>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-properties__segmented" role="group" aria-label="Title alignment">
+        <button *ngFor="let align of ['left', 'center', 'right']" type="button" [class.canvas-properties__segment--on]="(it.style?.titleAlign ?? 'left') === align"
+          class="canvas-properties__segment" (click)="setStyle({ titleAlign: align === 'left' ? undefined : $any(align) })">{{ align | titlecase }}</button>
+        <button type="button" class="canvas-properties__segment" [class.canvas-properties__segment--on]="it.style?.titleBold !== false"
+          (click)="setStyle({ titleBold: it.style?.titleBold === false ? undefined : false })"><b>B</b></button>
+      </div>
+    </details>
+
+    <details class="canvas-properties__card">
+      <summary>Effects</summary>
+      <div class="canvas-properties__row">
+        <div class="form-group">
+          <label for="canvas-background">Background</label>
+          <div class="canvas-properties__color">
+            <input id="canvas-background" #background type="color" [value]="it.style?.background ?? '#ffffff'" (change)="setStyle({ background: background.value })" />
+            <button type="button" class="canvas-properties__reset" (click)="setStyle({ background: 'transparent' })">None</button>
+            <button *ngIf="it.style?.background" type="button" class="canvas-properties__reset" (click)="setStyle({ background: undefined, backgroundOpacity: undefined })">Reset</button>
+          </div>
+        </div>
+        <div class="form-group canvas-properties__narrow">
+          <label for="canvas-opacity">Opacity %</label>
+          <input id="canvas-opacity" #opacity class="form-control" type="number" min="0" max="100" placeholder="100" [value]="it.style?.backgroundOpacity ?? ''"
+            (change)="setStyleNumber('backgroundOpacity', opacity.value, 0, 100)" />
+        </div>
+      </div>
+      <label class="canvas-properties__check">
+        <input #border type="checkbox" [checked]="it.style?.border !== false" (change)="setStyle({ border: border.checked ? (it.style?.borderColor ? true : undefined) : false })" /> Border
+      </label>
+      <div *ngIf="it.style?.border !== false" class="canvas-properties__row">
+        <div class="form-group">
+          <label for="canvas-border-color">Border colour</label>
+          <input id="canvas-border-color" #borderColor type="color" [value]="it.style?.borderColor ?? '#e2e8f0'"
+            (change)="setStyle({ border: true, borderColor: borderColor.value })" />
+        </div>
+        <div class="form-group canvas-properties__narrow">
+          <label for="canvas-border-width">Width</label>
+          <input id="canvas-border-width" #borderWidth class="form-control" type="number" min="0" max="8" placeholder="1" [value]="it.style?.borderWidth ?? ''"
+            (change)="setStyle({ border: true }); setStyleNumber('borderWidth', borderWidth.value, 0, 8)" />
+        </div>
+      </div>
+      <div class="canvas-properties__row">
+        <div class="form-group">
+          <label for="canvas-radius">Rounded corners</label>
+          <input id="canvas-radius" #radius type="range" min="0" max="32" [value]="it.style?.radius ?? 12" (change)="setStyleNumber('radius', radius.value, 0, 32)" />
+        </div>
+        <div class="form-group">
+          <label for="canvas-padding">Padding</label>
+          <input id="canvas-padding" #padding type="range" min="0" max="40" [value]="it.style?.padding ?? 8" (change)="setStyleNumber('padding', padding.value, 0, 40)" />
+        </div>
+      </div>
+      <label class="canvas-properties__check">
+        <input #shadow type="checkbox" [checked]="!!it.style?.shadow" (change)="setStyle({ shadow: shadow.checked || undefined })" /> Shadow
+      </label>
+      <button *ngIf="it.style" type="button" class="canvas-properties__reset" (click)="setStyle({ background: undefined, backgroundOpacity: undefined, border: undefined, borderColor: undefined, borderWidth: undefined, radius: undefined, padding: undefined, shadow: undefined })">
+        Reset effects
+      </button>
+    </details>
+  </div>
+
+  <!-- ─────────────── Format page ─────────────── -->
+  <div *ngIf="tab === 'format' && !item" class="canvas-properties__body canvas-properties__body--format">
+    <p class="canvas-properties__hint">The open sheet's look. Select an object on the sheet to format it instead.</p>
+
+    <details class="canvas-properties__card">
+      <summary>Canvas</summary>
+      <div class="form-group">
+        <label for="canvas-name-edit">Name</label>
+        <input id="canvas-name-edit" #canvasNameInput class="form-control" maxlength="100" [value]="canvasName"
+          (change)="canvasNameInput.value.trim() && detailsChange.emit({ name: canvasNameInput.value.trim(), description: canvasDescription })" />
+      </div>
+      <div class="form-group">
+        <label for="canvas-description-edit">Description</label>
+        <textarea id="canvas-description-edit" #canvasDescriptionInput class="form-control" rows="3" maxlength="500" [value]="canvasDescription ?? ''"
+          (change)="detailsChange.emit({ name: canvasName, description: canvasDescriptionInput.value.trim() || null })"></textarea>
+      </div>
+      <p class="form-hint">Saved with the canvas. The list shows them on its card.</p>
+    </details>
+
+    <details class="canvas-properties__card">
+      <summary>Page size (all sheets)</summary>
+      <div class="form-group">
+        <label for="page-size">Size</label>
+        <select id="page-size" #pageSizeSelect class="form-control" (change)="choosePageSize(pageSizeSelect.value)">
+          <option value="" [selected]="!pageSize">Fit to the screen</option>
+          <option *ngFor="let size of pageSizes" [value]="size.id" [selected]="pageSize?.preset === size.id">{{ size.label }}</option>
+          <option value="custom" [selected]="pageSize?.preset === 'custom'">Custom</option>
+        </select>
+      </div>
+      <div *ngIf="pageSize?.preset === 'custom'" class="canvas-properties__row">
+        <div class="form-group">
+          <label for="page-width">Width (px)</label>
+          <input id="page-width" #pageWidth class="form-control" type="number" min="320" max="4000" [value]="pageSize?.width"
+            (change)="choosePageSize('custom', pageWidth.value, pageHeight.value)" />
+        </div>
+        <div class="form-group">
+          <label for="page-height">Height (px)</label>
+          <input id="page-height" #pageHeight class="form-control" type="number" min="320" max="4000" [value]="pageSize?.height"
+            (change)="choosePageSize('custom', pageWidth.value, pageHeight.value)" />
+        </div>
+      </div>
+      <p class="form-hint">A fixed size keeps each sheet the same shape on every screen and in exports; the sheet is scaled to fit.</p>
+    </details>
+
+    <details class="canvas-properties__card">
+      <summary>Brand kit (all sheets)</summary>
+      <div class="form-group">
+        <label for="brand-saved">Saved brand kits</label>
+        <select id="brand-saved" #savedKit class="form-control" (change)="savedKit.value && applyKit.emit(+savedKit.value)">
+          <option value="" [selected]="!brand?.kitId">{{ savedKits.length ? 'Choose a kit to apply' : 'No saved kits yet' }}</option>
+          <option *ngFor="let kit of savedKits" [value]="kit.id" [selected]="brand?.kitId === kit.id">{{ kit.name }}</option>
+        </select>
+        <p *ngIf="brand?.kitName" class="form-hint">This canvas uses a copy of "{{ brand?.kitName }}". Changes stay on this canvas until you update the kit.</p>
+      </div>
+      <div class="canvas-properties__kit-actions">
+        <ng-container *ngIf="newKitName === null; else nameKit">
+          <app-button variant="secondary" size="sm" (clicked)="newKitName = ''">Save as a new kit</app-button>
+          <button *ngIf="brand?.kitId" type="button" class="canvas-properties__reset" (click)="saveKit.emit({ name: brand!.kitName!, update: true })">
+            Update "{{ brand?.kitName }}"
+          </button>
+          <button *ngIf="brand?.kitId" type="button" class="canvas-properties__reset canvas-properties__danger" (click)="deleteKit.emit(brand!.kitId!)">Delete kit</button>
+        </ng-container>
+        <ng-template #nameKit>
+          <input class="form-control" maxlength="80" placeholder="Kit name" aria-label="Name of the new brand kit" [(ngModel)]="newKitName"
+            (keydown.enter)="newKitName?.trim() && saveKit.emit({ name: newKitName!.trim(), update: false }); newKitName = null" />
+          <app-button variant="primary" size="sm" [disabled]="!newKitName?.trim()"
+            (clicked)="saveKit.emit({ name: newKitName!.trim(), update: false }); newKitName = null">Save</app-button>
+          <button type="button" class="canvas-properties__reset" (click)="newKitName = null">Cancel</button>
+        </ng-template>
+      </div>
+      <p *ngIf="kitMessage" class="form-hint" [class.canvas-properties__problem]="kitMessage.kind === 'error'" role="status">{{ kitMessage.text }}</p>
+      <label class="canvas-properties__label">Colours</label>
+      <div class="canvas-properties__swatches">
+        <label *ngFor="let swatch of brandColors; let i = index" class="canvas-properties__swatch" [style.background]="swatch" [title]="'Brand colour ' + (i + 1)">
+          <input type="color" [value]="swatch" [attr.aria-label]="'Brand colour ' + (i + 1)" (change)="setBrandColor(i, $any($event.target).value)" />
+        </label>
+      </div>
+      <div class="form-group">
+        <label for="brand-font">Font</label>
+        <select id="brand-font" #brandFont class="form-control" (change)="setBrand({ font: brandFont.value || undefined })">
+          <option value="" [selected]="!brand?.font">App font</option>
+          <option *ngFor="let font of brandFonts" [value]="font" [selected]="brand?.font === font" [style.font-family]="font">{{ font }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Logo</label>
+        <div class="canvas-properties__brand-logo">
+          <img *ngIf="brand?.logo" [src]="brand?.logo" alt="Brand logo" />
+          <input #logoFile type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden (change)="uploadImage($event, 'logo')" />
+          <app-button variant="secondary" size="sm" (clicked)="logoFile.click()">{{ brand?.logo ? 'Replace' : 'Upload a logo' }}</app-button>
+          <button *ngIf="brand?.logo" type="button" class="canvas-properties__reset" (click)="insertLogo.emit()">Put on this sheet</button>
+          <button *ngIf="brand?.logo" type="button" class="canvas-properties__reset" (click)="setBrand({ logo: undefined })">Remove</button>
+        </div>
+      </div>
+      <div class="canvas-properties__row">
+        <div class="form-group">
+          <label for="brand-title-size">Title size</label>
+          <input id="brand-title-size" #brandTitle class="form-control" type="number" min="10" max="32" placeholder="13" [value]="brand?.titleSize ?? ''"
+            (change)="setBrandSize('titleSize', brandTitle.value, 10, 32)" />
+        </div>
+        <div class="form-group">
+          <label for="brand-subtitle-size">Subtitle size</label>
+          <input id="brand-subtitle-size" #brandSubtitle class="form-control" type="number" min="9" max="20" placeholder="11" [value]="brand?.subtitleSize ?? ''"
+            (change)="setBrandSize('subtitleSize', brandSubtitle.value, 9, 20)" />
+        </div>
+        <div class="form-group">
+          <label for="brand-body-size">Text size</label>
+          <input id="brand-body-size" #brandBody class="form-control" type="number" min="10" max="24" placeholder="14" [value]="brand?.bodySize ?? ''"
+            (change)="setBrandSize('bodySize', brandBody.value, 10, 24)" />
+        </div>
+      </div>
+      <button *ngIf="brand" type="button" class="canvas-properties__reset" (click)="brandChange.emit(null)">Clear the brand kit</button>
+      <p class="form-hint">Charts take the brand colours unless the sheet has a theme or the chart has its own. The font applies to every object.</p>
+    </details>
+
+    <details class="canvas-properties__card">
+      <summary>Theme</summary>
+      <div class="canvas-properties__themes">
+        <button *ngFor="let theme of themes" type="button" class="canvas-properties__theme" [class.canvas-properties__theme--on]="themeOn(theme.id)"
+          [attr.aria-pressed]="themeOn(theme.id)" (click)="setTheme(theme.id)">
+          <span class="canvas-properties__theme-colors">
+            <span *ngFor="let c of theme.colors.slice(0, 5)" [style.background]="c"></span>
+          </span>
+          <span>{{ theme.label }}</span>
+        </button>
+      </div>
+      <button *ngIf="page?.theme" type="button" class="canvas-properties__reset" (click)="setTheme('')">Use the brand colours</button>
+      <p class="form-hint">Every chart on the sheet takes the theme's colours unless it has its own.</p>
+    </details>
+
+    <details class="canvas-properties__card">
+      <summary>Canvas background</summary>
+      <div class="canvas-properties__row">
+        <div class="form-group">
+          <label for="page-background">Colour</label>
+          <div class="canvas-properties__color">
+            <input id="page-background" #pageBg type="color" [value]="page?.background ?? '#ffffff'" (change)="setPage({ background: pageBg.value })" />
+            <button *ngIf="page?.background" type="button" class="canvas-properties__reset" (click)="setPage({ background: undefined })">Reset</button>
+          </div>
+        </div>
+        <div class="form-group canvas-properties__narrow">
+          <label for="page-opacity">Opacity %</label>
+          <input id="page-opacity" #pageOpacity class="form-control" type="number" min="0" max="100" placeholder="100" [value]="page?.backgroundOpacity ?? ''"
+            (change)="setPage({ backgroundOpacity: pageOpacity.value === '' ? undefined : +pageOpacity.value })" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="page-image">Image</label>
+        <input id="page-image" class="form-control" type="url" placeholder="https:// or /assets/..." [ngModel]="page?.backgroundImage?.startsWith('data:') ? '' : page?.backgroundImage"
+          (ngModelChange)="setPage({ backgroundImage: $event })" />
+        <div class="canvas-properties__upload">
+          <input #pageFile type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden (change)="uploadImage($event, 'page')" />
+          <app-button variant="secondary" size="sm" (clicked)="pageFile.click()">Upload an image</app-button>
+          <button *ngIf="page?.backgroundImage" type="button" class="canvas-properties__reset" (click)="setPage({ backgroundImage: undefined })">Remove</button>
+        </div>
+        <p *ngIf="imageProblem" class="canvas-properties__problem" role="alert">{{ imageProblem }}</p>
+      </div>
+      <div class="form-group">
+        <label for="page-fit">Image fit</label>
+        <select id="page-fit" #pageFit class="form-control" (change)="setPage({ backgroundFit: $any(pageFit.value) || undefined })">
+          <option value="" [selected]="!page?.backgroundFit">Fill</option>
+          <option value="contain" [selected]="page?.backgroundFit === 'contain'">Fit</option>
+          <option value="tile" [selected]="page?.backgroundFit === 'tile'">Tile</option>
+        </select>
+      </div>
+    </details>
+
+    <details class="canvas-properties__card">
+      <summary>Wallpaper and grid</summary>
+      <div class="form-group">
+        <label for="page-wallpaper">Wallpaper, around the sheet</label>
+        <div class="canvas-properties__color">
+          <input id="page-wallpaper" #wallpaper type="color" [value]="page?.wallpaper ?? '#f1f5f9'" (change)="setPage({ wallpaper: wallpaper.value })" />
+          <button *ngIf="page?.wallpaper" type="button" class="canvas-properties__reset" (click)="setPage({ wallpaper: undefined })">Reset</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="page-spacing">Space between objects</label>
+        <input id="page-spacing" #spacing type="range" min="2" max="24" [value]="page?.spacing ?? 8" (change)="setPage({ spacing: +spacing.value })" />
+      </div>
+      <label class="canvas-properties__check">
+        <input #showGrid type="checkbox" [checked]="page?.showGrid !== false" (change)="setPage({ showGrid: showGrid.checked ? undefined : false })" /> Dot grid behind the sheet
+      </label>
+    </details>
+  </div>
+</section>

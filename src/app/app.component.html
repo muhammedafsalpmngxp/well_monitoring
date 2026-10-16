@@ -1,0 +1,457 @@
+<div class="shell" [class.login-mode]="isLoginPage">
+  <app-sidebar></app-sidebar>
+
+  <!-- ═══════════════════════════════════════════
+       ADVANCED FILTER — left dock (pinnable / floating overlay)
+       Pinned  → docks beside the sidebar and pushes the content.
+       Unpinned→ floats over the content with a backdrop.
+       ═══════════════════════════════════════════ -->
+  <div class="afilt-dock" [class.is-open]="filterPanelOpen && currentPageId === 'cmdoverview'" [class.is-pinned]="filterPinned">
+    <aside class="afilt-panel" role="dialog" aria-label="Advanced filter">
+      <header class="afilt-head">
+        <div class="afilt-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#29378d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+          <span>Advanced Filter</span>
+        </div>
+        <div class="afilt-head-actions">
+          <button type="button" class="afilt-pin" [class.is-pinned]="filterPinned" (click)="toggleFilterPin()"
+                  [attr.aria-pressed]="filterPinned"
+                  [title]="filterPinned ? 'Unpin filter (float over content)' : 'Pin filter to the side'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76V6a1 1 0 0 1 1-1 2 2 0 0 0 2-2 2 2 0 0 0 2 2 1 1 0 0 1 1 1v4.76a2 2 0 0 0 .59 1.42l1.12 1.12a1 1 0 0 1 .29.71V16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-1.99a1 1 0 0 1 .29-.71l1.12-1.12A2 2 0 0 0 9 10.76z" transform="rotate(45 12 11)"/></svg>
+          </button>
+          <button type="button" class="afilt-close" (click)="closeFilterPanel()" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="afilt-body">
+        <div class="afilt-field" style="margin-bottom:16px">
+          <label class="afilt-lbl">Well ID</label>
+          <input type="text" class="afilt-input" placeholder="Enter Well ID"
+                 [(ngModel)]="filterWellId" [ngModelOptions]="{standalone: true}"/>
+        </div>
+
+        <div class="afilt-group" *ngFor="let g of filterGroups">
+          <div class="afilt-group-head">
+            <span class="afilt-lbl">{{ g.label }}</span>
+            <button type="button" class="afilt-group-clear" (click)="clearGroup(g)" aria-label="Clear">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="afilt-select" (click)="toggleGroupDropdown(g)">
+            <div class="afilt-chips">
+              <span class="afilt-chip" *ngFor="let v of g.selected">
+                {{ v }}
+                <button type="button" class="afilt-chip-x" (click)="$event.stopPropagation(); removeChip(g, v)" aria-label="Remove">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </span>
+            </div>
+            <svg class="afilt-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="afilt-dropdown" *ngIf="g.dropdownOpen">
+            <button type="button" class="afilt-opt"
+                    *ngFor="let opt of g.options"
+                    [class.selected]="g.selected.includes(opt)"
+                    (click)="$event.stopPropagation(); toggleOption(g, opt)">
+              <span class="afilt-opt-check" [class.checked]="g.selected.includes(opt)">
+                <svg *ngIf="g.selected.includes(opt)" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span>{{ opt }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <footer class="afilt-foot">
+        <button type="button" class="afilt-btn afilt-btn--ghost" (click)="resetFilters()">Reset</button>
+        <button type="button" class="afilt-btn afilt-btn--primary" (click)="applyFilters()">Apply</button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Backdrop only for the floating (unpinned) state -->
+  <div class="afilt-backdrop" [class.is-open]="filterPanelOpen && !filterPinned && currentPageId === 'cmdoverview'" (click)="closeFilterPanel()"></div>
+
+  <!-- ═══════════════════════════════════════════
+       HEADER FILTER — off-canvas panel for tablet/mobile (right side).
+       Below the tablet breakpoint the inline header filter bar (Country →
+       Plant, date range, preset) collapses into a single "Filter" button;
+       clicking it opens this panel, which lists the same fields stacked
+       vertically and is bound to the exact same model as the desktop bar.
+       ═══════════════════════════════════════════ -->
+  <div class="hfb-tab-backdrop" [class.is-open]="tabFilterOpen" (click)="closeTabFilter()"></div>
+  <aside class="hfb-tab-panel" [class.is-open]="tabFilterOpen" role="dialog" aria-label="Filters">
+    <header class="hfb-tab-head">
+      <span class="hfb-tab-title">Filters</span>
+      <button type="button" class="hfb-tab-close" (click)="closeTabFilter()" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </header>
+
+    <div class="hfb-tab-body">
+      <div class="hfb-mf-wrap hfb-tab-field" *ngFor="let f of headerFilters">
+        <button class="hfb-tab-field-card" [class.active]="f.open" [class.has-sel]="f.selected.length" [class.locked]="filtersLocked"
+                [attr.aria-disabled]="filtersLocked" [attr.title]="filtersLocked ? 'Locked for Site Engineer' : null"
+                (click)="toggleHeaderFilter(f, $event)">
+          <span class="hfb-tab-field-icon" [ngSwitch]="f.key">
+            <svg *ngSwitchCase="'country'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/></svg>
+            <svg *ngSwitchCase="'sector'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            <svg *ngSwitchCase="'businessUnit'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <svg *ngSwitchCase="'division'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="12" r="2.4"/><path d="M6 8.4v7.2"/><path d="M8.2 7.1l7.5 3.7"/><path d="M8.2 16.9l7.5-3.7"/></svg>
+            <svg *ngSwitchCase="'cluster'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="6" height="6" rx="1"/><rect x="15" y="9" width="6" height="6" rx="1"/><rect x="9" y="3" width="6" height="6" rx="1"/><path d="M9 6H6a3 3 0 0 0-3 3"/><path d="M15 6h3a3 3 0 0 1 3 3"/></svg>
+            <svg *ngSwitchDefault viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/><path d="M9 12h.01"/><path d="M15 12h.01"/></svg>
+          </span>
+          <span class="hfb-tab-field-text">
+            <span class="hfb-tab-field-label">{{ f.label }}</span>
+            <span class="hfb-tab-field-value">{{ f.selected.length ? (f.selected.length === 1 ? f.selected[0] : f.selected.length + ' selected') : f.label }}</span>
+          </span>
+          <svg *ngIf="filtersLocked" class="hfb-tab-field-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <svg *ngIf="!filtersLocked" class="hfb-tab-field-caret" [class.open]="f.open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="hfb-mf-dropdown hfb-tab-field-dropdown" *ngIf="f.open" (click)="$event.stopPropagation()">
+          <div class="hfb-mf-dd-head">
+            <span class="hfb-mf-dd-title">{{ f.label }}</span>
+            <button class="hfb-mf-dd-clear" *ngIf="f.selected.length" (click)="f.selected = []">Clear</button>
+          </div>
+          <div class="hfb-mf-dd-list">
+            <label class="hfb-mf-opt" *ngFor="let opt of f.options" (click)="toggleHeaderFilterOption(f, opt)">
+              <span class="hfb-mf-check" [class.checked]="f.selected.includes(opt)">
+                <svg *ngIf="f.selected.includes(opt)" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="hfb-mf-opt-label">{{ opt }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="hfb-tab-date-row">
+        <div class="hfb-step hfb-range-step hfb-range-from hfb-tab-date-card">
+          <span class="hfb-tab-field-icon hfb-tab-date-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </span>
+          <div class="hfb-step-body">
+            <div class="hfb-step-label">From</div>
+            <input class="hfb-date-inp" type="date" [value]="monthStart"
+                   (change)="onRangeDateChange('startDate', $any($event.target).value)" />
+          </div>
+        </div>
+        <div class="hfb-step hfb-range-step hfb-tab-date-card">
+          <span class="hfb-tab-field-icon hfb-tab-date-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </span>
+          <div class="hfb-step-body">
+            <div class="hfb-step-label">To</div>
+            <input class="hfb-date-inp" type="date" [value]="today"
+                   (change)="onRangeDateChange('endDate', $any($event.target).value)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="hfb-step hfb-preset-wrap hfb-tab-date-card">
+        <span class="hfb-tab-field-icon hfb-tab-date-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+        </span>
+        <div class="hfb-step-body hfb-tab-preset-body">
+          <div class="hfb-tab-preset-row">
+            <div class="hfb-tab-preset-text">
+              <div class="hfb-step-label">Range</div>
+              <button class="hfb-preset-btn" [class.active]="datePresetOpen" (click)="toggleDatePreset($event)">
+                {{ datePresetLabel }}
+              </button>
+            </div>
+            <svg class="hfb-tab-field-caret" [class.open]="datePresetOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="hfb-preset-dropdown" *ngIf="datePresetOpen">
+            <div class="hfb-preset-options">
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Today'" (click)="selectDatePreset('today')">Today</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'This Week'" (click)="selectDatePreset('thisWeek')">This Week</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Next Week'" (click)="selectDatePreset('nextWeek')">Next Week</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last Week'" (click)="selectDatePreset('lastWeek')">Last Week</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last 30 Days'" (click)="selectDatePreset('last30')">Last 30 Days</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last 60 Days'" (click)="selectDatePreset('last60')">Last 60 Days</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last 90 Days'" (click)="selectDatePreset('last90')">Last 90 Days</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last 120 Days'" (click)="selectDatePreset('last120')">Last 120 Days</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Next Month'" (click)="selectDatePreset('nextMonth')">Next Month</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'This Year'" (click)="selectDatePreset('thisYear')">This Year</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last Year'" (click)="selectDatePreset('lastYear')">Last Year</button>
+              <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Custom'" (click)="selectDatePreset('custom')">Custom</button>
+            </div>
+            <div class="hfb-preset-custom-panel" *ngIf="datePresetLabel === 'Custom'">
+              <div class="hfb-preset-custom-field">
+                <label class="hfb-preset-custom-label">FROM</label>
+                <input class="hfb-preset-custom-input" type="date" [(ngModel)]="customFrom" />
+              </div>
+              <div class="hfb-preset-custom-field">
+                <label class="hfb-preset-custom-label">TO</label>
+                <input class="hfb-preset-custom-input" type="date" [(ngModel)]="customTo" />
+              </div>
+              <div class="hfb-preset-custom-actions">
+                <button class="hfb-preset-custom-cancel" (click)="cancelCustomDate()">Cancel</button>
+                <button class="hfb-preset-custom-apply" (click)="applyCustomDate()">Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="hfb-tab-foot">
+      <button type="button" class="afilt-btn afilt-btn--ghost" (click)="onHfbReset()">Reset</button>
+      <button type="button" class="afilt-btn afilt-btn--primary" (click)="closeTabFilter()">Done</button>
+    </footer>
+  </aside>
+
+  <div class="main-col">
+    <app-topbar></app-topbar>
+
+
+    <button type="button" class="afilt-launcher" *ngIf="!filterPanelOpen && currentPageId === 'cmdoverview'"
+            (click)="openFilter()" title="Advanced Filter" aria-label="Open advanced filter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+    </button>
+
+    <div class="page-scroll">
+
+      <!-- Shared breadcrumb — shown above every page's content. "Home" is a
+           permanent anchor (so a single-page view still reads as a
+           breadcrumb, not a floating title); everything after it is the
+           user's actual click-through path (e.g. Standard Boards → Operations
+           Dashboard → Well Detail), not just a static section label — see
+           BreadcrumbService for how drill-downs extend it. -->
+      <nav class="app-breadcrumb" *ngIf="crumbs.length" aria-label="Breadcrumb">
+        <a class="app-breadcrumb__link" (click)="goHome()">Home</a>
+        <span class="app-breadcrumb__sep">/</span>
+        <ng-container *ngFor="let c of crumbs; let i = index; let last = last">
+          <a *ngIf="!last" class="app-breadcrumb__link" (click)="goToCrumb(i)">{{ c.label }}</a>
+          <span *ngIf="last" class="app-breadcrumb__current">{{ c.label }}</span>
+          <span *ngIf="!last" class="app-breadcrumb__sep">/</span>
+        </ng-container>
+      </nav>
+
+      <div class="hfb-dock" id="hfbDock" [hidden]="currentPageId === 'allprojects' || currentPageId === 'reports' || currentPageId === 'report-builder' || currentPageId === 'standardreports' || currentPageId === 'standardboards' || currentPageId === 'myboards' || currentPageId === 'standardcharts' || currentPageId === 'mycharts' || currentPageId === 'db-views' || currentPageId === 'db-view-detail' || currentPageId === 'db-view-builder' || currentPageId === 'alert-rules' || currentPageId === 'smartalerts'">
+        <div class="hfb-bar" id="hfbBar">
+<!-- 
+          interaged Field Hide Start -->
+      <!-- <div class="flexMainall">
+  <div class="hfb-step odcDropDone l1">
+          
+            <div class="hfb-step-body">
+              <div class="hfb-step-label">{{ 'FILTER.ODC' | translate }}</div>
+              <select class="hfb-step-sel" id="hfbODC" (change)="onHfbChange('odc', $any($event.target).value)"></select>
+            </div>
+          </div> 
+   
+          <div class="hfb-step l2">
+
+            <div class="hfb-step-body">
+              <div class="hfb-step-label">{{ 'FILTER.CLUSTER' | translate }}</div>
+              <select class="hfb-step-sel" id="hfbCluster" (change)="onHfbChange('cluster', $any($event.target).value)"></select>
+            </div>
+          </div>
+
+          <div class="hfb-step l-site">
+            <div class="hfb-step-body">
+              <div class="hfb-step-label">Site</div>
+              <select class="hfb-step-sel" id="hfbSite"
+                      (change)="onHfbChange('site', $any($event.target).value)">
+              </select>
+            </div>
+          </div>
+
+          <div class="hfb-step l-project">
+            <div class="hfb-step-body">
+              <div class="hfb-step-label">Project</div>
+              <select class="hfb-step-sel" id="hfbProject" (change)="onHfbChange('project', $any($event.target).value)"></select>
+            </div>
+          </div>
+
+          <div class="hfb-step l3">
+
+            <div class="hfb-step-body">
+    
+                 <div class="hfb-step-label">well type</div>
+              <select class="hfb-step-sel" id="hfbLocation" (change)="onHfbChange('location', $any($event.target).value)"></select>
+            </div>
+          </div>
+
+   
+           <div class="btnarranged">
+                     <button class="dq-score-badge" type="button"
+                  title="Filter data reliability score · click for details"
+                  aria-label="Filter data reliability score"
+                  [style.color]="filterDqScoreColor()"
+                  (click)="openFilterInfo()">{{filterDqScore()}}%</button>
+           </div>
+ 
+      </div> -->
+               <!-- interaged Field Hide End  -->
+         
+  <div class="hfb-all-fields">
+    <!-- Header Multiselect Filters: Country → Sector → Business Unit → Division → Cluster → Plant -->
+    <div class="hfb-mf-wrap" *ngFor="let f of headerFilters">
+      <div class="hfb-mf-step-body">
+        <div class="hfb-mf-step-label">{{ f.label }}</div>
+        <button class="hfb-mf-btn" [class.active]="f.open" [class.has-sel]="f.selected.length" [class.locked]="filtersLocked"
+                [attr.aria-disabled]="filtersLocked" [attr.title]="filtersLocked ? 'Locked for Site Engineer' : null"
+                (click)="toggleHeaderFilter(f, $event)">
+          <span class="hfb-mf-btn-label">{{ f.selected.length ? (f.selected.length === 1 ? f.selected[0] : f.selected.length + ' selected') : f.label }}</span>
+          <svg *ngIf="filtersLocked" class="hfb-mf-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <svg *ngIf="!filtersLocked" class="hfb-mf-caret" [class.open]="f.open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div class="hfb-mf-dropdown" *ngIf="f.open" (click)="$event.stopPropagation()">
+        <div class="hfb-mf-dd-head">
+          <span class="hfb-mf-dd-title">{{ f.label }}</span>
+          <button class="hfb-mf-dd-clear" *ngIf="f.selected.length" (click)="f.selected = []">Clear</button>
+        </div>
+        <div class="hfb-mf-dd-list">
+          <label class="hfb-mf-opt" *ngFor="let opt of f.options" (click)="toggleHeaderFilterOption(f, opt)">
+            <span class="hfb-mf-check" [class.checked]="f.selected.includes(opt)">
+              <svg *ngIf="f.selected.includes(opt)" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span class="hfb-mf-opt-label">{{ opt }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+          <!-- Quick From / To date range pickers (left of the preset dropdown) -->
+          <div class="hfb-step hfb-range-step hfb-range-from">
+            <div class="hfb-step-body">
+              <div class="hfb-step-label">From</div>
+              <input class="hfb-date-inp" type="date" [value]="monthStart"
+                     (change)="onRangeDateChange('startDate', $any($event.target).value)" />
+            </div>
+          </div>
+          <div class="hfb-step hfb-range-step">
+            <div class="hfb-step-body">
+              <div class="hfb-step-label">To</div>
+              <input class="hfb-date-inp" type="date" [value]="today"
+                     (change)="onRangeDateChange('endDate', $any($event.target).value)" />
+            </div>
+          </div>
+
+          <div class="hfb-step hfb-preset-wrap">
+            <div class="hfb-step-body">
+              <button class="hfb-preset-btn" [class.active]="datePresetOpen" (click)="toggleDatePreset($event)">
+                {{ datePresetLabel }}
+             
+              </button>
+              <div class="hfb-preset-dropdown" *ngIf="datePresetOpen">
+                <div class="hfb-preset-options">
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Today'" (click)="selectDatePreset('today')">
+                    Today
+                    <svg *ngIf="datePresetLabel === 'Today'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'This Week'" (click)="selectDatePreset('thisWeek')">
+                    This Week
+                    <svg *ngIf="datePresetLabel === 'This Week'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Next Week'" (click)="selectDatePreset('nextWeek')">
+                    Next Week
+                    <svg *ngIf="datePresetLabel === 'Next Week'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last Week'" (click)="selectDatePreset('lastWeek')">
+                    Last Week
+                    <svg *ngIf="datePresetLabel === 'Last Week'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last 30 Days'" (click)="selectDatePreset('last30')">
+                    Last 30 Days
+                    <svg *ngIf="datePresetLabel === 'Last 30 Days'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last 60 Days'" (click)="selectDatePreset('last60')">
+                    Last 60 Days
+                    <svg *ngIf="datePresetLabel === 'Last 60 Days'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last 90 Days'" (click)="selectDatePreset('last90')">
+                    Last 90 Days
+                    <svg *ngIf="datePresetLabel === 'Last 90 Days'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last 120 Days'" (click)="selectDatePreset('last120')">
+                    Last 120 Days
+                    <svg *ngIf="datePresetLabel === 'Last 120 Days'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Next Month'" (click)="selectDatePreset('nextMonth')">
+                    Next Month
+                    <svg *ngIf="datePresetLabel === 'Next Month'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'This Year'" (click)="selectDatePreset('thisYear')">
+                    This Year
+                    <svg *ngIf="datePresetLabel === 'This Year'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Last Year'" (click)="selectDatePreset('lastYear')">
+                    Last Year
+                    <svg *ngIf="datePresetLabel === 'Last Year'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <button class="hfb-preset-option" [class.selected]="datePresetLabel === 'Custom'" (click)="selectDatePreset('custom')">
+                    Custom
+                    <svg *ngIf="datePresetLabel === 'Custom'" class="hfb-preset-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                </div>
+                <!-- Custom Date Range Panel — separate card to the right -->
+                <div class="hfb-preset-custom-panel" *ngIf="datePresetLabel === 'Custom'">
+                  <div class="hfb-preset-custom-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    CUSTOM DATE RANGE
+                  </div>
+                  <div class="hfb-preset-custom-field">
+                    <label class="hfb-preset-custom-label">FROM</label>
+                    <input class="hfb-preset-custom-input" type="date" [(ngModel)]="customFrom" placeholder="dd / mm / yyyy" />
+                  </div>
+                  <div class="hfb-preset-custom-field">
+                    <label class="hfb-preset-custom-label">TO</label>
+                    <input class="hfb-preset-custom-input" type="date" [(ngModel)]="customTo" placeholder="dd / mm / yyyy" />
+                  </div>
+                  <div class="hfb-preset-custom-actions">
+                    <button class="hfb-preset-custom-cancel" (click)="cancelCustomDate()">Cancel</button>
+                    <button class="hfb-preset-custom-apply" (click)="applyCustomDate()">Apply</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+
+
+<div class="flexfilterMain">
+   <button onclick="hfbReset()" title="Filter this widget"  class="wfb-btn wfb-btn1"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg></button>
+          <button class="hfb-pin-btn pinned" id="hfbPinBtn" (click)="onHfbTogglePin()" [title]="'FILTER.UNPIN' | translate">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-7H6.5L5 17z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
+          </button>
+</div>
+  </div>
+
+  <!-- Tablet/mobile: collapsed trigger for the header filter bar above -->
+  <button type="button" class="hfb-tab-filter-btn" (click)="toggleTabFilter()" aria-label="Open filters">
+    <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    <span>Filter</span>
+  </button>
+
+
+        </div>
+      </div>
+      <button class="hfb-chip" id="hfbChip" (click)="onHfbExpand()" [title]="'FILTER.SHOW_FILTER' | translate">
+        <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        {{ 'FILTER.FILTER' | translate }}
+        <span class="hfb-chip-scope" id="hfbChipScope">ODC</span>
+      </button>
+
+      <router-outlet></router-outlet>
+    </div>
+
+    <!-- Well Detail Overlay -->
+    <app-well-detail-overlay></app-well-detail-overlay>
+
+    <footer class="footer">
+      <span class="footer-copy">&copy; {{ currentYear }} NGXP Technologies. All rights reserved.</span>
+      <span class="footer-sep">·</span>
+      <span class="footer-version">v1.0.0</span>
+    </footer>
+  </div>
+
+  <!-- Shared shell-level modals -->
+  <app-shell-modals></app-shell-modals>
+</div>

@@ -1,0 +1,10 @@
+<ul *ngIf="open" [id]="listId" class="field-suggest" role="listbox" aria-label="Fields">
+  <li *ngFor="let field of shown; let i = index; trackBy: trackField" class="field-suggest__item" role="option"
+    [class.field-suggest__item--active]="i === active" [attr.aria-selected]="i === active"
+    (mousedown)="$event.preventDefault(); choose(field)" (mouseenter)="active = i">
+    <span class="field-suggest__glyph" [class.field-suggest__glyph--measure]="field.measure" aria-hidden="true">{{ field.measure ? '&#931;' : field.calculated ? 'ƒx' : field.kind === 'number' ? '#' : field.kind === 'date' ? 'D' : 'Aa' }}</span>
+    <span class="field-suggest__name">{{ field.name }}</span>
+    <span class="field-suggest__table">{{ field.table }}</span>
+  </li>
+  <li class="field-suggest__hint" aria-hidden="true">Enter or Tab to insert, Esc to close</li>
+</ul>

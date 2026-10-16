@@ -1,0 +1,28 @@
+:host { position: relative; display: inline-block; }
+
+.aix {
+  &__btn {
+    all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; color: #21409a;
+    border: 1px solid #d0d5dd; background: #fff;
+    &:hover { background: #f5f7ff; } &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &:focus-visible { outline: 2px solid #21409a; }
+  }
+  &__pop {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 800; width: 380px; max-width: 90vw;
+    background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; box-shadow: 0 12px 32px rgba(16, 24, 40, 0.14);
+    padding: 12px 14px; display: grid; gap: 8px; font-size: 13px; color: #101828; text-align: left;
+  }
+  &__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  &__cached { margin-left: 8px; font-size: 10px; font-weight: 500; color: #475467; background: #f2f4f7; border-radius: 999px; padding: 1px 6px; vertical-align: middle; }
+  &__actions { display: flex; align-items: center; gap: 10px; }
+  &__link { all: unset; cursor: pointer; color: #21409a; font-size: 12px; &:hover { text-decoration: underline; } }
+  &__close { all: unset; cursor: pointer; font-size: 18px; line-height: 1; color: #667085; padding: 0 4px; &:hover { color: #101828; } }
+  &__status { margin: 0; color: #475467; display: flex; align-items: center; gap: 8px; }
+  &__dot { width: 8px; height: 8px; border-radius: 50%; background: #f58220; animation: aix-pulse 1s infinite; }
+  &__text { margin: 0; white-space: pre-wrap; line-height: 1.5; }
+  &__cursor { display: inline-block; width: 6px; height: 14px; margin-left: 2px; background: #21409a; vertical-align: text-bottom; animation: aix-pulse 0.8s infinite; }
+  &__error { margin: 0; padding: 8px 10px; border-radius: 6px; background: #fef3f2; color: #b42318; }
+}
+
+@keyframes aix-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }

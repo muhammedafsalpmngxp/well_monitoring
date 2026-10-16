@@ -1,0 +1,64 @@
+<div id="page-scorecards" class="page active">
+        <!-- <div class="breadcrumb"><a>{{ 'SCORECARDS.BREADCRUMB_1' | translate }}</a>
+          <span>›</span><a>{{ 'SCORECARDS.BREADCRUMB_2' | translate }}</a><span>›</span><span class="current">{{ 'SCORECARDS.TITLE' | translate }}</span></div> -->
+        <div class="page-title-row">
+          <div class="sc-title-wrap">
+            <div class="page-title">{{ 'SCORECARDS.TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'SCORECARDS.SUBTITLE_FULL' | translate }}</div>
+          </div>
+          <div class="sc-actions">
+            <select class="dq-sla-select" id="scPeriod" onchange="scRefresh()">
+              <option>Jan–Apr 2026 (13 weeks)</option><option>Q4 2025 (13 weeks)</option>
+            </select>
+            <button class="dq-btn dq-btn-blue" onclick="scRefresh()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              {{ 'SCORECARDS.REFRESH' | translate }}</button>
+          </div>
+        </div>
+
+        <!-- POC note -->
+
+        <!-- Main tabs -->
+        <div class="ai-tabs">
+          <div class="ai-tab active" onclick="switchScTab('crew',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchScTab('crew',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            {{ 'SCORECARDS.TAB_CREW' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchScTab('supervisor',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchScTab('supervisor',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            {{ 'SCORECARDS.TAB_SUPERVISOR' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchScTab('well',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchScTab('well',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
+            {{ 'SCORECARDS.TAB_WELL' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchScTab('programme',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchScTab('programme',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            {{ 'SCORECARDS.TAB_PROGRAMME' | translate }}
+          </div>
+        </div>
+
+        <!-- ── TAB: CREW ── -->
+        <div id="sctab-crew" class="ai-tab-content active">
+          <div class="sc-picker-wrap" id="scCrewPicker"></div>
+          <div id="scCrewCard"></div>
+        </div>
+
+        <!-- ── TAB: SUPERVISOR ── -->
+        <div id="sctab-supervisor" class="ai-tab-content">
+          <div class="sc-picker-wrap" id="scSupPicker"></div>
+          <div id="scSupCard"></div>
+        </div>
+
+        <!-- ── TAB: WELL ── -->
+        <div id="sctab-well" class="ai-tab-content">
+          <div class="sc-picker-wrap" id="scWellPicker"></div>
+          <div id="scWellCard"></div>
+        </div>
+
+        <!-- ── TAB: PROGRAMME ── -->
+        <div id="sctab-programme" class="ai-tab-content">
+          <div id="scProgCard"></div>
+        </div>
+
+      </div><!-- /page-scorecards -->

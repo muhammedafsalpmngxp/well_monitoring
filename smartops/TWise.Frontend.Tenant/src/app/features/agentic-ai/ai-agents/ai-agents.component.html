@@ -1,0 +1,205 @@
+<app-page-header title="AI Agents" [breadcrumbs]="[{label:'Home'},{label:'Agentic AI'},{label:'AI Agents'}]">
+    <div class="aia-header-actions">
+        <app-button variant="primary" (click)="createNewAgent()">
+            <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M9 3.75V14.25M3.75 9H14.25" stroke="white" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+            Create New Agent
+        </app-button>
+    </div>
+</app-page-header>
+
+<div class="page-content aia-page">
+
+    <!-- KPI Cards -->
+    <div class="aia-kpi-row">
+        <div class="aia-kpi-card" *ngFor="let k of kpis">
+            <div class="aia-kpi-card__main">
+            <div class="aia-kpi-card__icon" [style.background]="k.iconBg">
+                <!-- bot -->
+                <svg *ngIf="k.iconType === 'bot'" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                    viewBox="0 0 24 24" fill="none">
+                    <path
+                        d="M20.0039 12.0039H22.0039M12.0039 4.00391V6.00391M12.0039 4.00391C12.5562 4.00391 13.0039 3.55619 13.0039 3.00391C13.0039 2.45162 12.5562 2.00391 12.0039 2.00391C11.4516 2.00391 11.0039 2.45162 11.0039 3.00391C11.0039 3.55619 11.4516 4.00391 12.0039 4.00391ZM2.00391 12.0039H4.00391M7.00391 18.0039H17.0039V22.0039H7.00391V18.0039ZM9.50391 18.0039H14.5039C17.5415 18.0039 20.0039 15.5415 20.0039 12.5039C20.0039 9.46634 17.5415 7.00391 14.5039 7.00391H9.50391C6.46634 7.00391 4.00391 9.46634 4.00391 12.5039C4.00391 15.5415 6.46634 18.0039 9.50391 18.0039ZM10.0039 12.0039C10.0039 12.5562 9.55619 13.0039 9.00391 13.0039C8.45162 13.0039 8.00391 12.5562 8.00391 12.0039C8.00391 11.4516 8.45162 11.0039 9.00391 11.0039C9.55619 11.0039 10.0039 11.4516 10.0039 12.0039ZM16.0039 12.0039C16.0039 12.5562 15.5562 13.0039 15.0039 13.0039C14.4516 13.0039 14.0039 12.5562 14.0039 12.0039C14.0039 11.4516 14.4516 11.0039 15.0039 11.0039C15.5562 11.0039 16.0039 11.4516 16.0039 12.0039Z"
+                        stroke="#66BB6A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <!-- pulse -->
+                <svg *ngIf="k.iconType === 'pulse'" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                    viewBox="0 0 24 24" fill="none">
+                    <path d="M22 12H18L15 21L9 3L6 12H2" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                <!-- trend -->
+                <svg *ngIf="k.iconType === 'trend'" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                    viewBox="0 0 24 24" fill="none">
+                    <path
+                        d="M22 7L14.1314 14.8686C13.7354 15.2646 13.5373 15.4627 13.309 15.5368C13.1082 15.6021 12.8918 15.6021 12.691 15.5368C12.4627 15.4627 12.2646 15.2646 11.8686 14.8686L9.13137 12.1314C8.73535 11.7354 8.53735 11.5373 8.30902 11.4632C8.10817 11.3979 7.89183 11.3979 7.69098 11.4632C7.46265 11.5373 7.26465 11.7354 6.86863 12.1314L2 17M22 14V7H15"
+                        stroke="#29B6F6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+
+                <!-- cost -->
+                <svg *ngIf="k.iconType === 'cost'" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                    viewBox="0 0 24 24" fill="none">
+                    <path
+                        d="M6 11V15M18 9V13M17 4C19.4487 4 20.7731 4.37476 21.4321 4.66544C21.5199 4.70415 21.5638 4.72351 21.6904 4.84437C21.7663 4.91682 21.9049 5.12939 21.9405 5.22809C22 5.39274 22 5.48274 22 5.66274V16.4111C22 17.3199 22 17.7743 21.8637 18.0079C21.7251 18.2454 21.5914 18.3559 21.3319 18.4472C21.0769 18.5369 20.562 18.438 19.5322 18.2401C18.8114 18.1017 17.9565 18 17 18C14 18 11 20 7 20C4.55129 20 3.22687 19.6252 2.56788 19.3346C2.48012 19.2958 2.43624 19.2765 2.3096 19.1556C2.23369 19.0832 2.09512 18.8706 2.05947 18.7719C2 18.6073 2 18.5173 2 18.3373V7.58885C2 6.68009 2 6.2257 2.13628 5.99214C2.2749 5.75456 2.40859 5.64412 2.66806 5.55281C2.92314 5.46305 3.43803 5.56198 4.46783 5.75985C5.18862 5.89834 6.04348 6 7 6C10 6 13 4 17 4ZM14.5 12C14.5 13.3807 13.3807 14.5 12 14.5C10.6193 14.5 9.5 13.3807 9.5 12C9.5 10.6193 10.6193 9.5 12 9.5C13.3807 9.5 14.5 10.6193 14.5 12Z"
+                        stroke="#FFA726" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </div>
+            <div class="aia-kpi-card__body">
+                <span class="aia-kpi-card__label">{{ k.label }}</span>
+                <span class="aia-kpi-card__value">{{ k.value }}</span>
+            </div>
+            </div>
+            <span class="aia-kpi-card__desc">{{ k.desc }}</span>
+        </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="aia-filter-bar">
+        <div class="aia-filter-bar__field">
+            <label>Search</label>
+            <div class="aia-filter-bar__search">
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                    <path d="M15.75 15.75L12.49 12.49M14.25 8.25a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z" stroke="#667085"
+                        stroke-width="1.4" stroke-linecap="round" />
+                </svg>
+                <input type="text" placeholder="Search" [(ngModel)]="searchTerm" />
+            </div>
+        </div>
+        <div class="aia-filter-bar__field">
+            <label>Source</label>
+            <div class="aia-source-pills">
+                <button *ngFor="let s of sourceOptions" class="aia-source-pill"
+                    [class.aia-source-pill--active]="activeSource === s" (click)="activeSource = s">
+                    {{ s }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <p class="aia-state" *ngIf="loading">Loading agents…</p>
+    <p class="aia-state aia-state--bad" *ngIf="error">{{ error }}</p>
+    <p class="aia-state" *ngIf="!loading && !error && !filteredAgents.length">
+        {{ agents.length ? 'No agents match the filter.' : 'No agents yet. Use Create New Agent to build one.' }}
+    </p>
+
+    <!-- Agent Cards Grid -->
+    <div class="aia-cards-grid">
+        <div class="aia-agent-card" *ngFor="let agent of filteredAgents">
+
+            <!-- Card Header -->
+            <div class="aia-agent-card__header">
+                <div class="aia-agent-card__icon" [style.background]="agent.iconBg">
+                    <!-- database -->
+                    <svg *ngIf="agent.iconType === 'database'" xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                        viewBox="0 0 22 22" fill="none">
+                        <path
+                            d="M19.25 4.5835C19.25 6.10228 15.5564 7.3335 11 7.3335C6.44365 7.3335 2.75 6.10228 2.75 4.5835M19.25 4.5835C19.25 3.06472 15.5564 1.8335 11 1.8335C6.44365 1.8335 2.75 3.06472 2.75 4.5835M19.25 4.5835V17.4168C19.25 18.9385 15.5833 20.1668 11 20.1668C6.41667 20.1668 2.75 18.9385 2.75 17.4168V4.5835M19.25 11.0002C19.25 12.5218 15.5833 13.7502 11 13.7502C6.41667 13.7502 2.75 12.5218 2.75 11.0002"
+                            stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <!-- chart -->
+                    <svg *ngIf="agent.iconType === 'chart'" xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                        viewBox="0 0 22 22" fill="none">
+                        <path
+                            d="M19.25 19.25H4.21667C3.70329 19.25 3.44659 19.25 3.25051 19.1501C3.07803 19.0622 2.9378 18.922 2.84991 18.7495C2.75 18.5534 2.75 18.2968 2.75 17.7833V2.75M19.25 6.41667L14.2686 11.3981C14.0871 11.5796 13.9963 11.6704 13.8916 11.7044C13.7996 11.7343 13.7004 11.7343 13.6084 11.7044C13.5037 11.6704 13.4129 11.5796 13.2314 11.3981L11.5186 9.68522C11.3371 9.50372 11.2463 9.41297 11.1416 9.37897C11.0496 9.34899 10.9504 9.34899 10.8584 9.37897C10.7537 9.41297 10.6629 9.50372 10.4814 9.68522L6.41667 13.75M19.25 10.0833V6.41667H15.5833"
+                            stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <!-- mail -->
+                    <svg *ngIf="agent.iconType === 'mail'" xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                        viewBox="0 0 22 22" fill="none">
+                        <path
+                            d="M1.83337 6.4165L9.31787 11.6556C9.92397 12.0799 10.227 12.2921 10.5566 12.3742C10.8478 12.4468 11.1523 12.4468 11.4434 12.3742C11.7731 12.2921 12.0761 12.0799 12.6822 11.6556L20.1667 6.4165M6.23337 18.3332H15.7667C17.3069 18.3332 18.0769 18.3332 18.6652 18.0334C19.1827 17.7698 19.6033 17.3491 19.867 16.8317C20.1667 16.2434 20.1667 15.4734 20.1667 13.9332V8.0665C20.1667 6.52636 20.1667 5.75628 19.867 5.16803C19.6033 4.65058 19.1827 4.22989 18.6652 3.96624C18.0769 3.6665 17.3069 3.6665 15.7667 3.6665H6.23337C4.69323 3.6665 3.92315 3.6665 3.3349 3.96624C2.81745 4.22989 2.39676 4.65058 2.13311 5.16803C1.83337 5.75628 1.83337 6.52636 1.83337 8.0665V13.9332C1.83337 15.4734 1.83337 16.2434 2.13311 16.8317C2.39676 17.3491 2.81745 17.7698 3.3349 18.0334C3.92315 18.3332 4.69323 18.3332 6.23337 18.3332Z"
+                            stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="aia-agent-card__title-wrap">
+                    <div class="aia-agent-card__name-row">
+                        <a class="aia-agent-card__name" href="" (click)="$event.preventDefault(); openAgent(agent)">{{ agent.name }}</a>
+                        <span class="aia-agent-card__badge" [class.aia-agent-card__badge--draft]="agent.status === 'Draft'">
+                            <span class="aia-badge-dot"></span> {{ agent.status }}
+                        </span>
+                    </div>
+                    <span class="aia-agent-card__role">{{ agent.role }}</span>
+                </div>
+                <button class="aia-agent-card__menu-btn" title="Edit agent" [attr.aria-label]="'Edit ' + agent.name" (click)="openAgent(agent)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path
+                            d="M10 10.8332C10.4603 10.8332 10.8334 10.4601 10.8334 9.99984C10.8334 9.53959 10.4603 9.1665 10 9.1665C9.53977 9.1665 9.16669 9.53959 9.16669 9.99984C9.16669 10.4601 9.53977 10.8332 10 10.8332Z"
+                            stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path
+                            d="M10 5.00016C10.4603 5.00016 10.8334 4.62706 10.8334 4.16683C10.8334 3.7066 10.4603 3.3335 10 3.3335C9.53977 3.3335 9.16669 3.7066 9.16669 4.16683C9.16669 4.62706 9.53977 5.00016 10 5.00016Z"
+                            stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path
+                            d="M10 16.6667C10.4603 16.6667 10.8334 16.2936 10.8334 15.8333C10.8334 15.3731 10.4603 15 10 15C9.53977 15 9.16669 15.3731 9.16669 15.8333C9.16669 16.2936 9.53977 16.6667 10 16.6667Z"
+                            stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Description -->
+            <p class="aia-agent-card__desc">
+                {{ agent.description }}
+            </p>
+
+            <!-- Capabilities -->
+            <div class="aia-agent-card__capabilities">
+                <span class="aia-agent-card__cap-label">Capabilities</span>
+                <div class="aia-agent-card__cap-tags">
+                    <span class="aia-cap-tag" *ngFor="let cap of agent.capabilities.slice(0, 2)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path
+                                d="M6.66665 8.6665C6.95292 9.04923 7.31819 9.3659 7.73765 9.5951C8.15712 9.8243 8.62099 9.96057 9.09772 9.9947C9.57452 10.0288 10.0531 9.96003 10.5009 9.79297C10.9487 9.62597 11.3554 9.3645 11.6933 9.0265L13.6933 7.0265C14.3005 6.3978 14.6365 5.55579 14.6289 4.68181C14.6213 3.80782 14.2707 2.97177 13.6527 2.35375C13.0347 1.73572 12.1987 1.38516 11.3247 1.37757C10.4507 1.36997 9.60865 1.70595 8.97999 2.31315L7.83332 3.45315M9.33332 7.33317C9.04699 6.95037 8.68172 6.63369 8.26225 6.40452C7.84279 6.17535 7.37899 6.03907 6.90219 6.00492C6.42545 5.97077 5.94692 6.03957 5.49908 6.20662C5.05124 6.37368 4.64457 6.6351 4.30665 6.97317L2.30665 8.97317C1.69945 9.60183 1.36347 10.4438 1.37107 11.3178C1.37866 12.1918 1.72922 13.0278 2.34725 13.6459C2.96527 14.2639 3.80132 14.6144 4.67531 14.622C5.54929 14.6296 6.3913 14.2937 7.01999 13.6865L8.15999 12.5465"
+                                stroke="#21409A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        {{ cap }}
+                    </span>
+                    <span class="aia-cap-more" *ngIf="agent.capabilities.length > 2">+{{ agent.capabilities.length - 2 }} more</span>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="aia-agent-card__stats">
+                <div class="aia-stat">
+                    <div class="aia-stat__icon aia-stat__icon--blue">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"
+                        stroke-linecap="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                    </div>
+                    <div class="aia-stat__main">
+                        <span class="aia-stat__value">{{ agent.runs }}</span>
+                        <span class="aia-stat__label">Runs</span>
+                    </div>
+                </div>
+                <div class="aia-stat">
+                    <div class="aia-stat__icon aia-stat__icon--green">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2"
+                        stroke-linecap="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    </div>
+                    <div class="aia-stat__main">
+                        <span class="aia-stat__value">{{ agent.successRate }}</span>
+                        <span class="aia-stat__label">Success</span>
+                    </div>
+                </div>
+                <div class="aia-stat">
+                    <div class="aia-stat__icon aia-stat__icon--purple">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9333EA" stroke-width="2"
+                        stroke-linecap="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    </div>
+                    <div class="aia-stat__main">
+                        <span class="aia-stat__value">{{ agent.avgTime }}</span>
+                        <span class="aia-stat__label">AVG time</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>

@@ -1,0 +1,98 @@
+#page-crewpi {
+  .cpi-title-left {
+    flex: 1;
+  }
+
+  .cpi-page-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cpi-card-head-body {
+    flex: 1;
+  }
+}
+
+/* ════════════════════════════════════════════════
+   KPI STRIP — matches cmdoverview card design
+   ════════════════════════════════════════════════ */
+#page-crewpi .cpi-kpi-strip .kpi {
+  padding: 10px;
+  display: flex; flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+#page-crewpi .cpi-kpi-strip .kpi:hover {
+  transform: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Top accent border (overrides global left-edge bar) */
+#page-crewpi .cpi-kpi-strip .kpi::before {
+  top: 0; left: 0; right: 0; bottom: auto;
+  width: auto; height: 1px;
+  border-radius: 10px 10px 0 0;
+  opacity: 0.95;
+}
+
+#page-crewpi .cpi-kpi-strip .kpi-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px;
+}
+
+#page-crewpi .cpi-kpi-strip .kpi-label {
+  font-size: 8pt; font-weight: 600; letter-spacing: 0.7px;
+  text-transform: uppercase; color: var(--txt-muted);
+  margin: 0; line-height: 1.2; flex: 1;
+}
+
+#page-crewpi .cpi-kpi-strip .kpi-icon {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+#page-crewpi .cpi-kpi-strip .kpi-icon svg { width: 14px; height: 14px; }
+
+/* Icon background colors — light mode */
+#page-crewpi .cpi-kpi-strip .k-blue  .kpi-icon { background: var(--blue-soft);   color: var(--blue); }
+#page-crewpi .cpi-kpi-strip .k-green .kpi-icon { background: var(--green-soft);  color: var(--green); }
+#page-crewpi .cpi-kpi-strip .k-red   .kpi-icon { background: var(--red-soft);    color: var(--red); }
+
+/* Icon background colors — dark mode */
+html:not(.navbar-light) #page-crewpi .cpi-kpi-strip .k-blue  .kpi-icon { background: rgba(41,55,141, 0.16);  color: var(--blue); }
+html:not(.navbar-light) #page-crewpi .cpi-kpi-strip .k-green .kpi-icon { background: rgba(0, 176, 80, 0.16);    color: var(--green); }
+html:not(.navbar-light) #page-crewpi .cpi-kpi-strip .k-red   .kpi-icon { background: rgba(255, 0, 0, 0.16);     color: var(--red); }
+
+/* KPI value — monospace bold */
+#page-crewpi .cpi-kpi-strip .kpi-val {
+  font-family: var(--font-family-mono);
+  font-size: 20pt; font-weight: 700;
+  line-height: 1; margin: 0 0 6px;
+}
+
+/* kpi-val.blue not in global styles */
+#page-crewpi .cpi-kpi-strip .kpi-val.blue { color: var(--blue); }
+html:not(.navbar-light) #page-crewpi .cpi-kpi-strip .kpi-val.blue { color: #60a5fa; }
+
+/* Sub / unit text */
+#page-crewpi .cpi-kpi-strip .kpi-unit {
+  font-size: 9pt; color: var(--txt-dim); margin: 0 0 8px; line-height: 1.4;
+}
+
+/* View link */
+#page-crewpi .cpi-kpi-strip .cpi-kpi-link {
+  display: inline-block;
+  font-size: 9pt; font-weight: 600;
+  color: var(--blue);
+  text-decoration: none;
+  margin-top: auto;
+}
+
+#page-crewpi .cpi-kpi-strip .cpi-kpi-link:hover { text-decoration: underline; }
+
+html:not(.navbar-light) #page-crewpi .cpi-kpi-strip .cpi-kpi-link { color: #60a5fa; }

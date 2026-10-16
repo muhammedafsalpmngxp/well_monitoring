@@ -1,0 +1,15 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+svg {
+  display: block;
+}
+
+.app-icon__img {
+  display: block;
+  object-fit: contain;
+}

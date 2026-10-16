@@ -1,0 +1,11 @@
+<button
+  [type]="type"
+  [class]="'btn btn-' + variant + ' btn-' + size"
+  [class.btn-full]="fullWidth"
+  [class.btn-loading]="loading"
+  [disabled]="disabled || loading"
+  (click)="onClick()"
+>
+  <span *ngIf="loading" class="spinner"></span>
+  <ng-content></ng-content>
+</button>

@@ -1,0 +1,19 @@
+<div class="page-header">
+  <div class="page-header__content">
+    <div class="page-header__left">
+      <div class="page-header__title-group">
+        <ng-content select="[page-header-icon]"></ng-content>
+        <div class="page-header__title-block">
+          <h1 class="page-header__title" [attr.data-tooltip]="title">
+            <span class="page-header__title-text">{{ title }}</span>
+            <ng-content select="[page-header-title-suffix]"></ng-content>
+          </h1>
+          <p *ngIf="subtitle" class="page-header__subtitle">
+            <ng-content select="[page-header-subtitle-icon]"></ng-content><span class="page-header__subtitle-text">{{ subtitle }}</span><ng-content select="[page-header-subtitle-suffix]"></ng-content>
+          </p>
+        </div>
+      </div>
+    </div>
+    <ng-content></ng-content>
+  </div>
+</div>

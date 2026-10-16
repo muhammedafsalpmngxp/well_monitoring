@@ -1,0 +1,46 @@
+namespace TWise.Tenant.Domain.DTOs;
+
+/// <summary>Tenant-wide switches. ActiveProviderId is null until a provider is chosen.</summary>
+public record AiSettingsDto(int DailyQuota, bool IsEnabled, long? ActiveProviderId, DateTime? ModifiedAt);
+
+/// <summary>An editable AI instruction: Text is the one in use (custom or default).</summary>
+public record AiPromptDto(string Key, string Name, string Description, string DefaultText, string Text, bool IsCustom);
+
+/// <summary>Empty text resets to the default.</summary>
+public record SaveAiPromptRequest(string? Text);
+
+public record SaveAiSettingsRequest(int DailyQuota, bool IsEnabled);
+
+/// <summary>A grantable AI feature (catalog entry).</summary>
+public record AiFeatureDto(string Key, string Name, string Description);
+
+/// <summary>Admin view: the catalog plus, per feature key, the role codes granted in this tenant.</summary>
+public record AiFeatureAccessDto(IReadOnlyList<AiFeatureDto> Features, IReadOnlyDictionary<string, IReadOnlyList<string>> Access);
+
+/// <summary>Feature keys the signed-in user may use right now (master flag, active provider and role grants folded in).</summary>
+public record AiFeaturesDto(IReadOnlyList<string> Enabled);
+
+/// <summary>A registered provider as shown to an admin. The key itself is never returned, only whether one is set.</summary>
+public record AiProviderDto(long Id, string Name, string Provider, string BaseUrl, string Model, bool HasApiKey, bool IsActive, DateTime ModifiedAt,
+    string? FastModel = null);
+
+/// <summary>ApiKey null or empty keeps the stored key on update; a value replaces it.</summary>
+public record SaveAiProviderRequest(string Name, string Provider, string BaseUrl, string Model, string? ApiKey, string? FastModel = null);
+
+public record AiTestResultDto(bool Success, string Message, int LatencyMs);
+
+public record AiUsageDayDto(DateTime Day, int Calls, int Failed, long PromptTokens, long CompletionTokens);
+
+/// <summary>One answered question, for the admin's AI activity page.</summary>
+public record AiActivityItemDto(long MessageId, long ConversationId, string UserId, string? UserName, string SourceType, long SourceId, string SourceName,
+    string Question, string Answer, bool HasQuery, bool HasTrace, int? TotalMs, DateTime CreatedAt);
+public record AiActivityPageDto(int Total, IReadOnlyList<AiActivityItemDto> Items);
+/// <summary>A failed AI call from the usage log.</summary>
+public record AiFailureDto(long Id, string? UserId, string? UserName, string Purpose, string Model, int LatencyMs, string? Error, DateTime CreatedAt);
+
+public record AiUsageSummaryDto(int CallsToday, int DailyQuota, IReadOnlyList<AiUsageDayDto> Days);
+
+/// <summary>A chat message in the OpenAI shape (role: system | user | assistant).</summary>
+public record AiMessage(string Role, string Content);
+
+public record AiCompletion(string Content, int PromptTokens, int CompletionTokens);

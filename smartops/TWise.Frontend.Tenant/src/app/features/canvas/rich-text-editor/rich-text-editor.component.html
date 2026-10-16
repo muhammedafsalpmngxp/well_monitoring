@@ -1,0 +1,42 @@
+<div class="rich-text" [class.rich-text--large]="large">
+  <div class="rich-text__toolbar" role="toolbar" aria-label="Text formatting">
+    <button type="button" class="rich-text__tool" title="Bold" aria-label="Bold" (mousedown)="$event.preventDefault()" (click)="run('bold')"><b>B</b></button>
+    <button type="button" class="rich-text__tool" title="Italic" aria-label="Italic" (mousedown)="$event.preventDefault()" (click)="run('italic')"><i>I</i></button>
+    <button type="button" class="rich-text__tool" title="Underline" aria-label="Underline" (mousedown)="$event.preventDefault()" (click)="run('underline')"><u>U</u></button>
+    <button type="button" class="rich-text__tool" title="Strikethrough" aria-label="Strikethrough" (mousedown)="$event.preventDefault()"
+      (click)="run('strikeThrough')"><s>S</s></button>
+    <span class="rich-text__divider" aria-hidden="true"></span>
+    <select #size class="rich-text__size" aria-label="Text size" (change)="setSize(size.value); size.value = ''">
+      <option value="">Size</option>
+      <option *ngFor="let option of sizes" [value]="option.value">{{ option.label }}</option>
+    </select>
+    <label class="rich-text__color" title="Text colour">
+      <span aria-hidden="true">A</span>
+      <input #fore type="color" aria-label="Text colour" value="#1f2937" (change)="setColor(fore.value)" />
+    </label>
+    <label class="rich-text__color rich-text__color--highlight" title="Highlight">
+      <span aria-hidden="true">H</span>
+      <input #hilite type="color" aria-label="Highlight colour" value="#fff3a3" (change)="setColor(hilite.value, true)" />
+    </label>
+    <span class="rich-text__divider" aria-hidden="true"></span>
+    <button type="button" class="rich-text__tool" title="Align left" aria-label="Align left" (mousedown)="$event.preventDefault()"
+      (click)="run('justifyLeft')">&#8676;</button>
+    <button type="button" class="rich-text__tool" title="Centre" aria-label="Centre" (mousedown)="$event.preventDefault()"
+      (click)="run('justifyCenter')">&#8596;</button>
+    <button type="button" class="rich-text__tool" title="Align right" aria-label="Align right" (mousedown)="$event.preventDefault()"
+      (click)="run('justifyRight')">&#8677;</button>
+    <button type="button" class="rich-text__tool" title="Bullet list" aria-label="Bullet list" (mousedown)="$event.preventDefault()"
+      (click)="run('insertUnorderedList')">&bull;</button>
+    <button type="button" class="rich-text__tool" title="Numbered list" aria-label="Numbered list" (mousedown)="$event.preventDefault()"
+      (click)="run('insertOrderedList')">1.</button>
+    <button type="button" class="rich-text__tool" title="Clear formatting" aria-label="Clear formatting" (mousedown)="$event.preventDefault()"
+      (click)="run('removeFormat')">&#10005;</button>
+  </div>
+  <div #area class="rich-text__area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Text"
+    (input)="changed()" (paste)="paste($event)"></div>
+  <div class="rich-text__link">
+    <input #link class="form-control" type="url" placeholder="Link for the selected text, https://" aria-label="Link address" />
+    <button type="button" class="btn btn-ghost btn-sm" (mousedown)="$event.preventDefault()" (click)="addLink(link.value)">Link</button>
+  </div>
+  <p *ngIf="linkProblem" class="rich-text__problem" role="alert">{{ linkProblem }}</p>
+</div>

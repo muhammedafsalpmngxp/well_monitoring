@@ -1,0 +1,439 @@
+// Database View Detail — read-only view of a saved SQL view, styled to match Database View conventions
+
+.dbv-page-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #0F6CBD;
+  flex-shrink: 0;
+}
+
+.dbv-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+
+  ::ng-deep .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+  }
+}
+
+.icon-only-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #21409A;
+  background: var(--color-bg-card);
+  color: #21409A;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  // &:hover {
+  //   border-color: var(--color-primary);
+  //   color: var(--color-primary);
+  // }
+}
+
+.dbv-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  font-family: var(--font-family-base);
+
+  svg { display: block; flex-shrink: 0; }
+}
+
+// ---------- Summary badges ----------
+.dbv-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dbv-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  height: 36px;
+  background: var(--color-bg-card);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-family-base);
+  color: #101828;
+
+  &--source {
+    color: #1B7A3A;
+    border-color: #D4FDD6;
+    background: #EEF8EE;
+  }
+
+  &--builtin {
+    color: var(--color-primary);
+    background: #E3F6FD;
+  }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+}
+
+// ---------- Two-column layout ----------
+.dbv-layout {
+  display: grid;
+  grid-template-columns: minmax(370px, 508px) 16px 1fr;
+  align-items: start;
+}
+
+.dbv-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dbv-right {
+  min-width: 0;
+}
+
+.dbv-resizer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 16px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+
+  // Vertical divider line running the full height of the columns
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: #E2E7EF;
+    transform: translateX(-50%);
+  }
+
+  &:hover::before,
+  &:active::before {
+    background: var(--color-primary, #21409A);
+  }
+
+  &__grip {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #C9D3E2;
+    background: #fff;
+    color: #667085;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  &:hover &__grip,
+  &:active &__grip {
+    border-color: var(--color-primary, #21409A);
+    background: #EEF2FF;
+    color: var(--color-primary, #21409A);
+  }
+}
+
+// ---------- Custom card title with icon ----------
+.dbv-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -16px -16px 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #E7ECF3;
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #EEF4FF;
+    flex-shrink: 0;
+  }
+
+  &__text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  &__count {
+    font-size: 16px;
+    font-weight: 500;
+    color: #667085;
+  }
+}
+
+// ---------- Source table card ----------
+.dbv-table-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #E7ECF3;
+  border-radius: 10px;
+
+  &:not(:last-child) {
+    margin-bottom: 8px;
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: #EEF4FF;
+    flex-shrink: 0;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+
+  &__count {
+    font-size: 12px;
+    color: #667085;
+  }
+}
+
+// ---------- SQL query card ----------
+.dbv-sql__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -16px -16px 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid #E7ECF3;
+}
+
+.dbv-sql__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.dbv-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg-card);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-family-base);
+  color: #4D555B;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.dbv-sql__code {
+margin: 12px -16px -16px;
+  overflow: auto;
+  padding: 12px 0;
+  background: #F8FAFC;
+  border: none;
+  border-radius: 6px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 13px;
+  line-height: 20px;
+height: calc(100dvh - 315px);
+}
+
+.dbv-sql__line {
+  display: flex;
+  padding: 0 16px;
+  white-space: pre;
+
+  &:hover {
+    background: #F0F4FF;
+  }
+}
+
+.dbv-sql__lineno {
+  flex-shrink: 0;
+  color: #667085;
+  font-weight: 400;
+  text-align: right;
+  margin-right: 16px;
+  user-select: none;
+}
+
+.dbv-sql__line-code {
+  flex: 1;
+  min-width: 0;
+}
+
+.dbv-sql__keyword {
+  color: #21409A;
+  font-weight: 700;
+}
+
+.dbv-sql__text {
+  color: #101828;
+
+  &--comment {
+    color: #98A2B3;
+    font-style: italic;
+    font-weight: 400;
+  }
+}
+
+// ---------- Data preview card ----------
+.dbv-preview__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -16px -16px 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #E7ECF3;
+}
+
+.dbv-preview__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.dbv-preview__count {
+  font-size: 16px;
+  font-weight: 600;
+  color: #667085;
+}
+
+.dbv-preview__note {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #667085;
+}
+
+.dbv-preview-grid {
+  width: 100%;
+  margin: 0 -16px;
+  width: calc(100% + 32px);
+}
+
+// ---------- Responsive ----------
+@media (max-width: 1024px) {
+  .dbv-layout {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+
+  .dbv-resizer {
+    display: none;
+  }
+}
+
+// ---------- Card style override for this page ----------
+.dbv-page {
+  ::ng-deep .card {
+   background: #fff;
+    border: 1px solid #E2E7EF;
+    box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.06);
+    border-radius: 12px;
+    overflow: hidden;
+
+    .card__body {
+      padding: 16px;
+    }
+
+    &__header {
+      padding: 14px 16px;
+      border-bottom: 1px solid #E7ECF3;
+    }
+
+    &__title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+  }
+}
+
+.scrollAccordionMain {
+  overflow: auto;
+  height: calc(100dvh / var(--app-zoom-factor, 1) - 226px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+}

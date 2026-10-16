@@ -1,0 +1,179 @@
+<div id="page-odcwells" class="page active">
+        <!-- Full-page loading overlay — hides dummy data until real API data arrives -->
+        <div class="aw-page-loader" *ngIf="isLoading">
+          <div class="aw-page-loader-box">
+            <div class="aw-loading-spinner"></div>
+            <span class="aw-loading-text">Loading wells…</span>
+          </div>
+        </div>
+
+        <!-- Back navigation -->
+        <div class="odc-back-link" (click)="goBack()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="odc-back-icon"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Dashboard
+        </div>
+
+        <!-- Title row -->
+        <div class="page-title-row">
+          <div class="aw-title-left">
+            <div class="page-title">
+              ODC Overall Status – Wells
+            </div>
+          </div>
+          <div class="aw-title-right">
+            <button type="button" class="aw-dashboard-btn"
+                    title="Back to CMD Overview"
+                    [routerLink]="['/cmdoverview']">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="9" rx="1"/>
+                <rect x="14" y="3" width="7" height="5" rx="1"/>
+                <rect x="14" y="12" width="7" height="9" rx="1"/>
+                <rect x="3" y="16" width="7" height="5" rx="1"/>
+              </svg>
+            </button>
+            <div class="aw-view-toggle">
+              <button class="aw-view-btn active" id="awGridBtn" onclick="awSetView('grid',this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>{{ 'COMMON.GRID_VIEW' | translate }}
+              </button>
+              <button class="aw-view-btn" id="awCardBtn" onclick="awSetView('card',this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>{{ 'COMMON.CARD_VIEW' | translate }}
+              </button>
+            </div>
+            <button class="dq-btn dq-btn-ghost aw-export-btn" (click)="exportCsv()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {{ 'COMMON.EXPORT_CSV' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Wells Summary section — ODC KPI cards -->
+        <div class="aw-summary-strip">
+
+          <div class="kpi k-blue aw-kpi active">
+            <div class="kpi-head">
+              <span class="kpi-label">TOTAL DRILLED</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val blue">
+              <span class="aw-active-val">{{ odcCounts.totalWells }}</span>
+            </div>
+            <div class="aw-kpi-bar-track">
+              <div class="aw-kpi-bar-fill aw-bar-fill-blue" style="width:100%"></div>
+            </div>
+            <div class="kpi-unit aw-active-breakdown">{{ odcCounts.dueWells }} due · {{ odcCounts.notDueWells }} not due</div>
+          </div>
+
+          <div class="kpi k-red aw-kpi critical">
+            <div class="kpi-head">
+              <span class="kpi-label">DRILLED &amp; NOT COMPLETED</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val red">{{ odcCounts.drilledNotCompleted }}</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">{{ getOdcPct(odcCounts.drilledNotCompleted) }}</div>
+            <div class="kpi-unit">of total</div>
+          </div>
+
+          <div class="kpi k-teal aw-kpi progress">
+            <div class="kpi-head">
+              <span class="kpi-label">DUE WELLS</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val teal">{{ odcCounts.dueWells }}</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">{{ getOdcPct(odcCounts.dueWells) }}</div>
+            <div class="kpi-unit">of total</div>
+          </div>
+
+          <div class="kpi k-green aw-kpi complete">
+            <div class="kpi-head">
+              <span class="kpi-label">DUE WELLS COMPLETED</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val green">{{ odcCounts.dueWellsCompleted }}</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">{{ getOdcPct(odcCounts.dueWellsCompleted) }}</div>
+            <div class="kpi-unit">of total</div>
+          </div>
+
+          <!-- Backlog -->
+          <div class="kpi k-blue aw-kpi early">
+            <div class="kpi-head">
+              <span class="kpi-label">BACKLOG WELLS</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val blue">0</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">{{ getOdcPct(0) }}</div>
+            <div class="kpi-unit">of total</div>
+          </div>
+
+          <!-- Suspended -->
+          <div class="kpi k-grey aw-kpi planned">
+            <div class="kpi-head">
+              <span class="kpi-label">SUSPENDED WELLS</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val grey">{{ odcCounts.suspendedWells }}</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">{{ getOdcPct(odcCounts.suspendedWells) }}</div>
+            <div class="kpi-unit">of total</div>
+          </div>
+
+        </div>
+
+        <!-- Filter + search row — ODC category pills -->
+        <div class="aw-filter-row">
+
+          <button class="aw-status-pill all" [class.active]="activeCategory === 'all'" (click)="selectCategory('all')">All <span>{{ pillCounts.all }}</span></button>
+          <button class="aw-status-pill inprogress" [class.active]="activeCategory === 'drilled'" (click)="selectCategory('drilled')">Total Drilled <span>{{ pillCounts.drilled }}</span></button>
+          <button class="aw-status-pill completed" [class.active]="activeCategory === 'hookup'" (click)="selectCategory('hookup')">Hook-Up Completed <span>{{ pillCounts.hookup }}</span></button>
+          <button class="aw-status-pill critical" [class.active]="activeCategory === 'due'" (click)="selectCategory('due')">Due Wells <span>{{ pillCounts.due }}</span></button>
+          <button class="aw-status-pill early" [class.active]="activeCategory === 'notdue'" (click)="selectCategory('notdue')">Non Due Wells <span>{{ pillCounts.notdue }}</span></button>
+          <button class="aw-status-pill atrisk" [class.active]="activeCategory === 'dnc'" (click)="selectCategory('dnc')">Drilled &amp; Not Completed <span>{{ pillCounts.dnc }}</span></button>
+          <button class="aw-status-pill highperf" [class.active]="activeCategory === 'early'" (click)="selectCategory('early')">Wells Accelerated <span>{{ pillCounts.early }}</span></button>
+          <button class="aw-status-pill planned" [class.active]="activeCategory === 'backlog'" (click)="selectCategory('backlog')">Backlog Wells <span>{{ pillCounts.backlog }}</span></button>
+          <button class="aw-status-pill odc-cat" [class.active]="activeCategory === 'buffer'" (click)="selectCategory('buffer')">Buffer Wells <span>{{ pillCounts.buffer }}</span></button>
+          <button class="aw-status-pill completed" [class.active]="activeCategory === 'completed'" (click)="selectCategory('completed')">Due Wells Completed <span>{{ pillCounts.completed }}</span></button>
+          <button class="aw-status-pill onhold" [class.active]="activeCategory === 'suspended'" (click)="selectCategory('suspended')">Suspended Wells <span>{{ pillCounts.suspended }}</span></button>
+          <button class="aw-status-pill atrisk" [class.active]="activeCategory === 'pdoissues'" (click)="selectCategory('pdoissues')">Not Due (PDO Issues) <span>{{ pillCounts.pdoissues }}</span></button>
+          <button class="aw-status-pill bonuspotential" [class.active]="activeCategory === 'readycomm'" (click)="selectCategory('readycomm')">Ready for Commissioning <span>{{ pillCounts.readycomm }}</span></button>
+        </div>
+
+        <!-- Grid header -->
+        <div class="aw-grid-header">
+          <span class="aw-grid-title">{{ 'ALLWELLS.WELLS_DATA_GRID' | translate }}</span>
+        </div>
+        <div class="aw-grid-container">
+          <div class="aw-grid-toolbar">
+            <svg class="aw-grid-toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <span class="aw-grid-toolbar-title">{{ 'COMMON.WELLS_SUMMARY_GRID' | translate }}</span>
+            <span class="aw-records-badge" id="odcRecordsBadge">0 {{ 'COMMON.RECORDS' | translate }}</span>
+            <span class="aw-grid-hint">{{ 'COMMON.SORT_FILTER' | translate }}</span>
+            <span class="aw-grid-toolbar-actions">
+              <a class="aw-view-all-link">{{ 'COMMON.VIEW_ALL' | translate }}</a>
+            </span>
+          </div>
+          <!-- Grid view — AG Grid -->
+          <div id="awGridView">
+            <div id="awWellsGrid" class="ag-theme-alpine-dark"></div>
+          </div>
+          <!-- Card view (hidden by default) -->
+          <div id="awCardView">
+            <div class="aw-card-grid" id="awCardBody"></div>
+          </div>
+        </div>
+
+      </div><!-- /page-odcwells -->

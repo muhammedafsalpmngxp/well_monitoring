@@ -1,0 +1,72 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "dynamic-interrupt",
+    "description": "Mid-node human input",
+    "created_at": "2026-09-22T11:08:33.272Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [],
+    "routers": [],
+    "interrupts": [
+      {
+        "node": "approver",
+        "kind": "dynamic",
+        "message": "This action will charge the customer. Approve?",
+        "resume_key": "approval"
+      }
+    ],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "analyst",
+        "role": "a billing analyst",
+        "goal": "Work out what the customer should be charged",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      },
+      {
+        "name": "approver",
+        "role": "an approval gate",
+        "goal": "Apply the charge only if the human approved it; otherwise explain that it was declined",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

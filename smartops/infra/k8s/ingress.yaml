@@ -1,0 +1,32 @@
+# NGINX Ingress for AKS — single ingress, gateway fans out internally.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smartops-ingress
+  namespace: smartops
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    # View/report previews return very large payloads and can run for minutes.
+    # nginx defaults (60s read, buffered to a 1g temp file) turned these into 504s.
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "75"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-max-temp-file-size: "0"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [api.smartops.example.com]
+      secretName: smartops-tls
+  rules:
+    - host: api.smartops.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: smartops-gateway
+                port: { number: 7000 }

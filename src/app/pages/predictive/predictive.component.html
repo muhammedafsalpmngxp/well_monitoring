@@ -1,0 +1,132 @@
+<div id="page-predictive" class="page active pa-body">
+
+    <!-- <div class="pa-breadcrumb">
+      <span>{{ 'PREDICTIVE.BREADCRUMB_1' | translate }}</span><span class="pa-sep">&nbsp;›&nbsp;</span>
+      <span>{{ 'PREDICTIVE.BREADCRUMB_2' | translate }}</span><span class="pa-sep">&nbsp;›&nbsp;</span>
+      <span class="pa-bc-cur">{{ 'PREDICTIVE.BREADCRUMB_CURRENT' | translate }}</span><span class="pa-sep">&nbsp;›&nbsp;</span>
+      <span style="color:#22c55e">&#9679;</span>
+      <span>BL0010 &ndash; Nimr Field &ndash;</span>
+      <span class="pa-bc-badge">{{ 'PREDICTIVE.BADGE_ACTIVE' | translate }}</span>
+    </div> -->
+
+    <div class="pa-toolbar">
+      <div class="pa-period-group">
+        <button class="pa-period-btn pa-active">{{ 'COMMON.MONTHLY' | translate }}</button>
+        <button class="pa-period-btn">{{ 'COMMON.WEEKLY' | translate }}</button>
+        <button class="pa-period-btn">{{ 'COMMON.DAILY' | translate }}</button>
+      </div>
+      <div class="pa-toolbar-right">
+        <button class="pa-tb-btn">&#128197; Feb 2026</button>
+        <button class="pa-tb-btn pa-tb-export"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> {{ 'COMMON.EXPORT_CSV' | translate }}</button>
+        <button class="pa-tb-btn pa-tb-btn-red">&#8635; {{ 'COMMON.SYNC_NOW' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="pa-engine">
+      <div class="pa-engine-left">
+        <!-- <div class="pa-engine-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4e8ef7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        </div> -->
+        <div>
+          <div class="pa-engine-title">{{ 'PREDICTIVE.ENGINE_TITLE' | translate }}
+            <!-- <span class="pa-ai-badge">{{ 'COMMON.AI' | translate }}</span> -->
+          </div>
+          <div class="pa-engine-sub">{{ 'PREDICTIVE.ENGINE_SUB' | translate }}</div>
+        </div>
+      </div>
+      <div class="pa-engine-right">
+        <select class="pa-sort-select"><option>{{ 'PREDICTIVE.SORT_RISK_SCORE' | translate }}</option></select>
+        <button class="pa-btn-run">&#10141; {{ 'PREDICTIVE.RUN_FORECAST' | translate }}</button>
+        <button class="pa-btn-refresh">&#8635;</button>
+      </div>
+    </div>
+
+    <div class="pa-kpi-grid">
+      <div class="atg-kpi kpi-green">
+        <div class="atg-kpi-accent"></div>
+        <div class="atg-kpi-label">{{ 'PREDICTIVE.WELLS_MODELLED' | translate }}</div>
+        <div class="atg-kpi-val">20</div>
+        <div class="atg-kpi-unit mt-8">&nbsp;</div>
+      </div>
+      <div class="atg-kpi kpi-red">
+        <div class="atg-kpi-accent"></div>
+        <div class="atg-kpi-label">{{ 'PREDICTIVE.HIGH_RISK_WELLS' | translate }}</div>
+        <div class="atg-kpi-val">4</div>
+        <div class="atg-kpi-unit">{{ 'PREDICTIVE.RISK_SCORE_GE_80' | translate }}</div>
+      </div>
+      <div class="atg-kpi kpi-green">
+        <div class="atg-kpi-accent"></div>
+        <div class="atg-kpi-label">{{ 'PREDICTIVE.FORECAST_ACCURACY' | translate }}</div>
+        <div class="atg-kpi-val">82%</div>
+        <div class="atg-kpi-unit">{{ 'PREDICTIVE.MODEL_CONFIDENCE' | translate }}</div>
+      </div>
+      <div class="atg-kpi kpi-red">
+        <div class="atg-kpi-accent"></div>
+        <div class="atg-kpi-label">{{ 'PREDICTIVE.AVG_DELAY_FORECAST' | translate }}</div>
+        <div class="atg-kpi-val">+64d</div>
+        <div class="atg-kpi-unit">{{ 'PREDICTIVE.P50_MEDIAN' | translate }}</div>
+      </div>
+      <div class="atg-kpi kpi-yellow">
+        <div class="atg-kpi-accent"></div>
+        <div class="atg-kpi-label">{{ 'PREDICTIVE.AVG_RISK_SCORE' | translate }}</div>
+        <div class="atg-kpi-val">72</div>
+        <div class="atg-kpi-unit">{{ 'PREDICTIVE.RANGE_0_100' | translate }}</div>
+      </div>
+      <div class="atg-kpi kpi-green">
+        <div class="atg-kpi-accent"></div>
+        <div class="atg-kpi-label">{{ 'PREDICTIVE.ON_TRACK_WELLS' | translate }}</div>
+        <div class="atg-kpi-val">3/20</div>
+        <div class="atg-kpi-unit">{{ 'PREDICTIVE.DELAY_LT_50D' | translate }}</div>
+      </div>
+    </div>
+
+    <!-- Delay Forecast by Well (P50) -->
+    <div class="pa-panel">
+      <div class="pa-panel-title"><span class="pa-indicator-blue">&#9632;</span> {{ 'PREDICTIVE.DELAY_FORECAST_BY_WELL' | translate }}</div>
+      <div class="pa-chart-wrap">
+        <canvas id="pa-chart-forecast"></canvas>
+      </div>
+    </div>
+
+    <!-- Completion Delay Distribution + Monte Carlo -->
+    <div class="pa-panels">
+      <div class="pa-panel">
+        <div class="pa-panel-title"><span class="pa-indicator-red">&#9632;</span> {{ 'PREDICTIVE.COMPLETION_DELAY_DIST' | translate }}</div>
+        <div class="pa-chart-wrap-sm">
+          <canvas id="pa-chart-delay"></canvas>
+        </div>
+      </div>
+      <div class="pa-panel">
+        <div class="pa-panel-title"><span class="pa-indicator-cyan">&#9632;</span> {{ 'PREDICTIVE.MONTE_CARLO_TITLE' | translate }}</div>
+        <div class="pa-chart-wrap-sm">
+          <canvas id="pa-chart-monte"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Predictive Analysis Table -->
+    <div class="pa-panel">
+      <div class="pa-table-header">
+        <div class="pa-panel-title no-mb"><span class="pa-indicator-blue">&#9632;</span> {{ 'PREDICTIVE.ANALYSIS_TABLE' | translate }}</div>
+        <div class="pa-table-meta">{{ 'PREDICTIVE.TABLE_META' | translate }}</div>
+      </div>
+      <table class="pa-table">
+        <thead>
+          <tr>
+            <th>{{ 'PREDICTIVE.TH_WELL' | translate }}</th>
+            <th>{{ 'PREDICTIVE.TH_RIG' | translate }}</th>
+            <th>{{ 'PREDICTIVE.TH_FORECAST_DELAY' | translate }} &#8597;</th>
+            <th>{{ 'PREDICTIVE.TH_P10' | translate }} &#8597;</th>
+            <th>{{ 'PREDICTIVE.TH_P50' | translate }} &#8597;</th>
+            <th>{{ 'PREDICTIVE.TH_P90' | translate }} &#8597;</th>
+            <th class="th-risk">{{ 'PREDICTIVE.TH_RISK_SCORE' | translate }} &#8597;</th>
+            <th>{{ 'PREDICTIVE.TH_DELAY_DRIVER' | translate }}</th>
+            <th>{{ 'PREDICTIVE.TH_CONFIDENCE' | translate }} &#8597;</th>
+            <th>{{ 'PREDICTIVE.TH_TREND' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody id="pa-table-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /page-predictive -->

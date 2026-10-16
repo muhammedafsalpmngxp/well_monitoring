@@ -1,0 +1,21 @@
+#page-labour {
+  #lpEntryGrid,
+  #lpAttGrid,
+  #lpIdleCrewGrid {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+}
+
+html:not(.navbar-light) #page-labour {
+  #lpEntryGrid,
+  #lpAttGrid,
+  #lpIdleCrewGrid {
+    background: var(--surface);
+    border-color: var(--border);
+  }
+}

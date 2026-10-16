@@ -1,0 +1,175 @@
+<div id="page-crewpi" class="page active cpi-body">
+
+  <!-- <div class="breadcrumb">
+    <a data-page="cmdoverview">{{ 'SIDEBAR.CREW_ACTIVITIES' | translate }}</a>
+    <span>›</span>
+    <span class="current">PI Ratings — Crews &amp; Groups</span>
+  </div> -->
+
+  <!-- Page header -->
+  <div class="page-title-row">
+    <div class="cpi-title-left">
+      <div class="page-title cpi-page-title">
+        PI Ratings — Crews &amp; Crew Groups
+        <span class="cpi-badge-new">NEW</span>
+      </div>
+      <div class="page-subtitle">Three-level Performance Index for every crew · YTD · Month · Today · drift catches inflated daily reporting</div>
+    </div>
+  </div>
+
+  <!-- KPI tiles (4) -->
+  <div class="cpi-kpi-strip">
+
+    <!-- Total Crews -->
+    <div class="kpi k-blue cpi-kpi clickable" role="button" tabindex="0" title="Open Crew List" onclick="cpiOpenCrewListFor('all')">
+      <div class="kpi-head">
+        <span class="kpi-label">Total Crews</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val blue" id="cpiKpiTotalCrews">0</div>
+      <div class="kpi-unit">Across all wells</div>
+      <a class="cpi-kpi-link" href="javascript:void(0)" onclick="event.stopPropagation();cpiOpenCrewListFor('all')">View all crews →</a>
+    </div>
+
+    <!-- Total Crew Groups -->
+    <div class="kpi k-blue cpi-kpi clickable" role="button" tabindex="0" title="Open Crew List" onclick="cpiOpenCrewListFor('groups')">
+      <div class="kpi-head">
+        <span class="kpi-label">Total Crew Groups</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="3"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/><circle cx="17" cy="7" r="3"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val blue" id="cpiKpiTotalGroups">0</div>
+      <div class="kpi-unit">Active groups</div>
+      <a class="cpi-kpi-link" href="javascript:void(0)" onclick="event.stopPropagation();cpiOpenCrewListFor('groups')">View all groups →</a>
+    </div>
+
+    <!-- Crews ≥ P8 -->
+    <div class="kpi k-green cpi-kpi clickable" role="button" tabindex="0" title="Open Crew List filtered by ≥ P8" onclick="cpiOpenCrewListFor('high')">
+      <div class="kpi-head">
+        <span class="kpi-label">Crews ≥ P8</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val green" id="cpiKpiHighPi">0</div>
+      <div class="kpi-unit" id="cpiKpiHighPiPct">0% of all crews</div>
+      <a class="cpi-kpi-link" href="javascript:void(0)" onclick="event.stopPropagation();cpiOpenCrewListFor('high')">View crews →</a>
+    </div>
+
+    <!-- Crews ≤ P5 -->
+    <div class="kpi k-red cpi-kpi clickable" role="button" tabindex="0" title="Open Crew List filtered by ≤ P5" onclick="cpiOpenCrewListFor('low')">
+      <div class="kpi-head">
+        <span class="kpi-label">Crews ≤ P5</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val red" id="cpiKpiLowPi">0</div>
+      <div class="kpi-unit" id="cpiKpiLowPiPct">0% of all crews</div>
+      <a class="cpi-kpi-link" href="javascript:void(0)" onclick="event.stopPropagation();cpiOpenCrewListFor('low')">View crews →</a>
+    </div>
+
+  </div>
+
+  <!-- 2x2 widget grid -->
+  <div class="cpi-widget-grid">
+    <div class="card cpi-widget" data-wfb-widget="cpi-distribution">
+      <div class="card-head">
+        <div class="cpi-card-head-body">
+          <div class="card-title">PI Rating Distribution</div>
+          <div class="card-sub">Crew count by P-rating bucket (P0–P9)</div>
+        </div>
+      </div>
+      <div class="cpi-chart-wrap"><canvas id="cpiChartDistribution"></canvas></div>
+    </div>
+
+    <div class="card cpi-widget" data-wfb-widget="cpi-discipline">
+      <div class="card-head">
+        <div class="cpi-card-head-body">
+          <div class="card-title">Avg PI by Discipline</div>
+          <div class="card-sub">YTD average across welding · civil · rigging · other</div>
+        </div>
+      </div>
+      <div class="cpi-chart-wrap"><canvas id="cpiChartDiscipline"></canvas></div>
+    </div>
+
+    <div class="card cpi-widget" data-wfb-widget="cpi-top">
+      <div class="card-head">
+        <div class="cpi-card-head-body">
+          <div class="card-title">Top 5 Performing Crews</div>
+          <div class="card-sub">Highest YTD PI</div>
+        </div>
+      </div>
+      <div id="cpiTopList" class="cpi-rank-list"><!-- injected --></div>
+    </div>
+
+    <div class="card cpi-widget" data-wfb-widget="cpi-bottom">
+      <div class="card-head">
+        <div class="cpi-card-head-body">
+          <div class="card-title">At-Risk Crews</div>
+          <div class="card-sub">Lowest YTD PI · candidates for coaching</div>
+        </div>
+      </div>
+      <div id="cpiBottomList" class="cpi-rank-list"><!-- injected --></div>
+    </div>
+  </div>
+
+  <!-- Average PI Rating Trend (full-width line chart) -->
+  <div class="card cpi-trend-card">
+    <div class="card-head">
+      <div class="cpi-card-head-body">
+        <div class="card-title">Average PI Rating Trend</div>
+        <div class="card-sub">Daily average PI · all crews vs crew-groups average</div>
+      </div>
+      <div class="cpi-trend-filters">
+        <select id="cpiTrendGroupCode" class="dq-filter-sel" onchange="renderCrewPi()">
+          <option value="all">All Crew IDs</option>
+        </select>
+        <select id="cpiTrendCrew" class="dq-filter-sel" onchange="renderCrewPi()">
+          <option value="all">All Individual Crews</option>
+        </select>
+        <select id="cpiTrendDays" class="dq-filter-sel" onchange="renderCrewPi()">
+          <option value="7">7 Days</option>
+          <option value="14">14 Days</option>
+          <option value="30" selected>1 Month</option>
+          <option value="60">2 Months</option>
+          <option value="90">3 Months</option>
+          <option value="180">6 Months</option>
+          <option value="360">12 Months</option>
+        </select>
+      </div>
+    </div>
+    <div class="cpi-trend-wrap"><canvas id="cpiTrendChart"></canvas></div>
+    <div class="cpi-trend-legend">
+      <button type="button" class="cpi-leg-btn active" data-line="0" onclick="cpiTrendToggleLine(0)">
+        <span class="cpi-leg-line cpi-leg-blue"></span>
+        <span class="cpi-leg-label">All Crews</span>
+      </button>
+      <button type="button" class="cpi-leg-btn active" data-line="1" onclick="cpiTrendToggleLine(1)">
+        <span class="cpi-leg-line cpi-leg-green-dash"></span>
+        <span class="cpi-leg-label">Crew Groups (Avg)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- AG Grid card -->
+  <div class="card cpi-card-grid">
+    <div class="card-head">
+      <div class="cpi-card-head-body">
+        <div class="card-title">Crew PI Details</div>
+        <div class="card-sub">YTD · Month · Today PI for every crew · drift highlights inflated daily reporting</div>
+      </div>
+      <select class="dq-filter-sel" id="cpiRatingFilter" onchange="renderCrewPi()">
+        <option value="all">All Crews</option>
+        <option value="high">High PI (≥ P8)</option>
+        <option value="mid">Mid PI (P6–P7)</option>
+        <option value="low">Low PI (≤ P5)</option>
+      </select>
+    </div>
+    <div id="cpiGrid" class="ag-theme-alpine-dark cpi-grid"></div>
+  </div>
+
+</div>

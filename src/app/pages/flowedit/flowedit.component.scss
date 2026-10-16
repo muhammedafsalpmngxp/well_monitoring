@@ -1,0 +1,41 @@
+/* ── Dark-theme overrides for app-flowedit ──────────────────────────────────
+   Most fd-* classes already adapt via CSS variables (--surface, --border,
+   --txt-1, etc.) which flip between light and dark in styles.scss.
+   Only elements with hardcoded literal colors need explicit overrides here.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+html:not(.navbar-light) {
+
+  /* Status chip: hardcoded #7F7F7F text is ~2.5:1 contrast on dark navy */
+  .fd-status-chip {
+    background: rgba(200, 215, 240, 0.08);
+    color: rgba(200, 215, 240, 0.58);
+  }
+  .fd-status-chip.published {
+    background: var(--green-soft);
+    color: var(--green);
+  }
+
+  /* Dropdown hover border: hardcoded #A5A5A5 reads as a washed-out grey on dark */
+  .fd-dropdown-trigger:hover {
+    border-color: rgba(214, 228, 240, 0.28);
+  }
+
+  /* Dropdown panel: 18% black shadow disappears on dark surfaces */
+  .fd-dropdown-panel {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(41,55,141, 0.18);
+  }
+
+  /* Toggle track: 25% grey is barely visible on the dark-navy surface */
+  .fd-toggle-slider {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  /* Trig-edit button hover: give it a readable surface response */
+  .fd-trig-edit-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: var(--txt-1);
+  }
+
+}

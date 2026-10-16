@@ -1,0 +1,138 @@
+:host { display: contents; }
+
+.lg-wrap {
+  --navy: #1b2a6b;
+  --navy-2: #11193f;
+  --primary: #29378d;
+  --orange: #ee7d22;
+  --ink: #1f2433;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  min-height: 100vh;
+  overflow: auto;
+  background: #fff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+  * { box-sizing: border-box; }
+
+  .lg-hero {
+    position: relative;
+    flex: 1.40;
+    min-width: 0;
+    overflow: hidden;
+    color: #fff;
+    padding: 40px 56px  20px;
+    display: flex;
+    flex-direction: column;
+    background-image: url('/assets/images/left-sideloginbg-2.png');
+    background-repeat: no-repeat;
+    background-position: bottom center;
+    background-size: cover;
+  }
+
+  .lg-hero > * { position: relative; z-index: 1; }
+
+  .lg-brand { display: flex; align-items: center; gap: 16px; }
+  .lg-brand-logo {
+     border-radius: 12px; background: #fff;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    box-shadow: 0 6px 18px rgba(0,0,0,.25);
+    img{
+width: 194px;
+
+  object-fit: contain;
+  padding: 15px;
+    }
+  }
+
+  .lg-brand-name { font-size: 18px; font-weight: 600; letter-spacing: .3px; }
+  .lg-brand-sub { font-size: 14px; font-weight: 500; color: rgba(255,255,255,.7); margin-top: 4px; }
+
+  .lg-hero-mid { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 560px; }
+  .lg-headline { color: #fff; font-size: 58px; line-height: 1.02;
+     font-weight: 700;  margin: 0; }
+  .lg-headline .o { color: var(--orange); }
+  .lg-rule {width: 100px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--orange);
+  margin: 24px 0 28px; }
+
+  .lg-points { list-style: none; margin: 0; padding: 0; display: flex;
+     flex-direction: column; gap: 18px; }
+  .lg-point { display: flex; align-items:center; gap: 12px; font-size: 16px; font-weight: 500; }
+  .lg-check {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+   background: #09162E61;
+ color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lg-check svg { width: 13px; height: 13px; }
+
+  .lg-stats {
+    margin-top: 32px;
+    display: grid; grid-template-columns: repeat(3,1fr);
+    background: #09162E61;
+border: 1px solid #FFFFFF1F;
+backdrop-filter: blur(9.5px);
+
+    border-radius: 16px;
+    padding: 20px 8px;
+    max-width: 464px;
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .lg-stat { padding: 0 18px; border-right: 1px solid rgba(255,255,255,0.12); }
+  .lg-stat:last-child { border-right: 0; }
+  .lg-stat-ic { color: rgba(255,255,255,.75); }
+  .lg-stat-ic svg { width: 20px; height: 20px; }
+  .lg-stat-val { font-size: 28px; font-weight: 800; margin-top: 10px; }
+  .lg-stat-lbl { font-size: 12px; color: rgba(255,255,255,.72); margin-top: 2px; }
+  .lg-stat-bar { width: 30px; height: 3px; border-radius: 2px; margin-top: 9px; }
+
+  .lg-panel {
+    flex: 0.92;
+    min-width: 0;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 34px 64px;
+    position: relative;
+  }
+  .lg-panel-inner { margin: auto 0; width: 100%; max-width: 100%; padding: 23px 70px; }
+
+  .lg-lang {
+    position: absolute; top: 28px; right: 32px;
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid var(--line); border-radius: 8px;
+    font-size: 13px; font-weight: 500; color: var(--ink);
+  }
+
+  .lg-version { position: absolute; bottom: 16px; right: 20px; font-size: 11px; color: var(--muted); }
+
+  .lg-app { display: flex; align-items: center; gap: 11px; margin-bottom: 40px; }
+  .lg-app-ic { color: var(--orange); }
+  .lg-app-ic svg { width: 30px; height: 30px; }
+  .lg-app-name { font-size: 17px; font-weight: 600; color: var(--primary); letter-spacing: .3px; }
+  .lg-app-sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    .lg-hero { padding: 32px 28px 40px; background-position: center top; }
+    .lg-headline { font-size: 40px; }
+    .lg-panel { padding: 32px 24px; }
+  }
+  @media (max-width: 480px) {
+    .lg-hero { padding: 26px 20px 32px; }
+    .lg-headline { font-size: 34px; }
+    .lg-stats { grid-template-columns: 1fr; gap: 4px; }
+    .lg-stat { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.12); padding: 12px 18px; }
+    .lg-stat:last-child { border-bottom: 0; }
+    .lg-panel-inner { padding: 0 !important; }
+  }
+}

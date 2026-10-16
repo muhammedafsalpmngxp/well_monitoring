@@ -1,0 +1,995 @@
+// ─── Toast Notifications ──────────────────────────────────────────────────────
+.avr-toast {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    margin: 0 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    animation: avrToastSlide 0.3s ease;
+
+    svg {
+        flex-shrink: 0;
+    }
+
+    &--success {
+        background: #ECFDF5;
+        border: 1px solid #A7F3D0;
+        color: #065F46;
+
+        svg {
+            color: #10B981;
+        }
+    }
+
+    &--error {
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        color: #991B1B;
+
+        svg {
+            color: #DC2626;
+        }
+    }
+
+    &--bottom {
+        margin: 12px 16px 0;
+        // The modal footer is sticky at the very bottom of the scroll container, so the toast
+        // must be sticky too — otherwise it renders in-flow below the fold and is never seen
+        // unless the user manually scrolls past the (already-visible) footer buttons.
+        position: sticky;
+        bottom: 70px;
+        z-index: 5;
+    }
+}
+
+@keyframes avrToastSlide {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+// ─── Modal Footer ─────────────────────────────────────────────────────────────
+.avr-modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid #E7ECF3;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 14px 16px;
+
+    &__btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 42px;
+        padding: 0 24px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 500;
+        font-family: var(--font-family-base);
+        cursor: pointer;
+
+        &--secondary {
+            background: #fff;
+            border: 1px solid #21409A;
+            color: #21409A;
+        }
+
+        &--primary {
+            background: #21409A;
+            border: 1px solid #21409A;
+            color: #fff;
+
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+        }
+    }
+}
+
+// ─── View Mode — all fields disabled ──────────────────────────────────────────
+.avr-page--view-mode {
+
+    input,
+    select,
+    textarea,
+    button,
+    .avr-toggle,
+    .avr-add-field-btn,
+    .avr-toggle-btn {
+        pointer-events: none !important;
+        opacity: 0.7;
+    }
+
+    .avr-source-type-toggle {
+        pointer-events: none;
+        opacity: 0.7;
+    }
+
+    // Copy stays usable in read-only view.
+    .avr-copy-btn {
+        pointer-events: auto !important;
+        opacity: 1;
+    }
+}
+
+// ─── Header Actions ───────────────────────────────────────────────────────────
+.avr-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+
+    button {
+        font-family: var(--font-family-base);
+    }
+}
+
+// ─── Page Layout ─────────────────────────────────────────────────────────────
+// All sections sit inside ONE white card — no individual section backgrounds
+.avr-page {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    font-family: var(--font-family-base);
+
+    button,
+    input,
+    select,
+    textarea {
+        font-family: var(--font-family-base);
+    }
+
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 10px;
+    box-shadow: 0px 4px 14px 0px rgba(16, 24, 40, 0.04);
+    overflow: visible;
+}
+
+// ─── Section — themed variants with light background ────────────────────────────
+.avr-section {
+    background: transparent;
+    border-radius: 12px;
+    margin: 0;
+    overflow: visible;
+
+    &--blue {
+        border-radius: 12px;
+        border: 1px solid #D6E0F5;
+        background: #EEF2FB;
+
+        .avr-section__title {
+            color: #21409A;
+        }
+    }
+
+    &--orange {
+        border-radius: 12px;
+        border: 1px solid #F6D2B1;
+        background: #FFF6ED;
+
+        .avr-section__title {
+            color: #F58220;
+        }
+    }
+
+    &--teal {
+        background: #F0FAFB;
+        border-radius: 12px;
+        border: 1px solid #a3f6fa;
+
+        .avr-section__title {
+            color: #18AEB5;
+        }
+    }
+
+
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 24px;
+
+        // Line that extends from the title to the right edge
+        // &::after {
+        //     content: '';
+        //     flex: 1;
+        //     height: 1px;
+        //     background: #E7ECF3;
+        // }
+    }
+
+    &__number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        background: #21409A;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+
+        &--orange {
+            background: #F58220;
+        }
+
+        &--teal {
+            background: #18AEB5;
+        }
+
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #101828;
+        margin: 0;
+    }
+
+    &__info {
+        flex-shrink: 0;
+        color: #C9D3E2;
+    }
+
+    &__body {
+        padding: 14px 20px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+}
+
+// ─── Form helpers ─────────────────────────────────────────────────────────────
+.avr-form-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    &--stretch {
+        align-items: stretch;
+    }
+}
+
+.avr-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 200px;
+
+    &--grow {
+        flex: 1;
+    }
+
+    &--textarea {
+        flex: 1;
+        min-width: 0;
+    }
+
+    &--full {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    &__label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #667085;
+    }
+}
+
+.avr-label-info,
+.avr-section__info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    cursor: pointer;
+    color: #C9D3E2;
+    opacity: 1;
+    visibility: visible;
+    vertical-align: middle;
+}
+
+// Dark tooltip pattern aligned with Standard Boards page
+.avr-tooltip-host {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+[data-tooltip] {
+    &::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 8px;
+        background: #172B4D;
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 400;
+        font-family: var(--font-family-base);
+        line-height: 1.5;
+        padding: 7px 12px;
+        white-space: pre-line;
+        max-width: 220px;
+        width: 200px;
+        text-align: center;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
+        z-index: 200;
+    }
+
+    &::before {
+        content: '';
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 8px solid #172B4D;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
+        z-index: 201;
+    }
+
+    &:hover::after,
+    &:hover::before {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+// Top section sits close to modal header; open tooltips downward to avoid clipping.
+.avr-section--blue [data-tooltip] {
+    &::after {
+        top: calc(100% + 10px);
+        bottom: auto;
+    }
+
+    &::before {
+        top: calc(100% + 4px);
+        bottom: auto;
+        border-top: 0;
+        border-bottom: 8px solid #172B4D;
+    }
+}
+
+.avr-required {
+    color: #D92D20;
+}
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+.avr-input {
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid #C9D3E2;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    color: #344054;
+
+    &::placeholder {
+        color: #667085;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: #21409A;
+        box-shadow: 0 0 0 3px rgba(33, 64, 154, .08);
+    }
+}
+
+// ─── Select ───────────────────────────────────────────────────────────────────
+.avr-select-wrap {
+    position: relative;
+
+    &::after {
+        content: '';
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 12px;
+        height: 7px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23667085' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+        pointer-events: none;
+    }
+
+    &--severity {
+        display: flex;
+        align-items: center;
+    }
+
+    &__flag {
+        position: absolute;
+        left: 10px;
+        pointer-events: none;
+        z-index: 1;
+    }
+}
+
+.avr-select {
+    height: 42px;
+    padding: 0 34px 0 12px;
+    border: 1px solid #C9D3E2;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    color: #98A2B3;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    cursor: pointer;
+
+    &--with-icon {
+        padding-left: 32px;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: #21409A;
+        box-shadow: 0 0 0 3px rgba(33, 64, 154, .08);
+    }
+
+    &:disabled {
+        background: #F2F4F7;
+        color: #626974;
+        cursor: not-allowed;
+    }
+}
+
+// ─── Custom searchable dropdown (replaces native <datalist> popups) ───────────
+.avr-combo {
+    &__panel {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        z-index: 30;
+        max-height: 232px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #C9D3E2;
+        border-radius: 10px;
+        box-shadow: 0 12px 28px rgba(16, 24, 40, .14);
+        padding: 6px;
+    }
+
+    &__option {
+        padding: 9px 10px;
+        border-radius: 8px;
+        font-size: 13.5px;
+        font-family: var(--font-family-base);
+        color: #344054;
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &:hover {
+            background: #EAF1FF;
+        }
+
+        &--active {
+            background: #EAF1FF;
+            color: #21409A;
+            font-weight: 600;
+        }
+    }
+
+    &__empty {
+        padding: 9px 10px;
+        font-size: 13px;
+        font-style: italic;
+        color: #98A2B3;
+    }
+}
+
+// ─── Textarea ─────────────────────────────────────────────────────────────────
+.avr-query-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.avr-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border: 1px solid #D0D5DD;
+    border-radius: 6px;
+    background: #fff;
+    color: #344054;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: #F2F4F7; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.avr-textarea-wrap {
+    position: relative;
+
+
+
+    &--locked {
+        // background: #F2F4F7;
+        border-radius: 6px;
+
+        .avr-textarea-wrap__lock {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+        }
+
+        .avr-textarea {
+            padding-left: 30px;
+            background: #F2F4F7;
+            color: #667085;
+        }
+    }
+}
+
+.avr-textarea {
+    width: 100%;
+    min-height: 72px;
+    padding: 8px 12px;
+    border: 1px solid #DCE3ED;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 13px;
+    font-family: var(--font-family-base);
+    color: #344054;
+    resize: none;
+    box-sizing: border-box;
+
+    &--compact {
+        min-height: 44px;
+        max-height: 44px;
+        overflow-y: auto;
+    }
+
+    &::placeholder {
+        color: #667085;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: #21409A;
+        box-shadow: 0 0 0 3px rgba(33, 64, 154, .08);
+    }
+
+    &--locked {
+        cursor: default;
+        overflow-y: auto;
+        max-height: 120px;
+
+        &:focus {
+            box-shadow: none;
+            border-color: #D0D5DD;
+        }
+    }
+}
+
+// ─── Custom Date Row ────────────────────────────────────────────────────────────────────────────────
+.avr-custom-date-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+// ─── Source Fields card ───────────────────────────────────────────────────────
+.avr-source-card {
+    border-radius: 12px;
+    border: 1px solid #F5CF9E;
+    background: #FFF9F1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    &__title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+    }
+
+    &__controls {
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    &__hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #667085;
+        margin: 0;
+    }
+}
+
+// ─── Source Type Toggle ───────────────────────────────────────────────────────
+.avr-source-type-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.avr-toggle-group {
+    display: flex;
+    border: 1px solid #E7ECF3;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.avr-toggle-btn {
+    padding: 8px 20px;
+    border: none;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    color: #667085;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:not(:last-child) {
+        border-right: 1px solid #E7ECF3;
+    }
+
+    &--active {
+        background: #F58220;
+        color: #fff;
+    }
+}
+
+// ─── View Columns Tags ────────────────────────────────────────────────────────
+.avr-view-columns {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    &__tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    &__tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: #FFF0E0;
+        color: #9F5414;
+        font-size: 12px;
+        font-weight: 500;
+    }
+}
+
+// ─── Add Field Button ─────────────────────────────────────────────────────────
+.avr-add-field-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 42px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 10px;
+    background: #F58220;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-end;
+
+    // &:hover {
+    //     background: #1a3480;
+    // }
+}
+
+// ─── Added Field Groups ───────────────────────────────────────────────────────
+.avr-field-groups {
+    border-radius: 12px;
+    border: 1px solid #E7ECF3;
+    background: #FFF;
+    padding: 14px;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    &__title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+        margin: 0;
+    }
+
+    &__hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #667085;
+    }
+}
+
+// ─── AG Grid wrapper ──────────────────────────────────────────────────────────
+.avr-grid-wrapper {
+    border-radius: 12px;
+    border: 1px solid #E6EBF2;
+    background: #FFF;
+    overflow: hidden;
+}
+
+.avr-grid {
+    width: 100%;
+}
+
+// ─── Field Tags ───────────────────────────────────────────────────────────────
+.avr-field-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.avr-field-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #EFF4FF;
+    color: #3538CD;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+// ─── Toggle ───────────────────────────────────────────────────────────────────
+.avr-toggle-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-top: 4px;
+
+    &__text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    &__label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+    }
+
+    &__sub {
+        font-size: 12px;
+        color: #667085;
+    }
+}
+
+.avr-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+
+    input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    &__track {
+        position: absolute;
+        inset: 0;
+        border-radius: 99px;
+        background: #D0D5DD;
+        cursor: pointer;
+        transition: background 0.2s;
+
+        &::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+    }
+
+    input:checked+&__track {
+        background: #18AEB5;
+
+        &::after {
+            transform: translateX(20px);
+        }
+    }
+}
+
+// ─── Responsive breakpoints ───────────────────────────────────────────────────
+
+.avr-grid-wrapper {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+.avr-grid {
+    min-width: 500px;
+}
+
+@media (max-width: 1024px) {
+    .avr-form-field {
+        min-width: 220px;
+    }
+
+    .avr-source-card__controls {
+        gap: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .avr-header-actions {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 6px;
+
+        ::ng-deep .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
+    .avr-section {
+        &__body {
+            padding: 0 14px 14px;
+            gap: 12px;
+        }
+
+        &__header {
+            padding: 10px 14px;
+        }
+    }
+
+    .avr-form-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .avr-form-field {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .avr-source-card {
+        padding: 12px;
+
+        &__controls {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+    }
+
+    .avr-add-field-btn {
+        width: 100%;
+        justify-content: center;
+        align-self: auto;
+    }
+
+    .avr-field-groups {
+        &__header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+        }
+
+        &__hint {
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+
+        &__title {
+            font-size: 13px;
+        }
+    }
+
+    .avr-grid-wrapper {
+        margin: 0;
+        border-radius: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .avr-page {
+        border-radius: 6px;
+    }
+
+    .avr-section {
+        &__body {
+            padding: 0 10px 12px;
+        }
+
+        &__header {
+            padding: 8px 10px;
+        }
+
+        &__title {
+            font-size: 14px;
+        }
+    }
+
+    .avr-source-card {
+        padding: 10px;
+    }
+
+    .avr-header-actions {
+        gap: 4px;
+    }
+}

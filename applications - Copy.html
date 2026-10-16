@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Applications</title>
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+    background: #f3f4f8;
+    color: #1a1a2e;
+    min-height: 100vh;
+  }
+
+  .apps-shell {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 28px 40px;
+  }
+
+  /* Header card */
+  .apps-header {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 14px;
+    padding: 22px 26px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .apps-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a2e;
+    letter-spacing: 0.2px;
+  }
+  .apps-subtitle {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.5;
+  }
+
+  /* Grid */
+  .apps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+  }
+
+  /* Tile */
+  .apps-tile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 14px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    width: 100%;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .apps-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+    border-color: rgba(37,99,235,0.45);
+  }
+  .apps-tile:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  .apps-tile-icon {
+    width: 56px; height: 56px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid transparent;
+  }
+  .apps-tile-icon-text {
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  .apps-tile-body { flex: 1; min-width: 0; }
+  .apps-tile-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .apps-tile-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a2e;
+    letter-spacing: 0.2px;
+  }
+  .apps-tile-cat {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 10px;
+    background: #eef0f4;
+    color: #6b7280;
+  }
+  .apps-tile-desc {
+    margin-top: 5px;
+    font-size: 12.5px;
+    color: #6b7280;
+    line-height: 1.5;
+  }
+  .apps-tile-chev {
+    color: #9ca3af;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .apps-tile:hover .apps-tile-chev { color: #2563eb; }
+
+  /* Per-tile accent colors (icon background + text) */
+  .apps-tile-icon.ai     { background: rgba(37,99,235,0.12);  color: #2563eb; border-color: rgba(37,99,235,0.30); }
+  .apps-tile-icon.vise   { background: rgba(13,148,136,0.12); color: #0d9488; border-color: rgba(13,148,136,0.30); }
+  .apps-tile-icon.acc    { background: rgba(249,115,22,0.12); color: #f97316; border-color: rgba(249,115,22,0.30); }
+  .apps-tile-icon.p6     { background: rgba(124,58,237,0.12); color: #7c3aed; border-color: rgba(124,58,237,0.30); }
+  .apps-tile-icon.sap    { background: rgba(29,78,216,0.12);  color: #1d4ed8; border-color: rgba(29,78,216,0.30); }
+
+  @media (max-width: 720px) {
+    .apps-shell { padding: 16px; }
+    .apps-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="apps-shell">
+
+  <div class="apps-header">
+    <div class="apps-title">All Applications</div>
+    <div class="apps-subtitle">Pick an application to launch · click AI Dashboard to open the operational dashboard</div>
+  </div>
+
+  <div class="apps-grid">
+
+    <!-- AI Dashboard — redirects to the AI Dashboard URL -->
+    <button type="button" class="apps-tile" onclick="window.location.href='https://wmrdemo.prod-app.in'" aria-label="AI Dashboard">
+      <div class="apps-tile-icon ai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="28" height="28">
+          <rect x="3" y="3" width="7" height="9" rx="1"/>
+          <rect x="14" y="3" width="7" height="5" rx="1"/>
+          <rect x="14" y="12" width="7" height="9" rx="1"/>
+          <rect x="3" y="16" width="7" height="5" rx="1"/>
+        </svg>
+      </div>
+      <div class="apps-tile-body">
+        <div class="apps-tile-row">
+          <div class="apps-tile-name">Al Tasnim SmartOps</div>
+          <!-- <span class="apps-tile-cat">Internal</span> -->
+        </div>
+        <div class="apps-tile-desc">Real-time well operations intelligence · KPIs · forecasts · agentic insights</div>
+      </div>
+      <div class="apps-tile-chev" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </button>
+
+    <!-- Vise (T-Wise) -->
+    <button type="button" class="apps-tile" onclick="alert('Vise is not yet connected.');" aria-label="Vise">
+      <div class="apps-tile-icon vise"><span class="apps-tile-icon-text">V</span></div>
+      <div class="apps-tile-body">
+        <div class="apps-tile-row">
+          <div class="apps-tile-name">Vise</div>
+          <span class="apps-tile-cat">Materials</span>
+        </div>
+        <div class="apps-tile-desc">Material availability · IPM stock buffers · expedite &amp; transfer requests</div>
+      </div>
+      <div class="apps-tile-chev" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </button>
+
+    <!-- ACC -->
+    <button type="button" class="apps-tile" onclick="alert('ACC is not yet connected.');" aria-label="ACC">
+      <div class="apps-tile-icon acc"><span class="apps-tile-icon-text">A</span></div>
+      <div class="apps-tile-body">
+        <div class="apps-tile-row">
+          <div class="apps-tile-name">ACC</div>
+          <span class="apps-tile-cat">Engineering</span>
+        </div>
+        <div class="apps-tile-desc">Autodesk Construction Cloud · drawings · RFIs · field issues</div>
+      </div>
+      <div class="apps-tile-chev" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </button>
+
+    <!-- P6 -->
+    <button type="button" class="apps-tile" onclick="alert('P6 is not yet connected.');" aria-label="P6">
+      <div class="apps-tile-icon p6"><span class="apps-tile-icon-text">P6</span></div>
+      <div class="apps-tile-body">
+        <div class="apps-tile-row">
+          <div class="apps-tile-name">P6</div>
+          <span class="apps-tile-cat">Planning</span>
+        </div>
+        <div class="apps-tile-desc">Primavera P6 · programme schedule · critical path · resource loading</div>
+      </div>
+      <div class="apps-tile-chev" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </button>
+
+    <!-- SAP -->
+    <button type="button" class="apps-tile" onclick="alert('SAP is not yet connected.');" aria-label="SAP">
+      <div class="apps-tile-icon sap"><span class="apps-tile-icon-text">S</span></div>
+      <div class="apps-tile-body">
+        <div class="apps-tile-row">
+          <div class="apps-tile-name">SAP</div>
+          <span class="apps-tile-cat">ERP</span>
+        </div>
+        <div class="apps-tile-desc">Procurement · POs · invoicing · asset master · cost controlling</div>
+      </div>
+      <div class="apps-tile-chev" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </button>
+
+  </div>
+</div>
+
+</body>
+</html>

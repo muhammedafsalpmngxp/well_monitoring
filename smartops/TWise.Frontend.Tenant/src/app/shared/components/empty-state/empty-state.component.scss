@@ -1,0 +1,20 @@
+// Empty state — global styles in _layout.scss
+
+// Only rendered with appIcon, so pages that pass icon are unchanged.
+.empty-state__tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-xl);
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+
+  // The glyph is drawn inside app-icon's own view.
+  ::ng-deep svg,
+  ::ng-deep img {
+    width: 28px;
+    height: 28px;
+  }
+}

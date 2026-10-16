@@ -1,0 +1,191 @@
+<app-page-header title="Drill Down" [breadcrumbs]="breadcrumbs">
+  <span page-header-icon class="odc-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path
+        d="M7.5 5.83333H3.83333C3.36662 5.83333 3.13327 5.83333 2.95501 5.92416C2.79821 6.00406 2.67072 6.13154 2.59082 6.28834C2.5 6.4666 2.5 6.69996 2.5 7.16667V16.1667C2.5 16.6334 2.5 16.8668 2.59082 17.045C2.67072 17.2018 2.79821 17.3293 2.95501 17.4092C3.13327 17.5 3.36662 17.5 3.83333 17.5H7.5M7.5 17.5H12.5M7.5 17.5V3.83333C7.5 3.36662 7.5 3.13327 7.59082 2.95501C7.67072 2.79821 7.79821 2.67072 7.95501 2.59082C8.13327 2.5 8.36658 2.5 8.83333 2.5H11.1667C11.6334 2.5 11.8668 2.5 12.045 2.59082C12.2018 2.67072 12.3292 2.79821 12.4092 2.95501C12.5 3.13327 12.5 3.36662 12.5 3.83333V17.5M12.5 17.5H16.1667C16.6334 17.5 16.8668 17.5 17.045 17.4092C17.2018 17.3293 17.3293 17.2018 17.4092 17.045C17.5 16.8668 17.5 16.6334 17.5 16.1667V10.5C17.5 10.0333 17.5 9.79992 17.4092 9.62167C17.3293 9.46483 17.2018 9.33742 17.045 9.2575C16.8668 9.16667 16.6334 9.16667 16.1667 9.16667H12.5"
+        stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </span>
+</app-page-header>
+
+<app-loader *ngIf="loading" size="lg"></app-loader>
+<div *ngIf="error && !loading" class="odc-error">{{ error }}</div>
+
+<div *ngIf="!loading && !error" class="page-content odc-status drilldown-page">
+
+  <!-- Global filter bar -->
+  <div class="ops-dashboard__filter-bar">
+    <div class="ops-dashboard__filter-field" *ngFor="let field of filterFields">
+      <label>{{ field.label }}</label>
+      <div class="ops-dashboard__filter-select" [class.open]="openFilterName === field.key"
+        [class.ops-dashboard__filter-select--locked]="!isAdmin && field.options.length <= 1"
+        (click)="(isAdmin || field.options.length > 1) && toggleFilterDropdown(field.key, $event)"
+        [attr.title]="filterValues[field.key] || 'Select'">
+        <span [class.ops-dashboard__filter-select-placeholder]="!filterValues[field.key]">{{ filterValues[field.key] || 'Select' }}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg *ngIf="!isAdmin" class="ops-dashboard__filter-lock" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
+        <div class="ops-dashboard__filter-select-panel" *ngIf="openFilterName === field.key" (click)="$event.stopPropagation()">
+          <div appKeyClick class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear" *ngIf="filterValues[field.key] !== 'All'" (click)="selectFilterOption(field.key, 'All')">All</div>
+          <div appKeyClick class="ops-dashboard__filter-select-option" *ngFor="let opt of field.options"
+            [class.active]="opt === filterValues[field.key]" (click)="selectFilterOption(field.key, opt)">{{ opt }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="ops-dashboard__filter-field">
+      <label>Quick Range</label>
+      <div appKeyClick class="ops-dashboard__filter-select" [class.open]="openFilterName === 'quickRange'"
+        (click)="toggleFilterDropdown('quickRange', $event)">
+        <span [class.ops-dashboard__filter-select-placeholder]="!quickRange">{{ quickRange || 'Select' }}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <div class="ops-dashboard__filter-select-panel" *ngIf="openFilterName === 'quickRange'" (click)="$event.stopPropagation()">
+          <div appKeyClick class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear" *ngIf="quickRange" (click)="selectFilterOption('quickRange', '')">All</div>
+          <div appKeyClick class="ops-dashboard__filter-select-option" *ngFor="let opt of quickRangeOptions"
+            [class.active]="opt === quickRange" (click)="selectFilterOption('quickRange', opt)">{{ opt }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="ops-dashboard__filter-field">
+      <label>From</label>
+      <div class="ops-dashboard__filter-date">
+        <app-date-input [(ngModel)]="fromDate" (ngModelChange)="quickRange = ''; onDateChange()"></app-date-input>
+      </div>
+    </div>
+    <div class="ops-dashboard__filter-field">
+      <label>To</label>
+      <div class="ops-dashboard__filter-date">
+        <app-date-input [(ngModel)]="toDate" (ngModelChange)="quickRange = ''; onDateChange()"
+          [disabled]="quickRange === 'After'"></app-date-input>
+      </div>
+    </div>
+    <div class="ops-dashboard__filter-field" style="align-self: end;">
+      <button class="ops-dashboard__filter-icon-btn ops-dashboard__filter-icon-btn--advanced" data-tooltip="Advanced&#10;Filter"
+        aria-label="Advanced Filter" (click)="advancedFilter.open()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M4 8H12M2 4H14M6 12H10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Backdrop for fullscreen mode -->
+  <div class="odc-expand-backdrop" *ngIf="isExpanded" (click)="toggleExpand()"></div>
+
+  <!-- Main card (same layout as chart detail page white card) -->
+  <div class="drilldown-page__card" [class.drilldown-page__card--expanded]="isExpanded">
+
+    <div class="wv-panel-header">
+      <span class="wv-panel-header__icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 20V10M12 20V4M6 20V14" />
+        </svg>
+      </span>
+      <div class="wv-panel-header__info">
+        <h2 class="wv-panel-header__title">{{ chartTitle }}</h2>
+        <p class="wv-panel-header__subtitle">Drill Down View · {{ rowData.length }} rows</p>
+      </div>
+      <div class="wv-chart-controls-row">
+        <!-- Export -->
+        <div class="ops-export-wrap" (click)="$event.stopPropagation()">
+          <button class="odc-header-actions__icon-btn" title="Export" (click)="toggleExportModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M4.66667 7.33333C4.04669 7.33333 3.73669 7.33333 3.48236 7.40147C2.79218 7.5864 2.25308 8.12553 2.06815 8.81567C2 9.07 2 9.38 2 10V10.8C2 11.9201 2 12.4801 2.21799 12.908C2.40973 13.2843 2.71569 13.5903 3.09202 13.782C3.51984 14 4.07989 14 5.2 14H10.8C11.9201 14 12.4801 14 12.908 13.782C13.2843 13.5903 13.5903 13.2843 13.782 12.908C14 12.4801 14 11.9201 14 10.8V10C14 9.38 14 9.07 13.9319 8.81567C13.7469 8.12553 13.2078 7.5864 12.5177 7.40147C12.2633 7.33333 11.9533 7.33333 11.3333 7.33333M5.33333 4.66667L8 2L10.6667 4.66667M8 2V10" stroke="#21409A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="ops-export-modal" *ngIf="showExportModal" (click)="$event.stopPropagation()">
+            <div class="ops-export-modal__header">
+              <span class="ops-export-modal__title">Export Options</span>
+              <button class="ops-export-modal__close" (click)="showExportModal = false" title="Close">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 7.5L7.5 12.5M7.5 7.5L12.5 12.5M18.333 10C18.333 14.602 14.602 18.333 10 18.333C5.398 18.333 1.667 14.602 1.667 10C1.667 5.398 5.398 1.667 10 1.667C14.602 1.667 18.333 5.398 18.333 10Z" stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <button class="ops-export-modal__option ops-export-modal__option--pdf" (click)="exportAs('pdf')">
+              <span class="ops-export-modal__icon ops-export-modal__icon--pdf">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </span>
+              <span class="ops-export-modal__info">
+                <span class="ops-export-modal__name">PDF</span>
+                <span class="ops-export-modal__desc">Best for reports &amp; printing</span>
+              </span>
+              <svg class="ops-export-modal__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <button class="ops-export-modal__option ops-export-modal__option--csv" (click)="exportAs('csv')">
+              <span class="ops-export-modal__icon ops-export-modal__icon--csv">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+              </span>
+              <span class="ops-export-modal__info">
+                <span class="ops-export-modal__name">CSV</span>
+                <span class="ops-export-modal__desc">Raw data for analysis</span>
+              </span>
+              <svg class="ops-export-modal__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <button class="ops-export-modal__option ops-export-modal__option--xlsx" (click)="exportAs('xlsx')">
+              <span class="ops-export-modal__icon ops-export-modal__icon--xlsx">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="10" y1="12" x2="14" y2="16"/><line x1="14" y1="12" x2="10" y2="16"/></svg>
+              </span>
+              <span class="ops-export-modal__info">
+                <span class="ops-export-modal__name">Excel (XLSX)</span>
+                <span class="ops-export-modal__desc">Formatted data with charts</span>
+              </span>
+              <svg class="ops-export-modal__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+        <!-- Expand -->
+        <button class="odc-header-actions__icon-btn" title="Expand" (click)="toggleExpand()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 2H14V6M6 14H2V10M14 2L9.333 6.667M2 14L6.667 9.333" stroke="#21409A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab bar + Search -->
+    <div class="drilldown-page__tab-bar">
+      <div class="drilldown-page__tabs">
+        <button class="drilldown-page__tab" [class.active]="activeTab === 'all'" (click)="setTab('all')">
+          <span class="drilldown-page__tab-icon drilldown-page__tab-icon--all">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </span>
+          All Data
+        </button>
+        <button *ngIf="filterParam" class="drilldown-page__tab" [class.active]="activeTab === 'filtered'" (click)="setTab('filtered')">
+          <span class="drilldown-page__tab-icon drilldown-page__tab-icon--filter">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </span>
+          {{ filterParam }}
+        </button>
+      </div>
+      <div class="drilldown-page__tab-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search" [(ngModel)]="searchTerm" (input)="onSearchChange()" />
+      </div>
+    </div>
+
+    <!-- AG Grid -->
+    <div class="drilldown-page__grid">
+      <ag-grid-angular
+        class="ag-theme-alpine"
+        style="width: 100%; height: 600px;"
+        [rowData]="rowData"
+        [columnDefs]="columnDefs"
+        [defaultColDef]="defaultColDef"
+        [pagination]="true"
+        [paginationPageSize]="50"
+        [paginationPageSizeSelector]="[25, 50, 100, 200]"
+        [animateRows]="true"
+        (gridReady)="onGridReady($event)">
+      </ag-grid-angular>
+    </div>
+  </div>
+</div>
+
+<app-advanced-filter #advancedFilter
+  [globalCluster]="filterValues['cluster'] === 'All' ? '' : filterValues['cluster']"
+  [globalPlant]="filterValues['plant'] === 'All' ? '' : filterValues['plant']">
+</app-advanced-filter>

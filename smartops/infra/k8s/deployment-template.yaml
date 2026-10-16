@@ -1,0 +1,49 @@
+# Reusable Deployment + Service template for every SmartOps service.
+# Render with: yq, kustomize, or a simple sed loop. The values that change
+# per service are: NAME, IMAGE, PORT.
+#
+# Example:
+#   sed -e 's/{{NAME}}/wells/g' -e 's/{{IMAGE}}/smartops/wells:latest/g' \
+#       -e 's/{{PORT}}/7002/g' deployment-template.yaml | kubectl apply -f -
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartops-{{NAME}}
+  namespace: smartops
+  labels: { app: smartops-{{NAME}} }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: smartops-{{NAME}} }
+  template:
+    metadata:
+      labels: { app: smartops-{{NAME}} }
+    spec:
+      containers:
+        - name: smartops-{{NAME}}
+          image: {{IMAGE}}
+          ports: [{ containerPort: {{PORT}} }]
+          envFrom:
+            - configMapRef: { name: smartops-config }
+            - secretRef:    { name: smartops-secrets }
+          readinessProbe:
+            httpGet: { path: /health, port: {{PORT}} }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: {{PORT}} }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "1000m", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartops-{{NAME}}
+  namespace: smartops
+spec:
+  selector: { app: smartops-{{NAME}} }
+  ports: [{ port: {{PORT}}, targetPort: {{PORT}} }]

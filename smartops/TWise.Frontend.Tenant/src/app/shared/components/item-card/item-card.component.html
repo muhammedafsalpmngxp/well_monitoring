@@ -1,0 +1,29 @@
+<article class="item-card" [ngClass]="'item-card--' + accent" tabindex="0" [attr.aria-label]="'Open ' + title"
+  (click)="opened.emit()" (keydown.enter)="opened.emit()">
+  <div class="item-card__top">
+    <span class="item-card__type" aria-hidden="true"><app-icon [name]="icon"></app-icon></span>
+    <span class="item-card__status" [class.item-card__status--draft]="!published">
+      <span class="item-card__status-dot" aria-hidden="true"></span>{{ status }}
+    </span>
+    <div *ngIf="hasMenu" class="item-card__menu" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+      <button type="button" class="item-card__menu-btn" aria-haspopup="menu" [attr.aria-expanded]="menuOpen"
+        [attr.aria-label]="'More for ' + title" (click)="toggleMenu($event)">
+        <app-icon name="more_vert" aria-hidden="true"></app-icon>
+      </button>
+      <div [hidden]="!menuOpen" class="item-card__menu-panel" role="menu" (click)="closeMenu()">
+        <ng-content select="[item-card-action]"></ng-content>
+      </div>
+    </div>
+  </div>
+  <h3 class="item-card__title" [title]="title">{{ title }}</h3>
+  <p class="item-card__description" [title]="description || ''">{{ description || 'No description' }}</p>
+  <img class="item-card__preview" [src]="preview" alt="" />
+  <div class="item-card__footer">
+    <span *ngIf="category" class="item-card__category" [title]="category">{{ category }}</span>
+    <span *ngIf="modified" class="item-card__modified">{{ modified }}</span>
+    <button *ngIf="canPublish" type="button" class="item-card__publish" [disabled]="publishing"
+      [attr.aria-label]="'Publish ' + title" (click)="$event.stopPropagation(); publish.emit()">
+      <app-icon name="publish" aria-hidden="true"></app-icon>{{ publishing ? 'Publishing' : 'Publish' }}
+    </button>
+  </div>
+</article>

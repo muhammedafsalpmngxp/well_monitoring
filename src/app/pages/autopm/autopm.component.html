@@ -1,0 +1,140 @@
+<div id="page-autopm" class="page active apm-body">
+
+    <!-- <div class="apm-breadcrumb">
+      <span>{{ 'AUTOPM.OVERVIEW' | translate }}</span><span class="apm-sep">&nbsp;›&nbsp;</span>
+      <span>{{ 'AUTOPM.AI_INTELLIGENCE' | translate }}</span><span class="apm-sep">&nbsp;›&nbsp;</span>
+      <span class="apm-bc-cur">{{ 'AUTOPM.AUTONOMOUS_PM' | translate }}</span><span class="apm-sep">&nbsp;›&nbsp;</span>
+      <span>BL0010 &ndash; Nimr Field &ndash;</span>
+      <span class="apm-bc-badge">{{ 'AUTOPM.ACTIVE' | translate }}</span>
+    </div> -->
+
+    <div class="apm-toolbar">
+      <div class="apm-period-group">
+        <button class="apm-period-btn apm-active">{{ 'AUTOPM.MONTHLY' | translate }}</button>
+        <button class="apm-period-btn">{{ 'AUTOPM.WEEKLY' | translate }}</button>
+        <button class="apm-period-btn">{{ 'AUTOPM.DAILY' | translate }}</button>
+      </div>
+      <div class="apm-toolbar-right">
+        <button class="apm-tb-btn">&#128197; Feb 2026</button>
+        <button class="apm-tb-btn apm-tb-export"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> {{ 'AUTOPM.EXPORT_CSV' | translate }}</button>
+        <button class="apm-tb-btn apm-tb-btn-green">&#8635; {{ 'AUTOPM.SYNC_NOW' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="apm-title-row">
+      <div>
+        <div class="apm-title-block">
+          <!-- <div class="apm-title-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/><circle cx="12" cy="14" r="2"/></svg>
+          </div> -->
+          <div class="apm-title">{{ 'AUTOPM.AUTONOMOUS_PROJECT_CONTROL_AI' | translate }}</div>
+          <!-- <span class="apm-ai-badge">AI</span> -->
+        </div>
+        <div class="apm-subtitle">{{ 'AUTOPM.SUBTITLE' | translate }}</div>
+      </div>
+      <div class="apm-title-actions">
+        <select class="apm-select"><option>{{ 'AUTOPM.ALL_WELLS' | translate }} &#9662;</option></select>
+        <button class="apm-btn-run">&#10035; {{ 'AUTOPM.RUN_AUTONOMOUS_CHECK' | translate }}</button>
+        <button class="apm-btn-refresh">&#8635;</button>
+      </div>
+    </div>
+
+    <div class="apm-kpi-grid">
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:var(--txt-1)"></div>
+        <div class="atg-kpi-label">{{ 'AUTOPM.WELLS_MONITORED' | translate }}</div>
+        <div class="atg-kpi-val" style="color:var(--txt-1)">20</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">&nbsp;</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'AUTOPM.AUTO_ESCALATIONS' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">9</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'AUTOPM.MANAGEMENT_FLAGS' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22c55e"></div>
+        <div class="atg-kpi-label">{{ 'AUTOPM.ACTIONS_TRIGGERED' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22c55e">3</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'AUTOPM.THIS_WEEK' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22d3ee"></div>
+        <div class="atg-kpi-label">{{ 'AUTOPM.AVG_HEALTH_INDEX' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22d3ee">68</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">0-100</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'AUTOPM.PROGRAM_DELAY_PROB' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">38%</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">&nbsp;</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'AUTOPM.RISK_STAGE' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">OHL</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'AUTOPM.ANOMALY' | translate }}</div>
+      </div>
+    </div>
+
+    <div class="apm-panels">
+      <!-- Well Health Index Dashboard -->
+      <div class="apm-panel">
+        <div class="apm-panel-title">{{ 'AUTOPM.WELL_HEALTH_INDEX_DASHBOARD' | translate }}</div>
+        <div class="apm-panel-sub">{{ 'AUTOPM.HEALTH_PANEL_SUB' | translate }}</div>
+        <div style="position:relative;height:300px"><canvas id="apm-chart-health"></canvas></div>
+      </div>
+      <!-- Autonomous Action Log -->
+      <div class="apm-panel">
+        <div class="apm-panel-title">{{ 'AUTOPM.AUTONOMOUS_ACTION_LOG' | translate }}</div>
+        <div class="apm-panel-sub">{{ 'AUTOPM.ACTION_LOG_SUB' | translate }}</div>
+        <div class="apm-log-item apm-log-crit">
+          <div class="apm-log-header"><span style="color:#ef4444">&#9888;</span><span class="apm-log-sev apm-log-sev-crit">{{ 'AUTOPM.CRITICAL' | translate }}</span><span class="apm-log-date">&middot; Feb 10, 00:00</span></div>
+          <div class="apm-log-msg">{{ 'AUTOPM.LOG_MSG_ESCALATED_MANAGEMENT' | translate }}</div>
+        </div>
+        <div class="apm-log-item apm-log-warn">
+          <div class="apm-log-header"><span style="color:#f59e0b">&#9650;</span><span class="apm-log-sev apm-log-sev-warn">{{ 'AUTOPM.WARNING' | translate }}</span><span class="apm-log-date">&middot; Feb 08, 00:00</span></div>
+          <div class="apm-log-msg">{{ 'AUTOPM.LOG_MSG_PROCUREMENT_ALERT' | translate }}</div>
+        </div>
+        <div class="apm-log-item apm-log-warn">
+          <div class="apm-log-header"><span style="color:#f59e0b">&#9650;</span><span class="apm-log-sev apm-log-sev-warn">{{ 'AUTOPM.WARNING' | translate }}</span><span class="apm-log-date">&middot; Feb 06, 00:00</span></div>
+          <div class="apm-log-msg">{{ 'AUTOPM.LOG_MSG_ENGINEERING_BOTTLENECK' | translate }}</div>
+        </div>
+        <div class="apm-log-item apm-log-info">
+          <div class="apm-log-header"><span style="color:#22d3ee">&#9432;</span><span class="apm-log-sev apm-log-sev-info">{{ 'AUTOPM.INFO' | translate }}</span><span class="apm-log-date">&middot; Feb 04, 06:00</span></div>
+          <div class="apm-log-msg">{{ 'AUTOPM.LOG_MSG_PROGRESS_REGRESSION' | translate }}</div>
+        </div>
+        <div class="apm-log-item apm-log-info">
+          <div class="apm-log-header"><span style="color:#22d3ee">&#9432;</span><span class="apm-log-sev apm-log-sev-info">{{ 'AUTOPM.INFO' | translate }}</span><span class="apm-log-date">&middot; Feb 02, 06:00</span></div>
+          <div class="apm-log-msg">{{ 'AUTOPM.LOG_MSG_WEEKLY_REPORT' | translate }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage Risk Heat Map -->
+    <div class="apm-heatmap">
+      <div class="apm-heatmap-header">
+        <div class="apm-panel-title">{{ 'AUTOPM.STAGE_RISK_HEAT_MAP' | translate }}</div>
+        <div class="apm-heatmap-legend"><span class="apm-heatmap-dot" style="background:#ef4444"></span> {{ 'AUTOPM.WELLS_AT_RISK_PER_STAGE' | translate }}</div>
+      </div>
+      <div style="position:relative;height:220px;margin-top:12px"><canvas id="apm-chart-heatmap"></canvas></div>
+    </div>
+
+    <!-- Autonomous PM Monitoring Table -->
+    <div class="apm-table-card">
+      <div class="apm-table-header">
+        <div class="apm-panel-title"><span style="color:#a78bfa">&#9632;</span> {{ 'AUTOPM.AUTONOMOUS_PM_MONITORING_TABLE' | translate }}</div>
+        <div class="apm-table-meta">6 {{ 'AUTOPM.WELLS' | translate }} &middot; Feb 2026</div>
+      </div>
+      <table class="apm-table">
+        <thead>
+          <tr>
+            <th>{{ 'AUTOPM.TH_WELL' | translate }}</th><th>{{ 'AUTOPM.TH_RIG' | translate }}</th><th>{{ 'AUTOPM.TH_HEALTH_INDEX' | translate }}</th><th>{{ 'AUTOPM.TH_RISK_STAGE' | translate }}</th><th>{{ 'AUTOPM.TH_DELAY_PROB' | translate }}</th><th>{{ 'AUTOPM.TH_ENG_VARIANCE' | translate }}</th><th>{{ 'AUTOPM.TH_PRODUCTIVITY' | translate }}</th><th>{{ 'AUTOPM.TH_DATA_QUALITY' | translate }}</th><th>{{ 'AUTOPM.TH_ESCALATED' | translate }}</th><th>{{ 'AUTOPM.TH_RECOMMENDED_ACTION' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody id="apm-table-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /page-autopm -->

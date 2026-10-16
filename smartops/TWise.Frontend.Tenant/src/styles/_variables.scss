@@ -1,0 +1,112 @@
+// ============================================================
+// SCSS Variables — Design Tokens
+// ============================================================
+
+// Primary Palette (Purple/Indigo — matching app screenshot)
+$color-primary:        #21409A;
+$color-primary-dark:   #5a4bd1;
+$color-primary-light:  #a29bfe;
+$color-primary-50:     #F5F8FF;
+$color-primary-bg-legend: #DCE8FF;
+$color-primary-tint:   #E8F0FF;   // active tab and selected row tint
+$color-primary-200:    #A9BCE8;   // drop zones, relationship lines at rest
+
+// Brand orange: the sidebar's active bar and the navbar gradient's end
+$color-accent:         #F58220;
+
+// Gradients
+$gradient-primary: linear-gradient(180deg, #163A8A 0%, #21409A 50%, #4A6FE3 100%);
+
+// Secondary Palette
+$color-secondary:      #636e72;
+$color-secondary-dark: #2d3436;
+$color-secondary-light:#b2bec3;
+
+// Semantic Colors
+$color-success:        #00b894;
+$color-warning:        #fdcb6e;
+$color-danger:         #d63031;
+$color-info:           #0984e3;
+
+// Neutral / Background
+$color-bg-app:         #f8fafc; 
+$color-bg-sidebar:     #ffffff;
+$color-bg-card:        #ffffff;
+$color-bg-legend:        #DCE8FF;
+$color-bg-overlay:     rgba(0, 0, 0, 0.5);
+
+// Text
+$color-text-primary:   #101828;
+$color-text-secondary: #101828;
+$color-text-muted:     #5F6B7C;   // WCAG AA: 5.5:1 on white, ~5:1 on the light grey panels (was #b2bec3, 1.9:1)
+$color-text-inverse:   #ffffff;
+// The shades the pages use beside primary text. $color-text-secondary equals primary text and keeps
+// that value for what already uses it.
+$color-text-subtle:    #344054;   // subtitles, grid headers
+$color-text-label:     #667085;   // labels, hints, axis text
+
+// Border
+$color-border:         #DCE3ED;
+$color-border-focus:   $color-primary;
+$color-border-subtle:  #E7ECF3;   // card and grid borders
+
+// Status tints, copied from the dashboard builder's KPI icon discs (plan 10, P10-14).
+$color-good:    #12B76A;
+$color-good-bg: #F0FDF4;
+$color-warn:    #F58220;
+$color-warn-bg: #FFF7ED;
+$color-bad:     #D92D20;
+$color-bad-bg:  #FEF3F2;
+
+// Shadow
+$shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.08);
+$shadow-md:   0 4px 12px rgba(0, 0, 0, 0.10);
+$shadow-lg:   0 8px 24px rgba(0, 0, 0, 0.12);
+$shadow-card: 0 2px 8px 0 rgba(16, 24, 40, 0.06);   // list cards and tab bars
+
+// Spacing Scale
+$spacing-xs:  4px;
+$spacing-sm:  8px;
+$spacing-md:  16px;
+$spacing-lg:  16px;
+$spacing-xl:  32px;
+$spacing-2xl: 48px;
+
+// Border Radius
+$radius-sm:   4px;
+$radius-md:   10px;
+$radius-lg:   12px;
+$radius-xl:   16px;
+$radius-full: 9999px;
+
+// Typography
+$font-family-base:  "Inter", sans-serif;
+$font-size-xs:      11px;
+$font-size-sm:      12px;
+$font-size-base:    14px;
+$font-size-md:      16px;
+$font-size-lg:      18px;
+$font-size-xl:      20px;
+$font-size-2xl:     24px;
+$font-size-3xl:     30px;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semi:   600;
+$font-weight-bold:   700;
+
+// Layout
+$sidebar-width:           252px;
+$sidebar-collapsed-width: 64px;
+$navbar-height:           64px;
+
+// Transitions
+$transition-fast:   0.15s ease;
+$transition-base:   0.25s ease;
+$transition-slow:   0.4s ease;
+
+// Breakpoints
+$bp-sm:   576px;
+$bp-md:   768px;
+$bp-lg:   992px;
+$bp-xl:   1200px;
+$bp-2xl:  1440px;

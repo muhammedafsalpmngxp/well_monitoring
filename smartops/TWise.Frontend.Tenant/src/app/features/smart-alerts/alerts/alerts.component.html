@@ -1,0 +1,455 @@
+<app-page-header title="Smart Alerts" [breadcrumbs]="[{label:'Home'}, {label:'Smart Alerts'}, {label:'Alerts'}]">
+  <button class="icon-only-btn" title="Export">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 11.25V2.25M9 2.25L6 5.25M9 2.25L12 5.25" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+        stroke-linejoin="round" />
+      <path d="M2.25 9.75V13.5C2.25 14.6046 3.14543 15.5 4.25 15.5H13.75C14.8546 15.5 15.75 14.6046 15.75 13.5V9.75"
+        stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </button>
+</app-page-header>
+
+<div class="page-content alerts-page">
+
+  <!-- Stat tiles -->
+  <div class="alerts-stats">
+    <div class="alert-stat" *ngFor="let s of statTiles">
+      <span class="alert-stat__icon alert-stat__icon--{{ s.accent }}">    
+<svg *ngIf="s.icon === 'critical'"  width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M11.9998 8.99999V13M11.9998 17H12.0098M10.6151 3.89171L2.39019 18.0983C1.93398 18.8863 1.70588 19.2803 1.73959 19.6037C1.769 19.8857 1.91677 20.142 2.14613 20.3088C2.40908 20.5 2.86435 20.5 3.77487 20.5H20.2246C21.1352 20.5 21.5904 20.5 21.8534 20.3088C22.0827 20.142 22.2305 19.8857 22.2599 19.6037C22.2936 19.2803 22.0655 18.8863 21.6093 18.0983L13.3844 3.89171C12.9299 3.10654 12.7026 2.71396 12.4061 2.58211C12.1474 2.4671 11.8521 2.4671 11.5935 2.58211C11.2969 2.71396 11.0696 3.10655 10.6151 3.89171Z" stroke="#EF5350" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg> 
+<svg *ngIf="s.icon === 'breaching'" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 6V12L16 14M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="#FFA726" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>  
+<svg *ngIf="s.icon === 'sls'" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 18.5H15M6.6 2H17.4C17.9601 2 18.2401 2 18.454 2.10899C18.6422 2.20487 18.7951 2.35785 18.891 2.54601C19 2.75992 19 3.03995 19 3.6V5.67452C19 6.1637 19 6.40829 18.9447 6.63846C18.8957 6.84254 18.8149 7.03763 18.7053 7.21657C18.5816 7.4184 18.4086 7.59135 18.0627 7.93726L15.1314 10.8686C14.7354 11.2646 14.5373 11.4627 14.4632 11.691C14.3979 11.8918 14.3979 12.1082 14.4632 12.309C14.5373 12.5373 14.7354 12.7354 15.1314 13.1314L18.0627 16.0627C18.4086 16.4086 18.5816 16.5816 18.7053 16.7834C18.8149 16.9624 18.8957 17.1575 18.9447 17.3615C19 17.5917 19 17.8363 19 18.3255V20.4C19 20.9601 19 21.2401 18.891 21.454C18.7951 21.6422 18.6422 21.7951 18.454 21.891C18.2401 22 17.9601 22 17.4 22H6.6C6.03995 22 5.75992 22 5.54601 21.891C5.35785 21.7951 5.20487 21.6422 5.10899 21.454C5 21.2401 5 20.9601 5 20.4V18.3255C5 17.8363 5 17.5917 5.05526 17.3615C5.10425 17.1575 5.18506 16.9624 5.29472 16.7834C5.4184 16.5816 5.59135 16.4086 5.93726 16.0627L8.86863 13.1314C9.26465 12.7354 9.46265 12.5373 9.53684 12.309C9.6021 12.1082 9.6021 11.8918 9.53684 11.691C9.46266 11.4627 9.26464 11.2646 8.86863 10.8686L5.93726 7.93726C5.59136 7.59136 5.4184 7.4184 5.29472 7.21657C5.18506 7.03763 5.10425 6.84254 5.05526 6.63846C5 6.40829 5 6.1637 5 5.67452V3.6C5 3.03995 5 2.75992 5.10899 2.54601C5.20487 2.35785 5.35785 2.20487 5.54601 2.10899C5.75992 2 6.03995 2 6.6 2Z" stroke="#EF5350" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<svg *ngIf="s.icon === 'closedOnTime'"  width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M22 11.0857V12.0057C21.9988 14.1621 21.3005 16.2604 20.0093 17.9875C18.7182 19.7147 16.9033 20.9782 14.8354 21.5896C12.7674 22.201 10.5573 22.1276 8.53447 21.3803C6.51168 20.633 4.78465 19.2518 3.61096 17.4428C2.43727 15.6338 1.87979 13.4938 2.02168 11.342C2.16356 9.19029 2.99721 7.14205 4.39828 5.5028C5.79935 3.86354 7.69279 2.72111 9.79619 2.24587C11.8996 1.77063 14.1003 1.98806 16.07 2.86572M22 4L12 14.01L9 11.01" stroke="#66BB6A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>       
+<svg  *ngIf="s.icon === 'avgResponse'" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 6V12L16 14M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="#21409A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>      
+<svg *ngIf="s.icon === 'totalClosed'" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M21 21H4.6C4.03995 21 3.75992 21 3.54601 20.891C3.35785 20.7951 3.20487 20.6422 3.10899 20.454C3 20.2401 3 19.9601 3 19.4V3M21 7L15.5657 12.4343C15.3677 12.6323 15.2687 12.7313 15.1545 12.7684C15.0541 12.8011 14.9459 12.8011 14.8455 12.7684C14.7313 12.7313 14.6323 12.6323 14.4343 12.4343L12.5657 10.5657C12.3677 10.3677 12.2687 10.2687 12.1545 10.2316C12.0541 10.1989 11.9459 10.1989 11.8455 10.2316C11.7313 10.2687 11.6323 10.3677 11.4343 10.5657L7 15M21 11V7H17" stroke="#66BB6A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+      </span>
+      <div class="alert-stat__text">
+        <span class="alert-stat__label">{{ s.label }}</span>
+        <span class="alert-stat__value alert-stat__value--{{ s.accent }}">{{ s.value }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs + sort / group -->
+  <div class="alerts-tabbar">
+    <div class="alerts-tabs">
+      <button class="alerts-tab" [class.active]="activeTab === 'all'" (click)="setTab('all')">
+        All <span class="alerts-tab__count">{{ tabCount('all') }}</span>
+      </button>
+      <button class="alerts-tab" [class.active]="activeTab === 'ack'" (click)="setTab('ack')">
+        Ack <span class="alerts-tab__count">{{ tabCount('ack') }}</span>
+      </button>
+      <button class="alerts-tab" [class.active]="activeTab === 'snoozed'" (click)="setTab('snoozed')">
+        Snoozed <span class="alerts-tab__count">{{ tabCount('snoozed') }}</span>
+      </button>
+      <button class="alerts-tab" [class.active]="activeTab === 'closed'" (click)="setTab('closed')">
+        Closed <span class="alerts-tab__count">{{ tabCount('closed') }}</span>
+      </button>
+    </div>
+
+    <div class="alerts-tabbar__actions">
+      <div class="alerts-sort-dropdown" (click)="$event.stopPropagation()">
+        <button class="alerts-sort-trigger" [class.open]="sortMenuOpen" (click)="toggleSortMenu()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M11.1387 13.3555V2.68323M8.26111 5.56083L11.1387 2.68323L14.0163 5.56083M4.6641 2.68323L4.6641 13.3555M7.54171 10.4779L4.6641 13.3555L1.7865 10.4779"
+              stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span>Sort</span>
+          <svg class="alerts-sort-chevron" [class.alerts-sort-chevron--open]="sortMenuOpen" width="12" height="7"
+            viewBox="0 0 12 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="currentColor" stroke-width="1.4"
+              stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+
+        <div class="alerts-sort-panel" *ngIf="sortMenuOpen">
+          <div class="alerts-sort-panel__header">
+            <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12.531 15.0248V3.01855M9.2937 6.25586L12.531 3.01855L15.7683 6.25586M5.24707 3.01855L5.24707 15.0248M8.48437 11.7875L5.24707 15.0248L2.00977 11.7875"
+                stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span>Sort</span>
+            <button class="alerts-sort-panel__close" (click)="closeSortMenu()">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <button class="alerts-sort-panel__item" [class.active]="sortOrder === 'newest'"
+            (click)="setSortOrder('newest')">
+            <span class="alerts-sort-panel__item-icon">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+                <polyline points="8 14 10 16 8 18"></polyline>
+              </svg>
+            </span>
+            <span>Newest first</span>
+            <svg *ngIf="sortOrder === 'newest'" class="alerts-sort-panel__check" viewBox="0 0 24 24" width="14"
+              height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+              stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+
+          <button class="alerts-sort-panel__item" [class.active]="sortOrder === 'oldest'"
+            (click)="setSortOrder('oldest')">
+            <span class="alerts-sort-panel__item-icon">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+                <polyline points="8 18 10 16 8 14"></polyline>
+              </svg>
+            </span>
+            <span>Oldest first</span>
+            <svg *ngIf="sortOrder === 'oldest'" class="alerts-sort-panel__check" viewBox="0 0 24 24" width="14"
+              height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+              stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <button class="alerts-groupby-btn" [class.active]="groupByWell" (click)="toggleGroupByWell()">
+       
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15.75 8.99939H6.75M15.75 4.49939H6.75M15.75 13.4994H6.75M3.75 8.99939C3.75 9.41361 3.41421 9.74939 3 9.74939C2.58579 9.74939 2.25 9.41361 2.25 8.99939C2.25 8.58516 2.58579 8.24939 3 8.24939C3.41421 8.24939 3.75 8.58516 3.75 8.99939ZM3.75 4.49939C3.75 4.9136 3.41421 5.24939 3 5.24939C2.58579 5.24939 2.25 4.9136 2.25 4.49939C2.25 4.08518 2.58579 3.74939 3 3.74939C3.41421 3.74939 3.75 4.08518 3.75 4.49939ZM3.75 13.4994C3.75 13.9136 3.41421 14.2494 3 14.2494C2.58579 14.2494 2.25 13.9136 2.25 13.4994C2.25 13.0852 2.58579 12.7494 3 12.7494C3.41421 12.7494 3.75 13.0852 3.75 13.4994Z" stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+        Group by well
+      </button>
+    </div>
+  </div>
+
+  <!-- Search + severity filters -->
+  <div class="alerts-filterbar">
+    <div class="alerts-filterbar__field">
+      <label>Search</label>
+      <div class="alerts-search">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+            stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <input type="text" placeholder="Search" [(ngModel)]="searchTerm" aria-label="Search alerts" />
+      </div>
+    </div>
+
+    <div class="alerts-filterbar__field">
+      <label>Severity</label>
+      <div class="alerts-severity">
+        <button class="alerts-chip" [class.active]="selectedSeverity === 'All'" (click)="setSeverity('All')">
+          All {{ severityCount('All') }}
+        </button>
+        <button class="alerts-chip" *ngFor="let sev of severityOptions" [class.active]="selectedSeverity === sev"
+          (click)="setSeverity(sev)">{{ sev }} {{ severityCount(sev) }}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert list -->
+  <div class="alerts-list">
+    <ng-container *ngIf="!groupByWell">
+      <ng-container *ngFor="let alert of filteredAlerts">
+        <ng-container *ngTemplateOutlet="alertCardTpl; context: { alert: alert }"></ng-container>
+      </ng-container>
+    </ng-container>
+
+    <ng-container *ngIf="groupByWell">
+      <div class="alerts-well-group" *ngFor="let group of groupedAlerts">
+        <h4 class="alerts-well-group__title">{{ group.wellName }} <span>({{ group.alerts.length }})</span></h4>
+        <ng-container *ngFor="let alert of group.alerts">
+          <ng-container *ngTemplateOutlet="alertCardTpl; context: { alert: alert }"></ng-container>
+        </ng-container>
+      </div>
+    </ng-container>
+
+    <app-empty-state *ngIf="!filteredAlerts.length" title="No alerts" description="No alerts match the current filters."
+      icon="notifications"></app-empty-state>
+  </div>
+</div>
+
+<ng-template #alertCardTpl let-alert="alert">
+  <div class="alert-card" [class.alert-card--expanded]="alert.expanded">
+    <div appKeyClick class="alert-card__row" (click)="toggleExpand(alert)">
+      <input type="checkbox" class="alert-card__checkbox" [checked]="alert.selected"
+        (click)="$event.stopPropagation()" (change)="toggleSelect(alert)" />
+
+      <span class="alert-card__severity alert-card__severity--{{ alert.severity.toLowerCase() }}">
+    
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M5.33332 9.33331C3.33332 9.33331 2.66666 9.99998 2.66666 9.99998V1.99998C2.66666 1.99998 3.33332 1.33331 5.33332 1.33331C7.33332 1.33331 8.66666 2.66665 10.6667 2.66665C12.6667 2.66665 13.3333 1.99998 13.3333 1.99998V9.99998C13.3333 9.99998 12.6667 10.6666 10.6667 10.6666C8.66666 10.6666 7.33332 9.33331 5.33332 9.33331Z" fill="#EF4444"/>
+<path d="M2.66666 9.99998C2.66666 9.99998 3.33332 9.33331 5.33332 9.33331C7.33332 9.33331 8.66666 10.6666 10.6667 10.6666C12.6667 10.6666 13.3333 9.99998 13.3333 9.99998V1.99998C13.3333 1.99998 12.6667 2.66665 10.6667 2.66665C8.66666 2.66665 7.33332 1.33331 5.33332 1.33331C3.33332 1.33331 2.66666 1.99998 2.66666 1.99998V14.6666" stroke="#EF4444" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+        {{ alert.severity }}
+      </span>
+
+      <div class="alert-card__main">
+        <span class="alert-card__title">{{ alert.title }}</span>
+
+        <div class="alert-card__meta">
+          <a class="alert-card__well" [href]="alert.wellLink" (click)="$event.stopPropagation()">
+            {{ alert.wellName }}
+        
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 2H14V6M14 2L8.66667 7.33333M6.66667 3.33333H5.2C4.07989 3.33333 3.51984 3.33333 3.09202 3.55132C2.71569 3.74307 2.40973 4.04903 2.21799 4.42535C2 4.85317 2 5.41323 2 6.53333V10.8C2 11.9201 2 12.4801 2.21799 12.908C2.40973 13.2843 2.71569 13.5903 3.09202 13.782C3.51984 14 4.07989 14 5.2 14H9.46667C10.5868 14 11.1468 14 11.5747 13.782C11.951 13.5903 12.2569 13.2843 12.4487 12.908C12.6667 12.4801 12.6667 11.9201 12.6667 10.8V9.33333" stroke="#2563EB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+          </a>
+<div class="flexTxt1">
+          <span class="alert-card__status alert-card__status--{{ alert.status }}">
+            <span class="alert-card__status-dot"></span>
+            {{ statusLabel(alert) }}
+          </span>
+          <span class="alert-card__wellid">{{ alert.wellId }}</span>
+          </div>
+
+         
+        </div>
+      </div>
+
+      <span class="alert-card__spacer"></span>
+
+      <span class="alert-card__overdue" *ngIf="alert.overdueLabel && alert.status === 'active'">
+  
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_1374_6770)">
+<path d="M8.00004 3.99998V7.99998L10.6667 9.33331M14.6667 7.99998C14.6667 11.6818 11.6819 14.6666 8.00004 14.6666C4.31814 14.6666 1.33337 11.6818 1.33337 7.99998C1.33337 4.31808 4.31814 1.33331 8.00004 1.33331C11.6819 1.33331 14.6667 4.31808 14.6667 7.99998Z" stroke="#991B1B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_1374_6770">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
+</svg>
+
+        {{ alert.overdueLabel }}
+      </span>
+
+
+
+
+      
+<svg class="alert-card__chevron" [class.alert-card__chevron--expanded]="alert.expanded" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M5 7.5L10 12.5L15 7.5" stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+    </div>
+
+    <div class="alert-card__body" *ngIf="alert.expanded">
+      <div class="alert-card__why">
+        <span class="alert-card__why-icon">
+    
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_1374_6829)">
+<path d="M8.00001 5.33337V8.00004M8.00001 10.6667H8.00668M14.6667 8.00004C14.6667 11.6819 11.6819 14.6667 8.00001 14.6667C4.31811 14.6667 1.33334 11.6819 1.33334 8.00004C1.33334 4.31814 4.31811 1.33337 8.00001 1.33337C11.6819 1.33337 14.6667 4.31814 14.6667 8.00004Z" stroke="#21409A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_1374_6829">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
+</svg>
+
+        </span>
+        <span><strong>Why:</strong> {{ alert.why }}</span>
+        <span class="alert-card__divider"></span>
+        <span><strong>Now:</strong> {{ alert.now }}</span>
+      </div>
+
+      <div class="alert-card__escalation-note">
+        <span class="alert-card__escalation-icon">
+    
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M14.6667 14V12.6667C14.6667 11.4241 13.8168 10.3801 12.6667 10.084M10.3333 2.19384C11.3106 2.58943 12 3.54754 12 4.66667C12 5.78579 11.3106 6.74393 10.3333 7.13947M11.3333 14C11.3333 12.7575 11.3333 12.1363 11.1303 11.6462C10.8597 10.9928 10.3405 10.4737 9.68714 10.203C9.19708 10 8.57588 10 7.33334 10H5.33334C4.09083 10 3.46958 10 2.97952 10.203C2.32611 10.4737 1.80698 10.9928 1.53633 11.6462C1.33334 12.1363 1.33334 12.7575 1.33334 14M9.00001 4.66667C9.00001 6.13943 7.80608 7.33333 6.33334 7.33333C4.86058 7.33333 3.66668 6.13943 3.66668 4.66667C3.66668 3.19391 4.86058 2 6.33334 2C7.80608 2 9.00001 3.19391 9.00001 4.66667Z" stroke="#F97316" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+        </span>
+        {{ alert.escalationNote }}
+      </div>
+
+      <div class="alert-card__actions">
+        <button class="alert-card__btn alert-card__btn--ack" (click)="acknowledge(alert)"
+          [disabled]="alert.status !== 'active'">
+   
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 4.5L6.75 12.75L3 9" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+          Acknowledge
+        </button>
+        <button class="alert-card__btn alert-card__btn--close" (click)="closeAlert(alert)"
+          [disabled]="alert.status === 'closed'">
+       
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_1374_6848)">
+<path d="M11.25 6.75L6.75 11.25M6.75 6.75L11.25 11.25M16.5 9C16.5 13.1421 13.1421 16.5 9 16.5C4.85786 16.5 1.5 13.1421 1.5 9C1.5 4.85786 4.85786 1.5 9 1.5C13.1421 1.5 16.5 4.85786 16.5 9Z" stroke="#4D555B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_1374_6848">
+<rect width="18" height="18" fill="white"/>
+</clipPath>
+</defs>
+</svg>
+
+          Close
+        </button>
+        <button class="alert-card__btn alert-card__btn--snooze" (click)="snooze(alert, 4)"
+          [disabled]="alert.status === 'closed'">
+  
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_1374_6853)">
+<path d="M9 4.5V9L12 10.5M16.5 9C16.5 13.1421 13.1421 16.5 9 16.5C4.85786 16.5 1.5 13.1421 1.5 9C1.5 4.85786 4.85786 1.5 9 1.5C13.1421 1.5 16.5 4.85786 16.5 9Z" stroke="#4D555B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_1374_6853">
+<rect width="18" height="18" fill="white"/>
+</clipPath>
+</defs>
+</svg>
+
+          Snooze 4h
+        </button>
+        <button class="alert-card__btn alert-card__btn--reassign">
+   
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15 15.75C15 14.7033 15 14.18 14.8709 13.7542C14.58 12.7954 13.8296 12.045 12.8708 11.7542C12.445 11.625 11.9217 11.625 10.875 11.625H7.125C6.07833 11.625 5.55499 11.625 5.12915 11.7542C4.17034 12.045 3.42003 12.7954 3.12918 13.7542C3 14.18 3 14.7033 3 15.75M12.375 5.625C12.375 7.48896 10.864 9 9 9C7.13604 9 5.625 7.48896 5.625 5.625C5.625 3.76104 7.13604 2.25 9 2.25C10.864 2.25 12.375 3.76104 12.375 5.625Z" stroke="#4D555B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+          Reassign
+        </button>
+      </div>
+
+      <div class="alert-card__panels">
+        <div class="alert-card__panel alert-card__panel--recommendation">
+          <span class="alert-card__panel-icon">
+      
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_1374_6866)">
+<path d="M12 6V3.75L14.25 1.5L15 3L16.5 3.75L14.25 6H12ZM12 6L9 8.99993M16.5 9C16.5 13.1421 13.1421 16.5 9 16.5C4.85786 16.5 1.5 13.1421 1.5 9C1.5 4.85786 4.85786 1.5 9 1.5M12.75 9C12.75 11.0711 11.0711 12.75 9 12.75C6.92894 12.75 5.25 11.0711 5.25 9C5.25 6.92894 6.92894 5.25 9 5.25" stroke="#7C3AED" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_1374_6866">
+<rect width="18" height="18" fill="white"/>
+</clipPath>
+</defs>
+</svg>
+
+          </span>
+          <div>
+            <strong>Recommendation</strong>
+            <p>{{ alert.recommendation }}</p>
+          </div>
+        </div>
+
+        <div class="alert-card__panel alert-card__panel--escalation">
+          <span class="alert-card__panel-icon">
+    
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M8.4765 16.211C8.64255 16.3079 8.72558 16.3564 8.84273 16.3815C8.9337 16.401 9.0663 16.401 9.15727 16.3815C9.27442 16.3564 9.35745 16.3079 9.5235 16.211C10.9845 15.3587 15 12.6812 15 8.99993V5.41311C15 4.81347 15 4.51365 14.9019 4.25593C14.8153 4.02826 14.6745 3.82512 14.4917 3.66405C14.2849 3.48174 14.0041 3.37647 13.4427 3.16592L9.42135 1.65791C9.26543 1.59944 9.1875 1.5702 9.10725 1.55862C9.03615 1.54833 8.96385 1.54833 8.89275 1.55862C8.8125 1.5702 8.73457 1.59944 8.57865 1.65791L4.5573 3.16592C3.99585 3.37647 3.71513 3.48174 3.50824 3.66405C3.32548 3.82512 3.1847 4.02826 3.09807 4.25593C3 4.51365 3 4.81347 3 5.41311V8.99993C3 12.6812 7.01547 15.3587 8.4765 16.211Z" stroke="#F97316" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+          </span>
+          <div>
+            <strong>Escalation</strong>
+            <p>{{ alert.escalation }}</p>
+          </div>
+        </div>
+
+        <div class="alert-card__panel alert-card__panel--source">
+          <span class="alert-card__panel-icon">
+    
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_1374_6882)">
+<path d="M7.49997 9.75C7.82202 10.1806 8.23295 10.5368 8.70485 10.7947C9.17675 11.0525 9.6986 11.2058 10.2349 11.2442C10.7713 11.2826 11.3097 11.2052 11.8134 11.0173C12.3173 10.8294 12.7748 10.5352 13.155 10.155L15.405 7.905C16.0881 7.19771 16.466 6.25045 16.4575 5.26722C16.449 4.28398 16.0545 3.34343 15.3593 2.64815C14.664 1.95287 13.7235 1.55849 12.7402 1.54995C11.757 1.5414 10.8097 1.91938 10.1025 2.60247L8.81247 3.88497M10.5 8.25C10.1778 7.81935 9.76692 7.46308 9.29502 7.20527C8.82312 6.94745 8.30135 6.79413 7.76495 6.75572C7.22862 6.7173 6.69027 6.7947 6.18645 6.98263C5.68263 7.17057 5.22513 7.46467 4.84497 7.845L2.59497 10.095C1.91187 10.8022 1.53389 11.7495 1.54244 12.7327C1.55098 13.716 1.94536 14.6565 2.64064 15.3518C3.33592 16.0471 4.27647 16.4414 5.25971 16.45C6.24294 16.4585 7.1902 16.0806 7.89747 15.3975L9.17997 14.115" stroke="#2563EB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_1374_6882">
+<rect width="18" height="18" fill="white"/>
+</clipPath>
+</defs>
+</svg>
+
+          </span>
+          <div>
+            <strong>Source</strong>
+            <a [href]="alert.sourceLink">{{ alert.sourceLabel }}
+          
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 2H14V6M14 2L8.66667 7.33333M6.66667 3.33333H5.2C4.07989 3.33333 3.51984 3.33333 3.09202 3.55132C2.71569 3.74307 2.40973 4.04903 2.21799 4.42535C2 4.85317 2 5.41323 2 6.53333V10.8C2 11.9201 2 12.4801 2.21799 12.908C2.40973 13.2843 2.71569 13.5903 3.09202 13.782C3.51984 14 4.07989 14 5.2 14H9.46667C10.5868 14 11.1468 14 11.5747 13.782C11.951 13.5903 12.2569 13.2843 12.4487 12.908C12.6667 12.4801 12.6667 11.9201 12.6667 10.8V9.33333" stroke="#2563EB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+            </a>
+          </div>
+        </div>
+
+        <div class="alert-card__panel alert-card__panel--snooze">
+          <span class="alert-card__panel-icon">
+        
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 4.5V9L12 10.5M16.5 9C16.5 13.1421 13.1421 16.5 9 16.5C4.85786 16.5 1.5 13.1421 1.5 9C1.5 4.85786 4.85786 1.5 9 1.5C13.1421 1.5 16.5 4.85786 16.5 9Z" stroke="#7C3AED" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+          </span>
+          <div>
+            <strong>Snooze</strong>
+            <div class="alert-card__snooze-btns">
+              <button (click)="snooze(alert, 1)" [disabled]="alert.status === 'closed'">Snooze 1h</button>
+              <button (click)="snooze(alert, 24)" [disabled]="alert.status === 'closed'">Snooze 1d</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert-card__discussion">
+        <div class="alert-card__discussion-title">
+    
+<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M15.75 9C15.75 12.728 12.728 15.75 9 15.75C8.10217 15.75 7.24523 15.5747 6.46162 15.2564C6.31164 15.1955 6.23666 15.1651 6.17604 15.1515C6.11675 15.1382 6.07286 15.1333 6.0121 15.1333C5.94998 15.1333 5.88232 15.1446 5.74699 15.1672L3.07857 15.6119C2.79914 15.6585 2.65942 15.6818 2.55839 15.6384C2.46996 15.6005 2.3995 15.53 2.36157 15.4416C2.31824 15.3406 2.34152 15.2009 2.3881 14.9214L2.83283 12.2531C2.85539 12.1177 2.86667 12.05 2.86666 11.9879C2.86665 11.9271 2.86179 11.8832 2.8485 11.824C2.83491 11.7634 2.80445 11.6884 2.74355 11.5384C2.42531 10.7548 2.25 9.89783 2.25 9C2.25 5.27208 5.27208 2.25 9 2.25C12.728 2.25 15.75 5.27208 15.75 9Z" stroke="#21409A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+          Discussion
+        </div>
+
+        <div class="alert-card__comment" *ngFor="let c of alert.comments">
+          <strong>{{ c.author }}</strong>
+          <span class="alert-card__comment-time">{{ c.timeLabel }}</span>
+          <p>{{ c.text }}</p>
+        </div>
+
+        <div class="alert-card__comment-input">
+          <input type="text" placeholder="Add comment" [(ngModel)]="alert.commentDraft"
+            (keydown.enter)="addComment(alert)" />
+          <button title="Send" (click)="addComment(alert)">
+       
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M10.4995 13.5001L20.9995 3.00005M10.6271 13.8281L13.2552 20.5861C13.4867 21.1815 13.6025 21.4791 13.7693 21.566C13.9139 21.6414 14.0862 21.6415 14.2308 21.5663C14.3977 21.4796 14.5139 21.1821 14.7461 20.587L21.3364 3.69925C21.5461 3.16207 21.6509 2.89348 21.5935 2.72185C21.5437 2.5728 21.4268 2.45583 21.2777 2.40604C21.1061 2.34871 20.8375 2.45352 20.3003 2.66315L3.41258 9.25349C2.8175 9.48572 2.51997 9.60183 2.43326 9.76873C2.35809 9.91342 2.35819 10.0857 2.43353 10.2303C2.52043 10.3971 2.81811 10.5128 3.41345 10.7444L10.1715 13.3725C10.2923 13.4195 10.3527 13.443 10.4036 13.4793C10.4487 13.5114 10.4881 13.5509 10.5203 13.596C10.5566 13.6468 10.5801 13.7073 10.6271 13.8281Z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</ng-template>

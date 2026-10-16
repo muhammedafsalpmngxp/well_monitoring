@@ -1,0 +1,72 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "tool-error-handling",
+    "description": "Recoverable tool failures",
+    "created_at": "2026-09-22T11:08:33.271Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": true,
+    "state_channels": [],
+    "routers": [],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "assistant",
+        "role": "a careful assistant",
+        "goal": "Use lookup_order. If it reports an error, read the message and retry with a corrected argument",
+        "backstory": "",
+        "tools": [
+          "lookup_order"
+        ],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [],
+    "tools": [
+      {
+        "name": "lookup_order",
+        "description": "Look up an order. Order ids look like ORD-12345.",
+        "parameters": [
+          {
+            "name": "order_id",
+            "type": "str",
+            "description": "Order id, format ORD-nnnnn"
+          }
+        ],
+        "return_type": "str",
+        "implementation": "# Returning the error as a STRING (not raising) is what lets the model\n# see it and self-correct on the next pass of the ReAct loop.\nif not order_id.startswith(\"ORD-\"):\n    return f\"Error: {order_id!r} is not a valid order id. Expected format ORD-12345.\"\nreturn f\"Order {order_id}: shipped, arriving Tuesday.\""
+      }
+    ],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

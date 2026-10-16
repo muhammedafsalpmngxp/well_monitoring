@@ -1,0 +1,17 @@
+// Confirmation dialog — global styles in _layout.scss
+.dialog {
+	position: relative;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	color: inherit;
+}
+
+.dialog__body .dialog__details {
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.dialog__body .dialog__error {
+	color: #B42318;
+}

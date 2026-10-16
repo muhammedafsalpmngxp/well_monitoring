@@ -1,0 +1,12 @@
+﻿<router-outlet />
+<app-confirmation-dialog
+	[isOpen]="errorHandler.chunkLoadFailed()"
+	title="Unable to load this feature"
+	message="Part of the app could not be downloaded. Check your connection, then reload the page to try again."
+	details="Reloading may discard unsaved changes. Choose Stay here to keep your current work."
+	confirmLabel="Reload page"
+	cancelLabel="Stay here"
+	variant="warning"
+	(confirmed)="errorHandler.reloadPage()"
+	(cancelled)="errorHandler.dismissChunkLoadError()"
+/>

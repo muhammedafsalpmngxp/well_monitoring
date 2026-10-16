@@ -1,0 +1,949 @@
+#page-errorlog {
+  font-family: var(--font-family);
+  font-size: 10pt;
+
+  // Toolbar right section
+  .dq-toolbar__right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  // Inner padding wrapper
+  .dq-inner {
+    padding: 0 2px;
+  }
+
+  // Title row left
+  .dq-title-left {
+    flex: 1;
+  }
+
+  // Subtitle separator dot
+  .dq-subtitle__sep {
+    color: var(--border);
+  }
+
+  // Analytics title count span
+  .dq-analytics-title__count {
+    font-size: 9pt;
+    font-weight: 500;
+    color: var(--txt-muted);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  // Type icon color variants
+  .dq-type-icon--input {
+    background: rgba(0, 176, 240, 0.1);
+  }
+
+  .dq-type-icon--logical {
+    background: rgba(31, 56, 100, 0.1);
+  }
+
+  .dq-type-icon--calc {
+    background: rgba(255, 192, 0, 0.1);
+  }
+
+  // Type bar color variants (width stays inline as data-driven)
+  .dq-type-bar--input {
+    background: #00B0F0;
+  }
+
+  .dq-type-bar--logical {
+    background: #1F3864;
+  }
+
+  .dq-type-bar--calc {
+    background: #FFC000;
+  }
+
+  // Type pill color variants
+  .dq-type-pill--completeness {
+    background: rgba(0, 176, 80, 0.12);
+    color: #00B050;
+    border: 1px solid rgba(0, 176, 80, 0.3);
+  }
+
+  .dq-type-pill--reference {
+    background: rgba(41,55,141, 0.12);
+    color: #29378d;
+    border: 1px solid rgba(41,55,141, 0.3);
+  }
+
+  .dq-type-pill--integrity {
+    background: rgba(112, 48, 160, 0.12);
+    color: #7030A0;
+    border: 1px solid rgba(112, 48, 160, 0.3);
+  }
+
+  .dq-type-pill--rangecheck {
+    background: rgba(230, 81, 0, 0.12);
+    color: #E65100;
+    border: 1px solid rgba(230, 81, 0, 0.3);
+  }
+
+  .dq-type-pill--calc {
+    background: rgba(255, 192, 0, 0.12);
+    color: #FFC000;
+    border: 1px solid rgba(255, 192, 0, 0.3);
+  }
+
+  .dq-type-pill--logical {
+    background: rgba(31, 56, 100, 0.12);
+    color: #1F3864;
+    border: 1px solid rgba(31, 56, 100, 0.3);
+  }
+
+  .dq-type-pill--formula {
+    background: rgba(0, 176, 240, 0.12);
+    color: #00B0F0;
+    border: 1px solid rgba(0, 176, 240, 0.3);
+  }
+
+  // Trend chart canvas
+  #dqTrendChart {
+    max-height: 140px;
+  }
+
+  // Trend boxes grid
+  .dq-trend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  // Trend box value
+  .dq-trend-box__val {
+    font-size: 16pt;
+    font-weight: 800;
+    font-family: var(--font-family-mono);
+  }
+
+  .dq-trend-box__val--input {
+    color: #00B0F0;
+  }
+
+  .dq-trend-box__val--logical {
+    color: #1F3864;
+  }
+
+  .dq-trend-box__val--calc {
+    color: #FFC000;
+  }
+
+  // Trend box label
+  .dq-trend-box__label {
+    font-size: 9pt;
+    color: var(--txt-muted);
+  }
+
+  // Trend box delta
+  .dq-trend-box__delta {
+    font-size: 9pt;
+    color: var(--txt-muted);
+  }
+
+  .dq-trend-box__delta--up {
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  // SLA chart header
+  .dq-chart-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  // SLA chart canvas
+  #dqSlaChart {
+    max-height: 160px;
+  }
+
+  // Chart legend row
+  .dq-chart-legend {
+    font-size: 9pt;
+    color: var(--txt-muted);
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .dq-chart-legend--completeness {
+    margin-top: 8px;
+  }
+
+  // Legend dot
+  .dq-chart-legend__dot {
+    width: 10px;
+    height: 10px;
+    display: inline-block;
+  }
+
+  .dq-chart-legend__dot--square {
+    border-radius: 2px;
+    background: var(--amber);
+  }
+
+  .dq-chart-legend__dot--circle {
+    border-radius: 50%;
+    background: var(--green);
+  }
+
+  // Resolution layout
+  .dq-res-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    min-height: 150px;
+  }
+
+  // Donut wrapper
+  .dq-res-donut-wrap {
+    position: relative;
+    width: 40%;
+    max-width: 160px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 10px;
+  }
+
+  // Donut center overlay
+  .dq-res-donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .dq-res-donut-center__val {
+    font-size: 18pt;
+    font-weight: 800;
+    color: var(--txt-1);
+    font-family: var(--font-family-mono);
+  }
+
+  .dq-res-donut-center__label {
+    font-size: 8pt;
+    color: var(--txt-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  // Resolution dot color variants
+  .dq-res-dot--open {
+    background: #FF0000;
+  }
+
+  .dq-res-dot--progress {
+    background: #FFC000;
+  }
+
+  .dq-res-dot--closed {
+    background: #00B050;
+  }
+
+  // Resolution bar variants (width stays inline)
+  .dq-res-bar--open {
+    background: #FF0000;
+  }
+
+  .dq-res-bar--progress {
+    background: #FFC000;
+  }
+
+  .dq-res-bar--closed {
+    background: #00B050;
+  }
+
+  // Resolution pct color variants
+  .dq-res-pct--open {
+    color: var(--red);
+  }
+
+  .dq-res-pct--progress {
+    color: var(--amber);
+  }
+
+  .dq-res-pct--closed {
+    color: var(--txt-muted);
+  }
+
+  // Completeness sub spacing
+  .dq-chart-sub--spaced {
+    margin-bottom: 10px;
+  }
+
+  // Missing donut canvas
+  #dqMissingDonut {
+    max-height: 230px;
+  }
+
+  // Filter row auto margin
+  .dq-filter-row--right {
+    margin-left: auto;
+  }
+
+  // Error grid
+  #dqErrGrid {
+    width: 100%;
+    height: 520px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  // Hidden tab bodies
+  .dq-tab-body--hidden {
+    display: none;
+  }
+}
+
+/* ── Toolbar hide ─────────────────────────────────────────────────────────── */
+
+#page-errorlog > .dq-toolbar {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ERROR LOG & RULES — dark-theme overrides
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Breadcrumb: gold active + accent links */
+html:not(.navbar-light) #page-errorlog .dq-breadcrumb a {
+  color: var(--accent);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-breadcrumb .cur {
+  color: var(--accent);
+}
+
+/* Title: cream */
+html:not(.navbar-light) #page-errorlog .dq-title {
+  color: #e8ecf5;
+}
+
+/* Buttons: match darktheme .elq-btn variants */
+html:not(.navbar-light) #page-errorlog .dq-btn-blue {
+  background: #29378d;
+  border-color: transparent;
+}
+
+html:not(.navbar-light) #page-errorlog .dq-btn-ghost {
+  color: #00B0F0;
+  background: rgba(0, 176, 240, 0.07);
+  border-color: rgba(0, 176, 240, 0.25);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-sla-select {
+  background: rgba(201, 160, 74, 0.08);
+  border-color: rgba(201, 160, 74, 0.3);
+  color: #e8ecf5;
+}
+
+/* Tabs: gradient active like darktheme .elq-tab */
+html:not(.navbar-light) #page-errorlog .dq-tab {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(200, 215, 240, 0.7);
+  border-radius: 8px;
+}
+
+html:not(.navbar-light) #page-errorlog .dq-tab:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8ecf5;
+}
+
+html:not(.navbar-light) #page-errorlog .dq-tab.active {
+  background: #29378d;
+  color: #fff;
+  border-color: transparent;
+}
+
+html:not(.navbar-light) #page-errorlog .dq-tab-body {
+  border: none;
+}
+
+/* KPI cards: dark mode shadow + icon background overrides */
+html:not(.navbar-light) #page-errorlog .dq-kpi-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.30);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-kpi-icon--red   { background: rgba(255, 0, 0, 0.18); }
+html:not(.navbar-light) #page-errorlog .dq-kpi-icon--orange { background: rgba(230, 81, 0, 0.18); }
+html:not(.navbar-light) #page-errorlog .dq-kpi-icon--amber { background: rgba(255, 192, 0, 0.18); }
+html:not(.navbar-light) #page-errorlog .dq-kpi-icon--blue  { background: rgba(41,55,141, 0.18); }
+html:not(.navbar-light) #page-errorlog .dq-kpi-icon--green { background: rgba(0, 176, 80, 0.18); }
+html:not(.navbar-light) #page-errorlog .dq-kpi-icon--cyan  { background: rgba(0, 176, 240, 0.18); }
+
+/* Analytics panels: gold borders */
+html:not(.navbar-light) #page-errorlog .dq-analytics-card {
+  border-color: rgba(201, 160, 74, 0.15);
+}
+
+/* Error type bar tracks */
+html:not(.navbar-light) #page-errorlog .dq-type-bar-wrap {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Well bar tracks */
+html:not(.navbar-light) #page-errorlog .dq-well-bar-wrap {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Error table: gold header border, transparent bg */
+html:not(.navbar-light) #page-errorlog .dq-err-tbl th {
+  background: transparent;
+  border-bottom-color: rgba(201, 160, 74, 0.12);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-err-tbl td {
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-err-tbl tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Severity badges: bordered style like darktheme .elq-sev-badge */
+html:not(.navbar-light) #page-errorlog .dq-sev-pill.critical {
+  background: rgba(239, 68, 68, 0.2);
+  color: #FF0000;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-sev-pill.warning {
+  background: rgba(255, 192, 0, 0.2);
+  color: #FFC000;
+  border: 1px solid rgba(255, 192, 0, 0.35);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-sev-pill.info {
+  background: rgba(0, 176, 240, 0.15);
+  color: #00B0F0;
+  border: 1px solid rgba(0, 176, 240, 0.3);
+}
+
+/* Rule ID: gold color like darktheme .elq-rule-id */
+html:not(.navbar-light) #page-errorlog .dq-rule-name {
+  color: var(--accent);
+}
+
+/* Field tags: teal like darktheme .elq-field-tag */
+html:not(.navbar-light) #page-errorlog .dq-field-tag {
+  background: rgba(0, 176, 240, 0.1);
+  border-color: rgba(0, 176, 240, 0.25);
+  color: #00B0F0;
+}
+
+/* AI box: teal-tinted */
+html:not(.navbar-light) #page-errorlog .dq-ai-box {
+  background: rgba(0, 176, 240, 0.07);
+  border-color: rgba(0, 176, 240, 0.2);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-ai-by {
+  color: #00B0F0;
+}
+
+html:not(.navbar-light) #page-errorlog .dq-ai-btn {
+  background: #29378d;
+  border: none;
+  color: #fff;
+}
+
+/* SLA badges: bordered style like darktheme .elq-sla-* */
+html:not(.navbar-light) #page-errorlog .dq-sla-overdue {
+  background: rgba(239, 68, 68, 0.2);
+  color: #FF0000;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-sla-ok {
+  background: rgba(0, 176, 80, 0.15);
+  color: #00B050;
+  border-color: rgba(0, 176, 80, 0.3);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-sla-warn {
+  background: rgba(255, 192, 0, 0.15);
+  color: #FFC000;
+  border: 1px solid rgba(255, 192, 0, 0.3);
+}
+
+/* Search & filter inputs: gold borders like darktheme */
+html:not(.navbar-light) #page-errorlog .dq-search-box input {
+  border-color: rgba(201, 160, 74, 0.2);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-filter-sel {
+  border-color: rgba(201, 160, 74, 0.2);
+}
+
+/* Resolution select / inputs: gold borders */
+html:not(.navbar-light) #page-errorlog .dq-res-select {
+  border-color: rgba(201, 160, 74, 0.2);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-eta-input,
+html:not(.navbar-light) #page-errorlog .dq-val-input {
+  border-color: rgba(201, 160, 74, 0.2);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-status-sel.open {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Bottom chart cards: gold borders */
+html:not(.navbar-light) #page-errorlog .dq-chart-card {
+  border-color: rgba(201, 160, 74, 0.15);
+}
+
+/* Resolution bar tracks */
+html:not(.navbar-light) #page-errorlog .dq-res-bar-wrap {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Completeness bar tracks */
+html:not(.navbar-light) #page-errorlog .dq-comp-bar-wrap {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Toolbar: gold borders like darktheme */
+html:not(.navbar-light) #page-errorlog .dq-period-grp {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-period-btn {
+  color: rgba(200, 215, 240, 0.7);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-period-btn.active {
+  background: #29378d;
+  color: #fff;
+  border-color: transparent;
+}
+
+html:not(.navbar-light) #page-errorlog .dq-date-btn {
+  border-color: rgba(201, 160, 74, 0.15);
+  color: #e8ecf5;
+}
+
+/* Pagination: gold borders + gold active */
+html:not(.navbar-light) #page-errorlog .dq-page-btn {
+  border-color: rgba(201, 160, 74, 0.2);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-page-btn.active {
+  background: #29378d;
+  color: #fff;
+  border-color: #29378d;
+}
+
+/* Trend summary boxes */
+html:not(.navbar-light) #page-errorlog .dq-trend-box {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Validation Rules table */
+html:not(.navbar-light) #page-errorlog .dq-vr-tbl th {
+  background: transparent;
+  border-bottom-color: rgba(201, 160, 74, 0.12);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-vr-row {
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-vr-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-rule-id-cell {
+  color: var(--accent);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-vr-fields {
+  color: #00B0F0;
+}
+
+/* Error table panel */
+html:not(.navbar-light) #page-errorlog .dq-errors-panel {
+  border-color: rgba(201, 160, 74, 0.15);
+}
+
+/* Add Rule form */
+html:not(.navbar-light) #page-errorlog .dq-form-card {
+  border-color: rgba(201, 160, 74, 0.15);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-form-input {
+  background: var(--bg);
+  border-color: rgba(201, 160, 74, 0.2);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-form-textarea {
+  background: var(--bg);
+  border-color: rgba(201, 160, 74, 0.2);
+}
+
+/* Logical type: corporate dark blue is near-invisible on dark bg — override to light */
+html:not(.navbar-light) #page-errorlog .dq-type-pill--logical {
+  background: rgba(31, 56, 100, 0.3);
+  color: #D6E4F0;
+  border-color: rgba(41,55,141, 0.4);
+}
+html:not(.navbar-light) #page-errorlog .dq-type-pill--completeness {
+  background: rgba(0, 176, 80, 0.2);
+  color: #7AE6A0;
+  border-color: rgba(0, 176, 80, 0.4);
+}
+html:not(.navbar-light) #page-errorlog .dq-type-pill--reference {
+  background: rgba(41,55,141, 0.2);
+  color: #9DC3E6;
+  border-color: rgba(41,55,141, 0.4);
+}
+html:not(.navbar-light) #page-errorlog .dq-type-pill--integrity {
+  background: rgba(112, 48, 160, 0.2);
+  color: #C9A0DC;
+  border-color: rgba(112, 48, 160, 0.4);
+}
+html:not(.navbar-light) #page-errorlog .dq-type-pill--rangecheck {
+  background: rgba(230, 81, 0, 0.2);
+  color: #FFAB80;
+  border-color: rgba(230, 81, 0, 0.4);
+}
+html:not(.navbar-light) #page-errorlog .dq-type-pill--calc {
+  background: rgba(255, 192, 0, 0.2);
+  color: #FFE066;
+  border-color: rgba(255, 192, 0, 0.4);
+}
+html:not(.navbar-light) #page-errorlog .dq-type-pill--formula {
+  background: rgba(0, 176, 240, 0.2);
+  color: #80DFFF;
+  border-color: rgba(0, 176, 240, 0.4);
+}
+
+html:not(.navbar-light) #page-errorlog .dq-trend-box__val--logical {
+  color: #D6E4F0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ERROR LOG — light-theme overrides
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Cards & panels */
+html.navbar-light #page-errorlog .dq-kpi-card {
+  background: #fff;
+}
+
+html.navbar-light #page-errorlog .dq-analytics-card {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+html.navbar-light #page-errorlog .dq-chart-card {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+html.navbar-light #page-errorlog .dq-errors-panel {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+html.navbar-light #page-errorlog .dq-form-card {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+/* Tabs */
+html.navbar-light #page-errorlog .dq-tab {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(60, 60, 80, 0.6);
+}
+
+html.navbar-light #page-errorlog .dq-tab:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.07);
+  color: #1a1a2e;
+}
+
+html.navbar-light #page-errorlog .dq-tab.active {
+  background: #29378d;
+  color: #fff;
+  border-color: transparent;
+}
+
+/* Breadcrumb */
+html.navbar-light #page-errorlog .dq-breadcrumb a {
+  color: rgba(60, 60, 80, 0.5);
+}
+
+html.navbar-light #page-errorlog .dq-breadcrumb a:hover {
+  color: #1a1a2e;
+}
+
+html.navbar-light #page-errorlog .dq-breadcrumb .cur {
+  color: #1a1a2e;
+}
+
+/* Title */
+html.navbar-light #page-errorlog .dq-title {
+  color: #1a1a2e;
+}
+
+/* Buttons */
+html.navbar-light #page-errorlog .dq-btn-blue {
+  background: #29378d;
+  border-color: transparent;
+}
+
+html.navbar-light #page-errorlog .dq-btn-ghost {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #3a3a5c;
+}
+
+html.navbar-light #page-errorlog .dq-sla-select {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1a1a2e;
+}
+
+/* Toolbar */
+html.navbar-light #page-errorlog .dq-period-grp {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+html.navbar-light #page-errorlog .dq-period-btn {
+  color: rgba(60, 60, 80, 0.6);
+}
+
+html.navbar-light #page-errorlog .dq-period-btn.active {
+  background: #1F3864;
+  color: #fff;
+}
+
+html.navbar-light #page-errorlog .dq-date-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #3a3a5c;
+}
+
+/* Error table header */
+html.navbar-light #page-errorlog .dq-err-tbl th {
+  background: rgba(0, 0, 0, 0.02);
+  color: #1F3864;
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+html.navbar-light #page-errorlog .dq-err-tbl td {
+  border-bottom-color: rgba(0, 0, 0, 0.04);
+}
+
+html.navbar-light #page-errorlog .dq-err-tbl tr:hover td {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Severity pills — solid in light mode */
+html.navbar-light #page-errorlog .dq-sev-pill.critical {
+  background: var(--red);
+  color: #fff;
+  border: none;
+}
+
+html.navbar-light #page-errorlog .dq-sev-pill.warning {
+  background: var(--amber);
+  color: #fff;
+  border: none;
+}
+
+html.navbar-light #page-errorlog .dq-sev-pill.info {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+}
+
+/* SLA badges — solid/opaque in light mode */
+html.navbar-light #page-errorlog .dq-sla-overdue {
+  background: var(--red);
+  color: #fff;
+  border: none;
+}
+
+html.navbar-light #page-errorlog .dq-sla-ok {
+  background: rgba(22, 163, 74, 0.12);
+  color: #00B050;
+  border-color: rgba(22, 163, 74, 0.3);
+}
+
+html.navbar-light #page-errorlog .dq-sla-warn {
+  background: rgba(255, 192, 0, 0.1);
+  color: #FFC000;
+  border-color: rgba(255, 192, 0, 0.3);
+}
+
+/* AI box — blue-tinted in light mode */
+html.navbar-light #page-errorlog .dq-ai-box {
+  background: rgba(41,55,141, 0.04);
+  border-color: rgba(41,55,141, 0.15);
+}
+
+html.navbar-light #page-errorlog .dq-ai-by {
+  color: var(--blue);
+}
+
+html.navbar-light #page-errorlog .dq-ai-btn {
+  background: #29378d;
+  color: #fff;
+  border: none;
+}
+
+/* Rule name */
+html.navbar-light #page-errorlog .dq-rule-name {
+  color: #29378d;
+}
+
+/* Field tags — blue in light mode */
+html.navbar-light #page-errorlog .dq-field-tag {
+  background: rgba(41,55,141, 0.08);
+  color: #29378d;
+  border-color: rgba(41,55,141, 0.2);
+}
+
+/* Search & filter inputs */
+html.navbar-light #page-errorlog .dq-search-box input {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1a1a2e;
+}
+
+html.navbar-light #page-errorlog .dq-filter-sel {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1a1a2e;
+}
+
+/* Resolution / ETA / value inputs */
+html.navbar-light #page-errorlog .dq-res-select {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+html.navbar-light #page-errorlog .dq-eta-input,
+html.navbar-light #page-errorlog .dq-val-input {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Pagination */
+html.navbar-light #page-errorlog .dq-page-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #3a3a5c;
+}
+
+html.navbar-light #page-errorlog .dq-page-btn.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
+/* Trend boxes */
+html.navbar-light #page-errorlog .dq-trend-box {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Validation Rules table */
+html.navbar-light #page-errorlog .dq-vr-tbl th {
+  color: #1F3864;
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+html.navbar-light #page-errorlog .dq-vr-row {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+html.navbar-light #page-errorlog .dq-vr-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+html.navbar-light #page-errorlog .dq-rule-id-cell {
+  color: #29378d;
+}
+
+html.navbar-light #page-errorlog .dq-vr-fields {
+  color: #00B0F0;
+}
+
+/* Category badges — darker text for light bg readability */
+html.navbar-light #page-errorlog .dq-cat-completeness { color: #00B050; }
+html.navbar-light #page-errorlog .dq-cat-nullcheck    { color: #00B050; }
+html.navbar-light #page-errorlog .dq-cat-reference    { color: #1F3864; }
+html.navbar-light #page-errorlog .dq-cat-fkcheck      { color: #1F3864; }
+html.navbar-light #page-errorlog .dq-cat-integrity    { color: #29378d; }
+html.navbar-light #page-errorlog .dq-cat-rangecheck   { color: #FF0000; }
+html.navbar-light #page-errorlog .dq-cat-calculation  { color: #FFC000; }
+html.navbar-light #page-errorlog .dq-cat-logical      { color: #1F3864; }
+html.navbar-light #page-errorlog .dq-cat-formula      { color: #00B0F0; }
+html.navbar-light #page-errorlog .dq-cat-format       { color: #29378d; }
+html.navbar-light #page-errorlog .dq-cat-crossfield   { color: #FFC000; }
+html.navbar-light #page-errorlog .dq-cat-statistical  { color: #FF0000; }
+
+/* Severity cell text — darker for light bg */
+html.navbar-light #page-errorlog .dq-sev-cell-critical { color: #FF0000; }
+html.navbar-light #page-errorlog .dq-sev-cell-warning  { color: #FFC000; }
+html.navbar-light #page-errorlog .dq-sev-cell-info     { color: #29378d; }
+
+/* Toggle text */
+html.navbar-light #page-errorlog .dq-toggle-on  { color: #00B050; }
+html.navbar-light #page-errorlog .dq-toggle-off { color: rgba(60, 60, 80, 0.5); }
+
+/* New Rule button */
+html.navbar-light #page-errorlog .dq-new-rule-btn {
+  background: #29378d;
+}
+
+/* Form inputs */
+html.navbar-light #page-errorlog .dq-form-input {
+  background: #f8f9fb;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+html.navbar-light #page-errorlog .dq-form-textarea {
+  background: #f8f9fb;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+html.navbar-light #page-errorlog .dq-form-label {
+  color: rgba(60, 60, 80, 0.6);
+}
+
+html.navbar-light #page-errorlog .dq-form-toggle-row { color: #00B050; }
+html.navbar-light #page-errorlog .dq-form-submit     { background: #00B050; }
+
+/* Errors title */
+html.navbar-light #page-errorlog .dq-errors-title {
+  color: #1a1a2e;
+}
+
+html.navbar-light #page-errorlog .dq-errors-title span {
+  color: rgba(60, 60, 80, 0.5);
+}
+
+/* Chart title/sub */
+html.navbar-light #page-errorlog .dq-chart-title    { color: #1a1a2e; }
+html.navbar-light #page-errorlog .dq-analytics-title { color: #1a1a2e; }

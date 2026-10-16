@@ -1,0 +1,30 @@
+.atg-kpi {
+  &.kpi-green {
+    .atg-kpi-accent { background: #00B050; }
+    .atg-kpi-val    { color: #00B050; }
+  }
+
+  &.kpi-red {
+    .atg-kpi-accent { background: #FF0000; }
+    .atg-kpi-val    { color: #FF0000; }
+  }
+
+  &.kpi-yellow {
+    .atg-kpi-accent { background: #FFC000; }
+    .atg-kpi-val    { color: #FFC000; }
+  }
+
+  .atg-kpi-unit {
+    margin-top: 4px;
+
+    &.mt-8 { margin-top: 8px; }
+  }
+}
+
+.pa-indicator-blue { color: #29378d; }
+.pa-indicator-red  { color: #FF0000; }
+.pa-indicator-cyan { color: #00B0F0; }
+
+.pa-panel-title.no-mb { margin-bottom: 0; }
+
+.th-risk { color: #FF0000; }

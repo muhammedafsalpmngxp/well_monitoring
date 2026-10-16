@@ -1,0 +1,41 @@
+<div id="page-aiagents" class="page active">
+        <div class="breadcrumb">
+          <a>{{ 'AIAGENTS.BREADCRUMB_AGENTIC_AI' | translate }}</a><span>›</span>
+          <span class="current">{{ 'AIAGENTS.BREADCRUMB_AI_AGENTS' | translate }}</span>
+        </div>
+        <div class="page-title-row">
+          <div class="aia-title-wrap">
+            <div class="page-title">{{ 'AIAGENTS.TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'AIAGENTS.SUBTITLE' | translate }}</div>
+          </div>
+          <button class="fd-btn fd-btn-primary aia-new-btn" onclick="aiaOpenEditor(null)">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            {{ 'AIAGENTS.NEW_AGENT' | translate }}
+          </button>
+        </div>
+
+        <!-- Stats strip -->
+        <div class="aia-stat-strip" id="aiaStats">
+          <!-- populated by JS -->
+        </div>
+
+        <!-- Search/filter toolbar -->
+        <div class="fd-toolbar">
+          <div class="fd-search-wrap">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="aiaSearch" class="fd-search-input" [placeholder]="'AIAGENTS.SEARCH_PLACEHOLDER' | translate" oninput="aiaRenderList()"/>
+          </div>
+          <select class="fd-filter-sel" id="aiaStatusFilter" onchange="aiaRenderList()">
+            <option value="">{{ 'AIAGENTS.ALL_STATUSES' | translate }}</option>
+            <option value="published">{{ 'AIAGENTS.STATUS_PUBLISHED' | translate }}</option>
+            <option value="draft">{{ 'AIAGENTS.STATUS_DRAFT' | translate }}</option>
+            <option value="training">{{ 'AIAGENTS.STATUS_TRAINING' | translate }}</option>
+          </select>
+          <div class="aia-list-count" id="aiaListCount">0 {{ 'AIAGENTS.AGENTS_COUNT_LABEL' | translate }}</div>
+        </div>
+
+        <!-- Agent cards grid -->
+        <div class="aia-grid" id="aiaGrid">
+          <!-- cards injected by JS -->
+        </div>
+      </div><!-- /page-aiagents -->

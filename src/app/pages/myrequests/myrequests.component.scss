@@ -1,0 +1,24 @@
+﻿#page-myrequests {
+  font-family: 'Inter', 'Calibri', 'Arial', sans-serif;
+  font-size: 10pt;
+
+  --mr-accent: #29378d;
+  --mr-accent-soft: rgba(41,55,141, 0.10);
+  --mr-accent-border: rgba(41,55,141, 0.25);
+
+  .mr-card { padding: 14px; }
+  .mr-head-left { flex: 1; }
+  .mr-new-btn { gap: 6px; }
+  .mr-table-wrap { margin-top: 10px; }
+
+  #mrRequestsGrid {
+    width: 100%;
+  }
+}
+
+/* Dark mode overrides */
+html:not(.navbar-light) #page-myrequests {
+  --mr-accent: #00B0F0;
+  --mr-accent-soft: rgba(0, 176, 240, 0.10);
+  --mr-accent-border: rgba(0, 176, 240, 0.25);
+}

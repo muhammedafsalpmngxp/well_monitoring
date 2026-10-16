@@ -1,0 +1,90 @@
+<h3 class="transforms__title">Transforms</h3>
+<p class="transforms__hint">Applied to a column whenever it is read, in this order. The stored data does not change.</p>
+
+<ul class="transforms__list">
+  <li *ngFor="let transform of transforms; trackBy: trackTransform" class="transforms__item">
+    <span>
+      <strong>{{ transform.column }}</strong><br />
+      <small>{{ describe(transform) }}</small>
+    </span>
+    <button type="button" class="transforms__action" [disabled]="readonly"
+      [attr.aria-label]="'Remove transform of ' + transform.column" (click)="remove.emit(transform)">
+      Remove
+    </button>
+  </li>
+</ul>
+<p *ngIf="!transforms.length" class="transforms__hint">No transforms yet.</p>
+
+<form (ngSubmit)="submit()">
+  <div class="form-group">
+    <label [attr.for]="'transform-column-' + source.id">Column</label>
+    <select [id]="'transform-column-' + source.id" class="form-control" name="column" [(ngModel)]="column">
+      <option value="" disabled>Choose a column</option>
+      <option *ngFor="let option of tableColumns" [value]="option.columnName">{{ option.columnName }}</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label [attr.for]="'transform-kind-' + source.id">Change</label>
+    <select [id]="'transform-kind-' + source.id" class="form-control" name="kind" [(ngModel)]="kind">
+      <option *ngFor="let option of kinds" [value]="option[0]">{{ option[1] }}</option>
+    </select>
+  </div>
+  <div *ngIf="kind === 'null_fill'" class="form-group">
+    <label [attr.for]="'transform-value-' + source.id">Value for blank cells</label>
+    <input [id]="'transform-value-' + source.id" class="form-control" name="value" maxlength="4000" [(ngModel)]="value" />
+  </div>
+
+  <ng-container *ngIf="kind === 'replace'">
+    <div class="form-group">
+      <label [attr.for]="'transform-find-' + source.id">Find</label>
+      <input [id]="'transform-find-' + source.id" class="form-control" name="find" maxlength="4000" [(ngModel)]="value" />
+    </div>
+    <div class="form-group">
+      <label [attr.for]="'transform-with-' + source.id">Replace with</label>
+      <input [id]="'transform-with-' + source.id" class="form-control" name="replacement" maxlength="4000" [(ngModel)]="replacement" />
+    </div>
+    <div class="form-group">
+      <label [attr.for]="'transform-match-' + source.id">Match</label>
+      <select [id]="'transform-match-' + source.id" class="form-control" name="match" [(ngModel)]="match">
+        <option value="part">Any part of the value</option>
+        <option value="whole">The whole value</option>
+      </select>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="kind === 'type'">
+    <div class="form-group">
+      <label [attr.for]="'transform-type-' + source.id">New type</label>
+      <select [id]="'transform-type-' + source.id" class="form-control" name="toType" [(ngModel)]="toType">
+        <option value="number">Number</option>
+        <option value="date">Date</option>
+        <option value="text">Text</option>
+      </select>
+    </div>
+    <div *ngIf="toType === 'date'" class="form-group">
+      <label [attr.for]="'transform-style-' + source.id">Dates are written</label>
+      <select [id]="'transform-style-' + source.id" class="form-control" name="style" [(ngModel)]="style">
+        <option *ngFor="let option of styles" [value]="option[0]">{{ option[1] }}</option>
+      </select>
+    </div>
+    <p class="transforms__hint">Values that cannot be read as the new type become blank.</p>
+  </ng-container>
+
+  <ng-container *ngIf="kind === 'remove_rows'">
+    <div class="form-group">
+      <label [attr.for]="'transform-test-' + source.id">Remove rows where the column</label>
+      <select [id]="'transform-test-' + source.id" class="form-control" name="op" [(ngModel)]="op">
+        <option *ngFor="let option of tests" [value]="option[0]">{{ option[1] }}</option>
+      </select>
+    </div>
+    <div *ngIf="needsValue" class="form-group">
+      <label [attr.for]="'transform-compare-' + source.id">Value</label>
+      <input [id]="'transform-compare-' + source.id" class="form-control" name="compare" maxlength="4000" [(ngModel)]="value" />
+    </div>
+    <p class="transforms__hint">Rows with a blank cell stay, unless the test is "is blank".</p>
+  </ng-container>
+
+  <div class="transforms__actions">
+    <app-button variant="secondary" size="sm" type="submit" [disabled]="!canSubmit">Add transform</app-button>
+  </div>
+</form>

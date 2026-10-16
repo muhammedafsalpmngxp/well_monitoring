@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in · Al Tasnim</title>
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+    color: #1a1a2e;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(37,99,235,0.18) 0, transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(124,58,237,0.18) 0, transparent 45%),
+      linear-gradient(135deg, #f3f4f8 0%, #e6eaf2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 16px;
+    padding: 32px 32px 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.10);
+  }
+
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .login-brand-logo {
+    width: 56px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .login-brand-logo svg { width: 100%; height: 100%; }
+  .login-brand-name { font-size: 17px; font-weight: 700; color: #1a1a2e; }
+  .login-brand-sub  { font-size: 11.5px; color: #6b7280; margin-top: 1px; }
+
+  .login-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a2e;
+    letter-spacing: 0.2px;
+  }
+  .login-subtitle {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  .login-form { margin-top: 22px; }
+
+  .login-field { margin-bottom: 14px; }
+  .login-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+    letter-spacing: 0.2px;
+  }
+  .login-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .login-input-icon {
+    position: absolute;
+    left: 12px;
+    color: #9ca3af;
+    display: flex; align-items: center;
+    pointer-events: none;
+  }
+  .login-input {
+    width: 100%;
+    font: inherit;
+    font-size: 13.5px;
+    color: #1a1a2e;
+    padding: 11px 12px 11px 38px;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 9px;
+    background: #f9fafb;
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .login-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+  }
+  .login-pass-toggle {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: 0;
+    padding: 6px;
+    cursor: pointer;
+    color: #9ca3af;
+    border-radius: 6px;
+  }
+  .login-pass-toggle:hover { color: #1a1a2e; background: rgba(0,0,0,0.04); }
+
+  .login-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 6px 0 18px;
+    font-size: 12.5px;
+  }
+  .login-remember {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: #374151; cursor: pointer; user-select: none;
+  }
+  .login-remember input { width: 14px; height: 14px; accent-color: #2563eb; }
+  .login-forgot {
+    color: #2563eb; text-decoration: none; font-weight: 600;
+  }
+  .login-forgot:hover { text-decoration: underline; }
+
+  .login-btn {
+    width: 100%;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #2563eb 0%, #5b21b6 100%);
+    border: 0;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(37,99,235,0.30);
+    transition: transform .15s ease, box-shadow .15s ease;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .login-btn:hover  { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(37,99,235,0.40); }
+  .login-btn:active { transform: translateY(0); }
+  .login-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+  .login-divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 20px 0 14px;
+    font-size: 11px; color: #9ca3af; letter-spacing: 0.5px;
+  }
+  .login-divider::before, .login-divider::after {
+    content: ""; flex: 1; height: 1px; background: rgba(0,0,0,0.08);
+  }
+
+  .login-sso {
+    width: 100%;
+    padding: 10px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a2e;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .login-sso:hover { background: #f5f5fa; border-color: rgba(0,0,0,0.20); }
+
+  .login-error {
+    display: none;
+    background: rgba(220,38,38,0.08);
+    border: 1px solid rgba(220,38,38,0.25);
+    color: #b91c1c;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    margin-bottom: 14px;
+  }
+  .login-error.visible { display: block; }
+
+  .login-foot {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 11.5px;
+    color: #9ca3af;
+  }
+
+  @media (max-width: 480px) {
+    .login-card { padding: 24px 20px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="login-card" role="main" aria-labelledby="loginTitle">
+
+  <div class="login-brand">
+    <div class="login-brand-logo" aria-label="Al Tasnim">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 367.39 240" role="img" aria-hidden="true">
+        <polygon fill="#4e5253" points="367.39 0 319.53 48.02 47.72 48.02 0 0 367.39 0"/>
+        <polygon fill="#2a357f" points="128.41 238.21 128.41 110.36 .3 110.36 47.84 62.31 176.46 62.31 176.46 190.17 128.41 238.21"/>
+        <polygon fill="#eb7d23" points="319.34 62.32 366.92 110.38 238.92 110.38 238.92 238.28 190.86 190.24 190.86 62.32 319.34 62.32"/>
+      </svg>
+    </div>
+    <div>
+      <div class="login-brand-name">Al Tasnim</div>
+      <div class="login-brand-sub">KPI Dashboard</div>
+    </div>
+  </div>
+
+  <div class="login-title" id="loginTitle">Sign in to your account</div>
+  <div class="login-subtitle">Enter your credentials to continue</div>
+
+  <form class="login-form" id="loginForm" novalidate>
+    <div class="login-error" id="loginError" role="alert"></div>
+
+    <div class="login-field">
+      <label class="login-label" for="loginUser">Email or Username</label>
+      <div class="login-input-wrap">
+        <span class="login-input-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </span>
+        <input class="login-input" id="loginUser" name="user" type="text" autocomplete="username" placeholder="you@altasnim.com">
+      </div>
+    </div>
+
+    <div class="login-field">
+      <label class="login-label" for="loginPass">Password</label>
+      <div class="login-input-wrap">
+        <span class="login-input-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </span>
+        <input class="login-input" id="loginPass" name="pass" type="password" autocomplete="current-password" placeholder="Enter password">
+        <button type="button" class="login-pass-toggle" id="loginPassToggle" aria-label="Show password" title="Show password">
+          <svg id="loginEyeOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <svg id="loginEyeOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="display:none">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="login-row">
+      <label class="login-remember">
+        <input type="checkbox" id="loginRemember" checked>
+        Remember me
+      </label>
+      <a href="#" class="login-forgot" onclick="event.preventDefault();alert('Contact your administrator to reset your password.');">Forgot password?</a>
+    </div>
+
+    <button type="submit" class="login-btn" id="loginSubmit">
+      <span id="loginBtnText">Sign in</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </button>
+
+    <div class="login-divider">OR</div>
+
+    <button type="button" class="login-sso" onclick="alert('SSO login is not yet connected.');">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Continue with SSO
+    </button>
+  </form>
+
+  <div class="login-foot">© 2026 Al Tasnim · KPI Dashboard</div>
+
+</div>
+
+<script>
+  (function(){
+    var form  = document.getElementById('loginForm');
+    var user  = document.getElementById('loginUser');
+    var pass  = document.getElementById('loginPass');
+    var error = document.getElementById('loginError');
+    var btn   = document.getElementById('loginSubmit');
+    var btnTx = document.getElementById('loginBtnText');
+    var toggle  = document.getElementById('loginPassToggle');
+    var eyeOpen = document.getElementById('loginEyeOpen');
+    var eyeOff  = document.getElementById('loginEyeOff');
+
+    function showError(msg){
+      error.textContent = msg;
+      error.classList.add('visible');
+    }
+    function clearError(){
+      error.textContent = '';
+      error.classList.remove('visible');
+    }
+
+    toggle.addEventListener('click', function(){
+      var on = pass.type === 'password';
+      pass.type = on ? 'text' : 'password';
+      eyeOpen.style.display = on ? 'none' : '';
+      eyeOff.style.display  = on ? '' : 'none';
+      toggle.setAttribute('aria-label', on ? 'Hide password' : 'Show password');
+      toggle.title = on ? 'Hide password' : 'Show password';
+    });
+
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearError();
+
+      // Brief sign-in state, then redirect to the All Applications landing page
+      btn.disabled = true;
+      btnTx.textContent = 'Signing in…';
+      setTimeout(function(){
+        window.location.href = 'applications.html';
+      }, 300);
+    });
+
+    // Auto-focus the first empty field
+    setTimeout(function(){
+      (user.value ? pass : user).focus();
+    }, 50);
+  })();
+</script>
+
+</body>
+</html>

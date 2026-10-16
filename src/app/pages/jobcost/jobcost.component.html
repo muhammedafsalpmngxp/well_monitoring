@@ -1,0 +1,185 @@
+<div id="page-jobcost" class="page active">
+        <!-- <div class="breadcrumb">
+          <a>{{ 'SIDEBAR.INSIGHT' | translate }}</a>
+          <span>›</span><a>{{ 'SIDEBAR.PRODUCTION_INTEL' | translate }}</a>
+          <span>›</span><span class="current">{{ 'JOBCOST.BREADCRUMB' | translate }}</span></div> -->
+        <div class="page-title-row">
+          <div class="jc-title-left">
+            <div class="page-title">{{ 'JOBCOST.PAGE_TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'JOBCOST.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+          <div class="jc-title-actions">
+            <select class="dq-sla-select" id="jcPeriod" onchange="jcRefresh()">
+              <option value="apr">{{ 'JOBCOST.PERIOD_APR_CURRENT' | translate }}</option>
+              <option value="mar">Mar 2026</option>
+              <option value="ctd">{{ 'JOBCOST.CONTRACT_TO_DATE' | translate }}</option>
+            </select>
+            <button class="dq-btn dq-btn-blue" onclick="jcExport()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {{ 'JOBCOST.EXPORT_CMR' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Programme financial strip — driven by jcRenderTopStrip() in app-globals.js -->
+        <div class="jc-evm-grid">
+          <div class="jc-evm-card c-blue" id="jcCardBudget">
+            <div class="jc-evm-head">
+              <span class="jc-evm-label">Budget Revenue</span>
+              <span class="jc-evm-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </span>
+            </div>
+            <div class="jc-evm-val" id="jcTopBudgetRev">OMR 108,000</div>
+            <div class="jc-evm-desc">Programme contract value</div>
+          </div>
+          <div class="jc-evm-card c-green" id="jcCardEarned">
+            <div class="jc-evm-head">
+              <span class="jc-evm-label">Earned Revenue</span>
+              <span class="jc-evm-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              </span>
+            </div>
+            <div class="jc-evm-val" id="jcTopEarnedRev">OMR 118,200</div>
+            <div class="jc-evm-desc">Value earned vs. budget</div>
+          </div>
+          <div class="jc-evm-card c-blue" id="jcCardCost">
+            <div class="jc-evm-head">
+              <span class="jc-evm-label">Cost to Date</span>
+              <span class="jc-evm-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              </span>
+            </div>
+            <div class="jc-evm-val" id="jcTopCost">OMR 94,050</div>
+            <div class="jc-evm-desc">Actual cost incurred</div>
+          </div>
+          <div class="jc-evm-card c-green" id="jcCardGross">
+            <div class="jc-evm-head">
+              <span class="jc-evm-label">Gross Margin</span>
+              <span class="jc-evm-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+              </span>
+            </div>
+            <div class="jc-evm-val" id="jcTopGross">20.4% / OMR 24,150</div>
+            <div class="jc-evm-desc">Revenue minus cost</div>
+          </div>
+          <div class="jc-evm-card c-green" id="jcCardCpiSpi">
+            <div class="jc-evm-head">
+              <span class="jc-evm-label">CPI / SPI</span>
+              <span class="jc-evm-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </span>
+            </div>
+            <div class="jc-evm-val" id="jcTopCpiSpi">1.26 / 1.09</div>
+            <div class="jc-evm-desc">Cost &amp; schedule indices</div>
+          </div>
+          <div class="jc-evm-card c-green" id="jcCardNet">
+            <div class="jc-evm-head">
+              <span class="jc-evm-label">Net P&amp;L (After Pen/Bon)</span>
+              <span class="jc-evm-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              </span>
+            </div>
+            <div class="jc-evm-val" id="jcTopNet">OMR +38,150</div>
+            <div class="jc-evm-desc">After penalties &amp; bonus</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="ai-tabs">
+          <div class="ai-tab active" onclick="switchJcTab('wellpl',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchJcTab('wellpl',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+            {{ 'JOBCOST.TAB_WELL_PL' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchJcTab('forecast',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchJcTab('forecast',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            {{ 'JOBCOST.TAB_PROFIT_FORECAST' | translate }}
+          </div>
+        </div>
+
+        <!-- Tab: Well P&L -->
+        <div id="jctab-wellpl" class="ai-tab-content active">
+          <div id="jcWellPlCard"></div>
+          <div id="jcCmrGrid" class="ag-theme-alpine-dark jc-ag-grid"></div>
+        </div>
+
+        <!-- Tab: Profit Forecast -->
+        <div id="jctab-forecast" class="ai-tab-content">
+          <div class="jc-forecast-summary">
+            <!-- BASE CASE — projects programme aggregate to completion at current
+                 trajectory. Math: 104 − 150 + 24 = -22K -->
+            <div class="jc-scenario-card base">
+              <div class="jc-scenario-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                {{ 'JOBCOST.BASE_CASE' | translate }}
+              </div>
+              <div class="jc-scenario-pl neg">OMR -22.0K</div>
+              <div class="jc-scenario-desc">{{ 'JOBCOST.BASE_CASE_DESC' | translate }}</div>
+              <div class="jc-scenario-detail">
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.REVENUE_EAC' | translate }}</span><span class="val">OMR 548.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.COST_EAC' | translate }}</span><span class="val">OMR 444.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.GROSS_MARGIN' | translate }}</span><span class="val val--green">OMR 104.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.PENALTIES_WELLS' | translate }}</span><span class="val val--red">-OMR 150.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.BONUS_WELLS' | translate }}</span><span class="val val--green">+OMR 24.0K</span></div>
+                <div class="jc-scenario-row jc-scenario-row--total"><span class="lbl">{{ 'JOBCOST.NET_PL' | translate }}</span><span class="val val--red">-OMR 22.0K</span></div>
+              </div>
+            </div>
+            <!-- BEST CASE — recovery actions succeed; penalties avoided, full bonus.
+                 Math: 106 − 0 + 48 = +154K -->
+            <div class="jc-scenario-card best">
+              <div class="jc-scenario-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                {{ 'JOBCOST.BEST_CASE' | translate }}
+              </div>
+              <div class="jc-scenario-pl pos">OMR +154.0K</div>
+              <div class="jc-scenario-desc">{{ 'JOBCOST.BEST_CASE_DESC' | translate }}</div>
+              <div class="jc-scenario-detail">
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.REVENUE_EAC' | translate }}</span><span class="val">OMR 556.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.COST_EAC_INCL_EXTRA' | translate }}</span><span class="val">OMR 450.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.GROSS_MARGIN' | translate }}</span><span class="val val--green">OMR 106.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.PENALTIES_AVOIDED' | translate }}</span><span class="val val--green">OMR 0.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.BONUS_WELLS_4' | translate }}</span><span class="val val--green">+OMR 48.0K</span></div>
+                <div class="jc-scenario-row jc-scenario-row--total"><span class="lbl">{{ 'JOBCOST.NET_PL' | translate }}</span><span class="val val--green">+OMR 154.0K</span></div>
+              </div>
+            </div>
+            <!-- WORST CASE — all penalties materialise, no bonus, cost overrun.
+                 Math: 72 − 250 + 0 = -178K -->
+            <div class="jc-scenario-card worst">
+              <div class="jc-scenario-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+                {{ 'JOBCOST.WORST_CASE' | translate }}
+              </div>
+              <div class="jc-scenario-pl neg">OMR -178.0K</div>
+              <div class="jc-scenario-desc">{{ 'JOBCOST.WORST_CASE_DESC' | translate }}</div>
+              <div class="jc-scenario-detail">
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.REVENUE_EAC' | translate }}</span><span class="val">OMR 520.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.COST_EAC' | translate }}</span><span class="val">OMR 448.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.GROSS_MARGIN' | translate }}</span><span class="val val--amber">OMR 72.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.ALL_PENALTIES_HIT' | translate }}</span><span class="val val--red">-OMR 250.0K</span></div>
+                <div class="jc-scenario-row"><span class="lbl">{{ 'JOBCOST.BONUS_ZERO_WELLS' | translate }}</span><span class="val val--muted">OMR 0.0K</span></div>
+                <div class="jc-scenario-row jc-scenario-row--total"><span class="lbl">{{ 'JOBCOST.NET_PL' | translate }}</span><span class="val val--red">-OMR 178.0K</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Penalty / Bonus impact -->
+          <div class="jc-penbon-grid">
+            <div class="card jc-card">
+              <div class="card-title">{{ 'JOBCOST.PENALTY_EXPOSURE_BY_WELL' | translate }}</div>
+              <div id="jcPenalties"></div>
+            </div>
+            <div class="card jc-card">
+              <div class="card-title">{{ 'JOBCOST.BONUS_POTENTIAL_BY_WELL' | translate }}</div>
+              <div id="jcBonuses"></div>
+            </div>
+          </div>
+
+          <!-- Forecast chart -->
+          <div class="card jc-forecast-card">
+            <div class="card-title">{{ 'JOBCOST.FORECAST_CHART_TITLE' | translate }}</div>
+            <div class="card-sub">{{ 'JOBCOST.FORECAST_CHART_SUB' | translate }}</div>
+            <canvas id="jcForecastChart"></canvas>
+          </div>
+        </div>
+
+      </div><!-- /page-jobcost -->

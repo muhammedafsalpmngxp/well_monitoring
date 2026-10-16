@@ -1,0 +1,79 @@
+<div class="diagram">
+  <div class="diagram__bar">
+    <p *ngIf="sources.length === 0" class="diagram__note">Select Get data to add a table.</p>
+    <p *ngIf="sources.length > 1 && !readonly" class="diagram__note">
+      Drag a table by its header to move it. Drag a column onto the matching column of another table to connect them.
+      Dashed lines are suggestions: select Accept to use one.
+    </p>
+    <button *ngIf="arranged" type="button" class="diagram__all" title="Put every table back in the automatic grid" (click)="autoArrange()">
+      <app-icon name="grid_view" aria-hidden="true"></app-icon>
+      Auto arrange
+    </button>
+    <button *ngIf="sources.length" type="button" class="diagram__all" (click)="setAll(!allExpanded)">
+      <app-icon [name]="allExpanded ? 'unfold_less' : 'unfold_more'" aria-hidden="true"></app-icon>
+      {{ allExpanded ? 'Collapse all' : 'Expand all' }}
+    </button>
+  </div>
+
+  <div class="diagram__surface" [style.width.px]="layout.width" [style.height.px]="layout.height">
+    <svg class="diagram__lines" [attr.width]="layout.width" [attr.height]="layout.height" aria-hidden="true">
+      <ng-container *ngFor="let line of lines; trackBy: trackLine">
+        <path class="diagram__line" [attr.d]="line.d" [class.diagram__line--suggested]="!!line.suggestion"
+          [class.diagram__line--selected]="isSelected('relationship', line.relationship?.id)"></path>
+        <!-- A wide, clear stroke over the line so it is easy to select. -->
+        <path *ngIf="line.relationship" class="diagram__hit" [attr.d]="line.d" (click)="onBadge(line)"><title>{{ line.title }}</title></path>
+      </ng-container>
+    </svg>
+
+    <div *ngFor="let card of cards; trackBy: trackCard" class="diagram__card"
+      [class.diagram__card--selected]="isSelected('source', card.source.id)"
+      [style.left.px]="card.box.x" [style.top.px]="card.box.y" [style.width.px]="card.box.width" [style.height.px]="card.box.height"
+      [style.--card-accent]="card.accent">
+      <div class="diagram__card-header" [style.height.px]="headerHeight" (pointerdown)="startMove($event, card)">
+        <button type="button" class="diagram__card-select" (click)="selectSource(card.source.id)">
+          <span class="diagram__card-title">{{ (card.source.caption || card.source.alias) }}</span>
+          <span class="diagram__card-table">
+            <span *ngIf="card.source.connectionId" class="diagram__db" [title]="'Read from database ' + card.source.databaseName">{{ card.source.databaseName }}</span>
+            {{ card.source.label || card.source.schemaName + '.' + card.source.sourceName }}
+          </span>
+        </button>
+        <button *ngIf="card.footer" type="button" class="diagram__card-toggle" [attr.aria-expanded]="card.expanded"
+          [attr.aria-label]="(card.expanded ? 'Show fewer rows of ' : 'Show every row of ') + (card.source.caption || card.source.alias)"
+          [title]="card.expanded ? 'Collapse' : 'Expand'" (click)="toggleCard(card.source.id)">
+          <app-icon [name]="card.expanded ? 'unfold_less' : 'unfold_more'" aria-hidden="true"></app-icon>
+        </button>
+      </div>
+      <ul class="diagram__columns">
+        <li appKeyClick *ngFor="let row of card.rows; trackBy: trackRow" class="diagram__column" [class.diagram__column--calculated]="row.kind === 'calculated'"
+          [class.diagram__column--measure]="row.kind === 'measure'" [class.diagram__column--selected]="isRowSelected(card, row)"
+          [style.height.px]="rowHeight"
+          [attr.draggable]="!readonly && row.kind === 'column'" (dragstart)="row.column && onDragStart($event, card.source.id, row.column)"
+          (dragend)="onDragEnd()" (dragover)="row.kind === 'column' && onDragOver($event, card.source.id)"
+          (drop)="onDrop($event, card.source.id, row.column)" (click)="selectRow(card, row)">
+          <span *ngIf="row.kind !== 'column'" class="diagram__glyph" aria-hidden="true">{{ row.kind === 'measure' ? 'Σ' : 'ƒx' }}</span>
+          <span class="diagram__column-name" [title]="row.name">{{ row.name }}</span>
+          <span *ngIf="row.isPrimaryKey" class="diagram__key" title="Primary key">PK</span>
+          <span *ngIf="row.isForeignKey" class="diagram__key" title="Foreign key">FK</span>
+        </li>
+      </ul>
+      <button *ngIf="card.footer" type="button" class="diagram__card-more" [style.height.px]="rowHeight" (click)="toggleCard(card.source.id)">
+        {{ card.expanded ? 'Show fewer' : '+' + card.hidden + ' more' }}
+      </button>
+    </div>
+
+    <!-- Marks sit beside the card edges, never over another table: * on the many side, 1 on the one side. -->
+    <ng-container *ngFor="let line of lines; trackBy: trackLine">
+      <button *ngFor="let end of [{ at: line.from, mark: line.fromMark }, { at: line.to, mark: line.toMark }]" type="button"
+        class="diagram__mark" [class.diagram__mark--left]="end.at.side === 'left'" [class.diagram__mark--suggested]="!!line.suggestion"
+        [class.diagram__mark--selected]="isSelected('relationship', line.relationship?.id)"
+        [style.left.px]="end.at.x" [style.top.px]="end.at.y" [disabled]="!!line.suggestion && readonly"
+        [attr.aria-label]="(line.suggestion ? 'Accept suggested relationship ' : 'Select relationship ') + line.title + ' (' + line.label + ')'"
+        [title]="line.title + ' (' + line.label + ')'" (click)="onBadge(line)">{{ end.mark }}</button>
+      <button *ngIf="line.suggestion" type="button" class="diagram__badge diagram__badge--suggested"
+        [style.left.px]="line.mid.x" [style.top.px]="line.mid.y" [disabled]="readonly"
+        [attr.aria-label]="'Accept suggested relationship ' + line.title" [title]="line.title" (click)="onBadge(line)">
+        {{ line.label }}
+      </button>
+    </ng-container>
+  </div>
+</div>

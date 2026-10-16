@@ -1,0 +1,129 @@
+<div id="page-hookup-drilldown" class="page active">
+
+  <!-- Full-page loading overlay -->
+  <div class="aw-page-loader" *ngIf="isLoading">
+    <div class="aw-page-loader-box">
+      <div class="aw-loading-spinner"></div>
+      <span class="aw-loading-text">Loading hookup wells…</span>
+    </div>
+  </div>
+
+  <!-- Back navigation -->
+  <div class="hkd-back-link" (click)="goBack()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" class="hkd-back-icon">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+    Back to Dashboard
+  </div>
+
+  <!-- Title row -->
+  <div class="page-title-row">
+    <div class="aw-title-left">
+      <div class="page-title">Hook-Up Progress — Drilldown</div>
+    </div>
+    <div class="aw-title-right">
+      <!-- Well type toggle tabs -->
+      <div class="hkd-type-tabs">
+        <button class="hkd-type-tab"
+                [class.active]="wellTypeView === 'conventional'"
+                (click)="selectWellType('conventional')">
+          Conventional
+        </button>
+        <button class="hkd-type-tab"
+                [class.active]="wellTypeView === 'non-standard'"
+                (click)="selectWellType('non-standard')">
+          Non-Standard
+        </button>
+        <button class="hkd-type-tab"
+                [class.active]="wellTypeView === 'well-conversions'"
+                (click)="selectWellType('well-conversions')">
+          Well Conversions
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="hkd-error" *ngIf="!isLoading && errorMsg">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    {{ errorMsg }}
+  </div>
+
+  <!-- Grid & Pagination -->
+  <ng-container *ngIf="!isLoading && !errorMsg">
+
+    <!-- Waterfall pills row -->
+    <div class="aw-filter-row">
+      <button class="aw-status-pill original-plan"
+              [class.active]="activePill === 'original_plan'"
+              (click)="onPillClick('original_plan')">
+        Original Plan
+        <span>{{ waterfallCounts.original_plan }}</span>
+      </button>
+      <button class="aw-status-pill flaf-scr"
+              [class.active]="activePill === 'after_flaf_scr'"
+              (click)="onPillClick('after_flaf_scr')">
+        After FLAF/SCR Delays Removed
+        <span>{{ waterfallCounts.after_flaf_scr }}</span>
+      </button>
+      <button class="aw-status-pill pdo-issues"
+              [class.active]="activePill === 'after_pdo_issues'"
+              (click)="onPillClick('after_pdo_issues')">
+        After PDO Issues Removed
+        <span>{{ waterfallCounts.after_pdo_issues }}</span>
+      </button>
+      <button class="aw-status-pill completed"
+              [class.active]="activePill === 'completed'"
+              (click)="onPillClick('completed')">
+        Hook Up Completed
+        <span>{{ waterfallCounts.completed }}</span>
+      </button>
+      <button class="aw-status-pill backlog"
+              [class.active]="activePill === 'backlog'"
+              (click)="onPillClick('backlog')">
+        Back Log
+        <span>{{ waterfallCounts.backlog }}</span>
+      </button>
+      <div class="aw-filter-actions">
+        <button class="dq-btn dq-btn-ghost aw-export-btn" (click)="exportCsv()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Grid header -->
+    <div class="aw-grid-header">
+      <span class="aw-grid-title">HOOK-UP WELLS — {{ wellTypeLabel | uppercase }}</span>
+      <span class="aw-records-badge">{{ totalCount }} wells</span>
+    </div>
+
+    <!-- Grid container — same structure as drilledwells / allwells -->
+    <div class="aw-grid-container">
+      <div class="aw-grid-toolbar">
+        <span class="aw-grid-toolbar-title">Wells Summary Grid</span>
+        <span class="aw-records-badge" id="awRecordsBadge">0 records</span>
+        <span class="aw-grid-hint">Click column headers to sort / filter</span>
+      </div>
+      <!-- Grid view — AG Grid (rendered by global renderAllWells) -->
+      <div id="awGridView">
+        <div id="awWellsGrid" class="ag-theme-alpine-dark"></div>
+      </div>
+      <!-- Card view (hidden by default) -->
+      <div id="awCardView">
+        <div class="aw-card-grid" id="awCardBody"></div>
+      </div>
+    </div>
+
+  </ng-container>
+
+</div>

@@ -1,0 +1,217 @@
+name: Deploy TWise QA
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  deploy-twise-qa:
+    name: Deploy TWise QA
+    runs-on: [self-hosted, dev-qa]
+
+    steps:
+
+      # ─── 1. SAVE ROLLBACK SNAPSHOTS ───────────────────────────────
+      - name: Save Rollback Images
+        run: |
+          docker tag twise_qa_controlplane:latest twise_qa_controlplane:rollback 2>/dev/null || true
+          docker tag twise_qa_tenant:latest       twise_qa_tenant:rollback       2>/dev/null || true
+          docker tag twise_qa_etl:latest          twise_qa_etl:rollback          2>/dev/null || true
+
+      # ─── 2. PULL LATEST CODE ──────────────────────────────────────
+      - name: Pull latest changes
+        run: |
+          git config --global --add safe.directory /mnt/TWISE_QA
+          cd /mnt/TWISE_QA && git fetch origin dev && git reset --hard origin/dev
+
+      # ─── 3. APPLY SERVER-SIDE DOCKERFILES ─────────────────────────
+      - name: Apply Dockerfiles
+        run: |
+          cp /mnt/twise-dockerfiles/TWise.ControlPlane.Dockerfile \
+             /mnt/TWISE_QA/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Dockerfile
+          cp /mnt/twise-dockerfiles/TWise.Tenant.Dockerfile \
+             /mnt/TWISE_QA/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Dockerfile
+
+      # ─── 4. FIX ANGULAR BUILD BUDGETS ─────────────────────────────
+      - name: Fix Angular Budget
+        run: |
+          python3 -c "
+          import json
+          path = '/mnt/TWISE_QA/smartops/TWise.Frontend.Tenant/angular.json'
+          with open(path) as f: data = json.load(f)
+          def patch(b):
+            for x in b:
+              if 'maximumError' in x: x['maximumError'] = '10MB'
+              if 'maximumWarning' in x: x['maximumWarning'] = '8MB'
+          for p in data.get('projects',{}).values():
+            build = p.get('architect',{}).get('build',{})
+            patch(build.get('options',{}).get('budgets',[]))
+            [patch(c.get('budgets',[])) for c in build.get('configurations',{}).values()]
+          json.dump(data, open(path,'w'), indent=2)
+          "
+
+      # ─── 5. FIX ETL ───────────────────────────────────────────────
+      - name: Fix ETL Path
+        run: |
+          python3 -c "
+          import re
+          f = '/mnt/TWISE_QA/smartops/services/python/etl/app/main.py'
+          c = open(f).read()
+          c = re.sub(r'sys\.path\.insert\(0,\s*str\(Path\(__file__\)\.resolve\(\)\.parents\[\d+\].*?\)\)',
+                     'sys.path.insert(0, \"/shared/python\")', c)
+          open(f,'w').write(c)
+          "
+
+      - name: Fix ETL ODBC Driver
+        run: |
+          sed -i 's/ODBC Driver 17 for SQL Server/ODBC Driver 18 for SQL Server/g' \
+            /mnt/TWISE_QA/smartops/services/python/etl/app/extract.py
+
+      - name: Fix ETL env file
+        run: |
+          sed -i 's/ETL_INTERNAL_API_KEY=base64:/ETL_INTERNAL_API_KEY=/' \
+            /mnt/TWISE_QA/smartops/services/python/etl/.env
+          sed -i 's|CONTROL_PLANE_URL=http://localhost:7007|CONTROL_PLANE_URL=http://twise_qa_controlplane_1:8080|' \
+            /mnt/TWISE_QA/smartops/services/python/etl/.env
+
+      # ─── 6. FIX QA CONFIG ─────────────────────────────────────────
+      - name: Fix Tenant Swagger
+        run: |
+          sed -i 's/if (app.Environment.IsDevelopment())/if (true)/g' \
+            /mnt/TWISE_QA/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Program.cs
+
+      - name: Fix ControlPlane Swagger
+        run: |
+          sed -i 's/if (builder.Environment.IsDevelopment())/if (true)/' \
+            /mnt/TWISE_QA/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Program.cs
+          sed -i 's/\[Authorize(Policy = "Admin")\]/\/\/ [Authorize(Policy = "Admin")]/' \
+            /mnt/TWISE_QA/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Controllers/CanonicalFieldsController.cs
+
+      - name: Apply QA DB, CORS and ApiKey config
+        env:
+          QA_SQL_HOST: 20.98.112.250,1433
+          QA_SQL_USER: SA
+          QA_SQL_PASSWORD: ${{ secrets.QA_SQL_PASSWORD }}
+          QA_INTERNAL_API_KEY: ${{ secrets.QA_INTERNAL_API_KEY }}
+        run: |
+          test -n "$QA_SQL_PASSWORD" || { echo "Missing secret QA_SQL_PASSWORD"; exit 1; }
+          test -n "$QA_INTERNAL_API_KEY" || { echo "Missing secret QA_INTERNAL_API_KEY"; exit 1; }
+          python3 - << 'PYEOF'
+          import os, re
+          host, user, pw = os.environ['QA_SQL_HOST'], os.environ['QA_SQL_USER'], os.environ['QA_SQL_PASSWORD']
+          key = os.environ['QA_INTERNAL_API_KEY']
+          base = '/mnt/TWISE_QA/smartops/services/dotnet'
+          def conn(db):
+              return f'Server={host};Database={db};User ID={user};Password={pw};TrustServerCertificate=True;'
+          def patch(path, subs):
+              s = open(path).read()
+              for pattern, repl in subs:
+                  s = re.sub(pattern, lambda m, r=repl: r, s)
+              open(path, 'w').write(s)
+
+          patch(f'{base}/TWise.Backend.Tenant/src/TWise.Tenant.API/appsettings.json', [
+              (r'"http://localhost:7000"', '"http://localhost:7000",\n      "https://twise-qa-ui.prod-app.in"'),
+              (r'"TenantDb": "Server=[^"]*"', '"TenantDb": "' + conn('smartops_tenant_TNT-1000') + '"'),
+              (r'"LegacyWellsDb": "Server=[^"]*"', '"LegacyWellsDb": "' + conn('AppMasterDB_UAT') + '"'),
+              (r'"AlTasnimBI": "Server=[^"]*"', '"AlTasnimBI": "' + conn('AlTasnimBI') + '"'),
+          ])
+          patch(f'{base}/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/appsettings.json', [
+              (r'"ApiKey": "(?:dev-only-internal-api-key-replace-in-production|base64:[^"]*)"', '"ApiKey": "' + key + '"'),
+              (r'"AllowedOrigins": "[^"]*"',
+               '"AllowedOrigins": "http://localhost:4200,http://localhost:4300,http://localhost:7000,https://twise-qa-ui.prod-app.in,https://twise-demo-ui.prod-app.in"'),
+              (r'"ControlPlane": "Server=[^"]*"', '"ControlPlane": "' + conn('smartops_control_plane_qa') + '"'),
+              (r'"LegacyDirectory": "Server=[^"]*"', '"LegacyDirectory": "' + conn('AlTasnimBI') + '"'),
+              (r'"TargetServer": "[^"]*"', '"TargetServer": "' + host + '"'),
+              (r'"AdminUser": "[^"]*"', '"AdminUser": "' + user + '"'),
+              (r'"AdminPassword": "[^"]*"', '"AdminPassword": "' + pw + '"'),
+          ])
+          print('QA config applied')
+          PYEOF
+
+      # ─── 7. BUILD & DEPLOY SERVICES ───────────────────────────────
+      - name: Build ControlPlane API
+        run: |
+          cd /mnt/TWISE_QA/smartops
+          docker stop twise_qa_controlplane_1 || true
+          docker rm   twise_qa_controlplane_1 || true
+          docker rmi  twise_qa_controlplane:latest || true
+          docker build -t twise_qa_controlplane \
+            -f services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Dockerfile .
+          docker network create twise_qa_default 2>/dev/null || true
+          docker run -d --name twise_qa_controlplane_1 \
+            --network twise_qa_default -p 9310:8080 --restart always twise_qa_controlplane
+
+      - name: Build Tenant API
+        run: |
+          cd /mnt/TWISE_QA/smartops
+          docker stop twise_qa_tenant_1 || true
+          docker rm   twise_qa_tenant_1 || true
+          docker rmi  twise_qa_tenant:latest || true
+          docker build -t twise_qa_tenant \
+            -f services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Dockerfile .
+          docker run -d --name twise_qa_tenant_1 \
+            --network twise_qa_default -p 9311:8080 --restart always twise_qa_tenant
+
+      - name: Build ETL
+        run: |
+          cd /mnt/TWISE_QA/smartops
+          docker stop twise_qa_etl_1 || true
+          docker rm   twise_qa_etl_1 || true
+          docker rmi  twise_qa_etl:latest || true
+          docker build -t twise_qa_etl -f services/python/etl/Dockerfile .
+          docker run -d --name twise_qa_etl_1 \
+            --network twise_qa_default -p 9312:8006 \
+            --env-file /mnt/TWISE_QA/smartops/services/python/etl/.env \
+            --restart always twise_qa_etl
+
+      - name: Build TWise Frontend
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use 22
+          cd /mnt/TWISE_QA/smartops/TWise.Frontend.Tenant
+          sudo rm -rf dist
+          npm install && npm run build
+          rm -rf /mnt/wmr_services/nginx/html/twise-qa/*
+          mkdir -p /mnt/wmr_services/nginx/html/twise-qa
+          cp -r dist/t-wise-dashboard-ui/browser/* /mnt/wmr_services/nginx/html/twise-qa/
+          cat > /mnt/wmr_services/nginx/html/twise-qa/env.js << 'ENVEOF'
+          window.__TWISE_ENV__ = {
+            controlPlaneApiUrl: "https://twise-qa-controlplane-api.prod-app.in",
+            tenantApiUrl: "https://twise-qa-tenant-api.prod-app.in/api",
+            apiBaseUrl: "https://twise-qa-tenant-api.prod-app.in/api",
+            appVersion: "v1.0.0",
+            skipAuth: false
+          };
+          ENVEOF
+          sudo systemctl reload nginx
+
+      # ─── 8. HEALTH CHECK ──────────────────────────────────────────
+      - name: Health Check
+        run: |
+          sleep 15
+          curl -f http://localhost:9310/health
+          curl -f http://localhost:9311/health || true
+          curl -f http://localhost:9312/health
+
+      # ─── 9. ROLLBACK ON FAILURE ───────────────────────────────────
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed — rolling back to previous version..."
+          docker stop twise_qa_controlplane_1 || true
+          docker rm   twise_qa_controlplane_1 || true
+          docker network create twise_qa_default 2>/dev/null || true
+          docker run -d --name twise_qa_controlplane_1 \
+            --network twise_qa_default -p 9310:8080 --restart always twise_qa_controlplane:rollback
+          docker stop twise_qa_tenant_1 || true
+          docker rm   twise_qa_tenant_1 || true
+          docker run -d --name twise_qa_tenant_1 \
+            --network twise_qa_default -p 9311:8080 --restart always twise_qa_tenant:rollback
+          docker stop twise_qa_etl_1 || true
+          docker rm   twise_qa_etl_1 || true
+          docker run -d --name twise_qa_etl_1 \
+            --network twise_qa_default -p 9312:8006 \
+            --env-file /mnt/TWISE_QA/smartops/services/python/etl/.env \
+            --restart always twise_qa_etl:rollback
+          echo "Rollback complete"

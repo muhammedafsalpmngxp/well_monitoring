@@ -1,0 +1,128 @@
+<div id="page-progopt" class="page active ">
+
+    <!-- <div class="po-breadcrumb">
+      <span>{{ 'PROGOPT.BREADCRUMB_1' | translate }}</span><span class="po-sep">&nbsp;›&nbsp;</span>
+      <span>{{ 'PROGOPT.BREADCRUMB_2' | translate }}</span><span class="po-sep">&nbsp;›&nbsp;</span>
+      <span class="po-bc-cur">{{ 'PROGOPT.BREADCRUMB_CURRENT' | translate }}</span><span class="po-sep">&nbsp;›&nbsp;</span>
+      <span>BL0010 &ndash; Nimr Field &ndash;</span>
+      <span class="po-bc-badge">{{ 'PROGOPT.ACTIVE' | translate }}</span>
+    </div> -->
+
+    <div class="po-toolbar">
+      <div class="po-period-group">
+        <button class="po-period-btn po-active">{{ 'PROGOPT.MONTHLY' | translate }}</button>
+        <button class="po-period-btn">{{ 'PROGOPT.WEEKLY' | translate }}</button>
+        <button class="po-period-btn">{{ 'PROGOPT.DAILY' | translate }}</button>
+      </div>
+      <div class="po-toolbar-right">
+        <button class="po-tb-btn">&#128197; Feb 2026</button>
+        <button class="po-tb-btn po-tb-export"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> {{ 'PROGOPT.EXPORT_CSV' | translate }}</button>
+        <button class="po-tb-btn po-tb-btn-green">&#8635; {{ 'PROGOPT.SYNC_NOW' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="po-title-row">
+      <div class="po-title-block">
+        <!-- <div class="po-title-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        </div> -->
+        <div class="po-title">{{ 'PROGOPT.TITLE_FULL' | translate }}</div>
+        <!-- <span class="po-ai-badge">{{ 'PROGOPT.AI_BADGE' | translate }}</span> -->
+      </div>
+      <div class="po-title-actions">
+        <select class="po-select"><option>{{ 'PROGOPT.BALANCED_AI' | translate }} &#9662;</option></select>
+        <button class="po-btn-opt">&#10035; {{ 'PROGOPT.OPTIMISE_SEQUENCE' | translate }}</button>
+        <button class="po-btn-refresh">&#8635; {{ 'PROGOPT.REFRESH' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="po-tabs">
+      <button class="po-tab po-tab-active">{{ 'PROGOPT.TAB_OPTIMIZATION_READINESS' | translate }}</button>
+      <button class="po-tab">{{ 'PROGOPT.TAB_CONFIGURATION_PENALTIES' | translate }}</button>
+      <button class="po-tab">{{ 'PROGOPT.TAB_RESOURCE_BOTTLENECKS' | translate }}</button>
+      <button class="po-tab">{{ 'PROGOPT.TAB_IDLE_PENALTIES' | translate }}</button>
+      <button class="po-tab">{{ 'PROGOPT.TAB_LATENESS_PENALTIES' | translate }}</button>
+    </div>
+
+    <div class="po-kpi-grid">
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:var(--txt-1)"></div>
+        <div class="atg-kpi-label">{{ 'PROGOPT.WELLS_SCORED' | translate }}</div>
+        <div class="atg-kpi-val" style="color:var(--txt-1)">10</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">&nbsp;</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:var(--txt-1)"></div>
+        <div class="atg-kpi-label">{{ 'PROGOPT.MAX_VALUE' | translate }}</div>
+        <div class="atg-kpi-val" style="color:var(--txt-1)">0</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'PROGOPT.READY_TO_SEQUENCE' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22c55e"></div>
+        <div class="atg-kpi-label">{{ 'PROGOPT.IDLE_DAYS_SAVED' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22c55e">15d</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'PROGOPT.VS_CURRENT_PLAN' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22d3ee"></div>
+        <div class="atg-kpi-label">{{ 'PROGOPT.AVG_PROGRAM_SCORE' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22d3ee">34</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">0-100</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22c55e"></div>
+        <div class="atg-kpi-label">{{ 'PROGOPT.RESEQUENCE_RECS' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22c55e">7</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'PROGOPT.SUGGESTED_SWAPS' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'PROGOPT.LATENESS_PENALTY' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">11d</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'PROGOPT.DAYS_AT_RISK' | translate }}</div>
+      </div>
+    </div>
+
+    <div class="po-panels">
+      <!-- Recommended Sequence -->
+      <div class="po-panel">
+        <div class="po-panel-title">
+          <span style="color:#a78bfa">&#9632;</span> {{ 'PROGOPT.RECOMMENDED_SEQUENCE' | translate }}
+        </div>
+        <div class="po-panel-sub">{{ 'PROGOPT.OPTIMAL_WELL_ORDERING' | translate }}</div>
+        <div id="po-seq-list"></div>
+      </div>
+      <!-- Program Value Score by Well -->
+      <div class="po-panel">
+        <div class="po-panel-title">{{ 'PROGOPT.PROGRAM_VALUE_SCORE' | translate }}</div>
+        <div class="po-panel-sub">&nbsp;</div>
+        <div style="position:relative;height:340px"><canvas id="po-chart-value"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Trade-off Analysis -->
+    <div class="po-tradeoff">
+      <div class="po-tradeoff-header">
+        <div class="po-panel-title">{{ 'PROGOPT.TRADEOFF_TITLE' | translate }}</div>
+        <div class="po-tradeoff-legend"><span class="po-tradeoff-dot" style="background:#22c55e"></span> {{ 'PROGOPT.PROGRAM_SCORE' | translate }}</div>
+      </div>
+      <div style="position:relative;height:280px"><canvas id="po-chart-tradeoff"></canvas></div>
+    </div>
+
+    <!-- Program Optimization Table -->
+    <div class="po-table-card">
+      <div class="po-table-header">
+        <div class="po-panel-title"><span style="color:#a78bfa">&#9632;</span> {{ 'PROGOPT.TABLE_TITLE' | translate }}</div>
+        <button class="po-btn-accept-all">&#9745; {{ 'PROGOPT.ACCEPT_ALL' | translate }}</button>
+      </div>
+      <table class="po-table">
+        <thead>
+          <tr>
+            <th>{{ 'PROGOPT.TH_RANK' | translate }}</th><th>{{ 'PROGOPT.TH_WELL' | translate }}</th><th>{{ 'PROGOPT.TH_RIG' | translate }}</th><th>{{ 'PROGOPT.TH_CURRENT_SEQ' | translate }} &#8597;</th><th>{{ 'PROGOPT.TH_OPT_SEQ' | translate }} &#8597;</th><th>{{ 'PROGOPT.TH_READINESS' | translate }} &#8597;</th><th>{{ 'PROGOPT.TH_PRIORITY' | translate }}</th><th>{{ 'PROGOPT.TH_VALUE_SCORE' | translate }} &#8597;</th><th>{{ 'PROGOPT.TH_IDLE_PENALTY' | translate }} &#8597;</th><th>{{ 'PROGOPT.TH_ACTION' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody id="po-table-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /page-progopt -->

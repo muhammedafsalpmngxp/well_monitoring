@@ -1,0 +1,146 @@
+<div id="page-boards" class="page active">
+  <div class="page-title-row">
+    <div class="bd-title-wrap">
+      <div class="page-title">{{ pageTitle }}</div>
+      <div class="page-subtitle">Open a board to view the complete dashboard</div>
+    </div>
+    <div class="bd-actions" *ngIf="scope==='my'">
+      <button class="bd-cat-btn" (click)="manageCategories()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Manage Categories
+      </button>
+      <button class="bd-new-btn" (click)="newDashboard()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Dashboard
+      </button>
+    </div>
+  </div>
+
+  <!-- Toolbar: tabs · search · category · sort · view toggle -->
+  <div class="bd-toolbar">
+    <div class="bd-tabs">
+      <button class="bd-tab" [class.active]="tab==='all'" (click)="setTab('all')">
+        All boards <span class="bd-tab-badge">{{ allCount }}</span>
+      </button>
+      <button class="bd-tab" [class.active]="tab==='favourites'" (click)="setTab('favourites')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Favourites <span class="bd-tab-badge">{{ favCount }}</span>
+      </button>
+      <button class="bd-tab" [class.active]="tab==='recent'" (click)="setTab('recent')">Recently viewed</button>
+      <button class="bd-tab" *ngIf="scope==='my' && !isAdmin" [class.active]="tab==='draft'" (click)="setTab('draft')">
+        Draft <span class="bd-tab-badge">{{ draftCount }}</span>
+      </button>
+    </div>
+
+    <div class="bd-toolbar-right">
+      <div class="bd-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" [(ngModel)]="search" (ngModelChange)="onFilterChange()" placeholder="Search boards…" />
+      </div>
+      <label class="bd-select">Category:
+        <select [(ngModel)]="categoryFilter" (ngModelChange)="onFilterChange()">
+          <option value="All">All</option>
+          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+        </select>
+      </label>
+      <label class="bd-select">Sort:
+        <select [(ngModel)]="sort" (ngModelChange)="onFilterChange()">
+          <option value="recent">Recently used</option>
+          <option value="name">Name A–Z</option>
+          <option value="charts">Most charts</option>
+        </select>
+      </label>
+      <div class="bd-viewtoggle">
+        <button [class.active]="view==='card'" (click)="setView('card')" title="Card view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </button>
+        <button [class.active]="view==='tile'" (click)="setView('tile')" title="List view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recently viewed strip (All boards tab) -->
+  <div class="bd-recent" *ngIf="tab==='all' && recentBoards.length">
+    <div class="bd-section-label">RECENTLY VIEWED</div>
+    <div class="bd-recent-row">
+      <div class="bd-recent-card" *ngFor="let b of recentBoards; trackBy: trackById" (click)="open(b)">
+        <div class="bd-thumb" [attr.data-icon]="b.icon">
+          <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: b.icon }"></ng-container>
+        </div>
+        <div class="bd-recent-body">
+          <div class="bd-card-name">{{ b.name }}</div>
+          <div class="bd-card-sub">{{ b.category }}</div>
+        </div>
+        <svg class="bd-recent-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- All boards — grouped by category (accordion) -->
+  <ng-container *ngIf="tab==='all'">
+    <div class="bd-cat" *ngFor="let g of groups">
+      <div class="bd-cat-head" (click)="toggleCategory(g.name)">
+        <svg class="bd-cat-chev" [class.collapsed]="!isExpanded(g.name)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <span class="bd-cat-name">{{ g.name }}</span>
+        <span class="bd-cat-badge">{{ g.boards.length }}</span>
+      </div>
+      <div class="bd-grid" [class.tile]="view==='tile'" *ngIf="isExpanded(g.name)">
+        <ng-container *ngFor="let b of g.boards; trackBy: trackById">
+          <ng-container [ngTemplateOutlet]="boardCard" [ngTemplateOutletContext]="{ $implicit: b }"></ng-container>
+        </ng-container>
+      </div>
+    </div>
+    <div class="bd-empty" *ngIf="!groups.length">No boards match your filters.</div>
+  </ng-container>
+
+  <!-- Favourites / Recently viewed — flat grid -->
+  <ng-container *ngIf="tab!=='all'">
+    <div class="bd-grid" [class.tile]="view==='tile'">
+      <ng-container *ngFor="let b of flatBoards; trackBy: trackById">
+        <ng-container [ngTemplateOutlet]="boardCard" [ngTemplateOutletContext]="{ $implicit: b }"></ng-container>
+      </ng-container>
+    </div>
+    <div class="bd-empty" *ngIf="!flatBoards.length">
+      {{ tab==='favourites' ? 'No favourite boards yet — tap the star on a board to add it.'
+         : (tab==='draft' ? 'No draft boards — everything is published.' : 'No recently viewed boards yet.') }}
+    </div>
+  </ng-container>
+</div>
+
+<!-- ── Reusable board card ── -->
+<ng-template #boardCard let-b>
+  <div class="bd-card" (click)="open(b)">
+    <div class="bd-thumb" [attr.data-icon]="b.icon">
+      <ng-container [ngTemplateOutlet]="icon" [ngTemplateOutletContext]="{ $implicit: b.icon }"></ng-container>
+    </div>
+    <div class="bd-card-body">
+      <div class="bd-card-name">
+        {{ b.name }}
+        <span class="bd-draft-badge" *ngIf="scope==='my' && isDraft(b)">Draft</span>
+      </div>
+      <div class="bd-card-desc">{{ b.desc }}</div>
+      <div class="bd-card-meta">
+        <span class="bd-meta-pill">{{ b.charts }} charts</span>
+        <span class="bd-meta-modified">Modified {{ b.modified }}</span>
+      </div>
+    </div>
+    <button class="bd-publish-btn" *ngIf="scope==='my' && isDraft(b)" (click)="publish(b, $event)"
+            title="Publish to Standard Boards" aria-label="Publish">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><polyline points="5 12 12 5 19 12"/></svg>
+    </button>
+    <button class="bd-fav" [class.on]="isFav(b.id)" (click)="toggleFav(b, $event)" title="Favourite">
+      <svg viewBox="0 0 24 24" [attr.fill]="isFav(b.id) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </button>
+    <svg class="bd-card-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>
+</ng-template>
+
+<!-- ── Icon by type ── -->
+<ng-template #icon let-t>
+  <svg *ngIf="t==='bar'"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+  <svg *ngIf="t==='donut'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3 a9 9 0 0 1 8 5"/></svg>
+  <svg *ngIf="t==='line'"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 15 9 9 13 12 21 5"/></svg>
+  <svg *ngIf="t==='grid'"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+</ng-template>

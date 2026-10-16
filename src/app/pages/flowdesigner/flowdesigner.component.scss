@@ -1,0 +1,2368 @@
+.fd-title-wrap {
+  flex: 1;
+}
+
+#fdListCount {
+  margin-left: auto;
+  font-size: 9pt;
+  color: var(--txt-muted);
+}
+
+/* Grid container — matches All Wells design */
+.fd-grid-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.fd-grid-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.fd-grid-toolbar-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--txt-muted);
+}
+
+.fd-grid-toolbar-title {
+  font-size: 10pt;
+  font-weight: 700;
+  color: var(--txt-1);
+}
+
+.fd-records-badge {
+  background: rgba(0, 176, 80, 0.1);
+  color: #00B050;
+  border: 1px solid rgba(0, 176, 80, 0.3);
+  font-size: 9pt;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-family: var(--font-family-mono);
+}
+
+.fd-grid-hint {
+  margin-left: auto;
+  font-size: 9pt;
+  color: var(--txt-muted);
+}
+
+#fdFlowsGrid {
+  width: 100%;
+  height: 580px;
+}
+.fd-col-owner { width: 10%; }
+.fd-col-actions { width: 90px; text-align: right; }
+
+/* ── Dark-mode overrides ── */
+html:not(.navbar-light) #page-flowdesigner {
+  .fd-grid-container {
+    background: var(--surface);
+    border-color: var(--border);
+  }
+  .fd-grid-toolbar {
+    background: var(--surface-2);
+    border-bottom-color: var(--border);
+  }
+  .fd-records-badge {
+    background: rgba(0, 176, 80, 0.15);
+    border-color: rgba(0, 176, 80, 0.4);
+  }
+}
+
+
+/* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
+   FLOW DESIGNER ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Process Automation
+   ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */
+#page-flowdesigner {
+  font-family: var(--font-family);
+}
+
+.fd-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px!important;
+  margin-bottom: 10px!important;
+}
+
+.fd-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  max-width: 340px;
+}
+
+.fd-search-wrap svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  stroke: var(--txt-muted);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.fd-search-input {
+  width: 100%;
+  padding: 8px 10px 8px 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--txt-1);
+  font-size: 9pt;
+  font-family: inherit;
+}
+
+.fd-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(41,55,141, 0.12);
+}
+
+.fd-filter-sel {
+  padding: 7px 10px;
+  font-size: 9pt;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--txt-1);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.fd-filter-sel:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.fd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  font-size: 9pt;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--txt-1);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.fd-btn:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.fd-btn svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fd-btn-primary {
+  background: #29378d;
+  color: #fff;
+  border-color: #29378d;
+}
+
+.fd-btn-primary:hover {
+  background: #1F3864;
+  border-color: #1F3864;
+  color: #fff;
+}
+
+.fd-btn-success {
+  background: #00B050;
+  color: #fff;
+  border-color: #00B050;
+}
+
+.fd-btn-success:hover {
+  background: #006030;
+  border-color: #006030;
+  color: #fff;
+}
+
+.fd-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--txt-2);
+  padding: 4px 6px;
+}
+
+.fd-btn-ghost:hover {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.fd-btn-danger:hover {
+  color: var(--red);
+  background: rgba(255, 0, 0, 0.08);
+  border-color: rgba(255, 0, 0, 0.2);
+}
+
+/* Listing table */
+/* Legacy table styles removed — now using ag-grid */
+
+.fd-flow-name {
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fd-flow-name:hover {
+  text-decoration: underline;
+}
+
+.fd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 11px;
+  font-size: 9pt;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.fd-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.fd-pill-active {
+  background: var(--green-soft);
+  color: var(--green);
+  border-color: var(--green-bd);
+}
+
+.fd-pill-draft {
+  background: rgba(127, 127, 127, 0.1);
+  color: #7F7F7F;
+  border-color: rgba(127, 127, 127, 0.25);
+}
+
+.fd-pill-error {
+  background: var(--red-soft);
+  color: var(--red);
+  border-color: var(--red-bd);
+}
+
+.fd-trig-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 9pt;
+  font-weight: 500;
+  background: var(--blue-soft);
+  color: var(--blue);
+  border: 1px solid var(--blue-bd);
+}
+
+.fd-row-actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+}
+
+.fd-empty {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--txt-muted);
+  font-size: 10pt;
+}
+
+.fd-empty svg {
+  width: 48px;
+  height: 48px;
+  stroke: var(--txt-muted);
+  fill: none;
+  stroke-width: 1.4;
+  opacity: 0.5;
+  margin-bottom: 10px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Flow Editor Page ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+.fd-edit-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.fd-flow-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: #1F3864;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.fd-flow-icon::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #00B050;
+  border: 2px solid var(--surface);
+}
+
+.fd-flow-name-input {
+  font-size: 14pt;
+  font-weight: 600;
+  color: var(--txt-1);
+  border: none;
+  background: transparent;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-family: inherit;
+  min-width: 200px;
+}
+
+.fd-flow-name-input:hover {
+  background: var(--surface-2);
+}
+
+.fd-flow-name-input:focus {
+  outline: none;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.fd-status-chip {
+   padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.12);
+  color: #7F7F7F;
+  font-size: 9pt;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.fd-status-chip.published {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.fd-edit-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* Builder canvas */
+.fd-canvas {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  /* Don't clip ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the trigger dropdown panel and recovery text need
+     to overflow the canvas border without being chopped. */
+  overflow: visible;
+}
+
+.fd-section-label {
+  padding: 14px 22px 10px;
+  font-size: 9pt;
+  letter-spacing: 1.2px;
+  font-weight: 700;
+  color: var(--txt-2);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fd-section-label .fd-section-helper {
+  font-size: 9pt;
+  color: var(--accent);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.fd-section-label .fd-section-helper:hover {
+  text-decoration: underline;
+}
+
+.fd-trigger-zone {
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--border-2);
+  padding: 6px 13px;
+}
+
+.fd-trigger-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.fd-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent);
+  font-size: 9pt;
+  cursor: pointer;
+  padding: 0px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.fd-cancel-btn:hover {
+  background: rgba(41,55,141, 0.08);
+}
+
+.fd-cancel-btn .fd-x-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fd-cancel-btn .fd-x-circle svg {
+  width: 11px;
+  height: 11px;
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 2.2;
+}
+
+.fd-trigger-label {
+  font-size: 9pt;
+  color: var(--txt-2);
+  margin-right: 4px;
+}
+
+.fd-dropdown-wrap {
+  position: relative;
+}
+
+.fd-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 280px;
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--txt-1);
+  font-size: 10pt;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s;
+}
+
+.fd-dropdown-trigger:hover {
+  border-color: #A5A5A5;
+}
+
+.fd-dropdown-trigger.open {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(41,55,141, 0.12);
+}
+
+.fd-dropdown-trigger svg {
+  width: 12px;
+  height: 12px;
+  stroke: var(--txt-2);
+  fill: none;
+  stroke-width: 2;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.fd-dropdown-trigger.open svg {
+  transform: rotate(180deg);
+}
+
+.fd-dropdown-trigger .placeholder {
+  color: var(--txt-muted);
+}
+
+.fd-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 620px;
+  max-width: 90vw;
+  z-index: 50;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  display: none;
+  overflow: hidden;
+}
+
+.fd-dropdown-panel.open {
+  display: block;
+}
+
+.fd-dd-search {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fd-dd-search svg {
+  width: 13px;
+  height: 13px;
+  stroke: var(--txt-muted);
+  fill: none;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+
+.fd-dd-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 9pt;
+  color: var(--txt-1);
+  font-family: inherit;
+}
+
+.fd-dd-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 240px;
+}
+
+.fd-dd-cats {
+  background: var(--surface-2);
+  border-right: 1px solid var(--border-2);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fd-dd-cat {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 9pt;
+  color: var(--txt-1);
+}
+
+.fd-dd-cat:hover {
+  background: rgba(41,55,141, 0.06);
+}
+
+.fd-dd-cat.active {
+  background: rgba(41,55,141, 0.14);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.fd-dd-cat-bullet {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 35% 35%, #00B050, #00B050 60%, #0a4d22);
+  box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.fd-dd-cat-bullet::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.fd-dd-opts {
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.fd-dd-opts-header {
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--txt-2);
+  padding: 6px 12px 8px;
+  letter-spacing: 0.4px;
+}
+
+.fd-dd-opt {
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 9pt;
+  color: var(--txt-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fd-dd-opt:hover {
+  background: rgba(41,55,141, 0.08);
+}
+
+.fd-dd-opt-info {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.fd-dd-opt:hover .fd-dd-opt-info {
+  opacity: 0.55;
+}
+
+.fd-dd-opt-info svg {
+  width: 14px;
+  height: 14px;
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 2;
+}
+
+/* Trigger summary (after selected) */
+.fd-trig-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--border-2);
+}
+
+.fd-trig-summary-bullet {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 35% 35%, #00B050, #00B050 60%, #0a4d22);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.12);
+}
+
+.fd-trig-summary-text {
+  flex: 1;
+  font-size: 10pt;
+}
+
+.fd-trig-summary-text strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.fd-trig-edit-btn {
+  padding: 5px 10px;
+  font-size: 9pt;
+  color: var(--txt-2);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.fd-trig-edit-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Operations (Actions) zone */
+
+.fd-op-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin: 4px 0;
+  border-radius: 8px;
+  transition: background 0.12s;
+  position: relative;
+}
+
+.fd-op-row:hover {
+  background: var(--surface-2);
+}
+
+.fd-op-row.selected {
+  background: rgba(41,55,141, 0.08);
+}
+
+.fd-op-num {
+  width: 26px;
+  text-align: center;
+  font-size: 10pt;
+  color: var(--txt-2);
+  flex-shrink: 0;
+}
+
+.fd-op-bullet {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 35% 35%, #00B050, #00B050 60%, #0a4d22);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.12);
+}
+
+.fd-op-name {
+  font-size: 10pt;
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fd-op-name:hover {
+  text-decoration: underline;
+}
+
+.fd-op-required {
+  color: var(--red);
+  margin-left: 3px;
+  font-weight: 600;
+}
+
+.fd-op-help {
+  color: var(--txt-muted);
+  cursor: help;
+}
+
+.fd-op-help svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+.fd-op-tools {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.fd-op-row:hover .fd-op-tools,
+.fd-op-row.selected .fd-op-tools {
+  opacity: 1;
+}
+
+.fd-op-tool {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+  color: var(--txt-2);
+}
+
+.fd-op-tool:hover {
+  background: rgba(41,55,141, 0.1);
+  color: var(--accent);
+}
+
+.fd-op-tool svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.fd-op-drag {
+  width: 18px;
+  cursor: grab;
+  color: var(--txt-muted);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.fd-op-row:hover .fd-op-drag {
+  opacity: 1;
+}
+
+/* Add operation chooser */
+.fd-add-chooser {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 22px 18px 60px;
+  position: relative;
+}
+
+.fd-add-chooser::before {
+  content: '';
+  position: absolute;
+  left: 46px;
+  top: -6px;
+  bottom: 34px;
+  width: 1px;
+  background: var(--border);
+}
+
+.fd-add-x {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--txt-2);
+  background: var(--surface);
+}
+
+.fd-add-x:hover {
+  color: var(--red);
+  border-color: var(--red-bd);
+}
+
+.fd-add-x svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+.fd-add-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  font-size: 9pt;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--txt-1);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.fd-add-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(41,55,141, 0.04);
+}
+
+.fd-add-chip svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fd-add-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 10pt;
+  border: 1.5px dashed var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.15s;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.fd-add-empty:hover {
+  background: rgba(41,55,141, 0.05);
+  border-color: var(--accent);
+}
+
+.fd-add-empty svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+.fd-add-empty-plus {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1.5px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Recovery zone */
+.fd-recovery-zone {
+  padding: 18px 24px;
+  border-top: 1px solid var(--border-2);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.fd-recovery-text {
+  flex: 1;
+}
+
+.fd-recovery-title {
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--txt-2);
+  margin-bottom: 5px;
+}
+
+.fd-recovery-desc {
+  font-size: 9pt;
+  color: var(--txt-muted);
+}
+
+.fd-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.fd-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.fd-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(127, 127, 127, 0.25);
+  border-radius: 20px;
+  transition: 0.2s;
+}
+
+.fd-toggle-slider::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: 0.2s;
+}
+
+.fd-toggle input:checked+.fd-toggle-slider {
+  background: var(--accent);
+}
+
+.fd-toggle input:checked+.fd-toggle-slider::before {
+  transform: translateX(18px);
+}
+
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+   Form-picker modal ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â opens when "On Catalogue Submit"
+   trigger needs to be tied to a specific form
+   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+.fd-form-picker-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 9100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px 20px;
+  animation: fdFpFadeIn 0.15s ease-out;
+}
+@keyframes fdFpFadeIn { from { opacity: 0 } to { opacity: 1 } }
+.fd-form-picker-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 580px;
+  max-height: calc(100vh - 80px);
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.30);
+  overflow: hidden;
+  animation: fdFpSlideIn 0.18s ease-out;
+}
+@keyframes fdFpSlideIn { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: translateY(0) } }
+
+.fd-form-picker-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px 12px;
+}
+.fd-form-picker-head-icon {
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #29378d, #29378d);
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fd-form-picker-head-icon svg { width: 17px; height: 17px; }
+.fd-form-picker-head-meta { flex: 1; min-width: 0; }
+.fd-form-picker-head-meta h3 {
+  margin: 0;
+  font-size: 11pt;
+  font-weight: 700;
+  color: var(--txt-1);
+}
+.fd-form-picker-sub {
+  margin-top: 2px;
+  font-size: 9pt;
+  color: var(--txt-muted);
+}
+.fd-form-picker-close {
+  background: transparent;
+  border: 0;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--txt-muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.fd-form-picker-close:hover {
+  background: rgba(0,0,0,0.06);
+  color: var(--txt-1);
+}
+.fd-form-picker-close svg { width: 14px; height: 14px; }
+
+.fd-form-picker-search {
+  position: relative;
+  padding: 0 18px 12px;
+}
+.fd-form-picker-search svg {
+  position: absolute;
+  left: 30px; top: 50%; transform: translateY(-50%);
+  width: 14px; height: 14px;
+  color: var(--txt-muted);
+  pointer-events: none;
+  margin-top: -6px;
+}
+.fd-form-picker-search input {
+  width: 100%;
+  padding: 9px 12px 9px 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 10pt;
+  outline: none;
+  background: var(--surface);
+  color: var(--txt-1);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.fd-form-picker-search input:focus {
+  border-color: #29378d;
+  box-shadow: 0 0 0 3px rgba(41,55,141,0.12);
+}
+
+.fd-form-picker-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fd-form-picker-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+  background: var(--surface);
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s, transform 0.10s;
+}
+.fd-form-picker-card:hover {
+  border-color: #29378d;
+  background: rgba(41,55,141, 0.04);
+  box-shadow: 0 4px 12px rgba(41,55,141,0.10);
+  transform: translateY(-1px);
+}
+.fd-form-picker-card.any {
+  border-style: dashed;
+}
+
+.fd-form-picker-card-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(41,55,141,0.10);
+  color: #29378d;
+}
+.fd-form-picker-card-icon svg { width: 16px; height: 16px; }
+.fd-form-picker-card-icon[data-icon="site"]     { background: rgba(0,176,240,0.10);  color: #00B0F0; }
+.fd-form-picker-card-icon[data-icon="crew"]     { background: rgba(41,55,141,0.10);   color: #29378d; }
+.fd-form-picker-card-icon[data-icon="incident"] { background: rgba(255,0,0,0.10);   color: #FF0000; }
+.fd-form-picker-card-icon[data-icon="material"] { background: rgba(255,192,0,0.10);   color: #FFC000; }
+.fd-form-picker-card-icon[data-icon="ppe"]      { background: rgba(0,176,80,0.10);   color: #00B050; }
+.fd-form-picker-card-icon[data-icon="permit"]   { background: rgba(255,0,0,0.10);   color: #FF0000; }
+.fd-form-picker-card-icon[data-icon="lifting"]  { background: rgba(255,192,0,0.10);   color: #FFC000; }
+.fd-form-picker-card-icon[data-icon="toolbox"]  { background: rgba(0,176,240,0.10);   color: #00B0F0; }
+.fd-form-picker-card-icon[data-icon="moc"]      { background: rgba(31,56,100,0.10);   color: #1F3864; }
+.fd-form-picker-card-icon[data-icon="travel"]   { background: rgba(41,55,141,0.10);   color: #29378d; }
+.fd-form-picker-card-icon[data-icon="any"]      { background: rgba(41,55,141,0.10);  color: #29378d; }
+
+.fd-form-picker-card-body { flex: 1; min-width: 0; }
+.fd-form-picker-card-name {
+  font-size: 10pt;
+  font-weight: 700;
+  color: var(--txt-1);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fd-form-picker-card-desc {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fd-form-picker-card-meta {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.fd-form-picker-pill {
+  font-size: 9pt;
+  font-weight: 700;
+  background: rgba(41,55,141,0.10);
+  color: #29378d;
+  border: 1px solid rgba(41,55,141,0.25);
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-family: var(--font-family-mono);
+  white-space: nowrap;
+}
+.fd-form-picker-card-arrow {
+  color: var(--txt-muted);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fd-form-picker-card-arrow svg { width: 13px; height: 13px; }
+.fd-form-picker-card:hover .fd-form-picker-card-arrow { color: #29378d; }
+
+.fd-form-picker-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--border-2);
+}
+
+.fd-form-picker-empty {
+  text-align: center;
+  padding: 32px 12px;
+  color: var(--txt-muted);
+  font-size: 9pt;
+}
+
+/* Right panel ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â data */
+.fd-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 10px;
+  align-items: start;
+}
+
+.fd-data-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
+.fd-data-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.fd-data-head h3 {
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--txt-1);
+}
+
+.fd-data-head a {
+  font-size: 9pt;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.fd-data-head a:hover {
+  text-decoration: underline;
+}
+
+.fd-data-group {
+  margin-bottom: 8px;
+}
+
+.fd-data-group-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 4px;
+  font-size: 9pt;
+  color: var(--txt-1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.fd-data-group-head svg {
+  width: 10px;
+  height: 10px;
+  stroke: var(--txt-2);
+  fill: none;
+  stroke-width: 2.2;
+  transition: transform 0.2s;
+}
+
+.fd-data-group.collapsed .fd-data-group-head svg {
+  transform: rotate(-90deg);
+}
+
+.fd-data-group.collapsed .fd-data-pills {
+  display: none;
+}
+
+.fd-data-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 2px 4px 6px 14px;
+}
+
+.fd-data-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  font-size: 9pt;
+  color: var(--txt-1);
+  cursor: grab;
+  transition: all 0.15s;
+}
+
+.fd-data-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.fd-data-pill-type {
+  color: var(--txt-muted);
+  font-size: 9pt;
+  margin-left: 8px;
+}
+
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ CONNECTIONS (External Integrations) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+.fd-conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+.fd-conn-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.fd-conn-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(41,55,141, 0.1);
+  
+}
+
+.fd-conn-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.fd-conn-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9pt;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+.fd-conn-logo svg {
+  width: 22px;
+  height: 22px;
+  stroke: #fff;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fd-conn-logo.l-rest {
+  background: linear-gradient(135deg, #29378d, #1F3864);
+}
+
+.fd-conn-logo.l-snow {
+  background: linear-gradient(135deg, #00B050, #00B050);
+}
+
+.fd-conn-logo.l-jira {
+  background: linear-gradient(135deg, #29378d, #1F3864);
+}
+
+.fd-conn-logo.l-slack {
+  background: linear-gradient(135deg, #FF0000, #1F3864);
+}
+
+.fd-conn-logo.l-webhook {
+  background: linear-gradient(135deg, #29378d, #1F3864);
+}
+
+.fd-conn-logo.l-sap {
+  background: linear-gradient(135deg, #29378d, #1F3864);
+}
+
+.fd-conn-logo.l-sfdc {
+  background: linear-gradient(135deg, #00B0F0, #29378d);
+}
+
+.fd-conn-logo.l-teams {
+  background: linear-gradient(135deg, #1F3864, #1F3864);
+}
+
+.fd-conn-logo.l-custom {
+  background: linear-gradient(135deg, #7F7F7F, #A5A5A5);
+}
+
+.fd-conn-logo.l-autodesk {
+  background: linear-gradient(135deg, #FFC000, #FFC000);
+}
+
+.fd-conn-logo.l-snowui {
+  background: linear-gradient(135deg, #00B050, #00B0F0);
+}
+
+.fd-conn-logo.l-db {
+  background: linear-gradient(135deg, #29378d, #1F3864);
+}
+
+.fd-conn-logo.l-excel {
+  background: linear-gradient(135deg, #00B050, #00B050);
+}
+
+.fd-conn-name {
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--txt-1);
+  margin-bottom: 2px;
+  line-height: 1.25;
+}
+
+.fd-conn-type-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  border: 1px solid var(--blue-bd);
+  font-size: 9pt;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.fd-conn-status-dot {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9pt;
+  font-weight: 600;
+}
+
+.fd-conn-status-dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.fd-conn-status-dot.connected {
+  color: var(--green);
+}
+
+.fd-conn-status-dot.disconnected {
+  color: #A5A5A5;
+}
+
+.fd-conn-status-dot.error {
+  color: var(--red);
+}
+
+.fd-conn-desc {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  line-height: 1.5;
+  margin: 8px 0 12px;
+  min-height: 36px;
+}
+
+.fd-conn-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 9pt;
+  color: var(--txt-muted);
+  padding-top: 10px;
+  border-top: 1px solid var(--border-2);
+}
+
+.fd-conn-meta-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.fd-conn-meta-actions button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--txt-2);
+  padding: 3px 5px;
+  border-radius: 4px;
+  transition: all 0.12s;
+}
+
+.fd-conn-meta-actions button:hover {
+  color: var(--accent);
+  background: rgba(41,55,141, 0.08);
+}
+
+.fd-conn-meta-actions button svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.fd-conn-actions-count {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fd-conn-actions-count strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ MODAL (Operation Picker, Connection Editor, Op Config) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
+.fd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 9000;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 20px 20px;
+  overflow-y: auto;
+}
+
+.fd-modal-backdrop.open {
+  display: flex;
+}
+
+.fd-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 780px;
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fdModalIn 0.2s ease-out;
+}
+
+.fd-modal.wide {
+  max-width: 920px;
+}
+
+@keyframes fdModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fd-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.fd-modal-head h3 {
+  font-size: 11pt;
+  font-weight: 600;
+  color: var(--txt-1);
+  flex: 1;
+}
+
+.fd-modal-head .fd-modal-sub {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  margin-top: 2px;
+}
+
+.fd-modal-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--txt-2);
+  background: transparent;
+  border: none;
+  transition: all 0.12s;
+}
+
+.fd-modal-close:hover {
+  background: var(--surface-2);
+  color: var(--red);
+}
+
+.fd-modal-close svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.fd-modal-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.fd-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+
+/* Operation Picker tabs */
+.fd-op-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.fd-op-tab {
+  padding: 10px 14px;
+  font-size: 9pt;
+  font-weight: 500;
+  color: var(--txt-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.12s;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fd-op-tab svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+.fd-op-tab:hover {
+  color: var(--txt-1);
+}
+
+.fd-op-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.fd-op-tab .fd-op-tab-badge {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--txt-2);
+}
+
+.fd-op-tab.active .fd-op-tab-badge {
+  background: rgba(41,55,141, 0.12);
+  border-color: rgba(41,55,141, 0.3);
+  color: var(--accent);
+}
+
+.fd-op-tab-pane {
+  display: none;
+}
+
+.fd-op-tab-pane.active {
+  display: block;
+}
+
+/* Built-in operation grid */
+.fd-op-cat-section {
+  margin-bottom: 10px;
+}
+
+.fd-op-cat-title {
+  font-size: 9pt;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--txt-2);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fd-op-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.fd-op-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.12s;
+  background: var(--surface);
+}
+
+.fd-op-card:hover {
+  border-color: var(--accent);
+  background: rgba(41,55,141, 0.04);
+}
+
+.fd-op-card-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(41,55,141, 0.1);
+  color: var(--accent);
+}
+
+.fd-op-card-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fd-op-card-icon.green {
+  background: rgba(22, 163, 74, 0.1);
+  color: var(--green);
+}
+
+.fd-op-card-icon.amber {
+  background: rgba(255, 192, 0, 0.1);
+  color: var(--amber);
+}
+
+.fd-op-card-icon.purple {
+  background: rgba(41,55,141, 0.1);
+  color: #29378d;
+}
+
+.fd-op-card-icon.agent {
+  background: linear-gradient(135deg, rgba(41,55,141,0.15), rgba(41,55,141,0.18));
+  color: #29378d;
+}
+html:not(.navbar-light) .fd-op-card-icon.agent { color: #a5b4fc; }
+
+.fd-op-card-agent .fd-op-card-name {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.fd-agent-status {
+  display:inline-block;
+  font-family:var(--font-family-mono);
+  font-size: 9pt; font-weight:700;
+  letter-spacing:0.4px;
+  padding:1px 6px;
+  border-radius:10px;
+  border:1px solid;
+}
+.fd-agent-status-g { color:#00B050; background:rgba(0,176,80,0.10); border-color:rgba(0,176,80,0.30); }
+.fd-agent-status-a { color:#FFC000; background:rgba(255,192,0,0.10); border-color:rgba(255,192,0,0.30); }
+.fd-agent-status-r { color:#FF0000; background:rgba(255,0,0,0.10); border-color:rgba(255,0,0,0.30); }
+html:not(.navbar-light) .fd-agent-status-g { color:#00B050; border-color:rgba(74,222,128,0.35); }
+html:not(.navbar-light) .fd-agent-status-a { color:#FFC000; border-color:rgba(251,191,36,0.35); }
+html:not(.navbar-light) .fd-agent-status-r { color:#FF0000; border-color:rgba(248,113,113,0.35); }
+
+.fd-agent-stats {
+  margin-top:4px;
+  font-family:var(--font-family-mono);
+  font-size: 9pt;
+  color:var(--txt-muted);
+}
+
+.fd-op-card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.fd-op-card-name {
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--txt-1);
+  margin-bottom: 2px;
+}
+
+.fd-op-card-desc {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  line-height: 1.35;
+}
+
+/* External Integrations list inside picker */
+.fd-ext-conn {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.fd-ext-conn-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface-2);
+  transition: background 0.12s;
+}
+
+.fd-ext-conn-head:hover {
+  background: rgba(41,55,141, 0.06);
+}
+
+.fd-ext-conn-head .fd-conn-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+}
+
+.fd-ext-conn-head .fd-conn-logo svg {
+  width: 16px;
+  height: 16px;
+}
+
+.fd-ext-conn-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.fd-ext-conn-name {
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--txt-1);
+}
+
+.fd-ext-conn-desc {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  margin-top: 2px;
+}
+
+.fd-ext-conn-arrow svg {
+  width: 13px;
+  height: 13px;
+  stroke: var(--txt-2);
+  fill: none;
+  stroke-width: 2;
+  transition: transform 0.2s;
+}
+
+.fd-ext-conn.expanded .fd-ext-conn-arrow svg {
+  transform: rotate(90deg);
+}
+
+.fd-ext-conn-actions {
+  display: none;
+  padding: 4px 0 4px;
+  background: var(--surface);
+}
+
+.fd-ext-conn.expanded .fd-ext-conn-actions {
+  display: block;
+}
+
+.fd-ext-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 56px;
+  cursor: pointer;
+  transition: background 0.12s;
+  font-size: 9pt;
+}
+
+.fd-ext-action:hover {
+  background: rgba(41,55,141, 0.06);
+}
+
+.fd-ext-action-method {
+  font-family: var(--font-family-mono);
+  font-size: 9pt;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  letter-spacing: 0.4px;
+}
+
+.fd-ext-action-method.GET {
+  background: rgba(34, 197, 94, 0.12);
+  color: #00B050;
+}
+
+.fd-ext-action-method.POST {
+  background: rgba(41,55,141, 0.12);
+  color: var(--accent);
+}
+
+.fd-ext-action-method.PUT,
+.fd-ext-action-method.PATCH {
+  background: rgba(255, 192, 0, 0.12);
+  color: var(--amber);
+}
+
+.fd-ext-action-method.DELETE {
+  background: rgba(255, 0, 0, 0.12);
+  color: var(--red);
+}
+
+.fd-ext-action-name {
+  color: var(--txt-1);
+  flex: 1;
+}
+
+.fd-ext-action-path {
+  color: var(--txt-muted);
+  font-family: var(--font-family-mono);
+  font-size: 9pt;
+}
+
+.fd-no-conn-msg {
+  text-align: center;
+  padding: 36px 20px;
+  color: var(--txt-muted);
+  background: var(--surface-2);
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+}
+
+.fd-no-conn-msg svg {
+  width: 36px;
+  height: 36px;
+  stroke: var(--txt-muted);
+  fill: none;
+  stroke-width: 1.4;
+  opacity: 0.5;
+  margin: 0 auto 8px;
+  display: block;
+}
+
+.fd-no-conn-msg a {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.fd-no-conn-msg a:hover {
+  text-decoration: underline;
+}
+
+/* Form fields (used in connection editor + op config) */
+.fd-form-group {
+  margin-bottom: 14px;
+}
+
+.fd-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.fd-form-label {
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--txt-2);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fd-form-label .fd-required {
+  color: var(--red);
+}
+
+.fd-form-input,
+.fd-form-select,
+.fd-form-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--txt-1);
+  font-size: 9pt;
+  font-family: inherit;
+}
+
+.fd-form-textarea {
+  font-family: var(--font-family-mono);
+  font-size: 9pt;
+  min-height: 80px;
+  resize: vertical;
+}
+
+.fd-form-input:focus,
+.fd-form-select:focus,
+.fd-form-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(41,55,141, 0.12);
+}
+
+.fd-form-help {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* Test connection result */
+.fd-test-result {
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 9pt;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fd-test-result.success {
+  background: var(--green-soft);
+  color: var(--green);
+  border: 1px solid var(--green-bd);
+}
+
+.fd-test-result.fail {
+  background: var(--red-soft);
+  color: var(--red);
+  border: 1px solid var(--red-bd);
+}
+
+.fd-test-result.pending {
+  background: var(--blue-soft);
+  color: var(--blue);
+  border: 1px solid var(--blue-bd);
+}
+
+.fd-test-result svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.2;
+  flex-shrink: 0;
+}
+
+/* Headers/key-value table inside connection form */
+.fd-kv-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fd-kv-table input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 9pt;
+  font-family: var(--font-family-mono);
+  color: var(--txt-1);
+}
+
+.fd-kv-table input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.fd-kv-table td {
+  padding: 3px 0;
+}
+
+.fd-kv-table td:first-child {
+  padding-right: 6px;
+  width: 42%;
+}
+
+.fd-kv-table td:nth-child(2) {
+  padding-right: 6px;
+}
+
+.fd-kv-table td:last-child {
+  width: 30px;
+  text-align: center;
+}
+
+.fd-kv-del {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--txt-muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.fd-kv-del:hover {
+  color: var(--red);
+  background: rgba(255, 0, 0, 0.08);
+}
+
+.fd-kv-del svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+.fd-kv-add {
+  margin-top: 6px;
+  font-size: 9pt;
+  color: var(--accent);
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fd-kv-add:hover {
+  border-color: var(--accent);
+  background: rgba(41,55,141, 0.05);
+}
+
+.fd-kv-add svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+/* External op row in flow editor ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â extra info under name */
+.fd-op-ext-meta {
+  display: block;
+  font-size: 9pt;
+  color: var(--txt-muted);
+  margin-top: 1px;
+  font-weight: 400;
+}
+
+.fd-op-ext-meta strong {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.fd-op-name-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.fd-op-name-wrap .fd-op-name {
+  display: inline;
+}
+
+/* Inline op config panel (expanded under selected operation) */
+.fd-op-config {
+  margin: 4px 0 12px 70px;
+  padding: 14px;
+  background: rgba(41,55,141, 0.04);
+  border: 1px solid rgba(41,55,141, 0.2);
+  border-radius: 10px;
+  animation: fdConfigIn 0.18s ease-out;
+}
+
+@keyframes fdConfigIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fd-op-config-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 9pt;
+}
+
+.fd-op-config-head .fd-conn-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+}
+
+.fd-op-config-head .fd-conn-logo svg {
+  width: 12px;
+  height: 12px;
+}
+
+.fd-op-config-head strong {
+  color: var(--txt-1);
+}
+
+.fd-op-config-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(41,55,141, 0.2);
+}
+
+.fd-op-config-tip {
+  background: rgba(255, 192, 0, 0.07);
+  border: 1px solid rgba(255, 192, 0, 0.2);
+  color: var(--amber);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 9pt;
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.fd-op-config-tip svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Dark theme tweaks for Flow Designer */
+html:not(.navbar-light) .fd-toolbar {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html:not(.navbar-light) .fd-search-input {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Legacy table dark overrides removed — ag-grid handles its own theme */
+
+html:not(.navbar-light) .fd-conn-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html:not(.navbar-light) .fd-conn-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+html:not(.navbar-light) .fd-conn-name {
+  color: #fff;
+}
+
+html:not(.navbar-light) .fd-modal {
+  background: #0b1538;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+html:not(.navbar-light) .fd-modal-foot {
+  background: rgba(255, 255, 255, 0.04);
+}
+

@@ -1,0 +1,224 @@
+<div class="sd-overlay" (click)="cancel()">
+  <form appDialog class="sd" role="dialog" aria-modal="true" aria-labelledby="sd-title" novalidate
+    (click)="$event.stopPropagation()" (keydown.escape)="cancel()" (ngSubmit)="save()">
+    <header class="sd__header">
+      <span class="sd__header-icon" aria-hidden="true"><app-icon name="calendar"></app-icon></span>
+      <div class="sd__header-text">
+        <h2 id="sd-title">{{ isEdit ? 'Edit schedule' : 'Schedule a delivery' }}</h2>
+        <p>{{ fixedTarget && targetName ? 'Email ' + targetName + ' on a schedule.' : 'Email a report, dashboard or BI canvas on a schedule.' }}</p>
+      </div>
+      <button type="button" class="sd__close" aria-label="Close" (click)="cancel()"><app-icon name="close" aria-hidden="true"></app-icon></button>
+    </header>
+
+    <div class="sd__body">
+      <div class="sd__main">
+        <!-- 1. What to send -->
+        <section class="sd__section" aria-labelledby="sd-what">
+          <h3 id="sd-what" class="sd__section-title"><span class="sd__step">1</span>What to send</h3>
+          <div class="form-group">
+            <label for="sd-name">Schedule name</label>
+            <input id="sd-name" class="form-control" name="name" maxlength="120" placeholder="Morning production report" [(ngModel)]="name" />
+          </div>
+
+          <div *ngIf="fixedTarget" class="sd__item">
+            <span class="sd__type" [ngClass]="'sd__type--' + targetType.toLowerCase()">{{ targetLabels[targetType] }}</span>
+            <span class="sd__item-name">{{ targetName || 'Item ' + targetId }}</span>
+          </div>
+          <div *ngIf="!fixedTarget" class="sd__grid-2">
+            <div class="form-group">
+              <label>Type</label>
+              <div class="sd__segmented" role="radiogroup" aria-label="Type">
+                <button *ngFor="let type of targetTypes" type="button" role="radio" [attr.aria-checked]="targetType === type"
+                  [class.active]="targetType === type" (click)="changeTargetType(type)">{{ targetLabels[type] }}</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="sd-item">{{ targetLabels[targetType] }}</label>
+              <select id="sd-item" class="form-control" name="targetId" [ngModel]="targetId" (ngModelChange)="pickItem($event)" [disabled]="itemsLoading">
+                <option [ngValue]="null" disabled>{{ itemsLoading ? 'Loading...' : items.length ? 'Choose one' : 'None available' }}</option>
+                <option *ngFor="let item of items" [ngValue]="item.id">{{ item.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="sd__label">Deliver as</label>
+          <div class="sd__formats" role="radiogroup" aria-label="Deliver as">
+            <button *ngFor="let f of formats" type="button" role="radio" class="sd__format" [attr.aria-checked]="format === f"
+              [class.active]="format === f" (click)="format = f">
+              <span class="sd__format-dot" aria-hidden="true"></span>
+              <span class="sd__format-text"><strong>{{ formatInfo[f].label }}</strong><small>{{ targetType === 'Canvas' && f === 'Xlsx' ? 'One sheet per visual' : formatInfo[f].hint }}</small></span>
+            </button>
+          </div>
+          <p *ngIf="targetType === 'Dashboard'" class="form-hint">Dashboards are sent as a link for now.</p>
+          <label *ngIf="format !== 'Link'" class="sd__check">
+            <input type="checkbox" name="skipIfEmpty" [(ngModel)]="skipIfEmpty" />
+            Do not send when there are no rows
+          </label>
+        </section>
+
+        <!-- 2. When -->
+        <section class="sd__section" aria-labelledby="sd-when">
+          <h3 id="sd-when" class="sd__section-title"><span class="sd__step">2</span>When</h3>
+          <div class="sd__segmented sd__segmented--wrap" role="radiogroup" aria-label="Repeat">
+            <button *ngFor="let f of frequencies" type="button" role="radio" [attr.aria-checked]="rec.frequency === f"
+              [class.active]="rec.frequency === f" (click)="setFrequency(f)">{{ f === 'Once' ? 'Once' : f }}</button>
+          </div>
+
+          <div *ngIf="rec.frequency === 'Weekly'" class="sd__days" role="group" aria-label="Days of the week">
+            <button *ngFor="let d of weekOrder" type="button" class="sd__day" [class.active]="rec.days.includes(d)"
+              [attr.aria-pressed]="rec.days.includes(d)" [title]="dayNames[d]" (click)="toggleDay(d)">{{ dayNames[d].slice(0, 3) }}</button>
+          </div>
+
+          <div class="sd__grid-3">
+            <div *ngIf="rec.frequency === 'Once'" class="form-group">
+              <label for="sd-date">Date</label>
+              <input id="sd-date" type="date" class="form-control" name="date" [(ngModel)]="rec.date" (ngModelChange)="recurrenceChanged()" />
+            </div>
+
+            <ng-container *ngIf="rec.frequency === 'Monthly'">
+              <div class="form-group">
+                <label for="sd-monthly">Day of the month</label>
+                <select id="sd-monthly" class="form-control" name="monthly" [(ngModel)]="rec.monthly" (ngModelChange)="recurrenceChanged()">
+                  <option *ngFor="let m of monthlyModes" [ngValue]="m.value">{{ m.label }}</option>
+                </select>
+              </div>
+              <div *ngIf="rec.monthly === 'day'" class="form-group">
+                <label for="sd-dom">Day</label>
+                <select id="sd-dom" class="form-control" name="dayOfMonth" [(ngModel)]="rec.dayOfMonth" (ngModelChange)="recurrenceChanged()">
+                  <option *ngFor="let d of monthDays" [ngValue]="d">{{ d }}</option>
+                </select>
+              </div>
+              <div *ngIf="rec.monthly === 'first' || rec.monthly === 'last'" class="form-group">
+                <label for="sd-weekday">Weekday</label>
+                <select id="sd-weekday" class="form-control" name="weekday" [(ngModel)]="rec.weekday" (ngModelChange)="recurrenceChanged()">
+                  <option *ngFor="let d of weekOrder" [ngValue]="d">{{ dayNames[d] }}</option>
+                </select>
+              </div>
+            </ng-container>
+
+            <div *ngIf="rec.frequency === 'Hourly'" class="form-group">
+              <label for="sd-minute">Minutes past the hour</label>
+              <input id="sd-minute" type="number" min="0" max="59" class="form-control" name="minute" [ngModel]="minute" (ngModelChange)="setMinute($event)" />
+            </div>
+            <div *ngIf="showTime && rec.frequency !== 'Hourly'" class="form-group">
+              <label for="sd-time">Time</label>
+              <input id="sd-time" type="time" class="form-control" name="time" required [(ngModel)]="rec.time" (ngModelChange)="recurrenceChanged()" />
+            </div>
+            <div *ngIf="rec.frequency === 'Custom'" class="form-group sd__span-2">
+              <label for="sd-cron">Cron expression</label>
+              <input id="sd-cron" class="form-control sd__mono" name="cron" placeholder="0 7 * * 1-5" [(ngModel)]="rec.cron" (ngModelChange)="recurrenceChanged()" />
+              <p class="form-hint">Five fields: minute, hour, day of month, month, day of week.</p>
+            </div>
+            <div class="form-group">
+              <label for="sd-zone">Time zone</label>
+              <input id="sd-zone" class="form-control" name="timeZone" list="sd-zones" autocomplete="off" [(ngModel)]="timeZone" (ngModelChange)="recurrenceChanged()" />
+              <datalist id="sd-zones"><option *ngFor="let z of zones; trackBy: trackText" [value]="z"></option></datalist>
+            </div>
+          </div>
+
+          <div *ngIf="rec.frequency !== 'Once'" class="sd__grid-3">
+            <div class="form-group">
+              <label for="sd-start">Starts <span class="sd__optional">optional</span></label>
+              <input id="sd-start" type="date" class="form-control" name="startDate" [(ngModel)]="startDate" (ngModelChange)="recurrenceChanged()" />
+            </div>
+            <div class="form-group">
+              <label for="sd-end">Ends <span class="sd__optional">optional</span></label>
+              <input id="sd-end" type="date" class="form-control" name="endDate" [min]="startDate" [(ngModel)]="endDate" (ngModelChange)="recurrenceChanged()" />
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Recipients -->
+        <section class="sd__section" aria-labelledby="sd-who">
+          <h3 id="sd-who" class="sd__section-title"><span class="sd__step">3</span>Recipients
+            <button *ngIf="!showCc" type="button" class="sd__link" (click)="showCc = true">Add Cc or Bcc</button>
+          </h3>
+          <ng-container *ngFor="let kind of kinds">
+            <div *ngIf="kind === 'To' || showCc" class="sd__recipients-row">
+              <span class="sd__kind">{{ kind }}</span>
+              <div appKeyClick class="sd__chips" [class.sd__chips--error]="draftErrors[kind]" (click)="chipInput.focus()">
+                <span *ngFor="let r of chips(kind); trackBy: trackRecipient" class="sd__chip" [ngClass]="'sd__chip--' + r.type.toLowerCase()"
+                  [title]="r.type === 'Email' ? r.value : r.type + ': ' + (r.label || r.value)">
+                  <span class="sd__chip-type" aria-hidden="true">{{ r.type === 'Email' ? '@' : r.type === 'User' ? 'U' : r.type === 'Role' ? 'R' : 'G' }}</span>
+                  {{ r.label || r.value }}
+                  <button type="button" class="sd__chip-remove" [attr.aria-label]="'Remove ' + (r.label || r.value)" (click)="$event.stopPropagation(); remove(r)">&times;</button>
+                </span>
+                <input #chipInput class="sd__chip-input" [name]="'draft' + kind" autocomplete="off" [attr.aria-label]="kind + ' recipients'"
+                  [placeholder]="chips(kind).length ? '' : 'Type a name, role, mail group or email address'"
+                  [(ngModel)]="drafts[kind]" (focus)="focusedKind = kind" (blur)="blurRecipients(kind)" (keydown)="onRecipientKey(kind, $event)" />
+              </div>
+              <ul *ngIf="suggestions(kind).length" class="sd__suggestions" role="listbox" [attr.aria-label]="kind + ' suggestions'">
+                <li *ngFor="let s of suggestions(kind); trackBy: trackSuggestion" role="option" (mousedown)="$event.preventDefault(); pick(kind, s)">
+                  <span class="sd__chip-type" [ngClass]="'sd__chip--' + s.type.toLowerCase()" aria-hidden="true">{{ s.type === 'User' ? 'U' : s.type === 'Role' ? 'R' : 'G' }}</span>
+                  <span class="sd__suggestion-text"><strong>{{ s.label }}</strong><small>{{ s.hint }}</small></span>
+                </li>
+              </ul>
+              <p *ngIf="draftErrors[kind]" class="form-error sd__span-all">{{ draftErrors[kind] }}</p>
+            </div>
+          </ng-container>
+          <p class="form-hint">Paste several addresses at once, separated by commas, semicolons or spaces. Anyone listed twice gets one copy.</p>
+        </section>
+
+        <!-- 4. Message -->
+        <section class="sd__section" aria-labelledby="sd-message">
+          <h3 id="sd-message" class="sd__section-title"><span class="sd__step">4</span>Message</h3>
+          <div class="form-group">
+            <label for="sd-subject">Subject</label>
+            <input #subjectInput id="sd-subject" class="form-control" name="subject" maxlength="200" [(ngModel)]="subject" (focus)="rememberField('subject')" />
+          </div>
+          <div class="form-group">
+            <label for="sd-body">Message</label>
+            <textarea #bodyInput id="sd-body" class="form-control sd__body-input" name="body" rows="6" maxlength="8000" [(ngModel)]="body" (focus)="rememberField('body')"></textarea>
+          </div>
+          <div class="sd__tokens" role="group" aria-label="Insert a value">
+            <span class="sd__tokens-label">Insert</span>
+            <button *ngFor="let t of tokens" type="button" class="sd__token" [title]="'Insert ' + t.token" (mousedown)="$event.preventDefault()" (click)="insertToken(t.token)">{{ t.label }}</button>
+          </div>
+        </section>
+      </div>
+
+      <aside class="sd__aside" aria-label="Summary">
+        <div class="sd__card">
+          <h4 class="sd__card-title">Schedule</h4>
+          <p class="sd__summary">{{ summary }}</p>
+          <h5 class="sd__card-sub">Next runs</h5>
+          <ol *ngIf="nextRuns.length" class="sd__runs">
+            <li *ngFor="let run of nextRuns; trackBy: trackText">{{ formatRun(run) }}</li>
+          </ol>
+          <p *ngIf="previewLoading && !nextRuns.length" class="sd__muted">Working out the next runs...</p>
+          <p *ngIf="!previewLoading && !nextRuns.length && !previewError" class="sd__muted">The next run times show here once the schedule is complete.</p>
+          <p *ngIf="previewError" class="form-error">{{ previewError }}</p>
+        </div>
+
+        <div class="sd__card sd__mail">
+          <h4 class="sd__card-title">Preview</h4>
+          <div class="sd__mail-head">
+            <span class="sd__muted">To</span>
+            <span>{{ chips('To').length ? (chips('To')[0].label || chips('To')[0].value) + (chips('To').length > 1 ? ' and ' + (chips('To').length - 1) + ' more' : '') : 'No one yet' }}</span>
+          </div>
+          <div class="sd__mail-subject">{{ sample.subject || 'No subject' }}</div>
+          <div class="sd__mail-body">{{ sample.body }}</div>
+          <div *ngIf="format !== 'Link' && targetId !== null" class="sd__attachment">
+            <app-icon name="download" aria-hidden="true"></app-icon>{{ (targetName || 'Item') + (format === 'Xlsx' ? '.xlsx' : '.csv') }}
+          </div>
+          <p class="sd__muted sd__mail-note">Sample values shown. Each run fills in its own date, time and link.</p>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="sd__footer">
+      <div class="sd__feedback" aria-live="polite">
+        <ul *ngIf="errors.length" class="sd__errors" role="alert">
+          <li *ngFor="let e of errors; trackBy: trackText">{{ e }}</li>
+        </ul>
+        <p *ngIf="takesOwnership" class="form-hint">Saving makes you the owner of this schedule. It will then run with your access, not {{ schedule?.ownerName || 'the current owner' }}'s.</p>
+        <p *ngIf="testResult" class="sd__test" [class.sd__test--error]="!testResult.ok">{{ testResult.text }}</p>
+      </div>
+      <div class="sd__actions">
+        <app-button variant="secondary" [loading]="testing" (clicked)="sendTest()">Send test to me</app-button>
+        <app-button variant="ghost" (clicked)="cancel()">Cancel</app-button>
+        <app-button variant="primary" type="submit" [loading]="saving">{{ isEdit ? 'Save changes' : 'Save schedule' }}</app-button>
+      </div>
+    </footer>
+  </form>
+</div>

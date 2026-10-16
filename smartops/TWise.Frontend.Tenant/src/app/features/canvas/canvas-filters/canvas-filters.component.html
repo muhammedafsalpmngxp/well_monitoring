@@ -1,0 +1,139 @@
+<section class="canvas-filters" aria-labelledby="canvas-filters-title">
+  <header class="canvas-filters__header">
+    <h2 id="canvas-filters-title" class="canvas-filters__title">Filters</h2>
+    <button type="button" class="canvas-filters__collapse" aria-label="Collapse the Filters pane" title="Collapse" (click)="collapse.emit()">
+      <app-icon name="chevron_right" aria-hidden="true"></app-icon>
+    </button>
+  </header>
+
+  <div class="canvas-filters__body">
+    <p *ngIf="!dataset" class="form-hint">Choose the canvas data model in the Data pane first.</p>
+
+    <ng-container *ngIf="dataset">
+      <div *ngFor="let scope of scopes" class="canvas-filters__section" [class.canvas-filters__section--over]="over === scope"
+        [class.canvas-filters__section--ready]="dragging?.kind === 'field'"
+        (dragover)="(scope !== 'visual' || visualSelected) && dragOver(scope, $event)" (dragleave)="over = null" (drop)="drop(scope, $event)">
+        <h3 class="canvas-filters__section-title">{{ scopeTitles[scope] }}</h3>
+        <p *ngIf="scope === 'visual' && !visualSelected" class="form-hint">Select a chart, card, table or slicer on the sheet to filter it on its own.</p>
+        <ng-container *ngIf="scope !== 'visual' || visualSelected">
+
+        <div *ngFor="let filter of filtersOf(scope); let i = index" class="canvas-filters__card"
+          [class.canvas-filters__card--active]="summary(filter) !== 'is (All)'">
+          <div class="canvas-filters__card-head">
+            <button type="button" class="canvas-filters__card-toggle" [attr.aria-expanded]="isOpen(scope, i)" (click)="toggle(scope, i)">
+              <span class="canvas-filters__chevron" [class.canvas-filters__chevron--open]="isOpen(scope, i)" aria-hidden="true"></span>
+              <span class="canvas-filters__card-text">
+                <strong class="canvas-filters__field" [title]="filter.field">{{ fieldLabel(filter.field) }}</strong>
+                <span class="canvas-filters__summary">{{ summary(filter) }}</span>
+              </span>
+            </button>
+            <button type="button" class="canvas-filters__icon" [attr.aria-label]="'Clear the filter on ' + fieldLabel(filter.field)"
+              title="Clear filter" (click)="clear(scope, i)">
+              <app-icon name="refresh" aria-hidden="true"></app-icon>
+            </button>
+            <button type="button" class="canvas-filters__icon" [attr.aria-label]="'Remove the filter on ' + fieldLabel(filter.field)"
+              title="Remove filter" (click)="remove(scope, i)">
+              <app-icon name="close" aria-hidden="true"></app-icon>
+            </button>
+          </div>
+
+          <div *ngIf="isOpen(scope, i)" class="canvas-filters__card-body">
+            <label class="canvas-filters__label" [attr.for]="'filter-type-' + scope + i">Filter type</label>
+            <select [id]="'filter-type-' + scope + i" class="form-control canvas-filters__control" [value]="filter.mode"
+              (change)="setMode(scope, i, $any($event.target).value)">
+              <option value="basic">Basic filtering</option>
+              <option value="advanced">Advanced filtering</option>
+              <option value="top" [disabled]="!rankers.length">Top N</option>
+            </select>
+
+            <ng-container *ngIf="filter.mode === 'top'">
+              <div class="canvas-filters__top">
+                <select class="form-control canvas-filters__control" [attr.aria-label]="'Top or bottom for ' + fieldLabel(filter.field)"
+                  [value]="filter.top?.direction ?? 'top'" (change)="setTop(scope, i, { direction: $any($event.target).value })">
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                </select>
+                <input class="form-control canvas-filters__control" type="number" min="1" max="1000" [value]="filter.top?.count ?? 5"
+                  [attr.aria-label]="'How many ' + fieldLabel(filter.field) + ' values'" (change)="setTop(scope, i, { count: +$any($event.target).value })" />
+              </div>
+              <label class="canvas-filters__label" [attr.for]="'filter-by-' + scope + i">By value</label>
+              <select [id]="'filter-by-' + scope + i" class="form-control canvas-filters__control" [value]="rankerKey(filter)"
+                (change)="setRanker(scope, i, $any($event.target).value)">
+                <option *ngFor="let ranker of rankers" [value]="ranker.key">{{ ranker.label }}</option>
+              </select>
+              <p class="form-hint">Counted among the rows the other filters keep.</p>
+            </ng-container>
+
+            <ng-container *ngIf="filter.mode === 'basic'">
+              <input class="form-control canvas-filters__control" type="search" placeholder="Search"
+                [attr.aria-label]="'Search the values of ' + fieldLabel(filter.field)" [(ngModel)]="search[scope + ':' + i]" />
+              <p *ngIf="valueState(filter.field) === 'loading'" class="form-hint">Loading values...</p>
+              <p *ngIf="valueState(filter.field) === 'error'" class="form-hint">The values could not be read. Use advanced filtering.</p>
+              <ng-container *ngIf="valueState(filter.field) === 'ready'">
+                <label class="canvas-filters__option canvas-filters__option--all">
+                  <input type="checkbox" [checked]="allTicked(scope, i)" (change)="toggleAll(scope, i)" />
+                  <span>Select all</span>
+                </label>
+                <ul class="canvas-filters__values" [attr.aria-label]="'Values of ' + fieldLabel(filter.field)">
+                  <li *ngFor="let value of shown(scope, i)">
+                    <label class="canvas-filters__option">
+                      <input type="checkbox" [checked]="filter.values.includes(value)" (change)="toggleValue(scope, i, value)" />
+                      <span>{{ display(value) }}</span>
+                    </label>
+                  </li>
+                </ul>
+                <p *ngIf="!shown(scope, i).length" class="form-hint">No value matches.</p>
+              </ng-container>
+              <label class="canvas-filters__option canvas-filters__option--exclude">
+                <input type="checkbox" [checked]="!!filter.exclude" (change)="setExclude(scope, i, $any($event.target).checked)" />
+                <span>Show everything except the ticked values</span>
+              </label>
+            </ng-container>
+
+            <ng-container *ngIf="filter.mode === 'advanced'">
+              <label class="canvas-filters__label" [attr.for]="'filter-op-' + scope + i">Show items when the value</label>
+              <select [id]="'filter-op-' + scope + i" class="form-control canvas-filters__control" [value]="filter.op ?? ''"
+                (change)="setOp(scope, i, $any($event.target).value)">
+                <option *ngFor="let op of opsFor(filter.kind)" [value]="op">{{ opLabels[op] }}</option>
+              </select>
+              <input *ngIf="valueCount(filter.op) >= 1" class="form-control canvas-filters__control" [type]="inputType(filter.kind, filter.op)"
+                [min]="filter.op?.startsWith('last_') ? 1 : null" [value]="filter.value ?? ''"
+                [attr.aria-label]="fieldLabel(filter.field) + (valueCount(filter.op) === 2 ? ' from' : ' value')"
+                [placeholder]="filter.op?.startsWith('last_') ? 'How many' : valueCount(filter.op) === 2 ? 'From' : 'Value'"
+                (change)="setValue(scope, i, 'value', $any($event.target).value)" />
+              <input *ngIf="valueCount(filter.op) === 2" class="form-control canvas-filters__control" [type]="inputType(filter.kind, filter.op)"
+                [value]="filter.value2 ?? ''" [attr.aria-label]="fieldLabel(filter.field) + ' to'" placeholder="To"
+                (change)="setValue(scope, i, 'value2', $any($event.target).value)" />
+
+              <div class="canvas-filters__join" role="radiogroup" [attr.aria-label]="'Second condition on ' + fieldLabel(filter.field)">
+                <label><input type="radio" [name]="'join-' + scope + i" [checked]="!filter.second" (change)="setSecond(scope, i, { join: '' })" /> One condition</label>
+                <label><input type="radio" [name]="'join-' + scope + i" [checked]="filter.second?.join === 'and'" (change)="setSecond(scope, i, { join: 'and' })" /> And</label>
+                <label><input type="radio" [name]="'join-' + scope + i" [checked]="filter.second?.join === 'or'" (change)="setSecond(scope, i, { join: 'or' })" /> Or</label>
+              </div>
+              <ng-container *ngIf="filter.second as second">
+                <select class="form-control canvas-filters__control" [attr.aria-label]="'Second condition of ' + fieldLabel(filter.field)" [value]="second.op"
+                  (change)="setSecond(scope, i, { op: $any($event.target).value })">
+                  <option *ngFor="let op of opsFor(filter.kind)" [value]="op">{{ opLabels[op] }}</option>
+                </select>
+                <input *ngIf="valueCount(second.op) >= 1" class="form-control canvas-filters__control" [type]="inputType(filter.kind, second.op)"
+                  [value]="second.value ?? ''" [attr.aria-label]="fieldLabel(filter.field) + ' second value'"
+                  (change)="setSecond(scope, i, { value: $any($event.target).value })" />
+                <input *ngIf="valueCount(second.op) === 2" class="form-control canvas-filters__control" [type]="inputType(filter.kind, second.op)"
+                  [value]="second.value2 ?? ''" [attr.aria-label]="fieldLabel(filter.field) + ' second value, to'" placeholder="To"
+                  (change)="setSecond(scope, i, { value2: $any($event.target).value })" />
+              </ng-container>
+            </ng-container>
+          </div>
+        </div>
+
+        <div class="canvas-filters__drop" aria-hidden="true">Add data fields here</div>
+        <select class="form-control canvas-filters__add" [attr.aria-label]="'Add a field to ' + scopeTitles[scope].toLowerCase()"
+          (change)="addFromList(scope, $any($event.target))">
+          <option value="">Add a field...</option>
+          <option *ngFor="let field of fields" [value]="field.key">{{ field.key }}</option>
+        </select>
+        </ng-container>
+      </div>
+    </ng-container>
+  </div>
+</section>

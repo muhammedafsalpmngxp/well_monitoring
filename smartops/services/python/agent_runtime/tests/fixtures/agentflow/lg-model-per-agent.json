@@ -1,0 +1,67 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "model-per-agent",
+    "description": "Mixed models on one endpoint",
+    "created_at": "2026-09-22T11:08:33.272Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [],
+    "routers": [],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "router",
+        "role": "a fast classifier",
+        "goal": "Decide what kind of answer is needed",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "llm": "gpt-4o-mini"
+      },
+      {
+        "name": "answerer",
+        "role": "a careful answerer",
+        "goal": "Produce the full, considered answer",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "llm": "gpt-4o"
+      }
+    ],
+    "tasks": [],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

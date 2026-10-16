@@ -1,0 +1,38 @@
+<a class="skip-link" href="#main-content" (click)="skipToContent($event)">Skip to main content</a>
+<div class="main-layout" [class.sidebar-collapsed]="isSidebarCollapsed" [class.main-layout--full-bleed]="fullBleed">
+  <app-sidebar
+    [isCollapsed]="isSidebarCollapsed"
+    [isMobileOpen]="isMobileSidebarOpen"
+    (closeMobile)="closeMobileSidebar()"
+  ></app-sidebar>
+
+  <div class="main-content">
+
+
+    <main class="page-content">
+   
+          <app-navbar
+            (menuToggle)="toggleMobileSidebar()"
+            [isSidebarCollapsed]="isSidebarCollapsed"
+            (sidebarCollapseToggle)="toggleSidebar()"
+          ></app-navbar>
+          <div class="paddingContent" id="main-content" tabindex="-1">
+  <router-outlet></router-outlet>
+          </div>
+    
+    </main>
+
+    <!-- A full-bleed page is a desktop-style tool whose panes reach the bottom edge. -->
+    @if (!fullBleed) {
+      <footer class="main-footer">
+        <span>© 2026 NGXP Technologies. All rights reserved.</span>
+        <span>v1.0.0</span>
+      </footer>
+    }
+  </div>
+
+  <app-product-tour></app-product-tour>
+  <app-ask-ai-panel></app-ask-ai-panel>
+</div>
+
+

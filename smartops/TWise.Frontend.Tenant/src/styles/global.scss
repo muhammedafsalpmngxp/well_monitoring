@@ -1,0 +1,74 @@
+// ============================================================
+// Global Stylesheet — imports all partials
+// ============================================================
+
+@use 'variables' as *;
+@use 'theme';
+@use 'mixins' as *;
+@use 'typography';
+@use 'buttons';
+@use 'forms';
+@use 'tables';
+@use 'layout';
+
+// ─── Global toast & error banners ────────────────────────────────────────────
+
+.category-modal__toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  color: #065f46;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  animation: toastSlideDown 0.2s ease-out;
+
+  svg {
+    color: #10b981;
+    flex-shrink: 0;
+  }
+}
+
+.category-modal__toast--info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+
+  svg {
+    color: #3b82f6;
+  }
+}
+
+.category-modal__toast-spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.category-modal__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  animation: toastSlideDown 0.2s ease-out;
+}
+
+@keyframes toastSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

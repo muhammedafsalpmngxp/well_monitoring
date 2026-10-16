@@ -1,0 +1,237 @@
+<div id="page-settings" class="page active">
+        <div class="stg-page">
+
+          <div class="breadcrumb">
+            <a data-page="cmdoverview">{{ 'SIDEBAR.DASHBOARD' | translate }}</a>
+            <span>›</span>
+            <span class="current">{{ 'SETTINGS.TITLE' | translate }}</span>
+          </div>
+
+          <div class="stg-header">
+          
+            <div class="stg-title">{{ 'SETTINGS.TITLE' | translate }}</div>
+                      <div class="stg-subtitle">{{ 'SETTINGS.SUBTITLE' | translate }}</div>
+          </div>
+
+
+          <!-- ── Master Database Connection ── -->
+          <div class="stg-card">
+            <div class="stg-card-header">
+              <div class="stg-card-header-left">
+                <div class="stg-card-icon" style="background:rgba(41,55,141,0.1)">
+                  <svg viewBox="0 0 24 24" stroke="#29378d"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                </div>
+                <div>
+                  <div class="stg-card-title">{{ 'SETTINGS.MASTER_DB_CONNECTION' | translate }}</div>
+                  <div class="stg-card-desc">{{ 'SETTINGS.MASTER_DB_CONNECTION_DESC' | translate }}</div>
+                </div>
+              </div>
+              <div class="stg-status stg-status-red" id="stgConnStatus">{{ 'SETTINGS.NOT_CONNECTED' | translate }}</div>
+            </div>
+            <div class="stg-divider"></div>
+
+            <div class="stg-form-grid">
+              <!-- Host / Server URL -->
+              <div class="stg-form-full">
+                <div class="stg-label"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> {{ 'SETTINGS.HOST_SERVER_URL' | translate }}</div>
+                <div class="stg-input-wrap">
+                  <svg class="stg-input-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <input type="text" class="stg-input" id="stgHost" [placeholder]="'SETTINGS.HOST_PLACEHOLDER' | translate">
+                </div>
+              </div>
+
+              <!-- Database Name + Type -->
+              <div class="stg-form-row">
+                <div>
+                  <div class="stg-label"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg> {{ 'SETTINGS.DATABASE_NAME' | translate }}</div>
+                  <div class="stg-input-wrap">
+                    <svg class="stg-input-icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                    <input type="text" class="stg-input" id="stgDbName" [placeholder]="'SETTINGS.DB_NAME_PLACEHOLDER' | translate">
+                  </div>
+                </div>
+                <div>
+                  <div class="stg-label"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> {{ 'SETTINGS.DATABASE_TYPE' | translate }}</div>
+                  <div class="stg-input-wrap">
+                    <svg class="stg-input-icon" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    <select class="stg-select" id="stgDbType">
+                      <option value="" disabled selected>{{ 'SETTINGS.SELECT_TYPE' | translate }}</option>
+                      <option value="postgresql">PostgreSQL</option>
+                      <option value="mysql">MySQL</option>
+                      <option value="mssql">MS SQL Server</option>
+                      <option value="oracle">Oracle</option>
+                      <option value="mongodb">MongoDB</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Username -->
+              <div>
+                <div class="stg-label"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> {{ 'SETTINGS.USERNAME' | translate }}</div>
+                <div class="stg-input-wrap">
+                  <svg class="stg-input-icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <input type="text" class="stg-input" id="stgUser" [placeholder]="'SETTINGS.USERNAME_PLACEHOLDER' | translate">
+                </div>
+              </div>
+            </div>
+
+            <!-- Authentication Method -->
+            <div style="margin-top:22px">
+              <div class="stg-label" style="margin-bottom:10px">{{ 'SETTINGS.AUTHENTICATION_METHOD' | translate }}</div>
+              <div class="stg-auth-tabs">
+                <button class="stg-auth-tab active" onclick="setAuthTab(this,'password')">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  {{ 'SETTINGS.PASSWORD_TAB' | translate }}
+                </button>
+                <button class="stg-auth-tab" onclick="setAuthTab(this,'token')">
+                  <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                  {{ 'SETTINGS.API_TOKEN_TAB' | translate }}
+                </button>
+                <button class="stg-auth-tab" onclick="setAuthTab(this,'ssl')">
+                  <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  {{ 'SETTINGS.SSL_CERTIFICATE_TAB' | translate }}
+                </button>
+              </div>
+
+              <!-- Password field -->
+              <div id="stgAuthPassword">
+                <div class="stg-label"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> {{ 'SETTINGS.PASSWORD' | translate }}</div>
+                <div class="stg-input-wrap stg-pw-wrap">
+                  <svg class="stg-input-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <input type="password" class="stg-input" id="stgPassword" [placeholder]="'SETTINGS.PASSWORD_PLACEHOLDER' | translate">
+                  <button class="stg-pw-toggle" onclick="togglePw()" type="button">
+                    <svg viewBox="0 0 24 24" id="stgPwEye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Token field (hidden by default) -->
+              <div id="stgAuthToken" style="display:none">
+                <div class="stg-label"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> {{ 'SETTINGS.API_KEY_TOKEN' | translate }}</div>
+                <div class="stg-input-wrap">
+                  <svg class="stg-input-icon" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                  <input type="text" class="stg-input" id="stgToken" [placeholder]="'SETTINGS.API_KEY_PLACEHOLDER' | translate">
+                </div>
+              </div>
+
+              <!-- SSL field (hidden by default) -->
+              <div id="stgAuthSsl" style="display:none">
+                <div class="stg-label"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> {{ 'SETTINGS.SSL_CERTIFICATE_PATH' | translate }}</div>
+                <div class="stg-input-wrap">
+                  <svg class="stg-input-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <input type="text" class="stg-input" id="stgSslPath" [placeholder]="'SETTINGS.SSL_PATH_PLACEHOLDER' | translate">
+                </div>
+              </div>
+            </div>
+
+            <div class="stg-btn-row">
+              <button class="stg-btn stg-btn-outline" onclick="testConnection()">
+                <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                {{ 'SETTINGS.TEST_CONNECTION' | translate }}
+              </button>
+              <button class="stg-btn stg-btn-primary" onclick="saveConnection()">
+                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                {{ 'SETTINGS.SAVE_CONNECTION' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Data Pull Frequency ── -->
+          <div class="stg-card">
+            <div class="stg-card-header">
+              <div class="stg-card-header-left">
+                <div class="stg-card-icon" style="background:rgba(13,148,136,0.1)">
+                  <svg viewBox="0 0 24 24" stroke="#0d9488"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div>
+                  <div class="stg-card-title">{{ 'SETTINGS.DATA_PULL_FREQUENCY' | translate }}</div>
+                  <div class="stg-card-desc">{{ 'SETTINGS.DATA_PULL_FREQUENCY_DESC' | translate }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="stg-divider"></div>
+
+            <div class="stg-label" style="margin-bottom:14px">{{ 'SETTINGS.SYNC_SCHEDULE' | translate }}</div>
+            <div class="stg-sched-grid" id="stgSchedGrid">
+              <div class="stg-sched-card" onclick="pickSchedule(this,'realtime')">
+                <div class="stg-sched-icon">&#9889;</div>
+                <div class="stg-sched-name">{{ 'SETTINGS.REALTIME' | translate }}</div>
+                <div class="stg-sched-sub">{{ 'SETTINGS.PUSH_ON_CHANGE' | translate }}</div>
+              </div>
+              <div class="stg-sched-card active" onclick="pickSchedule(this,'5min')">
+                <div class="stg-sched-icon">&#128259;</div>
+                <div class="stg-sched-name">{{ 'SETTINGS.EVERY_5_MIN' | translate }}</div>
+                <div class="stg-sched-sub">{{ 'SETTINGS.RECOMMENDED' | translate }}</div>
+              </div>
+              <div class="stg-sched-card" onclick="pickSchedule(this,'15min')">
+                <div class="stg-sched-icon">&#9201;</div>
+                <div class="stg-sched-name">{{ 'SETTINGS.EVERY_15_MIN' | translate }}</div>
+                <div class="stg-sched-sub">{{ 'SETTINGS.BALANCED_LOAD' | translate }}</div>
+              </div>
+              <div class="stg-sched-card" onclick="pickSchedule(this,'hourly')">
+                <div class="stg-sched-icon">&#9200;</div>
+                <div class="stg-sched-name">{{ 'SETTINGS.HOURLY' | translate }}</div>
+                <div class="stg-sched-sub">{{ 'SETTINGS.LOW_BANDWIDTH' | translate }}</div>
+              </div>
+              <div class="stg-sched-card" onclick="pickSchedule(this,'daily')">
+                <div class="stg-sched-icon">&#128197;</div>
+                <div class="stg-sched-name">{{ 'SETTINGS.DAILY' | translate }}</div>
+                <div class="stg-sched-sub">{{ 'SETTINGS.MINIMAL_LOAD' | translate }}</div>
+              </div>
+              <div class="stg-sched-card" onclick="pickSchedule(this,'custom')">
+                <div class="stg-sched-icon">&#9881;</div>
+                <div class="stg-sched-name">{{ 'SETTINGS.CUSTOM' | translate }}</div>
+                <div class="stg-sched-sub">{{ 'SETTINGS.SET_INTERVAL' | translate }}</div>
+              </div>
+            </div>
+
+            <div class="stg-divider"></div>
+
+            <div class="stg-label" style="margin-bottom:8px">{{ 'SETTINGS.SYNC_OPTIONS' | translate }}</div>
+            <div>
+              <div class="stg-toggle-row">
+                <div>
+                  <div class="stg-toggle-label">{{ 'SETTINGS.SYNC_ON_DASHBOARD_LOAD' | translate }}</div>
+                  <div class="stg-toggle-desc">{{ 'SETTINGS.SYNC_ON_DASHBOARD_LOAD_DESC' | translate }}</div>
+                </div>
+                <label class="stg-toggle"><input type="checkbox" checked><span class="stg-toggle-track"></span></label>
+              </div>
+              <div class="stg-toggle-row">
+                <div>
+                  <div class="stg-toggle-label">{{ 'SETTINGS.BACKGROUND_SYNC' | translate }}</div>
+                  <div class="stg-toggle-desc">{{ 'SETTINGS.BACKGROUND_SYNC_DESC' | translate }}</div>
+                </div>
+                <label class="stg-toggle"><input type="checkbox" checked><span class="stg-toggle-track"></span></label>
+              </div>
+              <div class="stg-toggle-row">
+                <div>
+                  <div class="stg-toggle-label">{{ 'SETTINGS.SYNC_NOTIFICATIONS' | translate }}</div>
+                  <div class="stg-toggle-desc">{{ 'SETTINGS.SYNC_NOTIFICATIONS_DESC' | translate }}</div>
+                </div>
+                <label class="stg-toggle"><input type="checkbox"><span class="stg-toggle-track"></span></label>
+              </div>
+              <div class="stg-toggle-row">
+                <div>
+                  <div class="stg-toggle-label">{{ 'SETTINGS.PAUSE_SYNC_DURING_EXPORTS' | translate }}</div>
+                  <div class="stg-toggle-desc">{{ 'SETTINGS.PAUSE_SYNC_DURING_EXPORTS_DESC' | translate }}</div>
+                </div>
+                <label class="stg-toggle"><input type="checkbox" checked><span class="stg-toggle-track"></span></label>
+              </div>
+            </div>
+
+            <div class="stg-next-sync">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              {{ 'SETTINGS.NEXT_SYNC_IN' | translate }} <strong id="stgCountdown">4:59</strong>
+            </div>
+
+            <div class="stg-btn-row">
+              <div></div>
+              <button class="stg-btn stg-btn-primary" onclick="saveSchedule()">
+                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                {{ 'SETTINGS.SAVE_SCHEDULE' | translate }}
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /page-settings -->

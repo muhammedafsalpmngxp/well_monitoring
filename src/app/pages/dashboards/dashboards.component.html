@@ -1,0 +1,48 @@
+<div id="page-dashboards" class="page active">
+        <div class="page-title-row">
+          <div class="db-title-wrap">
+            <div class="page-title">{{ 'DASHBOARDS.PAGE_TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'DASHBOARDS.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+          <button class="fd-btn db-mgr-btn" onclick="dbOpenCategoryMgr()">
+            <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Manage Categories
+          </button>
+          <button class="fd-btn fd-btn-primary db-new-btn" onclick="dbOpenAddDashboard()">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            {{ 'DASHBOARDS.ADD_DASHBOARD' | translate }}
+          </button>
+        </div>
+
+        <div class="db-tabs">
+          <button class="db-tab active" id="dbTabCategory" onclick="dbSetView('category')">Category View</button>
+          <button class="db-tab" id="dbTabList" onclick="dbSetView('list')">Dashboard List</button>
+        </div>
+
+        <!-- Shared filters (apply to both views) -->
+        <div class="db-toolbar">
+          <div class="db-search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="dbSearch" placeholder="Search dashboards…" oninput="dbApplyFilters()"/>
+          </div>
+          <div class="db-toolbar-sep"></div>
+          <select class="db-filter" id="dbFilterCat" onchange="dbApplyFilters()"></select>
+          <select class="db-filter" id="dbFilterSort" onchange="dbApplyFilters()">
+            <option value="modified">Sort: Recently Modified</option>
+            <option value="created">Sort: Recently Created</option>
+            <option value="name">Sort: Name A–Z</option>
+            <option value="charts">Sort: Most Charts</option>
+          </select>
+          <div class="db-toolbar-sep"></div>
+          <button class="db-reset-btn" onclick="dbResetFilters()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Reset
+          </button>
+        </div>
+
+        <!-- Category-grouped view -->
+        <div id="dbCategoryView"><!-- categories injected --></div>
+
+        <!-- Flat list view -->
+        <div id="dbListView" style="display:none"><!-- table injected --></div>
+      </div><!-- /page-dashboards -->

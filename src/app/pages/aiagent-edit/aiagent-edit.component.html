@@ -1,0 +1,176 @@
+<div id="page-aiagent-edit" class="page active">
+        <div class="breadcrumb">
+          <a>{{ 'AIAGENT_EDIT.BREADCRUMB_AGENTIC_AI' | translate }}</a><span>›</span>
+          <a onclick="navigate('aiagents', document.getElementById('nav-aiagents'))">{{ 'AIAGENT_EDIT.BREADCRUMB_AI_AGENTS' | translate }}</a><span>›</span>
+          <span class="current" id="aiaEditCrumb">{{ 'AIAGENT_EDIT.BREADCRUMB_NEW_AGENT' | translate }}</span>
+        </div>
+
+        <div class="aia-edit-grid">
+          <!-- LEFT: Builder -->
+          <div>
+            <!-- Header -->
+            <div class="aia-edit-header">
+              <div class="aia-agent-icon" id="aiaEditIcon">
+                <svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V4a3 3 0 0 1 6 0v3"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M9 17h6"/></svg>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input type="text" id="aiaEditName" class="aia-edit-name-input" [placeholder]="'AIAGENT_EDIT.NAME_PLACEHOLDER' | translate"/>
+                  <button type="button" class="aia-flow-info-btn" [title]="'AIAGENT_EDIT.HOW_FLOW_WORKS' | translate" [attr.aria-label]="'AIAGENT_EDIT.HOW_FLOW_WORKS' | translate" onclick="aiaShowCreationFlow()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  </button>
+                </div>
+                <span class="fd-status-chip" id="aiaEditStatusChip">{{ 'AIAGENT_EDIT.STATUS_DRAFT' | translate }}</span>
+              </div>
+              <div class="aia-edit-actions">
+                <button class="fd-btn" onclick="aiaShowFlow(this)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/></svg>
+                  {{ 'AIAGENT_EDIT.VIEW_FLOW' | translate }}
+                </button>
+                <button class="fd-btn fd-btn-success" onclick="aiaSaveAgent('publish')">
+                  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  {{ 'AIAGENT_EDIT.PUBLISH' | translate }}
+                </button>
+                <button class="fd-btn" onclick="aiaSaveAgent('draft')">
+                  <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
+                  {{ 'AIAGENT_EDIT.SAVE_DRAFT' | translate }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Identity & Role -->
+            <div class="aia-section">
+              <div class="aia-section-head">
+                <div class="aia-section-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                <div class="aia-section-title">{{ 'AIAGENT_EDIT.SEC_IDENTITY_TITLE' | translate }}</div>
+                <div class="aia-section-helper">{{ 'AIAGENT_EDIT.SEC_IDENTITY_HELPER' | translate }}</div>
+              </div>
+              <div class="aia-section-body">
+                <div class="aia-form-row" style="margin-bottom:12px">
+                  <div>
+                    <div class="aia-label">{{ 'AIAGENT_EDIT.LBL_AGENT_NAME' | translate }}</div>
+                    <input type="text" class="aia-input" id="aiaIdentityName" [placeholder]="'AIAGENT_EDIT.PH_AGENT_NAME' | translate"/>
+                  </div>
+                  <div>
+                    <div class="aia-label">{{ 'AIAGENT_EDIT.LBL_ROLE' | translate }}</div>
+                    <input type="text" class="aia-input" id="aiaIdentityRole" [placeholder]="'AIAGENT_EDIT.PH_ROLE' | translate"/>
+                  </div>
+                </div>
+                <div>
+                  <div class="aia-label">{{ 'AIAGENT_EDIT.LBL_DESCRIPTION' | translate }}</div>
+                  <input type="text" class="aia-input" id="aiaIdentityDesc" [placeholder]="'AIAGENT_EDIT.PH_DESCRIPTION' | translate"/>
+                </div>
+                <div style="margin-top:12px">
+                  <div class="aia-label">{{ 'AIAGENT_EDIT.LBL_SYSTEM_PROMPT' | translate }}</div>
+                  <textarea class="aia-textarea" id="aiaSystemPrompt" [placeholder]="'AIAGENT_EDIT.PH_SYSTEM_PROMPT' | translate"></textarea>
+                  <div class="aia-help">{{ 'AIAGENT_EDIT.HELP_SYSTEM_PROMPT' | translate }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Goal & Instructions -->
+            <div class="aia-section">
+              <div class="aia-section-head">
+                <div class="aia-section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                <div class="aia-section-title">{{ 'AIAGENT_EDIT.SEC_GOAL_TITLE' | translate }}</div>
+                <div class="aia-section-helper">{{ 'AIAGENT_EDIT.SEC_GOAL_HELPER' | translate }}</div>
+              </div>
+              <div class="aia-section-body">
+                <div>
+                  <div class="aia-label">{{ 'AIAGENT_EDIT.LBL_PRIMARY_GOAL' | translate }}</div>
+                  <input type="text" class="aia-input" id="aiaGoal" [placeholder]="'AIAGENT_EDIT.PH_PRIMARY_GOAL' | translate"/>
+                </div>
+                <div style="margin-top:12px">
+                  <div class="aia-label">{{ 'AIAGENT_EDIT.LBL_STEP_INSTRUCTIONS' | translate }}</div>
+                  <textarea class="aia-textarea" id="aiaInstructions" style="min-height:140px" [placeholder]="'AIAGENT_EDIT.PH_INSTRUCTIONS' | translate"></textarea>
+                  <div class="aia-help">{{ 'AIAGENT_EDIT.HELP_INSTRUCTIONS' | translate }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tools -->
+            <div class="aia-section">
+              <div class="aia-section-head">
+                <div class="aia-section-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+                <div class="aia-section-title">{{ 'AIAGENT_EDIT.SEC_TOOLS_TITLE' | translate }}</div>
+                <div class="aia-section-helper">{{ 'AIAGENT_EDIT.SEC_TOOLS_HELPER' | translate }}</div>
+              </div>
+              <div class="aia-section-body" id="aiaToolsBody">
+                <!-- Tools list rendered by JS -->
+              </div>
+            </div>
+
+            <!-- Inputs & Outputs -->
+            <div class="aia-section">
+              <div class="aia-section-head">
+                <div class="aia-section-icon"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                <div class="aia-section-title">{{ 'AIAGENT_EDIT.SEC_IO_TITLE' | translate }}</div>
+                <div class="aia-section-helper">{{ 'AIAGENT_EDIT.SEC_IO_HELPER' | translate }}</div>
+              </div>
+              <div class="aia-section-body">
+                <div class="aia-label" style="margin-top:0">{{ 'AIAGENT_EDIT.LBL_INPUTS' | translate }}</div>
+                <div class="aia-param-headers"><span>{{ 'AIAGENT_EDIT.TH_NAME' | translate }}</span><span>{{ 'AIAGENT_EDIT.TH_TYPE' | translate }}</span><span>{{ 'AIAGENT_EDIT.TH_REQUIRED' | translate }}</span><span>{{ 'AIAGENT_EDIT.TH_DESCRIPTION' | translate }}</span><span></span></div>
+                <div id="aiaInputsBody"></div>
+                <button class="aia-add-btn" onclick="aiaAddParam('inputs')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>{{ 'AIAGENT_EDIT.ADD_INPUT' | translate }}</button>
+
+                <div class="aia-label" style="margin-top:18px">{{ 'AIAGENT_EDIT.LBL_OUTPUTS' | translate }}</div>
+                <div class="aia-param-headers"><span>{{ 'AIAGENT_EDIT.TH_NAME' | translate }}</span><span>{{ 'AIAGENT_EDIT.TH_TYPE' | translate }}</span><span>{{ 'AIAGENT_EDIT.TH_REQUIRED' | translate }}</span><span>{{ 'AIAGENT_EDIT.TH_DESCRIPTION' | translate }}</span><span></span></div>
+                <div id="aiaOutputsBody"></div>
+                <button class="aia-add-btn" onclick="aiaAddParam('outputs')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>{{ 'AIAGENT_EDIT.ADD_OUTPUT' | translate }}</button>
+              </div>
+            </div>
+
+            <!-- Knowledge -->
+            <div class="aia-section">
+              <div class="aia-section-head">
+                <div class="aia-section-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+                <div class="aia-section-title">{{ 'AIAGENT_EDIT.SEC_KNOWLEDGE_TITLE' | translate }}</div>
+                <div class="aia-section-helper">{{ 'AIAGENT_EDIT.SEC_KNOWLEDGE_HELPER' | translate }}</div>
+              </div>
+              <div class="aia-section-body">
+                <div class="aia-chip-row" id="aiaKnowledgeRow"></div>
+                <button class="aia-add-btn" onclick="aiaAddKnowledge()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>{{ 'AIAGENT_EDIT.ADD_SOURCE' | translate }}</button>
+              </div>
+            </div>
+
+            <!-- Triggers -->
+            <div class="aia-section" style="margin-bottom:30px">
+              <div class="aia-section-head">
+                <div class="aia-section-icon"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+                <div class="aia-section-title">{{ 'AIAGENT_EDIT.SEC_TRIGGERS_TITLE' | translate }}</div>
+                <div class="aia-section-helper">{{ 'AIAGENT_EDIT.SEC_TRIGGERS_HELPER' | translate }}</div>
+              </div>
+              <div class="aia-section-body">
+                <div class="aia-chip-row" id="aiaTriggersRow"></div>
+                <button class="aia-add-btn" onclick="aiaAddTrigger()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>{{ 'AIAGENT_EDIT.ADD_TRIGGER' | translate }}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Test panel -->
+          <div class="aia-test-panel">
+            <div class="aia-test-head">
+              <h3>
+                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                {{ 'AIAGENT_EDIT.TEST_RUN' | translate }}
+              </h3>
+              <div class="aia-test-sub">{{ 'AIAGENT_EDIT.TEST_SUBTITLE' | translate }}</div>
+            </div>
+            <div class="aia-test-body">
+              <div id="aiaTestInputs"><!-- input fields injected --></div>
+              <button class="aia-test-run-btn" id="aiaTestRunBtn" onclick="aiaRunAgent()">
+                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                {{ 'AIAGENT_EDIT.RUN_AGENT' | translate }}
+              </button>
+
+              <div class="aia-trace" id="aiaTrace">
+                <div class="aia-trace-title">
+                  <span>{{ 'AIAGENT_EDIT.REASONING_TRACE' | translate }}</span>
+                  <a id="aiaTraceClear" onclick="aiaClearTrace()" style="display:none">{{ 'AIAGENT_EDIT.CLEAR' | translate }}</a>
+                </div>
+                <div id="aiaTraceBody" style="color:var(--txt-muted);font-size:11.5px;font-style:italic;padding:8px 0">{{ 'AIAGENT_EDIT.TRACE_HINT' | translate }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /page-aiagent-edit -->

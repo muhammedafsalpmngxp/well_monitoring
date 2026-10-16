@@ -1,0 +1,49 @@
+name: Sync dev to devops
+# Manual replacement for the "pull dev locally, merge, push to devops" step.
+# Click "Run workflow" (branch: devops) in the Actions tab whenever you want
+# to promote the latest dev into devops. That push then feeds ECS deploy via
+# build-push-twise-ecr.yml.
+#
+# Note: a push made with GITHUB_TOKEN does NOT re-trigger other workflows'
+# `on: push` triggers (GitHub's anti-recursion rule), so this workflow
+# explicitly dispatches build-push-twise-ecr.yml itself in the final step.
+#
+# On a merge conflict this job simply fails — nothing is pushed. Resolve the
+# conflict locally (merge dev into devops, fix, push) same as before, then
+# things are back in sync for the next run.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write   # required to dispatch build-push-twise-ecr.yml below
+
+jobs:
+  merge:
+    name: Merge dev into devops
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout devops
+        uses: actions/checkout@v4
+        with:
+          ref: devops
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge origin/dev into devops
+        run: |
+          git fetch origin dev
+          git merge --no-ff origin/dev -m "Merge dev into devops (automated sync)"
+
+      - name: Push devops
+        run: git push origin devops
+
+      - name: Trigger TWise ECR build & ECS deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-push-twise-ecr.yml --ref devops

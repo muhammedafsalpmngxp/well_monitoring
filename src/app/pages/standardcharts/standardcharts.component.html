@@ -1,0 +1,35 @@
+<div id="page-standardcharts" class="page active">
+  <div class="breadcrumb">
+    <a>Standard Charts</a>
+  </div>
+  <div class="page-title-row">
+    <div class="sc-title-wrap">
+      <div class="page-title">Standard Charts</div>
+      <div class="page-subtitle">Built-in, read-only charts — pick a chart to open it</div>
+    </div>
+  </div>
+
+  <div class="sc-grid">
+    <div class="sc-card" *ngFor="let c of charts" (click)="open(c)">
+      <div class="sc-card-thumb" [attr.data-viz]="c.icon">
+        <svg *ngIf="c.icon === 'bar'" viewBox="0 0 60 40" fill="none">
+          <rect x="6"  y="22" width="8" height="16" rx="1"/>
+          <rect x="18" y="14" width="8" height="24" rx="1"/>
+          <rect x="30" y="6"  width="8" height="32" rx="1"/>
+          <rect x="42" y="18" width="8" height="20" rx="1"/>
+        </svg>
+        <svg *ngIf="c.icon === 'donut'" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="6">
+          <circle cx="20" cy="20" r="14" opacity="0.18"/>
+          <path d="M20 6 A14 14 0 0 1 32 26"/>
+        </svg>
+        <svg *ngIf="c.icon === 'line'" viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4,32 16,22 26,28 38,12 50,18 56,8"/>
+        </svg>
+      </div>
+      <div class="sc-card-body">
+        <div class="sc-card-name">{{ c.name }}</div>
+        <div class="sc-card-desc">{{ c.description }}</div>
+      </div>
+    </div>
+  </div>
+</div>

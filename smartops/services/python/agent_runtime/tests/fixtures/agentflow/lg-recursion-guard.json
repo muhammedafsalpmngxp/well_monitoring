@@ -1,0 +1,64 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "recursion-guard",
+    "description": "Cyclic graph with guard rails",
+    "created_at": "2026-09-22T11:08:33.271Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "loop",
+    "max_iterations": 4,
+    "loop_condition": "'DONE' in str(state['messages'][-1].content).upper()",
+    "checkpointer": "memory",
+    "recursion_limit": 12,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [],
+    "routers": [],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "refiner",
+        "role": "an iterative refiner",
+        "goal": "Improve the answer each pass. Reply with the word DONE when it cannot be improved further",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [
+      {
+        "name": "refine",
+        "description": "Improve the previous answer. Say DONE when finished.",
+        "tools": [],
+        "agent": "refiner",
+        "expected_output": "An improved answer"
+      }
+    ],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

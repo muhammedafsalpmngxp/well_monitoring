@@ -1,0 +1,42 @@
+// Main layout — global styles in _layout.scss
+// Skip link: hidden until it receives keyboard focus.
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 10000;
+  padding: 8px 16px;
+  border-radius: 4px;
+  background: #0b3d91;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  &:focus { top: 8px; }
+}
+#main-content:focus { outline: none; }
+.paddingContent{
+    padding: 16px;
+  overflow: auto;
+  // Sized via flex (main.page-content, in _layout.scss) rather than a hardcoded
+  // vh-minus-navbar-height number, so it always exactly fills the space actually
+  // left after app-navbar — including at non-100% FontSizeService zoom, where a
+  // fixed px offset can't track the navbar's own rendered height.
+  flex: 1;
+  min-height: 0;
+}
+
+// Routes with data: { fullBleed: true } (Model Studio and the canvas editor). .paddingContent is
+// already the flex child that fills what the navbar leaves, so the page below chains its height with
+// flex from here: no vh arithmetic, and the text-size zoom keeps working.
+.main-layout--full-bleed .paddingContent {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+
+  // Panes stack at this width and are taller than the screen together, so the page scrolls again.
+  @media (max-width: 992px) {
+    overflow: auto;
+  }
+}
+

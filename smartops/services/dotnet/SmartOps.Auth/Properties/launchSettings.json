@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "SmartOps.Auth": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:7001",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    }
+  }
+}

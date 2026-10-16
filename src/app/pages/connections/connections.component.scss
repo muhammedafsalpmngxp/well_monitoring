@@ -1,0 +1,226 @@
+.conn-title-wrap {
+  flex: 1;
+}
+
+.conn-count {
+  margin-left: auto;
+  font-size: 9pt;
+  color: var(--txt-muted);
+}
+
+/* ─── CONNECTIONS (External Integrations) ─── */
+.fd-conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+.fd-conn-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.fd-conn-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(41,55,141, 0.1);
+}
+
+.fd-conn-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.fd-conn-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9pt;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+.fd-conn-logo svg {
+  width: 22px;
+  height: 22px;
+  stroke: #fff;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fd-conn-logo.l-rest    { background: #29378d; }
+.fd-conn-logo.l-snow    { background: #00B050; }
+.fd-conn-logo.l-jira    { background: #29378d; }
+.fd-conn-logo.l-slack   { background: #FF0000; }
+.fd-conn-logo.l-webhook { background: #29378d; }
+.fd-conn-logo.l-sap     { background: #29378d; }
+.fd-conn-logo.l-sfdc    { background: #00B0F0; }
+.fd-conn-logo.l-teams   { background: #1F3864; }
+.fd-conn-logo.l-custom  { background: #7F7F7F; }
+.fd-conn-logo.l-autodesk{ background: #FFC000; }
+.fd-conn-logo.l-snowui  { background: #00B050; }
+.fd-conn-logo.l-db      { background: #29378d; }
+.fd-conn-logo.l-excel   { background: #00B050; }
+
+.fd-conn-name {
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--txt-1);
+  margin-bottom: 2px;
+  line-height: 1.25;
+}
+
+.fd-conn-type-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  border: 1px solid var(--blue-bd);
+  font-size: 9pt;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.fd-conn-status-dot {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9pt;
+  font-weight: 600;
+}
+
+.fd-conn-status-dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.fd-conn-status-dot.connected    { color: var(--green); }
+.fd-conn-status-dot.disconnected { color: #A5A5A5; }
+.fd-conn-status-dot.error        { color: var(--red); }
+
+.fd-conn-desc {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  line-height: 1.5;
+  margin: 8px 0 12px;
+  min-height: 36px;
+}
+
+.fd-conn-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 9pt;
+  color: var(--txt-muted);
+  padding-top: 10px;
+  border-top: 1px solid var(--border-2);
+}
+
+.fd-conn-meta-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.fd-conn-meta-actions button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--txt-2);
+  padding: 3px 5px;
+  border-radius: 4px;
+  transition: all 0.12s;
+}
+
+.fd-conn-meta-actions button:hover {
+  color: var(--accent);
+  background: rgba(41,55,141, 0.08);
+}
+
+.fd-conn-meta-actions button svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.fd-conn-actions-count {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fd-conn-actions-count strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Dark-theme overrides ────────────────────────────────────────────────────
+   Most fd-conn-* classes adapt automatically via CSS variables (--surface,
+   --border, --txt-1, etc.). Only hardcoded literals and browser-native
+   elements need explicit overrides here.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+html:not(.navbar-light) {
+
+  /* Cards: give them a clear surface lift above the page background */
+  .fd-conn-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(41,55,141, 0.22);
+  }
+
+  /* Hover: 10% blue shadow vanishes on dark — replace with a visible glow */
+  .fd-conn-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(41,55,141, 0.55);
+    box-shadow: 0 4px 20px rgba(41,55,141, 0.25), 0 0 0 1px rgba(41,55,141, 0.2);
+  }
+
+  /* Disconnected status dot: #A5A5A5 is ~2.5:1 contrast on dark navy — too dim */
+  .fd-conn-status-dot.disconnected {
+    color: rgba(200, 215, 240, 0.4);
+  }
+
+  /* Connection name: ensure full brightness */
+  .fd-conn-name {
+    color: var(--txt-1);
+  }
+
+  /* Select filters: tell the browser to render its native UI in dark mode */
+  .fd-filter-sel {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--txt-1);
+    color-scheme: dark;
+  }
+
+  .fd-filter-sel:focus {
+    border-color: var(--accent);
+  }
+
+}

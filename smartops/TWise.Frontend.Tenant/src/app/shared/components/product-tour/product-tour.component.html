@@ -1,0 +1,56 @@
+<ng-container *ngIf="state.active && currentStep as step">
+  <div class="product-tour__dim" *ngIf="!targetRect"></div>
+  <div class="product-tour__spotlight" *ngIf="targetRect" [ngStyle]="spotlightStyle"></div>
+
+  <svg class="product-tour__connector" *ngIf="targetRect">
+    <path [attr.d]="connectorPath"></path>
+  </svg>
+
+  <div class="product-tour__badge" *ngIf="targetRect" [ngStyle]="badgeStyle">
+    {{ state.currentIndex + 1 }}
+  </div>
+
+  <div class="product-tour__tooltip" *ngIf="targetRect" [ngStyle]="tooltipStyle">
+    <h4>{{ step.title }}</h4>
+    <p>{{ step.description }}</p>
+  </div>
+
+  <div class="product-tour__panel">
+    <div class="product-tour__panel-head">
+      <span>Product Tour</span>
+      <button type="button" class="product-tour__close" (click)="skip()" aria-label="Close tour">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="product-tour__dots">
+      <span *ngFor="let s of state.steps; let i = index" [class.active]="i === state.currentIndex"></span>
+    </div>
+
+    <ul class="product-tour__list">
+      <li *ngFor="let s of state.steps; let i = index" [class.active]="i === state.currentIndex">
+        <span class="product-tour__list-num">{{ i + 1 }}</span>
+        <div class="product-tour__list-text">
+          <strong>{{ s.title }}</strong>
+          <small>{{ s.description }}</small>
+        </div>
+      </li>
+    </ul>
+
+    <div class="product-tour__panel-footer">
+      <button type="button" class="product-tour__btn product-tour__btn--ghost" (click)="skip()">Skip Tour</button>
+      <button type="button" class="product-tour__btn product-tour__btn--primary" (click)="next()">
+        {{ isLastStep ? 'Finish' : 'Next' }}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
+    </div>
+  </div>
+</ng-container>

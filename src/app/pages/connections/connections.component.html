@@ -1,0 +1,48 @@
+<div id="page-connections" class="page active">
+        <div class="breadcrumb">
+          <a>Process Automation</a><span>›</span>
+          <span class="current">Connections</span>
+        </div>
+        <div class="page-title-row">
+          <div class="conn-title-wrap">
+            <div class="page-title">Connections</div>
+            <div class="page-subtitle">Configure external integrations — REST endpoints, ticketing systems, messaging platforms and more</div>
+          </div>
+          <button class="fd-btn fd-btn-primary" onclick="fdOpenConnEditor(null)">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Connection
+          </button>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="fd-toolbar">
+          <div class="fd-search-wrap">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="fdConnSearch" class="fd-search-input" placeholder="Search by name, type or endpoint…" oninput="fdRenderConnections()"/>
+          </div>
+          <select class="fd-filter-sel" id="fdConnTypeFilter" onchange="fdRenderConnections()">
+            <option value="">All Types</option>
+            <option value="REST API">REST API</option>
+            <option value="ServiceNow">ServiceNow</option>
+            <option value="ServiceNow UI">ServiceNow UI</option>
+            <option value="Jira">Jira</option>
+            <option value="Slack">Slack</option>
+            <option value="Webhook">Webhook</option>
+            <option value="Autodesk ACC">Autodesk ACC</option>
+            <option value="Database">Database</option>
+            <option value="Excel">Excel</option>
+          </select>
+          <select class="fd-filter-sel" id="fdConnStatusFilter" onchange="fdRenderConnections()">
+            <option value="">All Statuses</option>
+            <option value="connected">Connected</option>
+            <option value="disconnected">Disconnected</option>
+            <option value="error">Error</option>
+          </select>
+          <div class="conn-count" id="fdConnCount">0 connections</div>
+        </div>
+
+        <!-- Cards grid -->
+        <div class="fd-conn-grid" id="fdConnGrid">
+          <!-- cards injected by JS -->
+        </div>
+      </div><!-- /page-connections -->

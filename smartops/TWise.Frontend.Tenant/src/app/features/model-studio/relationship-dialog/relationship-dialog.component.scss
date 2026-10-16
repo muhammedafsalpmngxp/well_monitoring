@@ -1,0 +1,110 @@
+// A side panel over the diagram, as Power BI's relationship editor.
+.relationship {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(15 23 42 / 35%);
+
+  &__panel {
+    display: flex;
+    flex-direction: column;
+    width: min(720px, 100%);
+    height: 100%;
+    background: var(--color-bg-card);
+    box-shadow: -12px 0 32px rgb(15 23 42 / 20%);
+  }
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-sm);
+  }
+
+  &__title { margin: 0; font-size: 20px; font-weight: 600; color: var(--color-text-primary); }
+  &__lead { margin: 4px 0 0; font-size: 13px; color: var(--color-text-subtle); }
+
+  &__close {
+    display: inline-flex;
+    padding: var(--spacing-xs);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-label);
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); color: var(--color-primary); }
+  }
+
+  &__body { display: flex; flex: 1; flex-direction: column; gap: var(--spacing-md); min-height: 0; padding: var(--spacing-sm) var(--spacing-lg); overflow-y: auto; }
+
+  &__end { display: flex; flex-direction: column; gap: 6px; }
+  &__label { margin: 0; font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+  &__table { max-width: 340px; }
+
+  // The first rows of the table; a click on a header or a cell chooses the column.
+  &__grid {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    scrollbar-width: thin;
+
+    table { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+    th, td { padding: 4px 10px; border-right: 1px solid var(--color-border-subtle); border-bottom: 1px solid var(--color-border-subtle); cursor: pointer; }
+    th { background: var(--color-bg-app); text-align: left; }
+    th button { padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--color-text-primary); cursor: pointer; }
+    td { max-width: 180px; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-secondary); }
+    tr:hover td { background: var(--color-primary-50); }
+  }
+
+  &__chosen { background: var(--color-primary-50) !important; box-shadow: inset 2px 0 0 var(--color-primary), inset -2px 0 0 var(--color-primary); }
+
+  &__picked { margin: 0; font-size: 12px; color: var(--color-text-secondary); }
+  &__ok { color: var(--color-good); font-weight: 600; }
+  &__warn { color: var(--color-bad); font-weight: 600; }
+
+  &__swap { display: flex; justify-content: flex-start; }
+  &__swap-button {
+    padding: 2px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-bg-card);
+    font: inherit;
+    font-size: 12px;
+    color: var(--color-primary);
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); }
+  }
+
+  &__row { display: grid; grid-template-columns: minmax(0, 340px); gap: var(--spacing-md); }
+  &__explain { margin: -8px 0 0; font-size: 12px; color: var(--color-text-subtle); }
+
+  &__warning {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-bad);
+    border-left-width: 4px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bad-bg);
+    font-size: 12px;
+    color: var(--color-text-primary);
+  }
+
+  &__error { margin: 0; font-size: 13px; color: var(--color-bad); }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  &__hint { margin: 0 auto 0 0; font-size: 12px; color: var(--color-text-subtle); }
+
+}

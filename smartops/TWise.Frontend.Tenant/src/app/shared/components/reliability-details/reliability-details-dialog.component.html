@@ -1,0 +1,89 @@
+<div *ngIf="isOpen" class="dialog-backdrop" (click)="onClose()">
+  <div appDialog (dialogClose)="onClose()" class="dialog dialog--lg rd-dialog" (click)="$event.stopPropagation()">
+    <div class="dialog__header rd-dialog__header">
+      <div>
+        <h3 class="rd-dialog__title">{{ title }}</h3>
+        <p class="rd-dialog__subtitle" *ngIf="sourceLabel">{{ sourceLabel }}</p>
+      </div>
+      <div class="rd-dialog__header-right">
+        <span class="rd-score" [ngClass]="scoreClass(overallScore)">{{ overallScore ?? 'N/a' }}</span>
+        <button type="button" class="rd-dialog__close" (click)="onClose()" title="Close"><svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path
+            d="M13.8 7.8L7.8 13.8M7.8 7.8L13.8 13.8M20.8 10.8C20.8 16.3 16.3 20.8 10.8 20.8C5.3 20.8 0.8 16.3 0.8 10.8C0.8 5.3 5.3 0.8 10.8 0.8C16.3 0.8 20.8 5.3 20.8 10.8Z"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg></button>
+      </div>
+    </div>
+
+    <div class="dialog__panel">
+      <div class="dialog__body">
+        <p class="rd-dialog__breakdown" *ngIf="breakdown && !loading">{{ breakdown }}</p>
+
+        <p class="rd-dialog__state" *ngIf="loading">Loading rules…</p>
+        <p class="rd-dialog__state rd-dialog__state--error" *ngIf="error && !loading">{{ error }}</p>
+        <p class="rd-dialog__state" *ngIf="!loading && !error && rules.length === 0">
+          No validation rules are triggered for this chart.
+        </p>
+
+        <div class="rd-table-scroll" *ngIf="!loading && rules.length > 0">
+          <table class="rd-table">
+            <thead>
+              <tr>
+                <th>Rule ID</th>
+                <th>Rule Name</th>
+                <th>Rule Description</th>
+                <th>Records / Execution</th>
+                <th>Reliability</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let rule of rules">
+                <td>
+                  <button *ngIf="!shareContext" type="button" class="rd-table__link" (click)="openRule(rule.ruleId)">{{ rule.ruleId }}</button>
+                  <span *ngIf="shareContext">{{ rule.ruleId }}</span>
+                </td>
+                <td>{{ rule.ruleName }}</td>
+                <td class="rd-table__desc">{{ rule.ruleDesc || '—' }}</td>
+                <td>{{ rule.recordsPerExecution || '—' }}</td>
+                <td>
+                  <span class="rd-score rd-score--sm" [ngClass]="scoreClass(rule.reliability)">
+                    {{ rule.reliability ?? 'N/a' }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rd-calc" *ngIf="!loading && contributingRules.length > 0">
+          <button type="button" class="rd-calc__title" [attr.aria-expanded]="showCalculation" (click)="toggleCalculation()">
+            <span class="rd-calc__chevron" [class.rd-calc__chevron--open]="showCalculation">&rsaquo;</span>
+            How this score is calculated?
+          </button>
+          <ng-container *ngIf="showCalculation">
+            <p class="rd-calc__step">
+              Each rule score = 100 &minus; (records found &divide; records checked &times; 100).
+            </p>
+            <p class="rd-calc__step">
+              The chart score is the average of the latest score of one rule per category:
+            </p>
+            <ul class="rd-calc__list">
+              <li *ngFor="let rule of contributingRules">
+                <span class="rd-calc__rule">{{ rule.ruleId }}</span>
+                <span class="rd-calc__category" *ngIf="rule.category">({{ rule.category }})</span>
+                <span class="rd-calc__expr">
+                  100 &minus; ({{ rule.recordsFound }} &divide; {{ rule.recordsTotal }} &times; 100) = {{ rule.reliability }}
+                </span>
+              </li>
+            </ul>
+            <p class="rd-calc__total">{{ scoreFormula }}</p>
+          </ng-container>
+        </div>
+      </div>
+
+      <div class="dialog__footer rd-dialog__footer">
+        <button type="button" class="btn btn-secondary" (click)="onClose()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

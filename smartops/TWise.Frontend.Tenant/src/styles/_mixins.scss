@@ -1,0 +1,71 @@
+// ============================================================
+// SCSS Mixins
+// ============================================================
+@use 'variables' as *;
+
+// Responsive breakpoint mixins
+@mixin respond-sm  { @media (max-width: #{$bp-sm})  { @content; } }
+@mixin respond-md  { @media (max-width: #{$bp-md})  { @content; } }
+@mixin respond-lg  { @media (max-width: #{$bp-lg})  { @content; } }
+@mixin respond-xl  { @media (max-width: #{$bp-xl})  { @content; } }
+@mixin respond-min($bp) { @media (min-width: $bp)   { @content; } }
+
+// Flex helpers
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-start {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+// Text truncation
+@mixin truncate($lines: 1) {
+  @if $lines == 1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  } @else {
+    display: -webkit-box;
+    -webkit-line-clamp: $lines;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+// Card surface
+@mixin card-surface {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+}
+
+// Focus ring
+@mixin focus-ring {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+// Transition
+@mixin transition($props: all, $duration: $transition-base) {
+  transition: $props $duration;
+}
+
+// Scrollbar styling
+@mixin custom-scrollbar {
+  &::-webkit-scrollbar       { width: 6px; height: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
+  &::-webkit-scrollbar-thumb:hover { background: var(--color-secondary-light); }
+}

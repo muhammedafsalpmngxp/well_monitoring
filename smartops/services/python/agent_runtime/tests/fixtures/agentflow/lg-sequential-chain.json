@@ -1,0 +1,98 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "sequential-chain",
+    "description": "Three-node sequential graph",
+    "created_at": "2026-09-22T11:08:33.271Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [],
+    "routers": [],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "researcher",
+        "role": "a research analyst",
+        "goal": "Gather the key facts about the topic",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "research"
+      },
+      {
+        "name": "writer",
+        "role": "a technical writer",
+        "goal": "Turn the research into clear prose",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "draft"
+      },
+      {
+        "name": "editor",
+        "role": "a copy editor",
+        "goal": "Tighten the draft and fix errors",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [
+      {
+        "name": "research",
+        "description": "Collect the key facts on the user's topic.",
+        "tools": [],
+        "agent": "researcher",
+        "expected_output": "A bullet list of facts"
+      },
+      {
+        "name": "write",
+        "description": "Write a short article from the research notes.",
+        "tools": [],
+        "agent": "writer",
+        "expected_output": "3-4 paragraphs"
+      },
+      {
+        "name": "edit",
+        "description": "Tighten the draft. Keep the meaning, cut the padding.",
+        "tools": [],
+        "agent": "editor",
+        "expected_output": "The final article"
+      }
+    ],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

@@ -1,0 +1,72 @@
+<app-page-header title="Delivery Log" subtitle="Every run of every schedule: what was sent, when and to how many people."
+  [breadcrumbs]="[{ label: 'Home' }, { label: 'Smart Alerts' }, { label: 'Delivery Log' }]">
+  <span page-header-icon class="dp-icon"><app-icon name="description" aria-hidden="true"></app-icon></span>
+  <app-button variant="secondary" [loading]="loading" (clicked)="goTo(page)">Refresh</app-button>
+</app-page-header>
+
+<div class="page-content dp-page">
+  <div class="dp-filterbar">
+    <div>
+      <label for="dl-schedule">Schedule</label>
+      <select id="dl-schedule" class="form-control dl__select" [(ngModel)]="scheduleId" (ngModelChange)="reload()">
+        <option [ngValue]="null">All schedules</option>
+        <option *ngFor="let s of schedules; trackBy: trackSchedule" [ngValue]="s.id">{{ s.name }}</option>
+      </select>
+    </div>
+    <div>
+      <label>Status</label>
+      <div class="dp-chips">
+        <button *ngFor="let s of statuses" type="button" class="dp-chip" [class.active]="status === s" (click)="setStatus(s)">{{ s }}</button>
+      </div>
+    </div>
+    <div>
+      <label for="dl-from">From</label>
+      <input id="dl-from" type="date" class="form-control" [max]="to" [(ngModel)]="from" (ngModelChange)="reload()" />
+    </div>
+    <div>
+      <label for="dl-to">To</label>
+      <input id="dl-to" type="date" class="form-control" [min]="from" [(ngModel)]="to" (ngModelChange)="reload()" />
+    </div>
+    <button *ngIf="scheduleId !== null || status !== 'All' || from || to" type="button" class="dl__clear" (click)="clearFilters()">Clear filters</button>
+  </div>
+
+  <p *ngIf="error" class="dp-error" role="alert">{{ error }}</p>
+
+  <div class="dl__grid-wrapper">
+    <ag-grid-angular class="dl__grid" [columnDefs]="columnDefs" [defaultColDef]="defaultColDef" [rowData]="runs" [theme]="gridTheme" [modules]="gridModules"
+      [getRowId]="getRowId" [loading]="loading" [overlayNoRowsTemplate]="'No runs match these filters. Runs appear here as schedules send.'"
+      (rowClicked)="onRowClicked($event)"></ag-grid-angular>
+    <div class="dl__pagination">
+      <span>{{ rangeStart }} to {{ rangeEnd }} of {{ total | number }}. Select a run to see its details.</span>
+      <div class="dl__pages">
+        <button type="button" [disabled]="page === 1" aria-label="First page" (click)="goTo(1)">&laquo;</button>
+        <button type="button" [disabled]="page === 1" aria-label="Previous page" (click)="goTo(page - 1)">&lsaquo;</button>
+        <span>Page {{ page }} of {{ totalPages }}</span>
+        <button type="button" [disabled]="page === totalPages" aria-label="Next page" (click)="goTo(page + 1)">&rsaquo;</button>
+        <button type="button" [disabled]="page === totalPages" aria-label="Last page" (click)="goTo(totalPages)">&raquo;</button>
+      </div>
+    </div>
+  </div>
+
+  <section *ngIf="selected as run" class="dl-detail" [ngClass]="'dl-detail--' + run.status.toLowerCase()" aria-label="Run details">
+    <header class="dl-detail__head">
+      <span class="dp-status" [ngClass]="'dp-status--' + run.status.toLowerCase()">{{ run.status }}</span>
+      <h2 class="dl-detail__title">{{ run.scheduleName }}</h2>
+      <span class="dl-detail__item">{{ run.targetName || 'Item no longer available' }}</span>
+      <button type="button" class="dl-detail__close" aria-label="Close the details" (click)="selected = null"><app-icon name="close" aria-hidden="true"></app-icon></button>
+    </header>
+    <dl class="dl-detail__facts">
+      <div><dt>Started</dt><dd>{{ started(run) }}</dd></div>
+      <div><dt>Took</dt><dd>{{ duration(run) }}</dd></div>
+      <div><dt>Trigger</dt><dd>{{ triggerLabel(run) }}</dd></div>
+      <div><dt>Recipients</dt><dd>{{ run.recipientCount }}</dd></div>
+      <div><dt>Attachment</dt><dd>{{ size(run) }}</dd></div>
+      <div><dt>Attempts</dt><dd>{{ run.attempt }}</dd></div>
+    </dl>
+    <div *ngIf="run.error" class="dl-detail__error">
+      <h3>What went wrong</h3>
+      <pre>{{ run.error }}</pre>
+    </div>
+    <p *ngIf="!run.error && run.status === 'Skipped'" class="dl-detail__note">The item had no rows and the schedule is set not to send when empty.</p>
+  </section>
+</div>

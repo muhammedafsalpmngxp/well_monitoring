@@ -1,0 +1,139 @@
+{
+  "requestId": "req-20260502-0001",
+  "timestamp": "2026-05-02T10:30:15Z",
+  "cameraId": "CAM-001",
+  "cameraName": "Main Gate Camera",
+  "siteId": "SITE-001",
+  "frameId": "CAM-001-20260502-103015-00023",
+
+  "summary": {
+    "totalVehicles": 3,
+    "totalEquipment": 2,
+    "totalWorkers": 6,
+    "totalAlerts": 2
+  },
+
+  "vehicles": [
+    {
+      "id": "veh-001",
+      "type": "truck",
+      "status": "moving",
+      "confidence": 0.94,
+      "boundingBox": {
+        "x": 120,
+        "y": 180,
+        "width": 300,
+        "height": 160
+      }
+    },
+    {
+      "id": "veh-002",
+      "type": "crane",
+      "status": "idle",
+      "confidence": 0.91,
+      "boundingBox": {
+        "x": 500,
+        "y": 140,
+        "width": 260,
+        "height": 220
+      }
+    }
+  ],
+
+  "equipment": [
+    {
+      "id": "eqp-001",
+      "type": "jcb",
+      "status": "moving",
+      "confidence": 0.92,
+      "boundingBox": {
+        "x": 300,
+        "y": 240,
+        "width": 280,
+        "height": 180
+      }
+    }
+  ],
+
+  "workers": [
+    {
+      "id": "worker-001",
+      "name": "Ramesh Kumar",
+      "identified": true,
+      "status": "working",
+      "confidence": 0.89,
+      "ppe": {
+        "helmet": true,
+        "vest": true,
+        "gloves": false
+      },
+      "boundingBox": {
+        "x": 620,
+        "y": 300,
+        "width": 80,
+        "height": 180
+      }
+    },
+    {
+      "id": "worker-002",
+      "name": "unknown",
+      "identified": false,
+      "status": "not_working",
+      "confidence": 0.77,
+      "ppe": {
+        "helmet": false,
+        "vest": true,
+        "gloves": true
+      },
+      "boundingBox": {
+        "x": 710,
+        "y": 320,
+        "width": 75,
+        "height": 170
+      }
+    }
+  ],
+
+  "restrictedZones": [
+    {
+      "zoneId": "zone-001",
+      "zoneName": "Excavation Area",
+      "status": "breached",
+      "objectsInside": [
+        {
+          "objectId": "worker-002",
+          "objectType": "worker",
+          "name": "unknown"
+        }
+      ]
+    },
+    {
+      "zoneId": "zone-002",
+      "zoneName": "Crane Movement Area",
+      "status": "about_to_enter",
+      "objectsInside": []
+    }
+  ],
+
+  "alerts": [
+    {
+      "alertId": "alert-001",
+      "type": "PPE_VIOLATION",
+      "severity": "high",
+      "message": "Worker unknown is not wearing helmet",
+      "objectId": "worker-002",
+      "cameraId": "CAM-001",
+      "timestamp": "2026-05-02T10:30:15Z"
+    },
+    {
+      "alertId": "alert-002",
+      "type": "RESTRICTED_ZONE_ENTRY",
+      "severity": "critical",
+      "message": "Worker unknown entered restricted zone Excavation Area",
+      "objectId": "worker-002",
+      "zoneId": "zone-001",
+      "cameraId": "CAM-001",
+      "timestamp": "2026-05-02T10:30:15Z"
+    }
+  ]
+}

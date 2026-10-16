@@ -1,0 +1,35 @@
+name: Lockfile Check (TWise Frontend)
+# Catches package.json / package-lock.json drift before it reaches devops.
+# `npm ci` fails with EUSAGE the moment they're out of sync (this is exactly
+# the check that caught the missing `lucide` entry that broke the ECS build).
+
+on:
+  push:
+    branches: [devops]
+    paths:
+      - "smartops/TWise.Frontend.Tenant/package.json"
+      - "smartops/TWise.Frontend.Tenant/package-lock.json"
+  pull_request:
+    branches: [devops]
+    paths:
+      - "smartops/TWise.Frontend.Tenant/package.json"
+      - "smartops/TWise.Frontend.Tenant/package-lock.json"
+
+jobs:
+  npm-ci-check:
+    name: npm ci (lockfile sync)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: smartops/TWise.Frontend.Tenant
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: npm ci
+        run: npm ci

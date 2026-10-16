@@ -1,0 +1,144 @@
+<div id="page-wellsreadiness" class="page active">
+
+  <!-- ── Loading overlay ── -->
+  <div class="wr-page-loader" *ngIf="isLoading">
+    <div class="wr-loader-box">
+      <div class="wr-spinner"></div>
+      <span class="wr-loading-text">Loading Wells Readiness…</span>
+    </div>
+  </div>
+
+  <!-- ── Error state ── -->
+  <div class="wr-error" *ngIf="!isLoading && errorMsg">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    {{ errorMsg }}
+  </div>
+
+  <ng-container *ngIf="!isLoading && !errorMsg && data">
+
+    <!-- ── Title row ── -->
+    <div class="wr-title-row">
+      <div class="wr-title-left">
+        <div class="wr-page-title">Wells Readiness Overall Status</div>
+        <div class="wr-page-sub">Plan vs Actual performance summary</div>
+      </div>
+      <div class="wr-title-right">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="wr-cal-icon"><rect x="1" y="3" width="14" height="12" rx="2"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/><line x1="1" y1="7" x2="15" y2="7"/></svg>
+        <input
+          type="date"
+          class="wr-date-input"
+          [(ngModel)]="selectedDate"
+          [max]="today"
+          (change)="onDateChange()"
+        />
+        <select class="wr-year-select" [(ngModel)]="selectedYear" (change)="onYearChange()">
+          <option *ngFor="let y of availableYears" [value]="y">{{ y }} Plan</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── KPI cards row ── -->
+    <div class="wr-kpi-row">
+
+      <div class="wr-kpi-card" [class.active]="activeFilter==='plan'" style="cursor:pointer" (click)="selectFilter('plan')">
+        <div class="wr-kpi-label">ORIGINAL PLAN ({{ data.planYear }} RIG SEQUENCE)</div>
+        <div class="wr-kpi-value blue">{{ data.originalPlan }}</div>
+        <div class="wr-kpi-sub">wells planned</div>
+        <div class="wr-kpi-icon blue-bg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        </div>
+      </div>
+
+      <div class="wr-kpi-card" [class.active]="activeFilter==='flafscr'" style="cursor:pointer" (click)="selectFilter('flafscr')">
+        <div class="wr-kpi-label">AFTER FLAF / SCR DELAYS REMOVED</div>
+        <div class="wr-kpi-value orange">{{ data.afterFlafScr }}</div>
+        <div class="wr-kpi-sub">-{{ data.flafScrExcluded }} excluded</div>
+        <div class="wr-kpi-icon orange-bg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+      </div>
+
+      <div class="wr-kpi-card" [class.active]="activeFilter==='clean'" style="cursor:pointer" (click)="selectFilter('clean')">
+        <div class="wr-kpi-label">AFTER PDO ISSUES REMOVED</div>
+        <div class="wr-kpi-value amber">{{ data.cleanTarget }}</div>
+        <div class="wr-kpi-sub">clean target</div>
+        <div class="wr-kpi-icon amber-bg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+      </div>
+
+      <div class="wr-kpi-card" [class.active]="activeFilter==='completed'" style="cursor:pointer" (click)="selectFilter('completed')">
+        <div class="wr-kpi-label">ACTUAL DUE WELLS COMPLETED</div>
+        <div class="wr-kpi-value green">{{ data.actualCompleted }}</div>
+        <div class="wr-kpi-sub">delivered on time</div>
+        <div class="wr-kpi-icon green-bg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+      </div>
+
+    </div>
+
+    </ng-container>
+
+  <!-- ── Wells drill-through table ── -->
+  <div class="wr-wells-section" *ngIf="activeFilter">
+    <div class="wr-wells-header">
+      <div class="wr-wells-title">
+        <span *ngIf="activeFilter==='plan'">Original Plan Wells — {{ selectedYear }}</span>
+        <span *ngIf="activeFilter==='flafscr'">After FLAF/SCR Removed — {{ selectedYear }}</span>
+        <span *ngIf="activeFilter==='clean'">Clean Target Wells — {{ selectedYear }}</span>
+        <span *ngIf="activeFilter==='completed'">Actual Completed Wells — {{ selectedYear }}</span>
+        <span class="wr-wells-count" *ngIf="!isLoadingWells">&nbsp;({{ wells.length }})</span>
+      </div>
+      <button class="wr-wells-close" (click)="selectFilter(activeFilter!)">✕ Close</button>
+    </div>
+
+    <div class="wr-wells-loader" *ngIf="isLoadingWells">Loading wells…</div>
+    <div class="wr-wells-error"  *ngIf="!isLoadingWells && wellsError">{{ wellsError }}</div>
+
+    <div class="wr-wells-table-wrap" *ngIf="!isLoadingWells && !wellsError && wells.length > 0">
+      <table class="wr-wells-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Well ID</th>
+            <th>Field</th>
+            <th>Rig</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Progress %</th>
+            <th>Rig On</th>
+            <th>Rig Off</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let w of wells; let i = index">
+            <td class="wr-td-num">{{ i + 1 }}</td>
+            <td class="wr-td-id">{{ w.wellId }}</td>
+            <td>{{ w.field || '—' }}</td>
+            <td>{{ w.rig  || '—' }}</td>
+            <td>{{ w.location || '—' }}</td>
+            <td>
+              <span class="wr-status-badge"
+                [class.badge-completed]="w.status==='completed'"
+                [class.badge-inprogress]="w.status==='inprogress'"
+                [class.badge-onhold]="w.status==='onhold'"
+                [class.badge-early]="w.status==='early'"
+                [class.badge-planned]="w.status==='planned'">
+                {{ w.status }}
+              </span>
+            </td>
+            <td class="wr-td-pct">{{ w.progressPct | number:'1.0-0' }}%</td>
+            <td>{{ fmtDate(w.rigOnDate) }}</td>
+            <td>{{ fmtDate(w.rigOffDate) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wr-wells-empty" *ngIf="!isLoadingWells && !wellsError && wells.length === 0">
+      No wells found for this filter.
+    </div>
+  </div>
+
+</div>

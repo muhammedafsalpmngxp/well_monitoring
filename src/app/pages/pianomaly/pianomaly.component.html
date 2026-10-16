@@ -1,0 +1,100 @@
+<div id="page-pianomaly" class="page active pia-body">
+
+  <!-- <div class="breadcrumb">
+    <a data-page="cmdoverview">{{ 'SIDEBAR.INSIGHT' | translate }}</a>
+    <span>›</span>
+    <a data-page="cmdoverview">{{ 'SIDEBAR.PRODUCTION_INTEL' | translate }}</a>
+    <span>›</span>
+    <span class="current">Well PI vs Crew PI</span>
+  </div> -->  
+
+  <!-- Page header -->
+  <div class="page-title-row">
+    <div>
+      <div class="page-title">
+        PI Anomaly Detection
+        <span class="pia-badge-new">NEW</span>
+      </div>
+      <div class="page-subtitle">Detect wells where high crew Performance Index doesn't match well progress · the fingerprint of inflated daily reporting</div>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="pia-kpi-strip">
+
+    <div class="pia-kpi red">
+      <div class="pia-kpi-head">
+        <span class="pia-kpi-label">Confirmed Anomalies Wells</span>
+        <span class="pia-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+      </div>
+      <div class="pia-kpi-val" id="piaKpiAnomaly">0</div>
+      <div class="pia-kpi-sub">High PI · stalled progress</div>
+    </div>
+
+    <div class="pia-kpi amber">
+      <div class="pia-kpi-head">
+        <span class="pia-kpi-label">High PI Risk Wells</span>
+        <span class="pia-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        </span>
+      </div>
+      <div class="pia-kpi-val" id="piaKpiHighRisk">0</div>
+      <div class="pia-kpi-sub">PI &gt; P7 · monitor closely</div>
+    </div>
+
+    <div class="pia-kpi blue">
+      <div class="pia-kpi-head">
+        <span class="pia-kpi-label">Expected (Slow) Wells</span>
+        <span class="pia-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
+      </div>
+      <div class="pia-kpi-val" id="piaKpiExpected">0</div>
+      <div class="pia-kpi-sub">Low PI · low progress · honest</div>
+    </div>
+
+    <div class="pia-kpi green">
+      <div class="pia-kpi-head">
+        <span class="pia-kpi-label">Healthy Wells</span>
+        <span class="pia-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </span>
+      </div>
+      <div class="pia-kpi-val" id="piaKpiHealthy">0</div>
+      <div class="pia-kpi-sub">PI ≈ progress · aligned</div>
+    </div>
+
+    <div class="pia-kpi purple">
+      <div class="pia-kpi-head">
+        <span class="pia-kpi-label">Avg Anomaly Score</span>
+        <span class="pia-kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </span>
+      </div>
+      <div class="pia-kpi-val" id="piaKpiAvgScore">0</div>
+      <div class="pia-kpi-sub">Across all wells in window</div>
+    </div>
+
+  </div>
+
+  <!-- AG Grid card -->
+  <div class="card pia-card-grid">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Well-Level PI Anomaly Detection</div>
+        <div class="card-sub">Each row correlates a well's average crew PI with its actual progress · anomaly score = PI% − Progress%</div>
+      </div>
+      <select class="dq-filter-sel" id="piaSeverityFilter" onchange="renderPiAnomaly()">
+        <option value="all">All Wells</option>
+        <option value="anomaly">Anomalies Only</option>
+        <option value="risk">High PI Risk</option>
+        <option value="healthy">Healthy</option>
+        <option value="expected">Expected (Slow)</option>
+      </select>
+    </div>
+    <div id="piaGrid" class="ag-theme-alpine pia-grid"></div>
+  </div>
+
+</div>

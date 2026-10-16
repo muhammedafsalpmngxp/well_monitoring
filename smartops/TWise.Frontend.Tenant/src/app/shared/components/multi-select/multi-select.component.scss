@@ -1,0 +1,151 @@
+.multi-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__required {
+    color: var(--color-danger);
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--color-primary);
+    background: var(--color-primary-50);
+    color: var(--color-primary);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &--blue   { border-color: var(--color-primary); background: var(--color-primary-50); color: var(--color-primary); }
+    &--teal   { border-color: #0D9488; background: #E6FBFB; color: #0D9488; }
+    &--green  { border-color: #16A34A; background: #E9F8EF; color: #16A34A; }
+    &--purple { border-color: #7C3AED; background: #F3EEFE; color: #7C3AED; }
+  }
+
+  &__chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  &__panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: #fff;
+
+    &--invalid {
+      border-color: var(--color-danger);
+    }
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-border);
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13px;
+      font-family: var(--font-family-base);
+      color: var(--color-text-primary);
+
+      &::placeholder { color: var(--color-text-muted); }
+    }
+  }
+
+  &__list {
+    list-style: none;
+    max-height: 140px;
+    overflow-y: auto;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      color: var(--color-text-primary);
+      cursor: pointer;
+
+      &:hover { background: var(--color-bg-app); }
+
+      input[type='checkbox'] {
+        accent-color: var(--color-primary);
+        cursor: pointer;
+      }
+    }
+  }
+
+  // The whole row stays clickable: the label fills the item's padding.
+  &__option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    margin: -8px -10px;
+    padding: 8px 10px;
+    cursor: pointer;
+  }
+
+  &__empty {
+    color: var(--color-text-muted);
+    cursor: default !important;
+
+    &:hover { background: transparent !important; }
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-top: 1px solid var(--color-border);
+    font-size: 12px;
+    color: var(--color-text-secondary);
+
+    button {
+      border: none;
+      background: transparent;
+      color: var(--color-primary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+
+      &:disabled {
+        color: var(--color-text-muted);
+        cursor: not-allowed;
+      }
+    }
+  }
+}

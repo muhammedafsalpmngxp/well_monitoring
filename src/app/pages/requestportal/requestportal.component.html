@@ -1,0 +1,66 @@
+<div id="page-requestportal" class="page active">
+  <div class="breadcrumb">
+    <a>{{ 'SIDEBAR.CATALOGUE' | translate }}</a><span>›</span>
+    <span class="current">{{ 'SIDEBAR.REQUEST_PORTAL' | translate }}</span>
+  </div>
+
+  <!-- Hero search — Google-style centered input -->
+  <div class="rp-hero">
+    <div class="rp-hero-title">{{ 'REQUEST_PORTAL.PAGE_TITLE' | translate }}</div>
+    <div class="rp-hero-subtitle">{{ 'REQUEST_PORTAL.PAGE_SUBTITLE' | translate }}</div>
+
+    <div class="rp-search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rp-search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input
+        type="search"
+        class="rp-search-input"
+        [(ngModel)]="query"
+        [placeholder]="'REQUEST_PORTAL.SEARCH_PLACEHOLDER' | translate"
+        autocomplete="off"
+      />
+      <button *ngIf="query" type="button" class="rp-search-clear" (click)="clearQuery()" [title]="'REQUEST_PORTAL.CLEAR' | translate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Catalogue Library section -->
+  <div class="rp-section-head" *ngIf="templates.length > 0">
+    <div class="rp-section-title">{{ 'REQUEST_PORTAL.LIBRARY_HEADING' | translate }}</div>
+    <div class="rp-section-count">
+      <span *ngIf="!query">{{ filteredTemplates.length | number }} {{ 'REQUEST_PORTAL.AVAILABLE' | translate }}</span>
+      <span *ngIf="query">{{ filteredTemplates.length | number }} / {{ templates.length | number }} {{ 'REQUEST_PORTAL.MATCH' | translate }}</span>
+    </div>
+  </div>
+
+  <div *ngIf="templates.length === 0" class="card rp-empty-state">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="rp-empty-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <div class="rp-empty-title">{{ 'REQUEST_PORTAL.EMPTY_TITLE' | translate }}</div>
+    <div class="rp-empty-sub">{{ 'REQUEST_PORTAL.EMPTY_SUB' | translate }}</div>
+  </div>
+
+  <div *ngIf="templates.length > 0 && filteredTemplates.length === 0" class="card rp-empty-state">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="rp-empty-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <div class="rp-empty-title">{{ 'REQUEST_PORTAL.NO_RESULTS_TITLE' | translate }}</div>
+    <div class="rp-empty-sub">{{ 'REQUEST_PORTAL.NO_RESULTS_SUB' | translate:{ q: query } }}</div>
+  </div>
+
+  <div *ngIf="filteredTemplates.length > 0" class="rp-grid">
+    <div class="rp-card" *ngFor="let t of filteredTemplates; trackBy: trackById" (click)="startRequest(t)">
+      <div class="rp-card-icon" [attr.data-icon]="iconFor(t.name)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+      </div>
+      <div class="rp-card-body">
+        <div class="rp-card-title">{{ t.name }}</div>
+        <div class="rp-card-desc">{{ t.description || ('REQUEST_PORTAL.NO_DESCRIPTION' | translate) }}</div>
+        <div class="rp-card-meta">
+          <span class="rp-pill">{{ t.fieldCount | number }} {{ 'REQUEST_PORTAL.FIELDS' | translate }}</span>
+        </div>
+      </div>
+      <button class="rp-card-cta" type="button">
+        {{ 'REQUEST_PORTAL.START_REQUEST' | translate }}
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+</div>

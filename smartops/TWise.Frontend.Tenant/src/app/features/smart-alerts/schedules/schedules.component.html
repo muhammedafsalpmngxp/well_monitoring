@@ -1,0 +1,115 @@
+<app-page-header title="Schedules" subtitle="Reports, dashboards and BI canvases emailed on a schedule."
+  [breadcrumbs]="[{ label: 'Home' }, { label: 'Smart Alerts' }, { label: 'Schedules' }]">
+  <span page-header-icon class="dp-icon"><app-icon name="calendar" aria-hidden="true"></app-icon></span>
+  <app-button *ngIf="canCreate && tab === 'schedules'" variant="primary" (clicked)="openNew()">New schedule</app-button>
+</app-page-header>
+
+<div class="page-content dp-page">
+  <div class="dp-tabs" role="tablist" aria-label="Schedules">
+    <button type="button" role="tab" class="dp-tab" [class.active]="tab === 'schedules'" [attr.aria-selected]="tab === 'schedules'" (click)="tab = 'schedules'">
+      Schedules <span class="dp-count">{{ schedules.length }}</span>
+    </button>
+    <button type="button" role="tab" class="dp-tab" [class.active]="tab === 'groups'" [attr.aria-selected]="tab === 'groups'" (click)="tab = 'groups'">
+      Mail groups
+    </button>
+    <a class="dp-tab sch__log-link" routerLink="/smart-alerts/delivery-log">Delivery log</a>
+  </div>
+
+  <div *ngIf="toast" class="dp-toast" [class.dp-toast--error]="toast.kind === 'error'" role="status">{{ toast.text }}</div>
+
+  <ng-container *ngIf="tab === 'schedules'">
+    <div class="dp-stats">
+      <button *ngFor="let s of stats; trackBy: trackStat" type="button" class="dp-stat sch__stat" [class.sch__stat--on]="s.filter && statusFilter === s.filter"
+        [disabled]="!s.filter" (click)="statusFilter = statusFilter === s.filter ? 'All' : (s.filter ?? 'All')">
+        <span class="dp-stat__dot" [ngClass]="s.tone ? 'dp-stat__dot--' + s.tone : ''" aria-hidden="true">{{ s.mark }}</span>
+        <span><span class="dp-stat__label">{{ s.label }}</span><span class="dp-stat__value">{{ s.value }}</span></span>
+      </button>
+    </div>
+
+    <div class="dp-filterbar">
+      <div>
+        <label for="sch-search">Search</label>
+        <input id="sch-search" class="form-control dp-search" placeholder="Name, item or owner" [(ngModel)]="search" />
+      </div>
+      <div>
+        <label>Item</label>
+        <div class="dp-chips">
+          <button *ngFor="let t of types" type="button" class="dp-chip" [class.active]="typeFilter === t" (click)="typeFilter = t">
+            {{ t === 'All' ? 'All' : targetLabels[t] }}
+          </button>
+        </div>
+      </div>
+      <div>
+        <label>Status</label>
+        <div class="dp-chips">
+          <button *ngFor="let s of statuses" type="button" class="dp-chip" [class.active]="statusFilter === s" (click)="statusFilter = s">{{ s }}</button>
+        </div>
+      </div>
+    </div>
+
+    <app-loader *ngIf="loading" size="lg"></app-loader>
+    <p *ngIf="!loading && error" class="dp-error" role="alert">{{ error }}</p>
+
+    <app-empty-state *ngIf="!loading && !error && schedules.length === 0" appIcon="calendar" title="No schedules yet"
+      description="Email a report, dashboard or BI canvas to your team every morning, every Monday or on the last day of the month. Use Schedule on the item, or start here.">
+      <app-button *ngIf="canCreate" variant="primary" (clicked)="openNew()">New schedule</app-button>
+    </app-empty-state>
+    <p *ngIf="!loading && schedules.length > 0 && shown.length === 0" class="sch__none">No schedule matches these filters.</p>
+
+    <div *ngIf="!loading && shown.length > 0" class="sch__grid">
+      <article *ngFor="let s of shown; trackBy: trackSchedule" class="sch-card" [class.sch-card--paused]="!s.isActive">
+        <div class="sch-card__top">
+          <span class="dp-type" [ngClass]="'dp-type--' + s.targetType.toLowerCase()">{{ targetLabels[s.targetType] }}</span>
+          <span class="dp-status" [ngClass]="s.isActive ? 'dp-status--active' : 'dp-status--paused'">{{ s.isActive ? 'Active' : 'Paused' }}</span>
+        </div>
+        <h3 class="sch-card__name" [title]="s.name">{{ s.name }}</h3>
+        <p class="sch-card__item" [title]="s.targetName || ''">{{ s.targetName || 'Item ' + s.targetId }}</p>
+        <p class="sch-card__when">{{ summary(s) }}</p>
+
+        <dl class="sch-card__facts">
+          <div>
+            <dt>Next run</dt>
+            <dd>{{ s.isActive && s.nextRunAt ? when(s.nextRunAt, s.timeZone) : s.isActive ? 'None planned' : 'Paused' }}</dd>
+          </div>
+          <div>
+            <dt>Last run</dt>
+            <dd>
+              <ng-container *ngIf="s.lastRunAt; else never">
+                {{ when(s.lastRunAt, s.timeZone) }}
+                <span *ngIf="s.lastStatus" class="dp-status" [ngClass]="'dp-status--' + s.lastStatus.toLowerCase()">{{ s.lastStatus }}</span>
+              </ng-container>
+              <ng-template #never>Not run yet</ng-template>
+            </dd>
+          </div>
+          <div>
+            <dt>Sends</dt>
+            <dd>{{ s.format === 'Link' ? 'Link' : s.format === 'Xlsx' ? 'Excel' : 'CSV' }} to {{ recipientText(s) }}</dd>
+          </div>
+          <div>
+            <dt>Owner</dt>
+            <dd>{{ s.ownerName || 'Unknown' }}</dd>
+          </div>
+        </dl>
+
+        <div class="sch-card__actions">
+          <ng-container *ngIf="canChange(s)">
+            <button type="button" class="dp-action" [disabled]="busyId === s.id" (click)="pendingRun = s">Run now</button>
+            <button type="button" class="dp-action" [disabled]="busyId === s.id" (click)="toggleActive(s)">{{ s.isActive ? 'Pause' : 'Resume' }}</button>
+            <button type="button" class="dp-action" (click)="edit(s)">Edit</button>
+          </ng-container>
+          <button type="button" class="dp-action" (click)="viewRuns(s)">Runs</button>
+          <button *ngIf="canChange(s)" type="button" class="dp-action dp-action--danger sch-card__delete" (click)="pendingDelete = s">Delete</button>
+        </div>
+      </article>
+    </div>
+  </ng-container>
+
+  <app-mail-groups *ngIf="tab === 'groups'"></app-mail-groups>
+</div>
+
+<app-schedule-dialog *ngIf="dialogOpen" [schedule]="editing" (closed)="onClosed($event)"></app-schedule-dialog>
+
+<app-confirmation-dialog [isOpen]="!!pendingDelete" title="Delete schedule" [message]="deleteMessage" confirmLabel="Delete"
+  (confirmed)="confirmDelete()" (cancelled)="pendingDelete = null"></app-confirmation-dialog>
+<app-confirmation-dialog [isOpen]="!!pendingRun" title="Run now" [message]="runMessage" confirmLabel="Send now" variant="info"
+  (confirmed)="confirmRun()" (cancelled)="pendingRun = null"></app-confirmation-dialog>

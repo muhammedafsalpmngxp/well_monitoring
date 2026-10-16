@@ -1,0 +1,10 @@
+{
+  "/api/tenant": {
+    "target": "http://localhost:5069",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/tenant": "/api"
+    }
+  }
+}

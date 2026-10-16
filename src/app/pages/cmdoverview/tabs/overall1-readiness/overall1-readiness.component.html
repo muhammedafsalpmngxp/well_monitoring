@@ -1,0 +1,192 @@
+<div class="wro-scope">
+  <!-- Skeleton loader -->
+  <div *ngIf="isLoading" class="wro-skeleton">
+    <div class="wro-skeleton__kpi-strip">
+      <div class="wro-skeleton__tile" *ngFor="let i of [1,2,3,4]">
+        <div class="wro-skeleton__line wro-skeleton__line--label"></div>
+        <div class="wro-skeleton__line wro-skeleton__line--val"></div>
+        <div class="wro-skeleton__line wro-skeleton__line--sub"></div>
+      </div>
+    </div>
+    <div class="wro-skeleton__chart"></div>
+    <div class="wro-skeleton__stats">
+      <div class="wro-skeleton__stat" *ngFor="let i of [1,2,3]">
+        <div class="wro-skeleton__line wro-skeleton__line--val"></div>
+        <div class="wro-skeleton__line wro-skeleton__line--sub"></div>
+      </div>
+    </div>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+  <!-- KPI tiles -->
+  <div class="wro-kpi-strip">
+    <div class="wro-kpi-tile wro-kpi-tile--blue" style="cursor:pointer" (click)="navigateToAllWells('plan')">
+      <div class="wro-kpi-tile__text">
+        <div class="wro-kpi-tile__label">Original Plan</div>
+        <div class="wro-kpi-tile__val">{{ planned }}</div>
+        <div class="wro-kpi-tile__sub">wells planned</div>
+      </div>
+      <div class="wro-kpi-tile__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="20" x2="21" y2="20"/>
+          <path d="M5 20V8l7-5 7 5v12"/>
+          <line x1="9" y1="20" x2="9" y2="14"/>
+          <line x1="15" y1="20" x2="15" y2="14"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="wro-kpi-tile wro-kpi-tile--orange" style="cursor:pointer" (click)="navigateToAllWells('flafscr')">
+      <div class="wro-kpi-tile__text">
+        <div class="wro-kpi-tile__label">After FLAF / SCR delays removed</div>
+        <div class="wro-kpi-tile__val">{{ afterFlaf }}</div>
+        <div class="wro-kpi-tile__sub">−{{ flafExcluded }} excluded</div>
+      </div>
+      <div class="wro-kpi-tile__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="wro-kpi-tile wro-kpi-tile--amber" style="cursor:pointer" (click)="navigateToAllWells('clean')">
+      <div class="wro-kpi-tile__text">
+        <div class="wro-kpi-tile__label">After PDO issues removed</div>
+        <div class="wro-kpi-tile__val">{{ afterPdo }}</div>
+        <div class="wro-kpi-tile__sub">clean target</div>
+      </div>
+      <div class="wro-kpi-tile__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/>
+          <polyline points="9 12 11 14 15 10"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="wro-kpi-tile wro-kpi-tile--green" style="cursor:pointer" (click)="navigateToAllWells('completed')">
+      <div class="wro-kpi-tile__text">
+        <div class="wro-kpi-tile__label">Actual completed</div>
+        <div class="wro-kpi-tile__val">{{ completed }}</div>
+        <div class="wro-kpi-tile__sub">delivered</div>
+      </div>
+      <div class="wro-kpi-tile__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Funnel chart + legend -->
+  <div class="wro-funnel-section">
+    <div class="wro-funnel-toolbar">
+      <div class="cwc-chart-style-picker">
+        <label class="cwc-chart-style-picker__lbl">Chart style</label>
+        <select class="cwc-chart-style-picker__sel"
+                (change)="onFunnelChartTypeChange($any($event.target).value)">
+          <option *ngFor="let opt of funnelChartTypeOptions" [value]="opt.value" [selected]="opt.value === funnelChartType">{{ opt.label }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="wro-funnel-body">
+      <div class="flexMainall1">
+        <!-- LEFT: Backlog / Acceleration pie + legend -->
+
+
+        <!-- MIDDLE: existing funnel chart -->
+        <div class="wro-funnel-chart" #funnelChart></div>
+      <div class="wro-funnel-legend" [class.wro-funnel-legend--reversed]="funnelChartType === 'pyramid'">
+        <!-- Row 1: Original Plan (blue) -->
+        <div class="wro-funnel-legend-row wro-funnel-legend-row--blue">
+          <span class="wro-funnel-legend-dot" style="background:#29378d"></span>
+          <div class="wro-funnel-legend-text">
+            <div class="wro-funnel-legend-label">Original Plan ( Rig Sequence)</div>
+         
+          </div>
+          <div class="wro-funnel-legend-val">
+            <span class="wro-funnel-legend-num" style="color:#29378d">{{ planned }}</span>
+            <span class="wro-funnel-legend-delta wro-funnel-legend-delta--blue">baseline</span>
+          </div>
+        </div>
+
+        <!-- Row 2: After FLAF / SCR (orange) -->
+        <div class="wro-funnel-legend-row wro-funnel-legend-row--orange">
+          <span class="wro-funnel-legend-dot" style="background:#ED7D31"></span>
+          <div class="wro-funnel-legend-text">
+            <div class="wro-funnel-legend-label"> Modified as per FLAF (90 days) and SCR (90 Days)</div>
+           
+          </div>
+          <div class="wro-funnel-legend-val">
+            <span class="wro-funnel-legend-num" style="color:#ED7D31">{{ afterFlaf }}</span>
+            <span class="wro-funnel-legend-delta wro-funnel-legend-delta--orange">−{{ flafExcluded }}</span>
+          </div>
+        </div>
+
+        <!-- Row 3: After PDO Issues (gold) -->
+        <div class="wro-funnel-legend-row wro-funnel-legend-row--gold">
+          <span class="wro-funnel-legend-dot" style="background:#FFC000"></span>
+          <div class="wro-funnel-legend-text">
+            <div class="wro-funnel-legend-label">After PDO Issues Removed</div>
+          
+          </div>
+          <div class="wro-funnel-legend-val">
+            <span class="wro-funnel-legend-num" style="color:#FFC000">{{ afterPdo }}</span>
+            <span class="wro-funnel-legend-delta wro-funnel-legend-delta--gold">−{{ pdoExcluded }}</span>
+          </div>
+        </div>
+
+        <!-- Row 4: Actual Due Wells Completed (green) -->
+        <div class="wro-funnel-legend-row wro-funnel-legend-row--green">
+          <span class="wro-funnel-legend-dot" style="background:#00B050"></span>
+          <div class="wro-funnel-legend-text">
+            <div class="wro-funnel-legend-label">Actual Due Wells Completed</div>
+        
+          </div>
+          <div class="wro-funnel-legend-val">
+            <span class="wro-funnel-legend-num" style="color:#00B050">{{ completed }}</span>
+            <span class="wro-funnel-legend-delta wro-funnel-legend-delta--green">{{ vsClean }} vs clean</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Backlog / Acceleration pie + legend -->
+      <div class="wro-pie-card">
+        <div class="wro-pie-title">Backlog / Acceleration</div>
+        <div class="wro-pie-wrap">
+          <div class="wro-pie-chart" #backlogPieChart></div>
+          <div class="wro-pie-legend">
+            <div class="wro-pie-legend-item">
+              <span class="wro-pie-legend-dot" style="background:#ED7D31"></span>
+              <span class="wro-pie-legend-text">Backlogs (-) / Extra(+) Against Plan</span>
+            </div>
+            <div class="wro-pie-legend-item">
+              <span class="wro-pie-legend-dot" style="background:#00B050"></span>
+              <span class="wro-pie-legend-text">Actual - Non Due Wells Accelerated</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <div class="wro-scope__stats">
+    <div class="wro-scope__stat">
+      <div class="wro-scope__stat-val" [class.is-pos]="vsClean >= 0" [class.is-neg]="vsClean < 0">
+        {{ vsClean >= 0 ? '+' : '' }}{{ vsClean }}
+      </div>
+      <div class="wro-scope__stat-text">Units {{ vsClean >= 0 ? 'ahead of' : 'behind' }} clean plan target.</div>
+    </div>
+    <div class="wro-scope__stat">
+      <div class="wro-scope__stat-val is-pos">{{ ((completed / afterPdo) * 100).toFixed(1) }}%</div>
+      <div class="wro-scope__stat-text">ATNM performance vs clean plan ({{ afterPdo }} target).</div>
+    </div>
+    <div class="wro-scope__stat">
+      <div class="wro-scope__stat-val is-pos">{{ ((completed / afterFlaf) * 100).toFixed(1) }}%</div>
+      <div class="wro-scope__stat-text">Overall completion vs FLAF/SCR adjusted plan.</div>
+    </div>
+  </div>
+  </ng-container>
+</div>

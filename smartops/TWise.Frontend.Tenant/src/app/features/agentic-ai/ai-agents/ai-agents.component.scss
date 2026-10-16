@@ -1,0 +1,520 @@
+.aia-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.aia-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 0px;
+    font-family: var(--font-family-base);
+}
+
+// ── KPI Cards ─────────────────────────────────────────────
+.aia-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+}
+
+.aia-kpi-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px;
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+    box-shadow: 0px 4px 14px 0px rgba(16, 24, 40, 0.04);
+
+    &__main {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    &__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        flex-shrink: 0;
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    &__label {
+        font-size: 13px;
+        font-weight: 500;
+        font-family: var(--font-family-base);
+        color: #667085;
+    }
+
+    &__value {
+        font-size: 28px;
+        font-weight: 700;
+        font-family: var(--font-family-base);
+        color: #101828;
+        line-height: 1.2;
+    }
+
+    &__desc {
+        font-size: 12px;
+        font-family: var(--font-family-base);
+        color: #667085;
+        line-height: 1.4;
+    }
+}
+
+// ── Filter Bar ────────────────────────────────────────────
+.aia-filter-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+    padding: 14px 16px;
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        label {
+            font-size: 13px;
+            font-weight: 500;
+            font-family: var(--font-family-base);
+            color: #667085;
+        }
+    }
+
+    &__search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid #DCE3ED;
+        border-radius: 6px;
+        background: #fff;
+        min-width: 240px;
+
+        input {
+            border: none;
+            outline: none;
+            font-size: 14px;
+            font-family: var(--font-family-base);
+            color: var(--color-text-primary);
+            background: transparent;
+            flex: 1;
+
+            &::placeholder {
+                color: #667085;
+            }
+        }
+    }
+}
+
+.aia-source-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.aia-source-pill {
+    height: 32px;
+    padding: 0 14px;
+    border: 1px solid #DCE3ED;
+    border-radius: 20px;
+    background: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font-family-base);
+    color: #344054;
+    cursor: pointer;
+    transition: all .15s;
+
+    &:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+    }
+
+    &--active {
+        border-color: #21409A;
+        color: #667085;
+        background: #EEF4FF;
+    }
+}
+
+// ── Agent Cards Grid ──────────────────────────────────────
+.aia-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.aia-agent-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+    box-shadow: 0px 4px 14px 0px rgba(16, 24, 40, 0.04);
+
+    &__header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #E7ECF3;
+    }
+
+    &__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        flex-shrink: 0;
+    }
+
+    &__title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    &__name-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__name {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+
+    &__badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid #C2EEC2;
+        border-radius: 20px;
+        background: #EEF8EE;
+        font-size: 11px;
+        font-weight: 500;
+        color: #1B7A3A;
+        white-space: nowrap;
+    }
+
+    &__role {
+        font-size: 13px;
+        color: #21409A;
+        font-weight: 500;
+    }
+
+    &__menu-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        color: #98A2B3;
+        cursor: pointer;
+        border-radius: 6px;
+        flex-shrink: 0;
+
+        &:hover {
+            background: #F2F4F7;
+            color: #667085;
+        }
+    }
+
+    &__desc {
+        margin: 0;
+        font-size: 13px;
+        color: #667085;
+        line-height: 1.5;
+        overflow: hidden;
+        display: -webkit-box;
+        line-clamp: 3;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+    }
+
+    &__more {
+        color: #667085;
+        font-weight: 600;
+        margin-left: 4px;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    &__capabilities {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    &__cap-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    &__cap-tags {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    &__stats {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        padding-top: 12px;
+        border-top: 1px solid #E7ECF3;
+        margin-top: auto;
+    }
+}
+
+.aia-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #16A34A;
+    display: inline-block;
+}
+
+.aia-cap-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 4px 7px;
+    border: none;
+    border-radius: 6px;
+    background: #EEF4FF;
+    font-size: 12px;
+    color: #21409A;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.aia-cap-more {
+      display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #667085;
+     height: 24px;
+    padding: 4px 8px;
+    background: #F2F4F7;
+    border: none;
+    border-radius: 6px;
+}
+
+.aia-stat {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+
+    &:not(:last-child) {
+        border-right: 1px solid #E7ECF3;
+        padding-right: 12px;
+        margin-right: 12px;
+    }
+    &__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 20px;
+        flex-shrink: 0;
+    }
+    &__icon--blue {
+        background: #EAF4FF;
+    }
+    &__icon--green {
+        background: #EEF8EE;
+    }
+    &__icon--purple {
+        background: #F3EBFB;
+    }
+    &__main {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    &__value {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--color-text-primary);
+    }
+
+    &__label {
+        font-size: 12px;
+        color: #667085;
+    }
+}
+
+// ─── Responsive breakpoints ────────────────────────────────────────────────
+
+
+@media (max-width: 1200px) {
+  .aia-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+@media (max-width: 1024px) {
+  .aia-kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .aia-kpi-card {
+    &__value { font-size: 24px; }
+  }
+
+  .aia-filter-bar {
+    gap: 16px;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .aia-page {
+    gap: 12px;
+  }
+
+  .aia-kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .aia-kpi-card {
+    padding: 12px 14px;
+
+    &__value { font-size: 22px; }
+    &__icon  { width: 38px; height: 38px; }
+  }
+
+  .aia-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+
+    &__field {
+      width: 100%;
+    }
+
+    &__search {
+      min-width: 0;
+      width: 100%;
+    }
+  }
+
+  .aia-source-pills {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .aia-source-pill {
+    flex: 1;
+    min-width: 60px;
+    text-align: center;
+  }
+
+  .aia-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+
+@media (max-width: 480px) {
+  .aia-kpi-row {
+    grid-template-columns: 1fr;
+  }
+
+  .aia-kpi-card {
+    &__value { font-size: 20px; }
+    &__label { font-size: 12px; }
+    &__desc  { font-size: 11px; }
+  }
+
+  .aia-agent-card {
+    &__name  { font-size: 14px; }
+    &__desc  { font-size: 12px; }
+  }
+
+  .aia-stat {
+    &:not(:last-child) {
+      padding-right: 8px;
+      margin-right: 8px;
+    }
+
+    &__icon {
+      width: 30px;
+      height: 30px;
+    }
+
+    &__value { font-size: 13px; }
+    &__label { font-size: 11px; }
+  }
+
+  .aia-filter-bar {
+    padding: 10px;
+    border-radius: 6px;
+  }
+}
+.aia-state {
+    margin: 16px 0;
+    font-size: 14px;
+    color: var(--color-text-secondary);
+
+    &--bad { color: var(--color-danger); }
+}
+
+a.aia-agent-card__name {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover, &:focus-visible { text-decoration: underline; }
+}
+
+.aia-agent-card__badge--draft {
+    filter: grayscale(1);
+}

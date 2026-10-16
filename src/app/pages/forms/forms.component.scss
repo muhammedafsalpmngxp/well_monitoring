@@ -1,0 +1,221 @@
+/* Forms page-specific styles */
+
+/* Font family & sizes (pt units) */
+#page-forms {
+  font-family: 'Inter', 'Calibri', 'Arial', sans-serif;
+  font-size: 10pt;
+}
+
+/* Breadcrumb */
+#page-forms .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 9pt;
+  color: var(--txt-muted);
+  margin-bottom: 14px;
+  padding-left: 5px;
+}
+#page-forms .breadcrumb a {
+  color: var(--txt-2);
+  cursor: pointer;
+}
+#page-forms .breadcrumb a:hover {
+  color: var(--accent);
+}
+#page-forms .breadcrumb .current {
+  color: var(--txt-1);
+  font-weight: 500;
+}
+
+/* Card */
+#page-forms .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  position: relative;
+}
+#page-forms .card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+#page-forms .card-head-left {
+  flex: 1;
+}
+#page-forms .card-title {
+  font-family: 'Inter', 'Calibri', 'Arial', sans-serif;
+  font-size: 12pt;
+  font-weight: 700;
+  color: var(--txt-1);
+  letter-spacing: -0.1px;
+}
+#page-forms .card-sub {
+  font-family: 'Inter', 'Calibri', 'Arial', sans-serif;
+  font-size: 9pt;
+  color: var(--txt-muted);
+  margin-top: 3px;
+}
+
+/* Button */
+#page-forms .aw-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: var(--txt-2);
+  font-family: 'Inter', 'Calibri', 'Arial', sans-serif;
+  font-size: 9pt;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+#page-forms .aw-btn:hover {
+  color: var(--txt-1);
+}
+#page-forms .aw-btn.export {
+  gap: 6px;
+  color: #fff;
+  background: #29378d;
+  border-color: transparent;
+  box-shadow: none;
+  padding: 9px 12px;
+}
+html:not(.navbar-light) #page-forms .aw-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(200, 215, 240, 0.7);
+}
+html:not(.navbar-light) #page-forms .aw-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8ecf5;
+}
+html:not(.navbar-light) #page-forms .aw-btn.export {
+  background: #29378d;
+  border-color: transparent;
+  color: #fff;
+}
+
+/* Table wrapper */
+#page-forms .forms-table-wrap {
+  margin-top: 10px;
+}
+
+#page-forms #formsGrid {
+  width: 100%;
+}
+
+/* Action buttons */
+#page-forms .form-act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--txt-2);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+#page-forms .form-act-btn svg {
+  width: 13px;
+  height: 13px;
+}
+#page-forms .form-act-btn:hover {
+  background: var(--surface-2);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+#page-forms .form-act-btn.danger:hover {
+  color: #FF0000;
+  border-color: rgba(255,0,0,0.45);
+  background: rgba(255,0,0,0.06);
+}
+/* ─── Light theme ─── */
+html.navbar-light #page-forms .breadcrumb a:hover {
+  color: #29378d;
+}
+html.navbar-light #page-forms .card {
+  background: #fff;
+  border-color: #e2e8f0;
+}
+html.navbar-light #page-forms .card-head {
+  border-bottom-color: #e2e8f0;
+}
+html.navbar-light #page-forms .card-title {
+  color: #1F3864;
+}
+html.navbar-light #page-forms .card-sub {
+  color: #7F7F7F;
+}
+html.navbar-light #page-forms .form-act-btn {
+  color: #7F7F7F;
+  border-color: #e2e8f0;
+}
+html.navbar-light #page-forms .form-act-btn:hover {
+  color: #29378d;
+  border-color: #29378d;
+  background: rgba(41,55,141, 0.06);
+}
+html.navbar-light #page-forms .aw-btn.export {
+  background: #29378d;
+}
+html.navbar-light #page-forms .aw-btn.export:hover {
+  background: #1F5F9A;
+}
+
+/* ─── Dark theme ─── */
+html:not(.navbar-light) #page-forms .breadcrumb a:hover {
+  color: #00B0F0;
+}
+html:not(.navbar-light) #page-forms .card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+html:not(.navbar-light) #page-forms .card-head {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+html:not(.navbar-light) #page-forms .card-title {
+  color: #e8ecf5;
+}
+html:not(.navbar-light) #page-forms .card-sub {
+  color: rgba(200, 215, 240, 0.6);
+}
+html:not(.navbar-light) #page-forms .form-act-btn {
+  color: rgba(200, 215, 240, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+html:not(.navbar-light) #page-forms .form-act-btn:hover {
+  color: #00B0F0;
+  border-color: #00B0F0;
+  background: rgba(0, 176, 240, 0.1);
+}
+html:not(.navbar-light) #page-forms .form-act-btn.danger:hover {
+  color: #FF0000;
+  border-color: rgba(255,0,0,0.5);
+  background: rgba(255,0,0,0.1);
+}
+html:not(.navbar-light) #page-forms .aw-btn.export {
+  background: #00B0F0;
+  border-color: transparent;
+  color: #fff;
+}
+html:not(.navbar-light) #page-forms .aw-btn.export:hover {
+  background: #009ad6;
+}
+
+.hfb-dock{
+  display: none!important;
+}

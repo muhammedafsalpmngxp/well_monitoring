@@ -1,0 +1,30 @@
+<div class="formula__overlay" (click)="closed.emit()">
+  <div appDialog (dialogClose)="closed.emit()" #dialog class="formula transform-dialog" role="dialog" aria-modal="true" aria-labelledby="transform-title"
+    (click)="$event.stopPropagation()" (keydown)="onKeydown($event)">
+    <header class="formula__header">
+      <h2 id="transform-title" class="formula__title">Transform data</h2>
+      <button type="button" class="formula__close" aria-label="Close" (click)="closed.emit()">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </header>
+    <div class="formula__body">
+      <p class="transform-dialog__lead">
+        Clean a column every time it is read: trim spaces, fill blanks, change its type, replace text or leave rows out.
+        The stored data never changes, and each step is saved as soon as you add it.
+      </p>
+      <div class="form-group">
+        <label for="transform-table">Table</label>
+        <select #tableSelect id="transform-table" class="form-control" [value]="source?.id" (change)="chooseTable(tableSelect.value)">
+          <option *ngFor="let option of dataset.sources" [value]="option.id" [selected]="option.id === source?.id">
+            {{ (option.caption || option.alias) }} ({{ option.label || option.schemaName + '.' + option.sourceName }})
+          </option>
+        </select>
+      </div>
+      <app-transforms-editor *ngIf="source as table" [dataset]="dataset" [columns]="columns" [source]="table" [initialColumn]="column"
+        [readonly]="readonly || saving" (add)="add.emit($event)" (remove)="remove.emit($event)"></app-transforms-editor>
+    </div>
+    <footer class="formula__actions">
+      <app-button variant="primary" (clicked)="closed.emit()">Done</app-button>
+    </footer>
+  </div>
+</div>

@@ -1,0 +1,82 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.functions {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-card);
+
+  &__label { margin: 0 0 var(--spacing-xs); font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+
+  &__search { margin-bottom: var(--spacing-xs); }
+
+  &__filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: var(--spacing-sm); }
+
+  &__filter {
+    padding: 2px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg-card);
+    color: var(--color-text-label);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+    &--active { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }
+  }
+
+  &__list {
+    // FontSizeService zooms the app, so the viewport height is divided by the zoom factor (DESIGN.md 2).
+    // Leaves room for the dialog's header, name, formula and buttons on short screens.
+    max-height: max(180px, calc(100dvh / var(--app-zoom-factor, 1) - 470px));
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  &__category {
+    margin: var(--spacing-sm) 0 var(--spacing-xs);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-label);
+    text-transform: uppercase;
+  }
+
+  &__items { margin: 0; padding: 0; list-style: none; }
+
+  &__item {
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    transition: background-color 0.15s ease;
+
+    &:hover,
+    &:focus-within { background: var(--color-primary-50); }
+  }
+
+  &__head { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); }
+
+  &__signature { font-size: 12px; font-weight: 600; color: var(--color-text-primary); overflow-wrap: anywhere; }
+
+  &__insert { flex-shrink: 0; }
+
+  &__description { margin: var(--spacing-xs) 0; font-size: 12px; color: var(--color-text-subtle); }
+
+  &__example { display: block; font-size: 11px; color: var(--color-primary); overflow-wrap: anywhere; }
+
+  &__empty { margin: var(--spacing-sm) 0; font-size: 12px; color: var(--color-text-subtle); }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__item { transition: none; }
+  }
+}

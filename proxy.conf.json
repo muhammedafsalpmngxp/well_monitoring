@@ -1,0 +1,39 @@
+{
+  "/api/v1/wells": {
+    "target": "http://localhost:7002",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/v1/wells": ""
+    }
+  },
+  "/api/tenant": {
+    "target": "http://localhost:7008",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/tenant": "/api"
+    }
+  },
+  "/api/v1": {
+    "target": "http://localhost:7000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/api/databricks": {
+    "target": "https://adb-7405604891058113.13.azuredatabricks.net",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/databricks": ""
+    }
+  },
+  "/api/rpa": {
+    "target": "https://rpa-script.prod-app.in",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/rpa": ""
+    }
+  }
+}

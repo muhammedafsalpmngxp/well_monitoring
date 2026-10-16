@@ -1,0 +1,183 @@
+<div id="page-duewells" class="page active">
+
+  <!-- Full-page loading overlay -->
+  <div class="aw-page-loader" *ngIf="isLoading">
+    <div class="aw-page-loader-box">
+      <div class="aw-loading-spinner"></div>
+      <span class="aw-loading-text">Loading wells…</span>
+    </div>
+  </div>
+
+  <!-- Back navigation -->
+  <div class="dw-back-link" (click)="goBack()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dw-back-icon"><polyline points="15 18 9 12 15 6"/></svg>
+    Back to Dashboard
+  </div>
+
+  <!-- Title row -->
+  <div class="page-title-row">
+    <div class="aw-title-left">
+      <div class="page-title">Due Wells Completion – Wells</div>
+    </div>
+    <div class="aw-title-right">
+      <button type="button" class="aw-dashboard-btn"
+              title="Back to CMD Overview"
+              [routerLink]="['/cmdoverview']">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="9" rx="1"/>
+          <rect x="14" y="3" width="7" height="5" rx="1"/>
+          <rect x="14" y="12" width="7" height="9" rx="1"/>
+          <rect x="3" y="16" width="7" height="5" rx="1"/>
+        </svg>
+      </button>
+      <div class="aw-view-toggle">
+        <button class="aw-view-btn active" id="awGridBtn" onclick="awSetView('grid',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+          </svg>{{ 'COMMON.GRID_VIEW' | translate }}
+        </button>
+        <button class="aw-view-btn" id="awCardBtn" onclick="awSetView('card',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>{{ 'COMMON.CARD_VIEW' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Summary strip -->
+  <div class="aw-summary-strip">
+
+    <!-- Total Due Wells -->
+    <div class="kpi k-blue aw-kpi active">
+      <div class="kpi-head">
+        <span class="kpi-label">TOTAL DUE WELLS</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L4 7v10l8 5 8-5V7l-8-5z"/><path d="M12 22V12"/><path d="M4 7l8 5 8-5"/>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-val blue">
+        <span class="aw-active-val">{{ dwcCounts.totalDueWells }}</span>
+      </div>
+      <div class="aw-kpi-bar-track">
+        <div class="aw-kpi-bar-fill aw-bar-fill-blue" style="width:100%"></div>
+      </div>
+      <div class="kpi-unit aw-active-breakdown">
+        {{ dwcCounts.completed }} completed · {{ dwcCounts.inProgress }} in progress
+      </div>
+    </div>
+
+    <!-- Completed -->
+    <div class="kpi k-green aw-kpi complete">
+      <div class="kpi-head">
+        <span class="kpi-label">COMPLETED</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-val green">{{ dwcCounts.completed }}</div>
+      <div class="aw-kpi-bar"></div>
+      <div class="aw-kpi-pct">{{ getDwcPct(dwcCounts.completed) }}</div>
+      <div class="kpi-unit">of total</div>
+    </div>
+
+    <!-- In Progress -->
+    <div class="kpi k-teal aw-kpi progress">
+      <div class="kpi-head">
+        <span class="kpi-label">IN PROGRESS</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-val teal">{{ dwcCounts.inProgress }}</div>
+      <div class="aw-kpi-bar"></div>
+      <div class="aw-kpi-pct">{{ getDwcPct(dwcCounts.inProgress) }}</div>
+      <div class="kpi-unit">of total</div>
+    </div>
+
+    <!-- Suspended -->
+    <div class="kpi k-gold aw-kpi planned">
+      <div class="kpi-head">
+        <span class="kpi-label">SUSPENDED</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-val amber">{{ dwcCounts.suspendedWells }}</div>
+      <div class="aw-kpi-bar"></div>
+      <div class="aw-kpi-pct">{{ getDwcPct(dwcCounts.suspendedWells) }}</div>
+      <div class="kpi-unit">suspended</div>
+    </div>
+
+    <!-- Completion Rate -->
+    <div class="kpi k-gold aw-kpi early">
+      <div class="kpi-head">
+        <span class="kpi-label">COMPLETION RATE</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>
+          </svg>
+        </span>
+      </div>
+      <div class="kpi-val amber">{{ dwcCounts.completionRatePct | number:'1.1-1' }}%</div>
+      <div class="aw-kpi-bar"></div>
+      <div class="kpi-unit">YTD rate</div>
+    </div>
+
+  </div>
+
+  <!-- Category filter pills -->
+  <div class="aw-filter-row">
+    <button class="aw-status-pill all"        [class.active]="activeCategory === 'all'"        (click)="selectCategory('all')">Total Due Wells <span>{{ pillCounts.all }}</span></button>
+    <button class="aw-status-pill completed"  [class.active]="activeCategory === 'completed'"  (click)="selectCategory('completed')">Completed <span>{{ pillCounts.completed }}</span></button>
+    <button class="aw-status-pill inprogress" [class.active]="activeCategory === 'inprogress'" (click)="selectCategory('inprogress')">In Progress <span>{{ pillCounts.inprogress }}</span></button>
+    <button class="aw-status-pill planned"    [class.active]="activeCategory === 'suspended'" (click)="selectCategory('suspended')">Suspended <span>{{ pillCounts.suspended }}</span></button>
+    <div class="aw-filter-actions">
+      <button class="dq-btn dq-btn-ghost aw-export-btn" (click)="exportCsv()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        {{ 'COMMON.EXPORT_CSV' | translate }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Grid -->
+  <div class="aw-grid-header">
+    <span class="aw-grid-title">{{ 'ALLWELLS.WELLS_DATA_GRID' | translate }}</span>
+  </div>
+  <div class="aw-grid-container">
+    <div class="aw-grid-toolbar">
+      <svg class="aw-grid-toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+      </svg>
+      <span class="aw-grid-toolbar-title">{{ 'COMMON.WELLS_SUMMARY_GRID' | translate }}</span>
+      <span class="aw-records-badge" id="awRecordsBadge">0 {{ 'COMMON.RECORDS' | translate }}</span>
+      <span class="aw-grid-hint">{{ 'COMMON.SORT_FILTER' | translate }}</span>
+      <span class="aw-grid-toolbar-actions">
+        <a class="aw-view-all-link">{{ 'COMMON.VIEW_ALL' | translate }}</a>
+      </span>
+    </div>
+    <!-- Grid view — AG Grid -->
+    <div id="awGridView">
+      <div id="awWellsGrid" class="ag-theme-alpine-dark"></div>
+    </div>
+    <!-- Card view (hidden by default) -->
+    <div id="awCardView">
+      <div class="aw-card-grid" id="awCardBody"></div>
+    </div>
+  </div>
+
+</div><!-- /page-duewells -->

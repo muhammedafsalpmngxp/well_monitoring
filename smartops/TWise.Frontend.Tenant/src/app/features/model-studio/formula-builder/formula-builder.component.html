@@ -1,0 +1,148 @@
+<div class="formula__overlay" (click)="cancelled.emit()">
+  <div appDialog (dialogClose)="cancelled.emit()" #dialog class="formula" [class.formula--wide]="mode === 'text'" role="dialog" aria-modal="true" aria-labelledby="formula-title"
+    (click)="$event.stopPropagation()" (keydown)="onKeydown($event)">
+    <header class="formula__header">
+      <h2 id="formula-title" class="formula__title">{{ title }}</h2>
+      <button type="button" class="formula__close" aria-label="Close without saving" (click)="cancelled.emit()">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </header>
+    <p *ngIf="notice" class="formula__notice" role="note">{{ notice }}</p>
+
+    <form class="formula__body" (ngSubmit)="submit()" (input)="clearServerError()" (change)="clearServerError()">
+      <div class="form-group">
+        <label for="formula-name">Measure name</label>
+        <input #nameInput id="formula-name" class="form-control" name="name" maxlength="128" placeholder="For example Hours per Task"
+          [(ngModel)]="name" />
+      </div>
+
+      <div class="formula__modes" role="group" aria-label="How to build the formula">
+        <button type="button" class="formula__mode" [class.formula__mode--active]="mode === 'visual'"
+          [attr.aria-pressed]="mode === 'visual'" (click)="showVisual()">Visual</button>
+        <button type="button" class="formula__mode" [class.formula__mode--active]="mode === 'text'"
+          [attr.aria-pressed]="mode === 'text'" (click)="showText()">Text</button>
+      </div>
+
+      <ng-container *ngIf="mode === 'visual'">
+        <ng-container *ngTemplateOutlet="partEditor; context: { $implicit: visual.left, key: 'left', legend: 'Calculate' }"></ng-container>
+
+        <div class="form-group">
+          <label for="formula-op">Then</label>
+          <select id="formula-op" class="form-control" name="op" [(ngModel)]="visual.op">
+            <option [ngValue]="null">Nothing more</option>
+            <option *ngFor="let operator of operators" [ngValue]="operator[0]">{{ operator[1] }}</option>
+          </select>
+        </div>
+
+        <ng-container *ngIf="visual.op">
+          <fieldset class="formula__choice">
+            <legend>Combine with</legend>
+            <label>
+              <input type="radio" name="rightKind" value="agg" [ngModel]="visual.right.kind" (ngModelChange)="setRightKind($event)" />
+              Another calculation
+            </label>
+            <label>
+              <input type="radio" name="rightKind" value="num" [ngModel]="visual.right.kind" (ngModelChange)="setRightKind($event)" />
+              A number
+            </label>
+          </fieldset>
+          <ng-container *ngIf="rightPart as part">
+            <ng-container *ngTemplateOutlet="partEditor; context: { $implicit: part, key: 'right', legend: 'Second calculation' }"></ng-container>
+          </ng-container>
+          <div *ngIf="visual.right.kind === 'num'" class="form-group">
+            <label for="formula-number">Number</label>
+            <input id="formula-number" class="form-control" type="number" name="number" [(ngModel)]="rightNumber" />
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <div *ngIf="mode === 'text'" class="formula__layout">
+        <div class="form-group formula__main">
+          <label for="formula-text">Formula</label>
+          <textarea #textInput id="formula-text" class="form-control formula__text" name="text" rows="5" spellcheck="false"
+            [attr.aria-invalid]="shownError ? 'true' : null"
+            [attr.aria-describedby]="shownError ? 'formula-text-error' : 'formula-text-hint'"
+            [(ngModel)]="text" (ngModelChange)="textError = null"></textarea>
+          <app-field-suggest [target]="textInput" [fields]="suggestFields" listId="formula-suggest"
+            (applied)="applySuggestion($event)"></app-field-suggest>
+          <p id="formula-text-hint" class="form-hint">
+            For example SUM(TaskDaily.data_hours) / COUNTROWS(TaskDaily). Keep only some rows with WHERE, as in
+            COUNT(TaskDaily.task_daily_id WHERE TaskDaily.data_hours > 0). Type [ to pick a field, or pick a function in the list to insert an example.
+          </p>
+          <p *ngIf="shownError as error" id="formula-text-error" class="form-error" aria-live="polite"
+            [attr.role]="textError ? 'alert' : null">
+            {{ error.message }} (at character {{ error.start + 1 }})
+          </p>
+        </div>
+        <app-function-list class="formula__aside" mode="measure" [columns]="exampleColumns" (insert)="insertExample($event)"></app-function-list>
+      </div>
+
+      <p class="formula__sentence" aria-live="polite">
+        <span class="formula__sentence-label">Reads as</span>
+        {{ sentence }}
+      </p>
+      <p *ngIf="problem" class="form-error" role="alert">{{ problem }}</p>
+      <p *ngIf="serverError" class="form-error" role="alert">{{ serverError }}</p>
+      <p *ngIf="!serverError && !problem && check.problem" class="form-error" aria-live="polite">{{ check.problem }}</p>
+
+      <div class="formula__actions">
+        <app-button variant="secondary" (clicked)="cancelled.emit()">Cancel</app-button>
+        <app-button variant="primary" type="submit" [loading]="saving">Save measure</app-button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- One calculation: function, table, column and an optional condition on the same table. -->
+<ng-template #partEditor let-part let-key="key" let-legend="legend">
+  <fieldset class="formula__part">
+    <legend>{{ legend }}</legend>
+    <div class="formula__row">
+      <div class="form-group">
+        <label [attr.for]="key + '-fn'">Calculation</label>
+        <select [id]="key + '-fn'" class="form-control" [ngModel]="part.fn" [ngModelOptions]="{ standalone: true }"
+          (ngModelChange)="setFn(part, $event)">
+          <option *ngFor="let aggregate of aggregates" [value]="aggregate[0]">{{ aggregate[1] }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label [attr.for]="key + '-source'">Table</label>
+        <select [id]="key + '-source'" class="form-control" [ngModel]="part.source" [ngModelOptions]="{ standalone: true }"
+          (ngModelChange)="setSource(part, $event)">
+          <option *ngFor="let source of dataset.sources" [value]="source.alias">{{ source.alias }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label [attr.for]="key + '-column'">Column</label>
+        <select [id]="key + '-column'" class="form-control" [(ngModel)]="part.column" [ngModelOptions]="{ standalone: true }">
+          <option value="" disabled>Choose a column</option>
+          <option *ngFor="let column of columnsFor(part); trackBy: trackColumn" [value]="column.columnName">{{ column.columnName }}</option>
+        </select>
+      </div>
+    </div>
+    <label class="formula__toggle">
+      <input type="checkbox" [ngModel]="!!part.where" [ngModelOptions]="{ standalone: true }" (ngModelChange)="setCondition(part, $event)" />
+      Only rows where a condition holds
+    </label>
+    <div *ngIf="part.where as where" class="formula__row">
+      <div class="form-group">
+        <label [attr.for]="key + '-where-column'">Column</label>
+        <select [id]="key + '-where-column'" class="form-control" [(ngModel)]="where.column" [ngModelOptions]="{ standalone: true }">
+          <option value="" disabled>Choose a column</option>
+          <option *ngFor="let column of columnsOf(part.source); trackBy: trackColumn" [value]="column.columnName">{{ column.columnName }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label [attr.for]="key + '-where-op'">Test</label>
+        <select [id]="key + '-where-op'" class="form-control" [(ngModel)]="where.op" [ngModelOptions]="{ standalone: true }">
+          <option *ngFor="let comparison of comparisons" [value]="comparison[0]">{{ comparison[1] }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label [attr.for]="key + '-where-value'">Value</label>
+        <input [id]="key + '-where-value'" class="form-control" [(ngModel)]="where.value" [ngModelOptions]="{ standalone: true }" />
+      </div>
+    </div>
+    <p *ngIf="part.where?.op === 'neq'" class="form-hint">Rows where this column is blank are not counted.</p>
+  </fieldset>
+</ng-template>

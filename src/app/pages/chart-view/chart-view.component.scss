@@ -1,0 +1,41 @@
+#page-chart-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  .cv-bc a { cursor: pointer; }
+  .cv-bc a.current { cursor: default; color: var(--txt-1); font-weight: 600; }
+  .cv-sep { margin: 0 6px; color: var(--txt-muted); }
+
+  .cv-title-wrap { flex: 1; }
+  .cv-actions { display: flex; gap: 8px; align-items: center; }
+  .cv-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 13px; font: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--txt-1); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; transition: border-color .12s, color .12s;
+  }
+  .cv-btn svg { width: 14px; height: 14px; }
+  .cv-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .cv-missing { padding: 40px; text-align: center; color: var(--txt-muted); }
+
+  .cv-card {
+    margin-top: 12px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .cv-filter-bar { flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+
+  /* Chart host — position:relative so the engine's absolute KPI/table overlays
+     anchor here; the canvas fills the box (Chart.js responsive). */
+  .cv-chart-wrap { position: relative; height: 460px; }
+  .cv-chart-wrap canvas { display: block; }
+  .cv-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--txt-muted); font-size: 13px; }
+
+  .cv-data-table { }
+  .cv-data-table table { width: 100%; }
+}
+
+/* Labour-productivity inline viewer host */
+#page-chart-view .cv-labour-host { min-height: 380px; }

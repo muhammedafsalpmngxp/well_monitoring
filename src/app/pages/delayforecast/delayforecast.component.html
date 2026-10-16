@@ -1,0 +1,142 @@
+<div id="page-delayforecast" class="page active">
+        <div class="breadcrumb">
+          <a data-page="cmdoverview">{{ 'SIDEBAR.INSIGHT' | translate }}</a>
+          <span>›</span>
+          <span class="current">{{ 'SIDEBAR.DELAY_FORECASTING' | translate }}</span>
+        </div>
+        <!-- Top bar -->
+        <div class="df-topbar">
+          <div>
+            <!-- <div class="df-bc">
+              <span class="df-bc-link" onclick="navigate('cmdoverview',document.getElementById('nav-cmdoverview'))">Insight</span>
+              <span class="df-bc-sep">&#9002;</span>
+              <span class="df-bc-cur">Delay Forecasting</span>
+              <span class="df-bc-sep">&nbsp;&middot;&nbsp;</span>
+              <span class="df-bc-dot"></span>
+              <span class="df-bc-tag">NL0013 &middot; Nimr Field &middot; Active</span>
+            </div> -->
+            <div class="df-period-tabs">
+              <div class="df-period-tab df-active">{{ 'DELAYFORECAST.TAB_MONTHLY' | translate }}</div>
+              <div class="df-period-tab">{{ 'DELAYFORECAST.TAB_WEEKLY' | translate }}</div>
+              <div class="df-period-tab">{{ 'DELAYFORECAST.TAB_DAILY' | translate }}</div>
+            </div>
+          </div>
+          <div class="df-toolbar-right">
+            <div class="df-btn df-btn-date">&#128197; Apr 2026</div>
+            <div class="df-btn df-btn-export"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> {{ 'DELAYFORECAST.EXPORT_CSV' | translate }}</div>
+            <div class="df-btn df-btn-sync">&#8635; {{ 'DELAYFORECAST.SYNC_NOW' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- Title + filters -->
+        <div class="df-title-row">
+          <div class="df-title-left">
+            <h2>{{ 'DELAYFORECAST.PAGE_TITLE' | translate }} <span class="df-ai-badge">{{ 'DELAYFORECAST.AI_BADGE' | translate }}</span></h2>
+            <div class="df-title-sub">{{ 'DELAYFORECAST.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+          <div class="df-filter-row">
+            <div class="df-filter-btn">{{ 'DELAYFORECAST.ALL_PO_TYPES' | translate }} &#9660;</div>
+            <div class="df-filter-btn">{{ 'DELAYFORECAST.ALL_RISK_LEVELS' | translate }} &#9660;</div>
+            <div class="df-btn df-btn-run">&#10024; {{ 'DELAYFORECAST.RUN_FORECAST' | translate }}</div>
+            <div class="df-btn df-btn-refresh">&#8635; {{ 'DELAYFORECAST.REFRESH' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- 6 KPI Cards -->
+        <div class="df-kpi-grid">
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:var(--blue)"></div><div class="atg-kpi-label">{{ 'DELAYFORECAST.TOTAL_PO_LINES' | translate }}</div><div class="atg-kpi-val" style="color:var(--blue)">21</div><div class="atg-kpi-unit" style="margin-top:8px">{{ 'DELAYFORECAST.ACTIVE_ORDERS' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:#f87171"></div><div class="atg-kpi-label">{{ 'DELAYFORECAST.HIGH_DELAY_RISK' | translate }}</div><div class="atg-kpi-val" style="color:#f87171">4</div><div class="atg-kpi-unit" style="margin-top:8px">{{ 'DELAYFORECAST.EXPEDITE_NOW' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:var(--amber)"></div><div class="atg-kpi-label">{{ 'DELAYFORECAST.MEDIUM_RISK' | translate }}</div><div class="atg-kpi-val" style="color:var(--amber)">5</div><div class="atg-kpi-unit" style="margin-top:8px">{{ 'DELAYFORECAST.MONITOR_WEEKLY' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:var(--teal)"></div><div class="atg-kpi-label">{{ 'DELAYFORECAST.LOW_ON_TRACK' | translate }}</div><div class="atg-kpi-val" style="color:var(--teal)">14</div><div class="atg-kpi-unit" style="margin-top:8px">{{ 'DELAYFORECAST.WITHIN_SLA' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:var(--amber)"></div><div class="atg-kpi-label">{{ 'DELAYFORECAST.AVG_PREDICTED_DELAY' | translate }}</div><div class="atg-kpi-val" style="color:var(--amber)">+4<span>{{ 'DELAYFORECAST.DAYS_UNIT' | translate }}</span></div><div class="atg-kpi-unit" style="margin-top:8px">{{ 'DELAYFORECAST.DAYS_ON_AT_RISK' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:var(--green)"></div><div class="atg-kpi-label">{{ 'DELAYFORECAST.MODEL_ACCURACY' | translate }}</div><div class="atg-kpi-val" style="color:var(--green)">82<span>%</span></div><div class="atg-kpi-unit" style="margin-top:8px">{{ 'DELAYFORECAST.CLASSIFIER_F1' | translate }}</div></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="df-tabs">
+          <div class="df-tab df-active" onclick="dfSetTab('forecast',this)">{{ 'DELAYFORECAST.TAB_FORECAST' | translate }}</div>
+          <div class="df-tab" onclick="dfSetTab('analysis',this)">{{ 'DELAYFORECAST.TAB_ANALYSIS' | translate }}</div>
+          <div class="df-tab" onclick="dfSetTab('fulltable',this)">{{ 'DELAYFORECAST.TAB_FULL_TABLE' | translate }}</div>
+        </div>
+
+        <!-- FORECAST -->
+        <div class="df-tab-panel df-active" id="df-panel-forecast">
+          <div class="df-forecast-row">
+            <div class="df-panel" style="overflow-y:auto;max-height:600px">
+              <div class="df-panel-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                {{ 'DELAYFORECAST.EXPEDITE_PRIORITY_QUEUE' | translate }} <span class="df-badge-count">{{ 'DELAYFORECAST.ORDERS_COUNT' | translate }}</span>
+              </div>
+              <div class="df-sort-hint">{{ 'DELAYFORECAST.SORT_HINT' | translate }}</div>
+              <div id="df-queue-items"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div class="df-panel">
+                <div class="df-panel-title">{{ 'DELAYFORECAST.LEAD_TIME_DISTRIBUTION' | translate }}</div>
+                <div class="df-panel-sub">{{ 'DELAYFORECAST.LEAD_TIME_SUB' | translate }}</div>
+                <div style="position:relative;width:100%;height:230px"><canvas id="df-leadtime-chart"></canvas></div>
+              </div>
+              <div class="df-panel">
+                <div class="df-panel-title">{{ 'DELAYFORECAST.PREDICTED_DELAY_DAYS' | translate }}</div>
+                <div class="df-panel-sub">{{ 'DELAYFORECAST.PREDICTED_DELAY_SUB' | translate }}</div>
+                <div style="position:relative;width:100%;height:230px"><canvas id="df-delay-chart"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANALYSIS -->
+        <div class="df-tab-panel" id="df-panel-analysis">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div class="df-panel">
+              <div class="df-panel-title">{{ 'DELAYFORECAST.CLASSIFIER_FEATURE_IMPORTANCE' | translate }}</div>
+              <div class="df-panel-sub">{{ 'DELAYFORECAST.FEATURE_IMPORTANCE_SUB' | translate }}</div>
+              <div id="df-feat-bars" style="margin-top:8px"></div>
+              <div class="df-metrics-box">
+                <div class="df-metrics-title">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  {{ 'DELAYFORECAST.MODEL_METRICS' | translate }}
+                </div>
+                <div class="df-metric-cells">
+                  <div class="df-metric-cell"><div class="df-metric-val" style="color:#a78bfa">82%</div><div class="df-metric-label">{{ 'DELAYFORECAST.F1_SCORE' | translate }}</div></div>
+                  <div class="df-metric-cell"><div class="df-metric-val" style="color:#60a5fa">84%</div><div class="df-metric-label">{{ 'DELAYFORECAST.PRECISION' | translate }}</div></div>
+                  <div class="df-metric-cell"><div class="df-metric-val" style="color:#4ade80">80%</div><div class="df-metric-label">{{ 'DELAYFORECAST.RECALL' | translate }}</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="df-panel">
+              <div class="df-panel-title">{{ 'DELAYFORECAST.SLA_COMPLIANCE_TREND' | translate }}</div>
+              <div class="df-panel-sub">{{ 'DELAYFORECAST.SLA_COMPLIANCE_SUB' | translate }}</div>
+              <div style="position:relative;width:100%;height:300px"><canvas id="df-sla-chart"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FULL TABLE -->
+        <div class="df-tab-panel" id="df-panel-fulltable">
+          <div class="df-full-table-wrap">
+            <div class="df-full-table-header">
+              <div class="df-full-table-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                {{ 'DELAYFORECAST.FULL_TABLE_TITLE' | translate }}
+              </div>
+              <div class="df-full-table-legend">
+                <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f87171;margin-right:4px"></span><span style="color:var(--txt-muted);font-size:11px">4 {{ 'DELAYFORECAST.LEGEND_HIGH' | translate }}</span></span>
+                <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber);margin-right:4px"></span><span style="color:var(--txt-muted);font-size:11px">5 {{ 'DELAYFORECAST.LEGEND_MEDIUM' | translate }}</span></span>
+                <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:4px"></span><span style="color:var(--txt-muted);font-size:11px">12 {{ 'DELAYFORECAST.LEGEND_LOW' | translate }}</span></span>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="df-tbl">
+                <thead><tr>
+                  <th>{{ 'DELAYFORECAST.TH_PO_REFERENCE' | translate }}</th><th>{{ 'DELAYFORECAST.TH_TYPE' | translate }}</th><th>{{ 'DELAYFORECAST.TH_WELL' | translate }}</th><th>{{ 'DELAYFORECAST.TH_PO_PLACED' | translate }}</th>
+                  <th>{{ 'DELAYFORECAST.TH_EXPECTED_DELIVERY' | translate }}</th><th>{{ 'DELAYFORECAST.TH_ACTUAL_PREDICTED' | translate }}</th><th>{{ 'DELAYFORECAST.TH_LEAD_TIME' | translate }}</th>
+                  <th>{{ 'DELAYFORECAST.TH_SLA_DAYS' | translate }}</th><th>{{ 'DELAYFORECAST.TH_LATE_FLAG' | translate }}</th><th>{{ 'DELAYFORECAST.TH_DELAY_PROB' | translate }}</th>
+                  <th>{{ 'DELAYFORECAST.TH_PRED_DELAY' | translate }}</th><th>{{ 'DELAYFORECAST.TH_RISK' | translate }}</th><th>{{ 'DELAYFORECAST.TH_EXPEDITE_PRIORITY' | translate }}</th><th>{{ 'DELAYFORECAST.TH_ACTION' | translate }}</th>
+                </tr></thead>
+                <tbody id="df-full-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div><!-- /page-delayforecast -->

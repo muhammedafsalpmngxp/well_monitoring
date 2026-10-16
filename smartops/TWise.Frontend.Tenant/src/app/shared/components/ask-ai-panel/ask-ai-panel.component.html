@@ -1,0 +1,311 @@
+<aside class="ask" *ngIf="panel.isOpen()" role="dialog" aria-label="Ask your data">
+  <header class="ask__header">
+    <div class="ask__title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3l1.8 4.6L18.4 9.4l-4.6 1.8L12 15.8l-1.8-4.6L5.6 9.4l4.6-1.8z" />
+      </svg>
+      <span>Ask your data</span>
+      <span class="ask__source" *ngIf="sourceName">· {{ sourceName }}</span>
+    </div>
+    <div class="ask__header-actions">
+      <button type="button" class="ask__icon" title="Dataset notes (admin)" *ngIf="isAdmin && selectedKey && can('learning')" (click)="showNotes ? showNotes = false : openNotes()" [class.ask__icon--active]="showNotes">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h12l4 4v12H4z"/><path d="M8 12h8M8 16h8"/></svg>
+      </button>
+      <button type="button" class="ask__icon" title="History" (click)="showNotes = false; showHistory = !showHistory" [class.ask__icon--active]="showHistory">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      </button>
+      <button type="button" class="ask__icon" title="New question" (click)="newConversation()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button type="button" class="ask__icon" title="Close" (click)="panel.close()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- History -->
+  <div class="ask__history" *ngIf="showHistory">
+    <!-- Alerts: watched answers, re-checked on a schedule -->
+    <ng-container *ngIf="alerts.length">
+      <strong class="ask__muted">Your alerts</strong>
+      <div class="ask__alert" *ngFor="let a of alerts" [class.ask__alert--on]="a.isTriggered">
+        <span class="ask__history-title">{{ a.question }}</span>
+        <span class="ask__history-meta">{{ a.sourceName }} · {{ alertRule(a) }}<ng-container *ngIf="a.lastCheckedAt"> · checked {{ a.lastCheckedAt | date:'d MMM, HH:mm' }}</ng-container></span>
+        <span class="ask__history-meta" *ngIf="a.lastMessage">{{ a.isTriggered ? '⚠ ' : '' }}{{ a.lastMessage }}</span>
+        <span class="ask__proposal-actions">
+          <button type="button" class="ask__link" (click)="checkAlert(a)">Check now</button>
+          <button type="button" class="ask__link ask__link--muted" (click)="deleteAlert(a)">Delete</button>
+        </span>
+      </div>
+      <strong class="ask__muted">Questions</strong>
+    </ng-container>
+    <p class="ask__muted" *ngIf="!conversations.length">No earlier questions yet.</p>
+    <button type="button" class="ask__history-item" *ngFor="let c of conversations" (click)="openConversation(c)" [class.ask__history-item--active]="c.id === conversationId">
+      <span class="ask__history-title">{{ c.title }}</span>
+      <span class="ask__history-meta">{{ c.sourceName }} · {{ c.modifiedAt | date:'d MMM, HH:mm' }}</span>
+      <span class="ask__history-delete" role="button" title="Delete" (click)="deleteConversation(c, $event)">&times;</span>
+    </button>
+  </div>
+
+  <!-- Admin: business notes that ground the model for this dataset -->
+  <div class="ask__notes" *ngIf="showNotes">
+    <p class="ask__muted">Tell the AI what this data means. Notes are added to every question on <strong>{{ sourceName || 'this dataset' }}</strong>.</p>
+    <label class="ask__field">Dataset
+      <textarea rows="3" [(ngModel)]="datasetNote" name="datasetNote" placeholder="e.g. One row per order line. Amounts are in OMR excluding VAT."></textarea>
+    </label>
+    <div class="ask__field ask__note-row" *ngFor="let n of notes; let i = index">
+      <span class="ask__note-col" [title]="n.column">{{ n.column }}</span>
+      <input type="text" class="ask__note-name" [(ngModel)]="n.displayName" [name]="'shown' + i" maxlength="200" placeholder="Shown as (e.g. FLAF score)" title="What people call this column; used in table headers, the AI's prompt and answers" />
+      <input type="text" [(ngModel)]="n.note" [name]="'note' + i" placeholder="What this column means, units, code values…" />
+    </div>
+    <!-- Rules the model extracted from conversations; nothing reaches the notes until approved -->
+    <div class="ask__proposals" *ngIf="proposals.length">
+      <strong>Suggested by AI</strong>
+      <div class="ask__proposal" *ngFor="let p of proposals">
+        <div>
+          <span class="ask__proposal-col">{{ p.column || 'Dataset' }}</span> {{ p.note }}
+          <small class="ask__muted">{{ p.confidence }} confidence · from "{{ p.question }}"</small>
+        </div>
+        <span class="ask__proposal-actions">
+          <button type="button" class="ask__link" (click)="reviewProposal(p, 'approve')">Approve</button>
+          <button type="button" class="ask__link ask__link--muted" (click)="reviewProposal(p, 'reject')">Reject</button>
+        </span>
+      </div>
+    </div>
+
+    <!-- Learned examples: answered questions the AI reuses to guide later ones (liked or approved) -->
+    <div class="ask__proposals" *ngIf="learned.length">
+      <strong>Learned examples</strong>
+      <small class="ask__muted">Answered questions reused as examples. Liked by a user, or approved by the AI's review, are used; you can change that.</small>
+      <div class="ask__proposal" *ngFor="let e of learned">
+        <div>
+          {{ e.question }}
+          <small class="ask__muted"><span class="ask__ex-status" [class.ask__ex-status--used]="exampleUsed(e)">{{ e.status }}</span>{{ e.review ? ' · ' + e.review : '' }}</small>
+        </div>
+        <span class="ask__proposal-actions">
+          <button type="button" class="ask__link" *ngIf="!exampleUsed(e)" (click)="reviewExample(e, 'approved')">Use</button>
+          <button type="button" class="ask__link ask__link--muted" *ngIf="exampleUsed(e)" (click)="reviewExample(e, 'rejected')">Don't use</button>
+          <button type="button" class="ask__link ask__link--muted" (click)="reviewExample(e, 'delete')">Delete</button>
+        </span>
+      </div>
+    </div>
+
+    <div class="ask__add-col">
+      <input #newCol type="text" placeholder="Add a column…" (keydown.enter)="$event.preventDefault(); addNoteColumn(newCol.value); newCol.value = ''" />
+      <button type="button" class="btn btn-secondary" (click)="addNoteColumn(newCol.value); newCol.value = ''">Add</button>
+    </div>
+    <p class="ask__muted" *ngIf="notesMessage">{{ notesMessage }}</p>
+    <div class="ask__actions">
+      <button type="button" class="btn btn-primary" [disabled]="savingNotes" (click)="saveNotes()">{{ savingNotes ? 'Saving…' : 'Save notes' }}</button>
+      <button type="button" class="btn btn-secondary" (click)="showNotes = false">Close</button>
+    </div>
+
+    <!-- Admin: AI instructions that differ for this dataset; the tenant text (Settings → AI Features) is the default -->
+    <details class="ask__dataset-prompts" *ngIf="datasetPrompts.length">
+      <summary>AI instructions for this dataset <span class="ask__badge" *ngIf="hasDatasetPromptOverride">Custom</span></summary>
+      <p class="ask__muted">Only for <strong>{{ sourceName || 'this dataset' }}</strong>. Leave a box as it is to keep the tenant-wide text from Settings → AI Features.</p>
+      <label class="ask__field" *ngFor="let p of datasetPrompts"><span>{{ p.name }} <span class="ask__badge" *ngIf="p.isCustom">Custom</span></span>
+        <small class="ask__muted">{{ p.description }}</small>
+        <textarea rows="3" maxlength="4000" [(ngModel)]="promptDrafts[p.key]" [name]="'dsprompt-' + p.key" [placeholder]="p.defaultText || 'No extra rules'"></textarea>
+        <span class="ask__proposal-actions">
+          <button type="button" class="ask__link" [disabled]="savingPrompt !== null || promptDrafts[p.key] === p.text" (click)="saveDatasetPrompt(p)">{{ savingPrompt === p.key ? 'Saving…' : 'Save' }}</button>
+          <button type="button" class="ask__link ask__link--muted" *ngIf="p.isCustom" [disabled]="savingPrompt !== null" (click)="saveDatasetPrompt(p, true)">Use tenant text</button>
+          <small class="ask__muted" *ngIf="promptMessage[p.key] as m">{{ m }}</small>
+        </span>
+      </label>
+    </details>
+
+    <!-- Metrics library: named measures the AI must use when a question names them -->
+    <div class="ask__metrics">
+      <strong>Metrics</strong>
+      <small class="ask__muted">Trusted definitions, e.g. "Net revenue" = sum of Revenue. When a question names a metric the AI uses exactly this measure.</small>
+      <div class="ask__metric" *ngFor="let m of metrics; let i = index">
+        <input type="text" [(ngModel)]="m.name" [name]="'mname' + i" placeholder="Name" aria-label="Metric name" />
+        <select [(ngModel)]="m.agg" [name]="'magg' + i" aria-label="Aggregation"><option *ngFor="let a of aggs" [value]="a">{{ a }}</option></select>
+        <select [(ngModel)]="m.column" [name]="'mcol' + i" [disabled]="m.agg === 'count'" aria-label="Column">
+          <option [ngValue]="null">—</option>
+          <option *ngFor="let c of pickColumns" [ngValue]="c">{{ c }}</option>
+          <option *ngIf="m.column && !pickColumns.includes(m.column)" [ngValue]="m.column">{{ m.column }}</option>
+        </select>
+        <input type="text" [(ngModel)]="m.description" [name]="'mdesc' + i" placeholder="Description (optional)" aria-label="Description" />
+        <button type="button" class="ask__remove" (click)="removeMetric(i)" aria-label="Remove metric">&times;</button>
+      </div>
+      <p class="ask__muted" *ngIf="metricsMessage">{{ metricsMessage }}</p>
+      <div class="ask__actions">
+        <button type="button" class="btn btn-secondary" (click)="addMetric()">Add metric</button>
+        <button type="button" class="btn btn-primary" [disabled]="savingMetrics" (click)="saveMetrics()">{{ savingMetrics ? 'Saving…' : 'Save metrics' }}</button>
+      </div>
+    </div>
+
+    <!-- Business terms: the business's own words and what they mean in this dataset -->
+    <div class="ask__metrics">
+      <strong>Business terms</strong>
+      <small class="ask__muted">Words people use and what they mean here, e.g. "producing wells" (also "producers") = Status P, or a meaning in words. The AI applies them exactly.</small>
+      <div class="ask__metric ask__term" *ngFor="let t of terms; let i = index">
+        <input type="text" [(ngModel)]="t.term" [name]="'tterm' + i" placeholder="Term" aria-label="Term" />
+        <input type="text" [(ngModel)]="t.synonyms" [name]="'tsyn' + i" placeholder="Also called (comma separated)" aria-label="Synonyms" />
+        <button type="button" class="ask__remove" (click)="removeTerm(i)" aria-label="Remove term">&times;</button>
+        <select [(ngModel)]="t.column" [name]="'tcol' + i" aria-label="Filter column">
+          <option [ngValue]="null">No filter</option>
+          <option *ngFor="let c of pickColumns" [ngValue]="c">{{ c }}</option>
+          <option *ngIf="t.column && !pickColumns.includes(t.column)" [ngValue]="t.column">{{ t.column }}</option>
+        </select>
+        <input type="text" [(ngModel)]="t.value" [name]="'tval' + i" [disabled]="!t.column" placeholder="= value" aria-label="Filter value" />
+        <input class="ask__term-meaning" type="text" [(ngModel)]="t.meaning" [name]="'tmean' + i" placeholder="Meaning (optional)" aria-label="Meaning" />
+      </div>
+      <p class="ask__muted" *ngIf="termsMessage">{{ termsMessage }}</p>
+      <div class="ask__actions">
+        <button type="button" class="btn btn-secondary" (click)="addTerm()">Add term</button>
+        <button type="button" class="btn btn-primary" [disabled]="savingTerms" (click)="saveTerms()">{{ savingTerms ? 'Saving…' : 'Save terms' }}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ask__body" #scroller *ngIf="!showHistory && !showNotes">
+    <p *ngIf="loadError" class="ask__error">{{ loadError }}</p>
+
+    <!-- Dataset picker, shown until the first question is sent -->
+    <label class="ask__dataset" *ngIf="pickingDataset">
+      Dataset
+      <select [(ngModel)]="selectedKey" name="dataset">
+        <option value="" disabled>Choose a view or imported file…</option>
+        <option *ngFor="let d of datasets" [value]="d.sourceType + ':' + d.sourceId">
+          {{ d.name }}<ng-container *ngIf="d.rowCount"> ({{ d.rowCount | number }} rows)</ng-container> — {{ d.sourceType === 'view' ? 'view' : 'import' }}
+        </option>
+      </select>
+      <small class="ask__muted">Ask things like "total sales by region", "top 5 wells by downtime" or "how many orders in March".</small>
+    </label>
+
+    <div class="ask__turn" *ngFor="let t of turns; trackBy: trackTurn">
+      <div class="ask__q">{{ t.question }}</div>
+
+      <div class="ask__a">
+        <p class="ask__status" *ngIf="t.status"><span class="ask__dot"></span>{{ t.status }}</p>
+        <p class="ask__error" *ngIf="t.error">{{ t.error }}</p>
+        <div class="ask__suggest" *ngIf="t.clarify as c">
+          <small>{{ c.question }}</small>
+          <button type="button" class="ask__chip" *ngFor="let o of c.options" [disabled]="busy" (click)="pickOption(t, o)">{{ o.label }}</button>
+        </div>
+        <div class="ask__suggest" *ngIf="t.suggestions?.length && !t.status">
+          <small class="ask__muted">{{ t.error ? 'Try asking:' : 'Nothing matched. Try asking:' }}</small>
+          <button type="button" class="ask__chip" *ngFor="let s of t.suggestions" [disabled]="busy" (click)="askSuggestion(s)">{{ s }}</button>
+        </div>
+
+        <p class="ask__answer" *ngIf="t.answer">{{ t.answer }}</p>
+        <ul class="ask__insights" *ngIf="t.insights?.length" aria-label="Key findings">
+          <li *ngFor="let f of t.insights">{{ f }}</li>
+        </ul>
+
+        <div class="ask__result" *ngIf="t.result as r">
+          <table>
+            <thead><tr><th *ngFor="let c of r.columns" [title]="c">{{ label(c, r.labels) }}</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let row of r.rows.slice(0, 20)"><td *ngFor="let c of r.columns">{{ format(row[c], !!t.spec?.groupBy?.includes(c)) }}</td></tr>
+            </tbody>
+          </table>
+          <small class="ask__muted">
+            {{ r.rows.length | number }} of {{ r.totalRows | number }} result rows
+            <ng-container *ngIf="r.rows.length > 20"> (first 20 shown)</ng-container>
+            <ng-container *ngIf="r.sourceTruncated"> · computed on the first {{ r.sourceRows | number }} dataset rows</ng-container>
+          </small>
+        </div>
+
+        <div class="ask__actions" *ngIf="t.spec || t.trace">
+          <button type="button" class="ask__like" *ngIf="t.messageId && can('learning')" (click)="toggleLike(t)" [class.ask__like--on]="t.liked"
+            [title]="t.liked ? 'Remove from examples' : 'Good answer: keep as an example for this dataset'" aria-label="Good answer">
+            <svg width="16" height="16" viewBox="0 0 24 24" [attr.fill]="t.liked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.3a2 2 0 0 0 2-1.7l1.4-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+          </button>
+          <button type="button" class="ask__like" *ngIf="t.messageId && can('learning')" (click)="toggleDislike(t)" [class.ask__like--off]="t.disliked"
+            [title]="t.disliked ? 'Remove rating' : 'Wrong answer: never use it as an example'" aria-label="Wrong answer">
+            <svg width="16" height="16" viewBox="0 0 24 24" [attr.fill]="t.disliked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+          </button>
+          <button type="button" class="ask__link" *ngIf="t.spec" (click)="t.showQuery = !t.showQuery">{{ t.showQuery ? 'Hide query' : 'Show query' }}</button>
+          <button type="button" class="ask__link" *ngIf="can('trace') && (t.trace || t.messageId)" (click)="toggleTrace(t)">{{ t.showTrace ? 'Hide steps' : 'Show steps' }}</button>
+          <button type="button" class="ask__link" *ngIf="t.messageId && t.spec?.groupBy?.length && (t.result?.rows?.length || 0) >= 3" [disabled]="t.reportLoading" (click)="toggleReport(t)" title="Trend, anomalies and recommendations for this answer">{{ t.report ? 'Hide report' : t.reportLoading ? 'Building report…' : 'Insight report' }}</button>
+          <button type="button" class="ask__link" *ngIf="can('alerts') && t.messageId && t.spec" (click)="toggleAlertForm(t)">Alert me</button>
+          <button type="button" class="ask__link" *ngIf="t.chart && can('chart')" (click)="openInChartBuilder(t)"
+            [title]="t.spec?.filters?.length ? 'Filters are not carried over; add them in the builder' : ''">Open as {{ t.chart.chartType }} chart</button>
+          <button type="button" class="ask__link" *ngIf="t.chart && can('chart')" (click)="openAddToDashboard(t)">Add to dashboard</button>
+        </div>
+        <code class="ask__spec" *ngIf="t.spec && t.showQuery">{{ describe(t.spec) }}</code>
+
+        <!-- Insight report: trend, findings and anomalies checked in code; recommendations from the AI -->
+        <small class="ask__muted" *ngIf="t.reportError">{{ t.reportError }}</small>
+        <div class="ask__report" *ngIf="t.report as r" aria-label="Insight report">
+          <small class="ask__muted">Insight report · {{ r.sourceName }} · {{ r.totalRows }} groups, checked just now</small>
+          <ng-container *ngIf="r.trend.length"><strong>Trend</strong><ul class="ask__insights"><li *ngFor="let f of r.trend">{{ f }}</li></ul></ng-container>
+          <ng-container *ngIf="r.findings.length"><strong>Findings</strong><ul class="ask__insights"><li *ngFor="let f of r.findings">{{ f }}</li></ul></ng-container>
+          <strong>Anomalies</strong>
+          <ul class="ask__insights" *ngIf="r.anomalies.length; else noAnomaly"><li *ngFor="let f of r.anomalies">{{ f }}</li></ul>
+          <ng-template #noAnomaly><small class="ask__muted">Nothing unusual found.</small></ng-template>
+          <strong>Recommendations</strong>
+          <ul class="ask__insights" *ngIf="r.recommendations.length; else noRec"><li *ngFor="let f of r.recommendations">{{ f }}</li></ul>
+          <ng-template #noRec><small class="ask__muted">Nothing stands out enough to recommend a check.</small></ng-template>
+        </div>
+
+        <!-- Alert me: watch this answer and be notified when it crosses a limit or looks unusual -->
+        <div class="ask__add" *ngIf="t.alertForm as f">
+          <label class="ask__field">Notify me when the answer
+            <select [(ngModel)]="f.kind" name="alertKind">
+              <option *ngFor="let k of alertKinds" [value]="k.value">{{ k.label }}</option>
+            </select>
+          </label>
+          <label class="ask__field" *ngIf="f.kind !== 'unusual'">{{ f.kind === 'change' ? 'Percent' : 'Limit' }}
+            <input type="number" [(ngModel)]="f.threshold" name="alertLimit" [min]="f.kind === 'change' ? 0 : null" />
+          </label>
+          <small class="ask__muted" *ngIf="f.kind === 'change'">A single number is compared with the previous check; grouped answers cannot be watched this way.</small>
+          <small class="ask__muted" *ngIf="f.kind === 'unusual'">A single number is compared with its own past checks (after 5 checks); grouped answers flag groups far from the others.</small>
+          <label class="ask__field">Check
+            <select [(ngModel)]="f.everyHours" name="alertEvery">
+              <option *ngFor="let e of alertEvery" [ngValue]="e.hours">{{ e.label }}</option>
+            </select>
+          </label>
+          <label class="ask__field">Also e-mail
+            <input type="text" [(ngModel)]="f.notifyEmails" name="alertEmails" placeholder="name@company.com, other@company.com" />
+          </label>
+          <small class="ask__muted">You get a notification (and the e-mail, if any) when it starts. The query runs again without the AI.</small>
+          <span class="ask__proposal-actions">
+            <button type="button" class="ask__link" [disabled]="f.saving || (f.kind !== 'unusual' && f.threshold === null)" (click)="createAlert(t)">{{ f.saving ? 'Saving and checking…' : 'Save alert' }}</button>
+            <button type="button" class="ask__link ask__link--muted" (click)="toggleAlertForm(t)">Cancel</button>
+          </span>
+        </div>
+        <small class="ask__muted" *ngIf="t.alertMessage">{{ t.alertMessage }}</small>
+
+        <!-- Prompt trace: each step with its time; AI steps open to show the exact prompt and reply -->
+        <div class="ask__trace" *ngIf="t.showTrace && t.trace">
+          <small class="ask__muted" *ngIf="!t.trace.length">No steps kept for this answer (traces are kept 30 days).</small>
+          <details *ngFor="let s of t.trace">
+            <summary><strong>{{ stepNames[s.step] || s.step }}</strong> · {{ s.ms | number }} ms<ng-container *ngIf="s.detail"> · {{ s.detail }}</ng-container></summary>
+            <ng-container *ngIf="s.prompt">
+              <div *ngFor="let m of s.prompt"><small class="ask__muted">{{ m.role }}</small><pre>{{ m.content }}</pre></div>
+              <small class="ask__muted">reply</small><pre>{{ s.reply }}</pre>
+            </ng-container>
+          </details>
+        </div>
+
+        <!-- Add to dashboard: saves a draft chart and opens the builder with it placed -->
+        <div class="ask__add" *ngIf="addTarget === t">
+          <label class="ask__field">Dashboard
+            <select [(ngModel)]="addDashboardId" name="addDashboard">
+              <option value="new">New dashboard</option>
+              <option *ngFor="let d of addDashboards" [ngValue]="d.dashboardId">{{ d.dashboardName }}</option>
+            </select>
+          </label>
+          <div class="ask__actions">
+            <button type="button" class="btn btn-primary" [disabled]="addBusy" (click)="confirmAddToDashboard()">{{ addBusy ? 'Saving…' : 'Add' }}</button>
+            <button type="button" class="btn btn-secondary" [disabled]="addBusy" (click)="addTarget = null">Cancel</button>
+          </div>
+          <p class="ask__error" *ngIf="addError">{{ addError }}</p>
+          <small class="ask__muted">Saves "{{ t.chart?.title }}" as a draft chart, then opens the Dashboard Builder with it placed. Save the dashboard there.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ask__footer" *ngIf="!showHistory && !showNotes">
+    <textarea [(ngModel)]="question" name="question" rows="2" [readonly]="busy"
+      [placeholder]="pickingDataset && !selectedKey ? 'Choose a dataset first' : 'Ask a question about this data…'"
+      (keydown.enter)="onEnter($event)"></textarea>
+    <button type="button" class="btn btn-primary" [disabled]="!canAsk" (click)="ask()">{{ busy ? 'Working…' : 'Ask' }}</button>
+  </footer>
+</aside>

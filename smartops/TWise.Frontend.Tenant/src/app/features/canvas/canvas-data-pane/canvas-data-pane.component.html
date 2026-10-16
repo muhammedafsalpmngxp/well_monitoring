@@ -1,0 +1,123 @@
+<section class="canvas-data" aria-labelledby="canvas-data-title">
+  <header class="canvas-data__header">
+    <h2 id="canvas-data-title" class="canvas-data__title">Data</h2>
+    <button type="button" class="canvas-data__collapse" aria-label="Collapse the Data pane" title="Collapse" (click)="collapse.emit()">
+      <app-icon name="chevron_right" aria-hidden="true"></app-icon>
+    </button>
+  </header>
+
+  <div class="canvas-data__body">
+    <div class="form-group canvas-data__dataset">
+      <label for="canvas-dataset">Data model</label>
+      <select id="canvas-dataset" #datasetSelect class="form-control" (change)="chooseDataset(datasetSelect)">
+        <option value="" [selected]="datasetId === null">Choose a data model</option>
+        <option *ngFor="let option of datasets" [value]="option.id" [selected]="option.id === datasetId">{{ option.name }}</option>
+      </select>
+      <p class="form-hint">Every chart, tile and table on this canvas uses this data model.</p>
+      <p *ngIf="!datasets.length" class="form-hint">No data models yet. Build one in Model Studio first.</p>
+    </div>
+
+    <app-loader *ngIf="loading" type="skeleton-table"></app-loader>
+
+    <ng-container *ngIf="dataset && !loading">
+      <input class="form-control canvas-data__search" type="search" placeholder="Search" aria-label="Search tables, fields and measures"
+        [(ngModel)]="search" (ngModelChange)="filter()" />
+
+      <details class="canvas-data__group" [open]="!!search.trim()">
+        <summary class="canvas-data__summary">
+          <span class="canvas-data__chevron" aria-hidden="true"></span>
+          <span class="canvas-data__group-name">Measures</span>
+          <span class="canvas-data__count">{{ measures.length }}</span>
+        </summary>
+        <ul class="canvas-data__list">
+          <ng-container *ngFor="let measure of measures">
+            <ng-container *ngTemplateOutlet="measureRow; context: { $implicit: measure }"></ng-container>
+          </ng-container>
+        </ul>
+        <p *ngIf="!measures.length" class="form-hint">{{ dataset.measures.length ? 'No measure matches "' + search + '".' : 'No measures yet.' }}</p>
+      </details>
+
+      <details *ngFor="let table of tables; trackBy: trackTable" class="canvas-data__group" [open]="!!search.trim()">
+        <summary class="canvas-data__summary">
+          <span class="canvas-data__chevron" aria-hidden="true"></span>
+          <app-icon name="database_view" aria-hidden="true"></app-icon>
+          <span class="canvas-data__group-name">{{ (table.source.caption || table.source.alias) }}</span>
+          <span class="canvas-data__count">{{ table.fields.length }}</span>
+        </summary>
+        <ul class="canvas-data__list">
+          <li *ngFor="let field of table.fields" class="canvas-data__row" draggable="true"
+            [class.canvas-data__row--hidden]="isHidden(fieldKey(table, field))"
+            (contextmenu)="openMenu($event, { kind: 'field', name: fieldKey(table, field), fieldKind: field.kind }, label(fieldKey(table, field), field.name), { source: table.source })"
+            (dragstart)="startDrag($event, { kind: 'field', name: fieldKey(table, field), fieldKind: field.kind })" (dragend)="dragEnded.emit()">
+            <span class="canvas-data__glyph" [title]="field.calculated ? 'Calculated column' : kindLabel[field.kind]" aria-hidden="true">
+              <ng-container *ngIf="field.calculated; else kindGlyph">fx</ng-container>
+              <ng-template #kindGlyph><app-icon *ngIf="field.kind === 'date'" name="calendar"></app-icon>{{ field.kind === 'number' ? '#' : field.kind === 'text' ? 'Aa' : '' }}</ng-template>
+            </span>
+            <input *ngIf="renaming === fieldKey(table, field); else fieldEntry" class="form-control canvas-data__rename" maxlength="100"
+              [attr.aria-label]="'Name of ' + field.name + ' on this canvas'" [(ngModel)]="renameValue"
+              (keydown.enter)="finishRename()" (keydown.escape)="cancelRename()" (blur)="finishRename()" (click)="$event.stopPropagation()" />
+            <ng-template #fieldEntry>
+              <button type="button" class="canvas-data__entry" [title]="fieldNames[fieldKey(table, field)] ? field.name + ' in the data model' : ''"
+                [attr.aria-label]="'Add ' + label(fieldKey(table, field), field.name) + (field.calculated ? ', a calculated column,' : '') + ' to the selected object. Context menu for more.'"
+                (click)="picked.emit({ kind: 'field', name: fieldKey(table, field), fieldKind: field.kind })">{{ label(fieldKey(table, field), field.name) }}</button>
+            </ng-template>
+          </li>
+          <ng-container *ngFor="let group of table.measures">
+            <li *ngIf="group.folder" class="canvas-data__folder"><app-icon name="folder" aria-hidden="true"></app-icon>{{ group.folder }}</li>
+            <ng-container *ngFor="let measure of group.measures">
+              <ng-container *ngTemplateOutlet="measureRow; context: { $implicit: measure }"></ng-container>
+            </ng-container>
+          </ng-container>
+        </ul>
+        <button *ngIf="canChangeModel" type="button" class="canvas-data__add-column" (click)="newColumn.emit(table.source)">
+          New column in {{ (table.source.caption || table.source.alias) }}
+        </button>
+      </details>
+      <p *ngIf="!tables.length" class="form-hint">
+        {{ dataset.sources.length ? 'No table or field matches "' + search + '".' : 'This data model has no tables yet. Add them in Model Studio.' }}
+      </p>
+      <button *ngIf="hiddenFields.length" type="button" class="canvas-data__add-column canvas-data__show-hidden" (click)="toggleShowHidden()">
+        {{ showHidden ? 'Leave out hidden entries' : 'Show ' + hiddenFields.length + ' hidden on this canvas' }}
+      </button>
+    </ng-container>
+  </div>
+</section>
+
+<ng-template #measureRow let-measure>
+  <li class="canvas-data__row" draggable="true" [class.canvas-data__row--hidden]="isHidden(measure.name)"
+    (contextmenu)="openMenu($event, { kind: 'measure', name: measure.name }, label(measure.name, measure.name), { measure })"
+    (dragstart)="startDrag($event, { kind: 'measure', name: measure.name })" (dragend)="dragEnded.emit()">
+    <span class="canvas-data__glyph canvas-data__glyph--measure" [class.canvas-data__glyph--multi]="isMultiTable(measure)"
+      [attr.title]="isMultiTable(measure) ? 'Uses more than one table' : null" aria-hidden="true">&Sigma;</span>
+    <input *ngIf="renaming === measure.name; else measureEntry" class="form-control canvas-data__rename" maxlength="100"
+      [attr.aria-label]="'Name of ' + measure.name + ' on this canvas'" [(ngModel)]="renameValue"
+      (keydown.enter)="finishRename()" (keydown.escape)="cancelRename()" (blur)="finishRename()" (click)="$event.stopPropagation()" />
+    <ng-template #measureEntry>
+      <button type="button" class="canvas-data__entry canvas-data__entry--measure" [title]="fieldNames[measure.name] ? measure.name + ' in the data model' : ''"
+        [attr.aria-label]="'Add ' + label(measure.name, measure.name) + ' to the selected object. Context menu for more.'"
+        (click)="picked.emit({ kind: 'measure', name: measure.name })">{{ label(measure.name, measure.name) }}</button>
+    </ng-template>
+    <button *ngIf="canChangeModel" type="button" class="canvas-data__edit" [attr.aria-label]="'Edit measure ' + measure.name"
+      (click)="editMeasure.emit(measure)">Edit</button>
+  </li>
+</ng-template>
+
+<div *ngIf="menu" class="canvas-data__menu" role="menu" [attr.aria-label]="menu.label" [style.left.px]="menu.x" [style.top.px]="menu.y"
+  (click)="$event.stopPropagation()">
+  <p class="canvas-data__menu-title">{{ menu.label }}</p>
+  <button type="button" role="menuitem" class="canvas-data__menu-item" [disabled]="!hasSelection" (click)="menuAdd()">Add to the selected visual</button>
+  <ng-container *ngIf="menu.drag.kind === 'field'">
+    <button type="button" role="menuitem" class="canvas-data__menu-item" [disabled]="!hasSelection" (click)="menuFilter('visual')">Add to filters on this visual</button>
+    <button type="button" role="menuitem" class="canvas-data__menu-item" (click)="menuFilter('page')">Add to filters on this page</button>
+    <button type="button" role="menuitem" class="canvas-data__menu-item" (click)="menuFilter('canvas')">Add to filters on all pages</button>
+  </ng-container>
+  <span class="canvas-data__menu-sep" aria-hidden="true"></span>
+  <button type="button" role="menuitem" class="canvas-data__menu-item" (click)="menuRename()">Rename on this canvas</button>
+  <button type="button" role="menuitem" class="canvas-data__menu-item" (click)="menuHide()">{{ menu.hidden ? 'Show on this canvas' : 'Hide on this canvas' }}</button>
+  <ng-container *ngIf="canChangeModel">
+    <span class="canvas-data__menu-sep" aria-hidden="true"></span>
+    <button *ngIf="menu.measure" type="button" role="menuitem" class="canvas-data__menu-item" (click)="menuEditMeasure()">Edit measure</button>
+    <button *ngIf="menu.source" type="button" role="menuitem" class="canvas-data__menu-item" (click)="menuNewColumn()">New column in {{ (menu.source.caption || menu.source.alias) }}</button>
+  </ng-container>
+  <p class="canvas-data__menu-note">Names and hiding apply to this canvas only; the data model does not change.</p>
+</div>

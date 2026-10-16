@@ -1,0 +1,241 @@
+<div class="jp2">
+
+  <!-- ══ Header ════════════════════════════════════════════════════════════════ -->
+  <!-- <div class="jp2__header">
+    <div class="jp2__header-left">
+      <h2 class="jp2__title">Weekly Plan vs Actual Execution Dashboard</h2>
+      <p class="jp2__sub">Real-time overview of job progress, plan vs actual performance and schedule status</p>
+    </div>
+    <div class="jp2__header-actions">
+      <button class="jp2__btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Week 5 (25 May – 31 May 2025)</span>
+        <svg class="jp2__btn-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <button class="jp2__btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        <span>Filters</span>
+        <svg class="jp2__btn-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+  </div> -->
+
+  <!-- ══ KPI Row (5 cards) ═════════════════════════════════════════════════════ -->
+  <div class="jp2__kpi-row">
+
+    <!-- 1 · Overall Progress (Actual) -->
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Overall Progress (Actual)</span>
+        <span class="jp2__kpi-icon jp2__kpi-icon--blue" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </span>
+      </div>
+      <div class="jp2__kpi-val jp2__kpi-val--blue">{{ overallProgress }}%</div>
+      <div class="jp2__kpi-sub jp2__kpi-sub--red">vs Plan {{ overallVsPlan }}%</div>
+    </div>
+
+    <!-- 2 · Total Jobs -->
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Total Jobs</span>
+        <span class="jp2__kpi-icon jp2__kpi-icon--blue" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+        </span>
+      </div>
+      <div class="jp2__kpi-val jp2__kpi-val--blue">{{ totalJobs }}</div>
+      <div class="jp2__kpi-sub">Active Jobs</div>
+    </div>
+
+    <!-- 3 · Delayed Jobs -->
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Delayed Jobs</span>
+        <span class="jp2__kpi-icon jp2__kpi-icon--red" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
+      </div>
+      <div class="jp2__kpi-val jp2__kpi-val--red">{{ delayedJobs }}</div>
+      <div class="jp2__kpi-sub">{{ delayedJobsPct }}% of Total</div>
+    </div>
+
+    <!-- 4 · Revenue Achievement -->
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Revenue Achievement</span>
+        <span class="jp2__kpi-icon jp2__kpi-icon--purple" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </span>
+      </div>
+      <div class="jp2__kpi-val jp2__kpi-val--purple">{{ revenueAchieved }}</div>
+      <div class="jp2__kpi-sub">of {{ revenuePlanned }} ({{ revenuePct }}%)</div>
+    </div>
+
+    <!-- 5 · Upcoming Target Ends -->
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Upcoming Target Ends</span>
+        <span class="jp2__kpi-icon jp2__kpi-icon--green" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+      </div>
+      <div class="jp2__kpi-val jp2__kpi-val--green">{{ upcomingEnds }}</div>
+      <div class="jp2__kpi-sub">Next 30 Days</div>
+    </div>
+
+  </div>
+
+  <!-- ══ Row 1: Weekly Trend + S-Curve ══════════════════════════════════════ -->
+  <div class="jp2__row jp2__row--2col">
+
+    <!-- 1. Weekly Plan vs Actual Progress -->
+    <div class="jp2__card">
+      <div class="jp2__card-head">
+        <h3 class="card-title">Weekly Plan vs Actual Progress</h3>
+      </div>
+      <div class="jp2__chart-wrap">
+        <canvas #weeklyTrendChart></canvas>
+      </div>
+    </div>
+
+    <!-- 2. Cumulative Progress (S-Curve) -->
+    <div class="jp2__card">
+      <div class="jp2__card-head">
+        <h3 class="card-title">Cumulative Progress (S-Curve)</h3>
+      </div>
+      <div class="jp2__chart-wrap">
+        <canvas #sCurveChart></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ Row 2: Category + Revenue (equal width) ═════════════════════════════ -->
+  <div class="jp2__row jp2__row--2col">
+
+    <!-- 3. Progress by Category (Cumulative) -->
+    <div class="jp2__card">
+      <div class="jp2__card-head">
+        <h3 class="card-title">Progress by Category (Cumulative)</h3>
+      </div>
+      <div class="jp2__cat-legend">
+        <span><span class="jp2__leg-dot" style="background:#29378d"></span>Plan %</span>
+        <span><span class="jp2__leg-dot" style="background:#00B050"></span>Actual %</span>
+      </div>
+      <div class="jp2__cat-list">
+        <div class="jp2__cat-item" *ngFor="let c of categoryBars">
+          <span class="jp2__cat-label">{{ c.name }}</span>
+          <div class="jp2__cat-bars">
+            <div class="jp2__cat-track">
+              <div class="jp2__cat-fill jp2__cat-fill--plan"
+                   [style.width.%]="(c.plan / catAxisMax) * 100"></div>
+            </div>
+            <div class="jp2__cat-track">
+              <div class="jp2__cat-fill jp2__cat-fill--actual"
+                   [style.width.%]="(c.actual / catAxisMax) * 100"></div>
+            </div>
+          </div>
+          <span class="jp2__cat-pct">{{ c.actual }}%</span>
+        </div>
+      </div>
+      <div class="jp2__cat-axis-row">
+        <div class="jp2__cat-axis-spacer"></div>
+        <div class="jp2__cat-axis-ticks">
+          <span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span>
+        </div>
+        <div class="jp2__cat-axis-end"></div>
+      </div>
+    </div>
+
+    <!-- 4. Revenue vs Physical Progress -->
+    <div class="jp2__card">
+      <div class="jp2__card-head">
+        <h3 class="card-title">Revenue vs Physical Progress</h3>
+      </div>
+      <div class="jp2__chart-wrap">
+        <canvas #revPhysChart></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ Row 3: Top Delayed 10 Jobs (full width) ══════════════════════════════ -->
+  <div class="jp2__card">
+    <div class="jp2__card-head">
+      <h3 class="card-title">Top Delayed 10 Jobs </h3>
+    </div>
+    <div id="jp2DelayedGrid" class="ag-theme-alpine jp2__grid"></div>
+  </div>
+
+  <!-- ══ Row 3: Target Finish Timeline ══════════════════════════════════════ -->
+  <div class="jp2__card">
+    <div class="jp2__card-head">
+      <h3 class="card-title">Target Finish Timeline </h3>
+    </div>
+    <div class="jp2__gantt-wrap">
+
+      <!-- Fixed left columns -->
+      <div class="jp2__gantt-left">
+        <div class="jp2__gantt-col-head">
+          <span class="jp2__gcol jp2__gcol--well">Well ID</span>
+          <span class="jp2__gcol jp2__gcol--cat">Category</span>
+          <span class="jp2__gcol jp2__gcol--prog">Progress %</span>
+        </div>
+        <div class="jp2__gantt-rows-left">
+          <div class="jp2__gantt-row-left" *ngFor="let r of ganttRows">
+            <span class="jp2__gcol jp2__gcol--well">{{ r.wellId }}</span>
+            <span class="jp2__gcol jp2__gcol--cat">{{ r.category }}</span>
+            <span class="jp2__gcol jp2__gcol--prog">{{ r.progress }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scrollable right timeline -->
+      <div class="jp2__gantt-right">
+
+        <!-- Month headers -->
+        <div class="jp2__gantt-months">
+          <div class="jp2__gantt-month" *ngFor="let m of ganttTicks"
+               [style.flex]="m.days.length">
+            {{ m.month }}
+          </div>
+        </div>
+
+        <!-- Day ticks -->
+        <div class="jp2__gantt-ticks">
+          <ng-container *ngFor="let m of ganttTicks">
+            <span class="jp2__gantt-tick" *ngFor="let d of m.days">{{ d }}</span>
+          </ng-container>
+        </div>
+
+        <!-- Bar rows -->
+        <div class="jp2__gantt-bar-rows">
+          <div class="jp2__gantt-bar-row" *ngFor="let r of ganttRows">
+            <div *ngIf="r.type === 'overdue' && r.barPct === 0" class="jp2__gantt-overdue-badge">Overdue</div>
+            <div *ngIf="r.barPct > 0"
+                 class="jp2__gantt-bar"
+                 [ngClass]="'jp2__gantt-bar--' + r.type"
+                 [style.width.%]="r.barPct">
+              <span class="jp2__gantt-bar-lbl">{{ r.label }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="jp2__gantt-legend">
+      <span class="jp2__gantt-leg"><span class="jp2__gantt-leg-dot jp2__gantt-leg-dot--overdue"></span>Overdue</span>
+      <span class="jp2__gantt-leg"><span class="jp2__gantt-leg-dot jp2__gantt-leg-dot--within30"></span>Due within 30 days</span>
+      <span class="jp2__gantt-leg"><span class="jp2__gantt-leg-dot jp2__gantt-leg-dot--within60"></span>Due in 31–60 days</span>
+      <span class="jp2__gantt-leg"><span class="jp2__gantt-leg-dot jp2__gantt-leg-dot--after60"></span>Due after 60 days</span>
+    </div>
+  </div>
+
+  <!-- ══ Footnote ════════════════════════════════════════════════════════════ -->
+  <!-- <div class="jp2__footnote">
+    Note: All percentages are weighted by Purpose Value (Revenue).
+  </div> -->
+
+</div>

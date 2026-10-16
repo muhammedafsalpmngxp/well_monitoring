@@ -1,0 +1,107 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "support-triage",
+    "description": "Production-shaped triage pipeline",
+    "created_at": "2026-09-22T11:08:33.272Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": true,
+    "state_channels": [
+      {
+        "name": "category",
+        "type": "str",
+        "reducer": "last",
+        "description": "Triage result"
+      }
+    ],
+    "routers": [],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "triage",
+        "role": "a triage agent",
+        "goal": "Classify the request",
+        "backstory": "",
+        "tools": [],
+        "output_schema": "triage_result",
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "category"
+      },
+      {
+        "name": "resolver",
+        "role": "a resolution agent",
+        "goal": "Resolve the issue, looking up the customer's order when it is relevant",
+        "backstory": "",
+        "tools": [
+          "lookup_order"
+        ],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [],
+    "tools": [
+      {
+        "name": "lookup_order",
+        "description": "Look up a customer order by id (format ORD-12345).",
+        "parameters": [
+          {
+            "name": "order_id",
+            "type": "str",
+            "description": "Order id"
+          }
+        ],
+        "return_type": "str",
+        "implementation": "if not order_id.startswith(\"ORD-\"):\n    return f\"Error: {order_id!r} is not a valid order id.\"\nreturn f\"Order {order_id}: shipped, arriving Tuesday.\""
+      }
+    ],
+    "output_schemas": [
+      {
+        "name": "triage_result",
+        "description": "Structured triage decision",
+        "fields": [
+          {
+            "name": "category",
+            "type": "str",
+            "description": "billing, technical, or other"
+          },
+          {
+            "name": "urgency",
+            "type": "str",
+            "description": "low, medium, or high"
+          }
+        ]
+      }
+    ],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

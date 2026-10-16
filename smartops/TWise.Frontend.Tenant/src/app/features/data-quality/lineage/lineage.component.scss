@@ -1,0 +1,144 @@
+$kinds: (
+  source: #7c3aed,
+  db: #0e7490,
+  import: #1e7d3a,
+  view: #21409a,
+  table: #64748b,
+  chart: #d97706,
+  dashboard: #b91c1c,
+  report: #be185d,
+);
+
+.lg-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--font-family-base);
+  input, button { font-family: inherit; }
+}
+
+.lg-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.lg-search {
+  flex: 0 1 360px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #dfe6e9;
+  border-radius: 8px;
+  font-size: 13px;
+  &:focus { outline: none; border-color: var(--color-primary, #21409a); }
+}
+
+.lg-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #475467;
+  &__item { display: inline-flex; align-items: center; gap: 5px; text-transform: capitalize; }
+}
+
+.lg-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  @each $kind, $color in $kinds { &--#{$kind} { background: $color; } }
+}
+
+.lg-clear {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #dfe6e9;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.lg-error { padding: 10px 14px; border-radius: 8px; background: #fdecea; color: #b3261e; font-size: 13px; }
+.lg-empty { padding: 40px; text-align: center; color: #667085; font-size: 14px; }
+
+.lg-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 14px;
+  align-items: start;
+}
+
+.lg-canvas {
+  overflow: auto;
+  border: 1px solid #dfe6e9;
+  border-radius: 12px;
+  background: #fff;
+  max-height: calc(100vh - 230px);
+  svg { display: block; }
+}
+
+.lg-layer-title { font-size: 12px; font-weight: 600; fill: #667085; text-transform: uppercase; letter-spacing: .04em; }
+
+.lg-edge {
+  fill: none;
+  stroke: #cbd5e1;
+  stroke-width: 1.5;
+  transition: opacity .15s;
+  &--active { stroke: #21409a; stroke-width: 2; }
+  &--dim { opacity: .18; }
+}
+
+.lg-node {
+  cursor: pointer;
+  transition: opacity .15s;
+  rect:first-child { fill: #fff; stroke: #dfe6e9; stroke-width: 1; }
+  &:hover rect:first-child { stroke: #98a2b3; }
+  &--selected rect:first-child { stroke: #21409a; stroke-width: 2; }
+  &--dim { opacity: .22; }
+  &__label { font-size: 13px; font-weight: 600; fill: #101828; }
+  &__sub { font-size: 11px; fill: #667085; }
+  @each $kind, $color in $kinds { &--#{$kind} .lg-node__stripe { fill: $color; } }
+}
+
+.lg-panel {
+  padding: 16px;
+  border: 1px solid #dfe6e9;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 13px;
+
+  h3 { margin: 6px 0 2px; font-size: 16px; color: #101828; word-break: break-word; }
+  h4 {
+    margin: 16px 0 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #475467;
+    span { margin-left: 6px; color: #98a2b3; font-weight: 500; }
+  }
+  &__kind { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #475467; text-transform: capitalize; }
+  &__sub { margin: 0; color: #667085; }
+  &__none { margin: 0; color: #98a2b3; }
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    text-align: left;
+    font-size: 13px;
+    color: #344054;
+    cursor: pointer;
+    &:hover { background: #f5f8ff; }
+  }
+}
+
+@media (max-width: 900px) {
+  .lg-body { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <!-- DashboardQueryHandlerTests.cs was written against global usings and imports none of
+       Xunit, Moq or FluentAssertions itself, so they are declared here rather than edited
+       into the test. FluentAssertions is pinned to 6.12.x to match the other test projects
+       in this solution. -->
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Moq" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentAssertions" Version="6.12.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Moq" Version="4.20.72" />
+  </ItemGroup>
+  <!-- The text of a saved View Builder view (id 10117 on QA), read by ScriptSourceTests. -->
+  <ItemGroup>
+    <None Include="Features\Model\Data\*.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TWise.Tenant.Application\TWise.Tenant.Application.csproj" />
+    <ProjectReference Include="..\..\src\TWise.Tenant.Infrastructure\TWise.Tenant.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\TWise.Tenant.API\TWise.Tenant.API.csproj" />
+  </ItemGroup>
+</Project>

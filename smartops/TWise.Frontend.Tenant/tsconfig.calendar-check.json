@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.spec.json",
+  "files": ["src/app/features/dashboard/activity-breakdown/activity-breakdown.component.spec.ts"],
+  "include": ["src/**/*.d.ts"]
+}

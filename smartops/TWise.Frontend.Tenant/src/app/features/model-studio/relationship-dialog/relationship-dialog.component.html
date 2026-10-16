@@ -1,0 +1,91 @@
+<div class="relationship" role="presentation" (click)="cancelled.emit()">
+  <aside appDialog class="relationship__panel" role="dialog" aria-modal="true" aria-labelledby="relationship-dialog-title" (click)="$event.stopPropagation()"
+    (keydown.escape)="cancelled.emit()">
+    <header class="relationship__header">
+      <div>
+        <h2 id="relationship-dialog-title" class="relationship__title">{{ title }}</h2>
+        <p class="relationship__lead">Choose the two tables, then click the column that matches in each.</p>
+      </div>
+      <button type="button" class="relationship__close" aria-label="Close without saving" (click)="cancelled.emit()">
+        <app-icon name="close" aria-hidden="true"></app-icon>
+      </button>
+    </header>
+
+    <div class="relationship__body">
+      <ng-container *ngTemplateOutlet="end; context: { side: 'from', label: 'From table' }"></ng-container>
+      <div class="relationship__swap">
+        <button type="button" class="relationship__swap-button" (click)="swap()" title="Swap the tables">Swap tables</button>
+      </div>
+      <ng-container *ngTemplateOutlet="end; context: { side: 'to', label: 'To table' }"></ng-container>
+
+      <div class="relationship__row">
+        <div class="form-group">
+          <label for="relationship-cardinality">Cardinality</label>
+          <select id="relationship-cardinality" class="form-control" [(ngModel)]="shape">
+            <option value="many_to_one">Many to one (*:1)</option>
+            <option value="one_to_many">One to many (1:*)</option>
+            <option value="one_to_one">One to one (1:1)</option>
+            <option disabled>Many to many (*:*): add a bridge table</option>
+          </select>
+        </div>
+      </div>
+      <p class="relationship__explain">
+        <ng-container [ngSwitch]="shape">
+          <ng-container *ngSwitchCase="'many_to_one'">Each {{ (source(to.sourceId)?.caption || source(to.sourceId)?.alias) || 'To' }} row matches many {{ (source(from.sourceId)?.caption || source(from.sourceId)?.alias) || 'From' }} rows.</ng-container>
+          <ng-container *ngSwitchCase="'one_to_many'">Each {{ (source(from.sourceId)?.caption || source(from.sourceId)?.alias) || 'From' }} row matches many {{ (source(to.sourceId)?.caption || source(to.sourceId)?.alias) || 'To' }} rows.</ng-container>
+          <ng-container *ngSwitchDefault>Each row matches at most one row of the other table.</ng-container>
+        </ng-container>
+      </p>
+
+      <div *ngFor="let warning of problems.warnings" class="relationship__warning" role="alert">{{ warning }}</div>
+      <p *ngIf="serverError" class="relationship__error" role="alert">{{ serverError }}</p>
+    </div>
+
+    <footer class="relationship__footer">
+      <p *ngIf="problems.blocking.length" class="relationship__hint">{{ problems.blocking[0] }}</p>
+      <app-button variant="secondary" (clicked)="cancelled.emit()">Cancel</app-button>
+      <app-button variant="primary" [loading]="saving" [disabled]="problems.blocking.length > 0" (clicked)="submit()">Save</app-button>
+    </footer>
+  </aside>
+</div>
+
+<ng-template #end let-side="side" let-label="label">
+  <section class="relationship__end">
+    <label class="relationship__label" [attr.for]="'relationship-' + side">{{ label }}</label>
+    <select [id]="'relationship-' + side" class="form-control relationship__table" [value]="endOf(side).sourceId ?? ''"
+      (change)="chooseTable(side, $any($event.target).value)">
+      <option value="">Choose a table</option>
+      <option *ngFor="let source of dataset.sources" [value]="source.id" [selected]="endOf(side).sourceId === source.id">{{ source.caption || source.alias }}</option>
+    </select>
+    <ng-container *ngIf="preview(endOf(side).sourceId) as table">
+      <p *ngIf="table.state === 'loading'" class="relationship__hint">Reading the first rows...</p>
+      <p *ngIf="table.state === 'error'" class="relationship__hint">The rows of this table could not be read.</p>
+      <div *ngIf="table.state === 'ready'" class="relationship__grid" role="grid" [attr.aria-label]="'First rows of ' + (source(endOf(side).sourceId)?.caption || source(endOf(side).sourceId)?.alias)">
+        <table>
+          <thead>
+            <tr>
+              <th *ngFor="let column of table.columns" [class.relationship__chosen]="endOf(side).column === column">
+                <button type="button" [attr.aria-pressed]="endOf(side).column === column" (click)="chooseColumn(side, column)">{{ column }}</button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of table.rows">
+              <td appKeyClick *ngFor="let column of table.columns" [class.relationship__chosen]="endOf(side).column === column" (click)="chooseColumn(side, column)">
+                {{ row[column] ?? '' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+    <p *ngIf="endOf(side).column" class="relationship__picked">
+      Column: <b>{{ endOf(side).column }}</b>&nbsp;
+      <span [ngSwitch]="uniqueness[sideOf(side)]">
+        <span *ngSwitchCase="'checking'">(counting values...)</span>
+        <span *ngSwitchCase="'unique'" class="relationship__ok">one row per value</span>
+        <span *ngSwitchCase="'repeated'" class="relationship__warn">values repeat</span>
+      </span>
+    </p>
+  </section>
+</ng-template>

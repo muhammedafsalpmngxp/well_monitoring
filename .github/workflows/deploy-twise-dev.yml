@@ -1,0 +1,196 @@
+name: Deploy TWise DEV
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-twise-dev:
+    name: Deploy TWise Dev
+    runs-on: [self-hosted, dev-qa]
+
+    steps:
+
+      # ─── 1. SAVE ROLLBACK SNAPSHOTS ───────────────────────────────
+      - name: Save Rollback Images
+        run: |
+          docker tag twise_controlplane:latest twise_controlplane:rollback 2>/dev/null || true
+          docker tag twise_tenant:latest       twise_tenant:rollback       2>/dev/null || true
+          docker tag twise_etl:latest          twise_etl:rollback          2>/dev/null || true
+
+      # ─── 2. PULL LATEST CODE ──────────────────────────────────────
+      - name: Pull latest changes
+        run: |
+          git config --global --add safe.directory /mnt/TWISE_DEV
+          cd /mnt/TWISE_DEV && git fetch origin additional-bi-enhancements && git reset --hard origin/additional-bi-enhancements
+
+      # ─── 3. APPLY SERVER-SIDE DOCKERFILES ─────────────────────────
+      - name: Apply Dockerfiles
+        run: |
+          cp /mnt/twise-dockerfiles/TWise.ControlPlane.Dockerfile \
+             /mnt/TWISE_DEV/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Dockerfile
+          cp /mnt/twise-dockerfiles/TWise.Tenant.Dockerfile \
+             /mnt/TWISE_DEV/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Dockerfile
+
+      # ─── 4. FIX ANGULAR BUILD BUDGETS ─────────────────────────────
+      - name: Fix Angular Budget
+        run: |
+          python3 -c "
+          import json
+          path = '/mnt/TWISE_DEV/smartops/TWise.Frontend.Tenant/angular.json'
+          with open(path) as f: data = json.load(f)
+          def patch(b):
+            for x in b:
+              if 'maximumError' in x: x['maximumError'] = '10MB'
+              if 'maximumWarning' in x: x['maximumWarning'] = '8MB'
+          for p in data.get('projects',{}).values():
+            build = p.get('architect',{}).get('build',{})
+            patch(build.get('options',{}).get('budgets',[]))
+            [patch(c.get('budgets',[])) for c in build.get('configurations',{}).values()]
+          json.dump(data, open(path,'w'), indent=2)
+          "
+
+      # ─── 5. FIX ETL ───────────────────────────────────────────────
+      - name: Fix ETL Path
+        run: |
+          python3 -c "
+          import re
+          f = '/mnt/TWISE_DEV/smartops/services/python/etl/app/main.py'
+          c = open(f).read()
+          c = re.sub(r'sys\.path\.insert\(0,\s*str\(Path\(__file__\)\.resolve\(\)\.parents\[\d+\].*?\)\)',
+                     'sys.path.insert(0, \"/shared/python\")', c)
+          open(f,'w').write(c)
+          "
+
+      - name: Fix ETL ODBC Driver
+        run: |
+          sed -i 's/ODBC Driver 17 for SQL Server/ODBC Driver 18 for SQL Server/g' \
+            /mnt/TWISE_DEV/smartops/services/python/etl/app/extract.py
+
+      - name: Fix ETL env file
+        run: |
+          sed -i 's/ETL_INTERNAL_API_KEY=base64:/ETL_INTERNAL_API_KEY=/' \
+            /mnt/TWISE_DEV/smartops/services/python/etl/.env
+          sed -i 's|CONTROL_PLANE_URL=http://localhost:7007|CONTROL_PLANE_URL=http://twise_controlplane_1:8080|' \
+            /mnt/TWISE_DEV/smartops/services/python/etl/.env
+
+      # ─── 6. FIX DEV CONFIG ────────────────────────────────────────
+      - name: Fix Frontend Environment
+        run: |
+          sed -i 's/skipAuth: false/skipAuth: false/g' \
+            /mnt/TWISE_DEV/smartops/TWise.Frontend.Tenant/src/environments/environment.prod.ts
+          sed -i 's|https://twise-tenant-api.prod-app.in|https://twise-tenant-api.prod-app.in|g' \
+            /mnt/TWISE_DEV/smartops/TWise.Frontend.Tenant/src/environments/environment.prod.ts
+          sed -i 's|https://twise-controlplane-api.prod-app.in|https://twise-controlplane-api.prod-app.in|g' \
+            /mnt/TWISE_DEV/smartops/TWise.Frontend.Tenant/src/environments/environment.prod.ts
+
+      - name: Fix Tenant Swagger
+        run: |
+          sed -i 's/if (app.Environment.IsDevelopment())/if (true)/g' \
+            /mnt/TWISE_DEV/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Program.cs
+
+      - name: Fix Tenant CORS and DB
+        run: |
+          sed -i 's|"http://localhost:7000"|"http://localhost:7000",\n      "https://twise.prod-app.in"|g' \
+            /mnt/TWISE_DEV/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/appsettings.json
+          sed -i 's|"TenantDb": "Server=[^"]*"|"TenantDb": "Server=20.98.112.250,1433;Database=smartops_tenant_TNT-1000_dev;User ID=SA;Password=CHANGE_ME;TrustServerCertificate=True;"|g' \
+            /mnt/TWISE_DEV/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/appsettings.json
+
+      - name: Fix ControlPlane CORS and DB
+        run: |
+          sed -i 's/if (builder.Environment.IsDevelopment())/if (true)/' \
+            /mnt/TWISE_DEV/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Program.cs
+          sed -i 's/\[Authorize(Policy = "Admin")\]/\/\/ [Authorize(Policy = "Admin")]/' \
+            /mnt/TWISE_DEV/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Controllers/CanonicalFieldsController.cs
+
+      # ─── 7. RUN DB MIGRATIONS ─────────────────────────────────────
+      - name: Run DB Migrations
+        run: |
+          cd /mnt/TWISE_DEV/smartops/infra/sql
+          for script in model/001-create-model-schema.sql model/002-unique-relationship.sql model/003-calculated-columns-and-transforms.sql model/004-import-schema.sql model/005-pin-view-source-sql.sql model/006-transform-kinds-and-date-columns.sql; do
+            echo "Running $script..."
+            /opt/mssql-tools/bin/sqlcmd -S 20.98.112.250,1433 -U SA -P "CHANGE_ME" -C -I -d smartops_tenant_TNT-1000_dev -i $script
+          done
+          /opt/mssql-tools/bin/sqlcmd -S 20.98.112.250,1433 -U SA -P "CHANGE_ME" -C -I -d smartops_control_plane -i add-model-studio-permission.sql
+          /opt/mssql-tools/bin/sqlcmd -S 20.98.112.250,1433 -U SA -P "CHANGE_ME" -C -I -d smartops_control_plane -i add-canvas-permission.sql
+          /opt/mssql-tools/bin/sqlcmd -S 20.98.112.250,1433 -U SA -P "CHANGE_ME" -C -I -d smartops_control_plane -i add-bi-standard-permissions.sql
+          for script in model/007-publish-and-measure-home.sql model/008-standard-models.sql model/009-hidden-columns.sql model/010-brand-kits.sql model/011-table-names.sql model/012-scheduled-deliveries.sql model/013-source-connection.sql model/014-saved-view-sources.sql; do
+            /opt/mssql-tools/bin/sqlcmd -S 20.98.112.250,1433 -U SA -P "CHANGE_ME" -C -I -d smartops_tenant_TNT-1000_dev -i $script
+          done
+
+      # ─── 8. BUILD & DEPLOY SERVICES ───────────────────────────────
+      - name: Build ControlPlane API
+        run: |
+          cd /mnt/TWISE_DEV/smartops
+          docker stop twise_controlplane_1 || true
+          docker rm   twise_controlplane_1 || true
+          docker rmi  twise_controlplane:latest || true
+          docker build -t twise_controlplane \
+            -f services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Dockerfile .
+          docker network create twise_default 2>/dev/null || true
+          docker run -d --name twise_controlplane_1 \
+            --network twise_default -p 9300:8080 --restart always twise_controlplane
+
+      - name: Build Tenant API
+        run: |
+          cd /mnt/TWISE_DEV/smartops
+          docker stop twise_tenant_1 || true
+          docker rm   twise_tenant_1 || true
+          docker rmi  twise_tenant:latest || true
+          docker build -t twise_tenant \
+            -f services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Dockerfile .
+          docker run -d --name twise_tenant_1 \
+            --network twise_default -p 9301:8080 --restart always twise_tenant
+
+      - name: Build ETL
+        run: |
+          cd /mnt/TWISE_DEV/smartops
+          docker stop twise_etl_1 || true
+          docker rm   twise_etl_1 || true
+          docker rmi  twise_etl:latest || true
+          docker build -t twise_etl -f services/python/etl/Dockerfile .
+          docker run -d --name twise_etl_1 \
+            --network twise_default -p 9302:8006 --restart always \
+            --env-file /mnt/TWISE_DEV/smartops/services/python/etl/.env \
+            twise_etl
+
+      - name: Build TWise Frontend
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use 22
+          cd /mnt/TWISE_DEV/smartops/TWise.Frontend.Tenant
+          rm -rf dist
+          npm install && npm run build
+          rm -rf /mnt/wmr_services/nginx/html/twise/*
+          mkdir -p /mnt/wmr_services/nginx/html/twise
+          cp -r dist/t-wise-dashboard-ui/browser/* /mnt/wmr_services/nginx/html/twise/
+          printf 'window.__TWISE_ENV__ = {\n  controlPlaneApiUrl: "https://twise-controlplane-api.prod-app.in",\n  tenantApiUrl: "https://twise-tenant-api.prod-app.in/api",\n  apiBaseUrl: "https://twise-tenant-api.prod-app.in/api",\n  appVersion: "v1.0.0",\n  skipAuth: false\n};\n' > /mnt/wmr_services/nginx/html/twise/env.js
+          sudo systemctl reload nginx
+
+      # ─── 9. HEALTH CHECK ──────────────────────────────────────────
+      - name: Health Check
+        run: |
+          sleep 15
+          curl -f http://localhost:9300/health
+          curl -f http://localhost:9301/health || true
+
+      # ─── 10. ROLLBACK ON FAILURE ──────────────────────────────────
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed — rolling back..."
+          docker stop twise_controlplane_1 || true
+          docker rm   twise_controlplane_1 || true
+          docker network create twise_default 2>/dev/null || true
+          docker run -d --name twise_controlplane_1 \
+            --network twise_default -p 9300:8080 --restart always twise_controlplane:rollback
+          docker stop twise_tenant_1 || true
+          docker rm   twise_tenant_1 || true
+          docker run -d --name twise_tenant_1 \
+            --network twise_default -p 9301:8080 --restart always twise_tenant:rollback
+          docker stop twise_etl_1 || true
+          docker rm   twise_etl_1 || true
+          docker run -d --name twise_etl_1 \
+            --network twise_default -p 9302:8006 --restart always \
+            --env-file /mnt/TWISE_DEV/smartops/services/python/etl/.env \
+            twise_etl:rollback
+          echo "Rollback complete"

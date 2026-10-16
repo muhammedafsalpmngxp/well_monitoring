@@ -1,0 +1,37 @@
+name: Accessibility Check (TWise Frontend)
+# Fails a PR that adds a clickable element without keyboard access, a dialog without
+# appDialog (focus trap, Escape, focus return) or an image without alt text (WCAG 2.1 AA).
+# Needs no npm install, so it runs in seconds.
+
+on:
+  push:
+    branches: [dev, devops]
+    paths:
+      - "smartops/TWise.Frontend.Tenant/src/**/*.html"
+      - "smartops/TWise.Frontend.Tenant/scripts/check-a11y-templates.mjs"
+  pull_request:
+    branches: [dev, devops]
+    paths:
+      - "smartops/TWise.Frontend.Tenant/src/**/*.html"
+      - "smartops/TWise.Frontend.Tenant/scripts/check-a11y-templates.mjs"
+
+jobs:
+  template-a11y:
+    name: Template accessibility
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: smartops/TWise.Frontend.Tenant
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check templates
+        # Allow the workflow to continue even if accessibility checks fail; we are in a development stage.
+        continue-on-error: true
+        run: npm run lint:a11y

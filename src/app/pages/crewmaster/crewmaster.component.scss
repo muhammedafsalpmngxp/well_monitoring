@@ -1,0 +1,609 @@
+/* ════════════════════════════════════════════════
+   CREW MASTER
+   ════════════════════════════════════════════════ */
+
+#cmCrewGrid {
+  width: 100%;
+  height: 580px;
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.cm-summary-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1280px) {
+  .cm-summary-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .cm-summary-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.cm-sum-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 10px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.cm-sum-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.cm-sum-card.active {
+  border-color: var(--accent);
+  background: rgba(58, 111, 216, 0.04);
+}
+
+.cm-sum-card.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 10px 10px 0;
+  border-color: transparent var(--accent) transparent transparent;
+}
+
+.cm-sum-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cm-sum-label {
+  font-size: 8pt;
+  color: var(--txt-muted);
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  margin: 0;
+  line-height: 1.2;
+  flex: 1;
+}
+
+.cm-sum-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  svg { width: 14px; height: 14px; }
+}
+
+.cm-sum-val {
+  font-size: 20pt;
+  font-weight: 700;
+  line-height: 1;
+  font-family: var(--font-family-mono);
+  margin: 0 0 6px;
+}
+
+.cm-sum-bar {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  margin-top: auto;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.cm-sum-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.cm-sum-sub {
+  font-size: 9pt;
+  color: var(--txt-dim);
+  margin-top: 0;
+  line-height: 1.4;
+}
+
+.cm-sum-card .cm-sum-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  border-radius: 9px 9px 0 0;
+}
+
+.cm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.cm-search {
+  flex: 1;
+  min-width: 220px;
+  position: relative;
+}
+
+.cm-search input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  font-family: inherit;
+  font-size: 9pt;
+  color: var(--txt-1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border 0.15s;
+}
+
+.cm-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(58, 111, 216, 0.08);
+}
+
+.cm-search svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--txt-muted);
+}
+
+.cm-view-toggle {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.cm-view-btn {
+  padding: 6px 12px;
+  font-size: 9pt;
+  font-weight: 500;
+  color: var(--txt-muted);
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cm-view-btn:hover {
+  color: var(--txt-1);
+}
+
+.cm-view-btn.active {
+  background: #29378d;
+  color: #fff;
+  font-weight: 600;
+}
+
+.cm-view-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.cm-result-count {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  font-family: var(--font-family-mono);
+}
+
+/* Card grid view */
+.cm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.cm-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cm-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+}
+
+.cm-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cm-card-code {
+  font-family: var(--font-family-mono);
+  font-size: 10pt;
+  font-weight: 700;
+  color: var(--txt-1);
+  letter-spacing: 0.3px;
+}
+
+.cm-card-sno {
+  font-family: var(--font-family-mono);
+  font-size: 9pt;
+  color: var(--txt-muted);
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.cm-card-cat {
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #fff;
+  margin-bottom: 6px;
+  display: inline-block;
+}
+
+.cm-card-name {
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--txt-1);
+  line-height: 1.3;
+  margin-bottom: 3px;
+}
+
+.cm-card-disc {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  letter-spacing: 0.3px;
+  margin-bottom: 10px;
+}
+
+.cm-card-formation-label {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.cm-card-formation {
+  font-size: 9pt;
+  color: var(--txt-2);
+  line-height: 1.5;
+  margin-top: 4px;
+  font-family: var(--font-family-mono);
+}
+
+.cm-card-formation-empty {
+  font-size: 9pt;
+  color: var(--txt-muted);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* Table view */
+.cm-table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cm-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cm-table th {
+  padding: 10px 14px;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--txt-muted);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+
+.cm-table td {
+  padding: 10px 14px;
+  font-size: 9pt;
+  color: var(--txt-1);
+  border-bottom: 1px solid var(--border-2);
+  vertical-align: top;
+}
+
+.cm-table tr:last-child td {
+  border-bottom: none;
+}
+
+.cm-table tr:hover td {
+  background: rgba(58, 111, 216, 0.03);
+}
+
+.cm-table .t-sno {
+  font-family: var(--font-family-mono);
+  color: var(--txt-muted);
+  width: 40px;
+}
+
+.cm-table .t-code {
+  font-family: var(--font-family-mono);
+  font-weight: 600;
+  color: var(--txt-1);
+  width: 110px;
+}
+
+.cm-table .t-cat {
+  display: inline-block;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.cm-table .t-formation {
+  font-family: var(--font-family-mono);
+  font-size: 9pt;
+  color: var(--txt-2);
+  line-height: 1.5;
+}
+
+.cm-empty {
+  padding: 50px 20px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--txt-muted);
+}
+
+.cm-empty svg {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.cm-empty-title {
+  font-size: 11pt;
+  font-weight: 600;
+  color: var(--txt-2);
+  margin-bottom: 4px;
+}
+
+.cm-empty-sub {
+  font-size: 9pt;
+}
+
+/* ── Dark theme overrides ── */
+html:not(.navbar-light) #page-crewmaster {
+  --surface: #112448;
+  --surface-2: #172d54;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-2: rgba(255, 255, 255, 0.05);
+  --txt-1: #e8ecf5;
+  --txt-2: #c7cfe0;
+  --txt-dim: rgba(232, 236, 245, 0.6);
+  --txt-muted: rgba(232, 236, 245, 0.5);
+  --accent: #60a5fa;
+}
+
+html:not(.navbar-light) .page-scroll:has(#page-crewmaster.active) {
+  background: #0b1e38;
+}
+
+/* Summary cards – dark */
+html:not(.navbar-light) #page-crewmaster .cm-sum-card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-sum-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-sum-card.active {
+  background: rgba(96, 165, 250, 0.08);
+  border-color: var(--accent);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-sum-card.active::after {
+  border-color: transparent var(--accent) transparent transparent;
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-sum-bar {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Toolbar – dark */
+html:not(.navbar-light) #page-crewmaster .cm-search input {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--txt-1);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-search input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-view-toggle {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-view-btn {
+  color: var(--txt-muted);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-view-btn:hover {
+  color: var(--txt-1);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-view-btn.active {
+  background: #2a4a82;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Card grid – dark */
+html:not(.navbar-light) #page-crewmaster .cm-card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-card-sno {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--txt-muted);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-card-formation-label {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Table – dark */
+html:not(.navbar-light) #page-crewmaster .cm-table-wrap {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-table th {
+  background: var(--surface-2);
+  border-bottom-color: var(--border);
+  color: var(--txt-muted);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-table td {
+  color: var(--txt-1);
+  border-bottom-color: var(--border-2);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-table tr:hover td {
+  background: rgba(96, 165, 250, 0.06);
+}
+
+/* Empty state – dark */
+html:not(.navbar-light) #page-crewmaster .cm-empty {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* ── Light theme explicit ── */
+html.navbar-light #page-crewmaster {
+  --surface: #ffffff;
+  --surface-2: #f8f9fb;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-2: rgba(0, 0, 0, 0.06);
+  --txt-1: #1a1a2e;
+  --txt-2: #3a3a5c;
+  --txt-dim: rgba(60, 60, 80, 0.6);
+  --txt-muted: rgba(60, 60, 80, 0.5);
+  --accent: #29378d;
+}
+
+html.navbar-light .page-scroll:has(#page-crewmaster.active) {
+  background: #f5f5f7;
+}
+
+html.navbar-light #page-crewmaster .cm-sum-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+html.navbar-light #page-crewmaster .cm-sum-card.active {
+  background: rgba(41,55,141, 0.04);
+  border-color: var(--accent);
+}
+
+html.navbar-light #page-crewmaster .cm-sum-bar {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+html.navbar-light #page-crewmaster .cm-card-sno {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+html.navbar-light #page-crewmaster .cm-table th {
+  background: var(--surface-2);
+}
+
+html.navbar-light #page-crewmaster .cm-table tr:hover td {
+  background: rgba(41,55,141, 0.03);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-card-sno {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-card-formation-label {
+  border-top-color: var(--border);
+}
+
+html:not(.navbar-light) #page-crewmaster .cm-table tr:hover td {
+  background: rgba(96, 165, 250, 0.06);
+}
+
+html:not(.navbar-light) #page-crewmaster .page-title {
+  color: var(--txt-1);
+}
+
+html:not(.navbar-light) #page-crewmaster .breadcrumb a {
+  color: var(--txt-2);
+}
+
+html:not(.navbar-light) #page-crewmaster .breadcrumb .current {
+  color: var(--txt-1);
+}

@@ -1,0 +1,62 @@
+<!--
+    Azure API Management — global inbound policy template.
+
+    Drop this into Azure APIM as the global policy. It performs:
+      • CORS for the Angular SPA
+      • Validate Azure Entra ID JWT (replace tenantId / clientId placeholders)
+      • Rate limiting per subscription
+      • Strip Authorization on outbound to avoid leaking upstream tokens
+-->
+<policies>
+    <inbound>
+        <base />
+        <cors>
+            <allowed-origins>
+                <origin>https://wmrdemo.prod-app.in</origin>
+                <origin>http://localhost:4200</origin>
+            </allowed-origins>
+            <allowed-methods>
+                <method>GET</method>
+                <method>POST</method>
+                <method>PUT</method>
+                <method>PATCH</method>
+                <method>DELETE</method>
+                <method>OPTIONS</method>
+            </allowed-methods>
+            <allowed-headers>
+                <header>*</header>
+            </allowed-headers>
+        </cors>
+
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401"
+                      failed-validation-error-message="Invalid Entra token">
+            <openid-config url="https://login.microsoftonline.com/{tenantId}/v2.0/.well-known/openid-configuration" />
+            <audiences>
+                <audience>{api-audience}</audience>
+            </audiences>
+            <issuers>
+                <issuer>https://sts.windows.net/{tenantId}/</issuer>
+            </issuers>
+        </validate-jwt>
+
+        <rate-limit-by-key calls="600" renewal-period="60"
+                          counter-key="@(context.Subscription?.Id ?? context.Request.IpAddress)" />
+
+        <set-header name="X-Forwarded-Host" exists-action="override">
+            <value>@(context.Request.OriginalUrl.Host)</value>
+        </set-header>
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+        <set-header name="X-Powered-By" exists-action="delete" />
+    </outbound>
+
+    <on-error>
+        <base />
+    </on-error>
+</policies>

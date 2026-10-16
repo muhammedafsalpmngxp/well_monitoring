@@ -1,0 +1,5 @@
+-r ../../../shared/python/requirements-base.txt
+prophet==1.1.6
+pandas==2.2.3
+numpy==1.26.4
+statsmodels==0.14.4

@@ -1,0 +1,169 @@
+<div id="page-report-grid-builder" class="page active">
+
+  <div class="breadcrumb rgb-bc">
+    <a (click)="back()">My Reports</a>
+    <span class="rgb-bc-sep">›</span>
+    <a class="current">{{ editId ? 'Edit Report' : 'New Grouped Report' }}</a>
+  </div>
+
+  <div class="page-title-row">
+    <div class="rgb-title-wrap">
+      <div class="page-title">{{ editId ? 'Edit Report' : 'Grouped Report Builder' }}</div>
+      <div class="page-subtitle">Design a report layout — row sections, column groups, aggregations — and preview it live</div>
+    </div>
+    <div class="rgb-actions">
+      <button class="rgb-btn" (click)="preview()">Refresh preview</button>
+      <button class="rgb-btn rgb-btn--primary" (click)="save()">Save Report</button>
+    </div>
+  </div>
+
+  <div class="rgb-layout">
+    <!-- Config -->
+    <aside class="rgb-config">
+      <div class="rgb-sec">
+        <div class="rgb-sec-h"><span class="rgb-step">1</span> Report</div>
+        <label class="rgb-field"><span>Name</span><input type="text" [(ngModel)]="name" placeholder="e.g. Job Progress-Nimr"></label>
+        <label class="rgb-field"><span>Category</span><input type="text" [(ngModel)]="category" placeholder="e.g. Daily Plan"></label>
+        <label class="rgb-field"><span>Data source</span>
+          <select [(ngModel)]="datasetId" (ngModelChange)="onDataset()">
+            <option value="">— Select data source —</option>
+            <option *ngFor="let d of datasets" [value]="d.id">{{ d.name }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="rgb-sec">
+        <div class="rgb-sec-h"><span class="rgb-step">2</span> Row sections (grouping order)</div>
+        <div class="rgb-hint">Tick fields in the order you want them nested (Section → Sub-section).</div>
+        <div class="rgb-chips">
+          <button type="button" class="rgb-chip" *ngFor="let f of groupableFields"
+                  [class.on]="isRowGroup(f.field)" (click)="toggleRowGroup(f.field)">
+            <span class="rgb-chip-ord" *ngIf="isRowGroup(f.field)">{{ rowGroups.indexOf(f.field) + 1 }}</span>
+            {{ f.header }}
+          </button>
+        </div>
+      </div>
+
+      <div class="rgb-sec">
+        <div class="rgb-sec-h"><span class="rgb-step">3</span> Columns</div>
+        <div class="rgb-hint">Include columns; set a Group / Subgroup to build column header groups. Use “&gt;” inside a Group/Subgroup for deeper levels — e.g. <code>Progress % &gt; Week-1</code> over Plan/Actual. Choose aggregation for numbers.</div>
+        <div class="rgb-coltbl">
+          <div class="rgb-colrow rgb-colrow--head">
+            <span>Incl.</span><span>Column</span><span>Group</span><span>Subgroup</span><span>Agg</span>
+          </div>
+          <div class="rgb-colrow" *ngFor="let c of cols" [class.rgb-colrow--off]="!c.include || isRowGroup(c.field)">
+            <input type="checkbox" [(ngModel)]="c.include" (ngModelChange)="preview()" [disabled]="isRowGroup(c.field)">
+            <span class="rgb-colname">{{ c.header }}<em *ngIf="isRowGroup(c.field)"> (row group)</em></span>
+            <input type="text" [(ngModel)]="c.group" (change)="preview()" placeholder="—" [disabled]="isRowGroup(c.field)">
+            <input type="text" [(ngModel)]="c.subgroup" (change)="preview()" placeholder="—" [disabled]="isRowGroup(c.field) || !c.group">
+            <select [(ngModel)]="c.agg" (ngModelChange)="preview()" [disabled]="c.type==='text'">
+              <option value="">—</option>
+              <option value="sum">Sum</option>
+              <option value="avg">Avg</option>
+              <option value="min">Min</option>
+              <option value="max">Max</option>
+              <option value="count">Count</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="rgb-sec">
+        <div class="rgb-sec-h"><span class="rgb-step">4</span> Totals</div>
+        <label class="rgb-check"><input type="checkbox" [(ngModel)]="totalsPerGroup" (ngModelChange)="preview()"> Subtotal per group</label>
+        <label class="rgb-check"><input type="checkbox" [(ngModel)]="totalsGrand" (ngModelChange)="preview()"> Grand total</label>
+      </div>
+
+      <div class="rgb-sec">
+        <div class="rgb-sec-h"><span class="rgb-step">5</span> Header &amp; colours</div>
+
+        <label class="rgb-field"><span>Title</span><input type="text" [(ngModel)]="header.title" (change)="preview()" placeholder="e.g. AL TASNIM ENTERPRISES LLC."></label>
+        <label class="rgb-field"><span>Subtitle</span><input type="text" [(ngModel)]="header.subtitle" (change)="preview()" placeholder="e.g. CONTRACT NO. …"></label>
+        <label class="rgb-field"><span>Banner</span><input type="text" [(ngModel)]="header.banner" (change)="preview()" placeholder="e.g. JOB PROGRESS REPORT - NIMR"></label>
+
+        <div class="rgb-field">
+          <span>Left logo</span>
+          <div class="rgb-logo-row">
+            <button type="button" class="rgb-mini" (click)="logoInput.click()">Upload logo</button>
+            <button type="button" class="rgb-mini" *ngIf="header.logo" (click)="removeLogo()">Remove</button>
+            <input #logoInput type="file" accept="image/*" hidden (change)="onLogoFile($event)">
+          </div>
+          <div class="rgb-logo-size" *ngIf="header.logo">
+            <span>Size</span>
+            <input type="range" min="60" max="260" step="5" [(ngModel)]="header.logoWidth" (ngModelChange)="preview()">
+            <span class="rgb-logo-px">{{ header.logoWidth }}px</span>
+          </div>
+        </div>
+
+        <div class="rgb-field">
+          <span>Right logo</span>
+          <div class="rgb-logo-row">
+            <button type="button" class="rgb-mini" (click)="logoInputR.click()">Upload logo</button>
+            <button type="button" class="rgb-mini" *ngIf="header.logoRight" (click)="removeLogoRight()">Remove</button>
+            <input #logoInputR type="file" accept="image/*" hidden (change)="onLogoFileRight($event)">
+          </div>
+          <div class="rgb-logo-size" *ngIf="header.logoRight">
+            <span>Size</span>
+            <input type="range" min="60" max="260" step="5" [(ngModel)]="header.logoRightWidth" (ngModelChange)="preview()">
+            <span class="rgb-logo-px">{{ header.logoRightWidth || 120 }}px</span>
+          </div>
+        </div>
+
+        <div class="rgb-colorgrid">
+          <label class="rgb-colorfield"><span>Header bg</span><input type="color" [(ngModel)]="style.headerBg" (ngModelChange)="preview()"></label>
+          <label class="rgb-colorfield"><span>Header text</span><input type="color" [(ngModel)]="style.headerText" (ngModelChange)="preview()"></label>
+          <label class="rgb-colorfield"><span>Banner bg</span><input type="color" [(ngModel)]="style.bannerBg" (ngModelChange)="preview()"></label>
+        </div>
+
+        <!-- Per column-group / sub-group colours — bands the whole column -->
+        <div *ngIf="colGroups.length">
+          <div class="rgb-hint" style="margin-top:8px">Column group colours (bands the whole column)</div>
+          <label class="rgb-colorfield" *ngFor="let g of colGroups; trackBy: trackByKey">
+            <span [style.paddingLeft.px]="g.level * 12">{{ g.level ? '↳ ' : '' }}{{ g.label }}</span>
+            <input type="color" [ngModel]="colGroupColor(g.key)" (ngModelChange)="setColGroupColor(g.key, $event)">
+          </label>
+        </div>
+
+        <!-- Report font -->
+        <div class="rgb-hint" style="margin-top:10px">Report font</div>
+        <div class="rgb-colorgrid">
+          <label class="rgb-colorfield" style="min-width:160px"><span>Font</span>
+            <select [(ngModel)]="style.fontFamily" (ngModelChange)="preview()" style="font:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px">
+              <option value="">Default</option>
+              <option *ngFor="let f of fontFamilies" [value]="f">{{ f }}</option>
+            </select>
+          </label>
+          <label class="rgb-colorfield"><span>Size</span>
+            <input type="number" min="9" max="22" [(ngModel)]="style.fontSize" (ngModelChange)="preview()" style="width:56px;font:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px">
+          </label>
+          <label class="rgb-colorfield"><span>Text colour</span><input type="color" [(ngModel)]="style.fontColor" (ngModelChange)="preview()"></label>
+        </div>
+
+        <div *ngIf="topGroups.length">
+          <div class="rgb-hint" style="margin-top:8px">Row colour per group ({{ groupableFields.length ? rowGroups[0] : '' }})</div>
+          <label class="rgb-colorfield" *ngFor="let v of topGroups; trackBy: trackByVal">
+            <span>{{ v }}</span>
+            <input type="color" [ngModel]="groupColor(v)" (ngModelChange)="setGroupColor(v, $event)">
+          </label>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Live preview -->
+    <div class="rgb-preview-wrap">
+      <div class="rgb-preview-head">Live preview</div>
+      <!-- Chrome preview -->
+      <div class="rgb-rpt-head" *ngIf="hasChrome">
+        <img *ngIf="header.logo" [src]="header.logo" [style.width.px]="header.logoWidth || 120" alt="logo">
+        <div class="rgb-rpt-text">
+          <div class="rgb-rpt-title" *ngIf="header.title">{{ header.title }}</div>
+          <div class="rgb-rpt-sub" *ngIf="header.subtitle">{{ header.subtitle }}</div>
+        </div>
+        <img *ngIf="header.logoRight" [src]="header.logoRight" [style.width.px]="header.logoRightWidth || 120" alt="logo" class="rgb-rpt-logo-r">
+      </div>
+      <div class="rgb-rpt-banner" *ngIf="header.banner" [style.background]="style.bannerBg">{{ header.banner }}</div>
+      <div class="rgb-preview-empty" *ngIf="!datasetId">Select a data source to preview the report.</div>
+      <div id="rgbPreview" *ngIf="datasetId"></div>
+    </div>
+  </div>
+</div>

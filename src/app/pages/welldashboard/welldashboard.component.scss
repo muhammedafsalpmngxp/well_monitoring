@@ -1,0 +1,274 @@
+.wd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.wd-header__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.wd-header .card-title {
+  font-size: 14pt;
+  font-weight: 800;
+  color: var(--txt-1);
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.wd-header .card-sub {
+  font-size: 10.5pt;
+  color: var(--txt-2);
+}
+
+.wd-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* ── KPI strip — 6 tiles in a row (reuses the shared .kpi/.kpi-grid look) ── */
+.wd-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@media (max-width: 1200px) { .wd-kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px)  { .wd-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* Label + icon share the top row; value and unit pill stack below. */
+.wd-kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* ── Charts row — 3 equal-width Highcharts widgets, same height ── */
+.wd-charts-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.wd-chart-card { display: flex; flex-direction: column; }
+.wd-chart-canvas { width: 100%; height: 240px; margin-top: 8px; }
+
+@media (max-width: 1100px) { .wd-charts-row { grid-template-columns: 1fr; } }
+
+/* ── Chart widget toolbar: title + chart-style picker + filter + fullscreen ── */
+.wd-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+}
+
+.wd-chart-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Chart style picker — same look as Operations Dashboard's per-chart selector */
+.cwc-chart-style-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cwc-chart-style-picker__lbl {
+  font-size: 8.5pt;
+  font-weight: 400;
+  color: var(--txt-muted, #888);
+  letter-spacing: 0.3px;
+}
+.cwc-chart-style-picker__sel {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 8px;
+  padding: 5px 27px 5px 12px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: #1F3864;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+/* Per-widget filter button + popover — same look as Operations Dashboard's .wfb-* */
+.wfb-wrap { position: relative; display: inline-flex; }
+.wfb-btn {
+  width: 30px; height: 30px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border, #CBD2DC);
+  border-radius: 6px; cursor: pointer; color: #5A6475;
+  transition: all 0.12s; padding: 0; position: relative;
+}
+.wfb-btn:hover { background: var(--surface-2); border-color: var(--accent, #29378d); color: var(--accent, #29378d); }
+.wfb-btn.active { background: rgba(41,55,141,0.1); border-color: var(--accent, #29378d); color: var(--accent, #29378d); }
+.wfb-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+.wfb-dot {
+  position: absolute; top: -3px; right: -3px; width: 9px; height: 9px;
+  border-radius: 50%; background: var(--accent, #29378d); border: 2px solid var(--surface, #fff);
+}
+
+.wfb-popover {
+  position: absolute; top: calc(100% + 6px); right: 0; width: 230px;
+  background: var(--surface, #fff); border: 1px solid var(--border); border-radius: 9px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.18); padding: 8px; z-index: 1000;
+  display: none; font-size: 9pt;
+}
+.wfb-popover.open { display: block; }
+.wfb-popover-head {
+  display: flex; align-items: center; gap: 6px; padding: 0 4px 8px;
+  border-bottom: 1px solid var(--border); margin-bottom: 6px;
+}
+.wfb-popover-title { font-size: 9pt; font-weight: 700; color: var(--txt-1); letter-spacing: 0.2px; }
+.wfb-popover-body { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow: auto; }
+.wfb-opt {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  border: none; background: transparent; border-radius: 6px; padding: 7px 8px;
+  font-size: 9.5pt; color: var(--txt-1); cursor: pointer; transition: background .12s;
+}
+.wfb-opt:hover { background: var(--surface-2); }
+.wfb-opt.on { background: rgba(41,55,141,0.08); font-weight: 700; }
+.wfb-opt-sw { width: 9px; height: 9px; border-radius: 2px; flex: none; display: inline-block; }
+
+/* Fullscreen button — same native-Fullscreen-API pattern as Operations Dashboard */
+.card-fullscreen-btn {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 6px;
+  background: transparent; border: none; color: var(--txt-2); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; transition: all 0.12s;
+}
+.card-fullscreen-btn:hover { background: var(--surface-2); color: var(--accent, #29378d); }
+.card-fullscreen-btn svg { width: 15px; height: 15px; }
+
+.card:fullscreen,
+.card:-webkit-full-screen {
+  overflow: auto;
+  background: var(--bg, #f0f4ff);
+  padding: 24px 32px;
+  border-radius: 0;
+}
+.card:fullscreen .wd-chart-canvas,
+.card:-webkit-full-screen .wd-chart-canvas {
+  height: calc(100vh - 160px);
+}
+.card:fullscreen .card-fullscreen-btn svg,
+.card:-webkit-full-screen .card-fullscreen-btn svg {
+  transform: rotate(180deg);
+}
+
+/* ── Shared color legend below the charts row ── */
+.wd-chart-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.wd-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5pt;
+  color: var(--txt-2);
+}
+
+.wd-legend-sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+  display: inline-block;
+}
+
+/* ── Customise-Widgets Drawer — shared .cw-* styles (mirrors cmdoverview / odcsouthwelldelivery) ── */
+.cw-customise-btn{display:inline-flex;align-items:center;gap:7px;background:#fff;color:var(--accent,#29378d);border:1px solid var(--accent,#29378d);border-radius:9px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.cw-customise-btn svg{width:16px;height:16px}
+.cw-customise-btn:hover{background:color-mix(in srgb, var(--accent,#29378d) 10%, #fff)}
+
+.cw-scrim{position:fixed;inset:0;background:rgba(15,23,42,.28);opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s;z-index:1040}
+.cw-scrim.open{opacity:1;visibility:visible}
+.cw-drawer{position:fixed;top:0;right:0;height:100vh;width:420px;max-width:94vw;background:#fff;z-index:1050;box-shadow:-18px 0 50px rgba(15,23,42,.22);transform:translateX(100%);transition:transform .28s ease;display:flex;flex-direction:column}
+.cw-drawer.open{transform:translateX(0)}
+.cw-dhead{padding:18px 20px 12px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.cw-dhead__title{font-size:17px;font-weight:700;color:#0f2f57}
+.cw-dhead__sub{font-size:12px;color:#64748b;margin-top:2px}
+.cw-close-x{border:none;background:#f1f5f9;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:18px;color:#475569;flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.cw-close-x:hover{background:#e2e8f0}
+.cw-dbody{padding:10px 16px 16px;overflow:auto;flex:1}
+.cw-dvs{display:flex;gap:12px;flex-wrap:wrap}
+.cw-dvs-field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:150px}
+
+.cw-dvs-lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase}
+.cw-dvs .dvs-select{width:100%;min-width:0}
+.cw-dvs-note{font-size:11.5px;color:#64748b;margin:10px 2px 2px;padding-bottom:8px;border-bottom:1px solid #eef2f7}
+.cw-grp-h{font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase;padding:14px 4px 6px}
+.cw-row{display:flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;background:#fff;padding-right:10px;transition:opacity .15s}
+.cw-row--off{opacity:.55}
+.cw-row__main{flex:1;min-width:0;display:flex;align-items:center;gap:11px;border:none;background:transparent;padding:10px;border-radius:10px;cursor:pointer;text-align:left}
+.cw-row__main:hover{background:#f4f7fc}
+.cw-row__ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#e8eefb;color:var(--accent,#29378d);flex:0 0 30px}
+.cw-row__ic svg{width:16px;height:16px}
+.cw-row__ic--KPI{background:#e1f3e8;color:var(--green,#00B050)}
+.cw-row__info{min-width:0;display:flex;flex-direction:column}
+.cw-row__title{font-size:13px;font-weight:600;color:#16233D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cw-row__type{font-size:11px;color:#64748b}
+.cw-toggle{width:40px;height:23px;border-radius:12px;background:#cfd6e0;position:relative;cursor:pointer;border:none;flex:0 0 40px;transition:background .15s}
+.cw-toggle.on{background:var(--green,#00B050)}
+.cw-toggle::after{content:'';position:absolute;top:2.5px;left:2.5px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.cw-toggle.on::after{left:19px}
+.cw-dfoot{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.cw-link{background:none;border:none;color:var(--accent,#29378d);font-weight:600;cursor:pointer;font-size:12.5px}
+.cw-link:hover{text-decoration:underline}
+[data-cw-id][hidden]{display:none !important}
+.cw-flash{animation:cwFlash 1.5s ease}
+@keyframes cwFlash{0%{box-shadow:0 0 0 3px rgba(41,55,141,.5)}100%{box-shadow:0 0 0 14px rgba(41,55,141,0)}}
+.dvs-select {
+  min-width: 200px;
+  padding: 8px 12px;
+  font: inherit;
+    font-size: inherit;
+  font-size: 10pt;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--txt-1);
+  transition: border-color 0.12s;
+}
+
+.dq-btn {
+  background: #123c69;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 6px;
+}

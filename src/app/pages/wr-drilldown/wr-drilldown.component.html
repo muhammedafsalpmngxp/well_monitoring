@@ -1,0 +1,174 @@
+<div id="page-wells-readiness-details" class="page active">
+
+  <!-- Skeleton Loader -->
+  <div class="aw-page-loader" *ngIf="isLoading">
+    <div class="aw-page-loader-box">
+      <div class="aw-loading-spinner"></div>
+      <span class="aw-loading-text">Loading wells…</span>
+    </div>
+  </div>
+
+  <!-- Title row with back button and info -->
+  <div class="page-title-row">
+    <div class="aw-title-left">
+      <button type="button" class="wrd-back-btn" title="Back to Dashboard" (click)="goBack()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="page-title">{{ pageTitle }}</div>
+    </div>
+    <div class="aw-title-right">
+      <button class="dq-iicon" (click)="dqDrawerOpen = true" title="Data quality &amp; integration notes"><i>i</i></button>
+      <span class="wrd-badge" [ngClass]="filterBadgeClass">
+        {{ filterLabel }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="wrd-error" *ngIf="!isLoading && errorMsg">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    {{ errorMsg }}
+  </div>
+
+  <!-- Grid + Pagination -->
+  <ng-container *ngIf="!isLoading && !errorMsg">
+
+    <!-- Filter pills row -->
+    <div class="aw-filter-row">
+      <button class="aw-status-pill" [class.active]="activeStatusFilter === 'all'" (click)="onStatusFilter('all')">All {{ scheduledTotalCount || executedTotalCount || plannedTotalCount || totalCount }}</button>
+      <button *ngIf="scope === 'activities' && committedCount > 0 && (filter === 'scheduled' || filter === 'committed')" class="aw-status-pill" [class.active]="activeStatusFilter === 'committed'" (click)="onStatusFilter('committed')" style="margin-left:8px">Committed {{ committedCount }}</button>
+      <button *ngIf="scope === 'activities' && executedCompletedCount > 0 && isExecutedFilter" class="aw-status-pill" [class.active]="activeStatusFilter === 'executed_completed'" (click)="onStatusFilter('executed_completed')" style="margin-left:8px">Completed {{ executedCompletedCount }}</button>
+      <button *ngIf="scope === 'activities' && executedInprogressCount > 0 && isExecutedFilter" class="aw-status-pill" [class.active]="activeStatusFilter === 'executed_inprogress'" (click)="onStatusFilter('executed_inprogress')" style="margin-left:8px">In-Progress {{ executedInprogressCount }}</button>
+      <button *ngIf="scope === 'activities' && executedNewCount > 0 && isExecutedFilter" class="aw-status-pill" [class.active]="activeStatusFilter === 'executed_new'" (click)="onStatusFilter('executed_new')" style="margin-left:8px">New {{ executedNewCount }}</button>
+      <button *ngIf="scope === 'activities' && plannedCompletedCount > 0 && isPlannedFilter" class="aw-status-pill" [class.active]="activeStatusFilter === 'total_planned_completed'" (click)="onStatusFilter('total_planned_completed')" style="margin-left:8px">Completed {{ plannedCompletedCount }}</button>
+      <button *ngIf="scope === 'activities' && plannedInprogressCount > 0 && isPlannedFilter" class="aw-status-pill" [class.active]="activeStatusFilter === 'total_planned_inprogress'" (click)="onStatusFilter('total_planned_inprogress')" style="margin-left:8px">In-Progress {{ plannedInprogressCount }}</button>
+      <button *ngIf="scope === 'activities' && plannedNewCount > 0 && isPlannedFilter" class="aw-status-pill" [class.active]="activeStatusFilter === 'total_planned_new'" (click)="onStatusFilter('total_planned_new')" style="margin-left:8px">New {{ plannedNewCount }}</button>
+      <div class="aw-filter-actions">
+        <button class="dq-btn dq-btn-ghost aw-export-btn" (click)="exportCsv()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Grid header -->
+    <div class="aw-grid-header">
+      <span class="aw-grid-title">WELLS DATA GRID</span>
+    </div>
+
+    <!-- Grid container -->
+    <div class="aw-grid-container" [class.wrd-has-pagination]="totalPages > 1">
+      <div id="wrdGrid" class="ag-theme-alpine wrd-grid"></div>
+    </div>
+
+    <!-- Pagination controls -->
+    <div class="wrd-pagination" *ngIf="totalPages > 1">
+      <div class="wrd-pagination-info">
+        Page Size:
+        <select class="wrd-page-size-select" [value]="pageSize" (change)="onPageSizeChange(+$any($event.target).value)">
+          <option [value]="20">20</option>
+          <option [value]="50">50</option>
+          <option [value]="100">100</option>
+          <option [value]="200">200</option>
+        </select>
+      </div>
+      <div class="wrd-pagination-range">
+        {{ ((currentPage - 1) * pageSize) + 1 }} to {{ currentPage * pageSize > totalCount ? totalCount : currentPage * pageSize }} of {{ totalCount | number }}
+      </div>
+      <div class="wrd-pagination-controls">
+        <button class="wrd-page-btn" [disabled]="currentPage === 1" (click)="onPageChange(1)" title="First page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        </button>
+        <button class="wrd-page-btn" [disabled]="currentPage === 1" (click)="onPageChange(currentPage - 1)" title="Previous page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="wrd-page-indicator">Page {{ currentPage }} of {{ totalPages }}</span>
+        <button class="wrd-page-btn" [disabled]="currentPage === totalPages" (click)="onPageChange(currentPage + 1)" title="Next page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="wrd-page-btn" [disabled]="currentPage === totalPages" (click)="onPageChange(totalPages)" title="Last page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+  <!-- DQ Info Drawer (exact clone of cmdoverview design) -->
+  <div class="dq-scrim" [class.open]="dqDrawerOpen" (click)="dqDrawerOpen = false"></div>
+
+  <aside class="dq-drawer" [class.open]="dqDrawerOpen" role="dialog" aria-modal="false" aria-label="Data quality details">
+    <!-- Header -->
+    <div class="dq-dhead">
+      <div>
+        <div class="dq-dhead__title">{{ pageTitle }}</div>
+        <div class="dq-dhead__sub">DB integration notes &amp; reliability</div>
+      </div>
+      <button class="dq-close-x" (click)="dqDrawerOpen = false" aria-label="Close">&times;</button>
+    </div>
+
+    <!-- Body -->
+    <div class="dq-dbody">
+      <p class="dq-desc">{{dqDesc}}</p>
+
+      <!-- Tabs -->
+      <div class="dq-tabs" *ngIf="dqTables.length > 1">
+        <button *ngFor="let t of dqTables; let i = index"
+                class="dq-tab" [class.active]="dqActiveTab === i"
+                (click)="dqActiveTab = i">{{t.name}}</button>
+      </div>
+
+      <!-- One panel per table -->
+      <ng-container *ngIf="dqTables.length > 0">
+        <div *ngFor="let t of dqTables; let i = index" [hidden]="dqActiveTab !== i">
+          <div class="dq-tname-row">
+            <code class="dq-tname-code">{{t.name}}</code>
+            <span class="dq-relchip" [ngClass]="dqRelClass(t)">Reliability: {{dqRelLabel(t)}}</span>
+          </div>
+          <div class="dq-relbar">
+            <span [style.width]="dqRelPct(t) + '%'" [style.background]="dqRelColor(t)"></span>
+          </div>
+          <table class="dq-table">
+            <thead>
+              <tr>
+                <th>Field(s)</th>
+                <th>Issue / validation concern</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let iss of t.issues">
+                <td><code class="dq-fld">{{iss.field}}</code></td>
+                <td>{{iss.issue}}</td>
+                <td>{{iss.type}}</td>
+                <td><span class="dq-pill" [ngClass]="'dq-sev-' + iss.severity.toLowerCase()">{{iss.severity}}</span></td>
+                <td><span class="dq-pill" [ngClass]="dqStatusClass(iss.status)">{{iss.status}}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+    </div>
+
+    <!-- Footer -->
+    <div class="dq-dfoot">
+      <span class="dq-footnote" *ngIf="dqTables.length > 1">Calculated from {{dqTables.length}} tables — one tab per table.</span>
+      <span class="dq-footnote" *ngIf="dqTables.length <= 1"></span>
+      <span>
+        <button class="dq-btn" (click)="dqDrawerOpen = false">Close</button>
+      </span>
+    </div>
+  </aside>
+
+    <!-- Empty state -->
+    <div class="wrd-empty" *ngIf="totalCount === 0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>
+      <span>No wells found for the selected filter.</span>
+    </div>
+  </ng-container>
+
+</div>

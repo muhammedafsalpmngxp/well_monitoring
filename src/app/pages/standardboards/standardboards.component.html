@@ -1,0 +1,36 @@
+<div id="page-standardboards" class="page active">
+  <div class="breadcrumb">
+    <a>Standard Boards</a>
+  </div>
+  <div class="page-title-row">
+    <div class="sbd-title-wrap">
+      <div class="page-title">Standard Boards</div>
+      <div class="page-subtitle">Built-in dashboards — pick a board to open it</div>
+    </div>
+  </div>
+
+  <div class="sbd-grid">
+    <div class="sbd-card" *ngFor="let b of boards" (click)="open(b)">
+      <div class="sbd-card-thumb" [attr.data-viz]="b.icon">
+        <svg *ngIf="b.icon === 'bar'" viewBox="0 0 60 40" fill="none">
+          <rect x="6"  y="22" width="8" height="16" rx="1"/>
+          <rect x="18" y="14" width="8" height="24" rx="1"/>
+          <rect x="30" y="6"  width="8" height="32" rx="1"/>
+          <rect x="42" y="18" width="8" height="20" rx="1"/>
+        </svg>
+        <svg *ngIf="b.icon === 'donut'" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="6">
+          <circle cx="20" cy="20" r="14" opacity="0.18"/>
+          <path d="M20 6 A14 14 0 0 1 32 26"/>
+        </svg>
+        <svg *ngIf="b.icon === 'grid'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div>
+      <div class="sbd-card-body">
+        <div class="sbd-card-name">{{ b.name }}</div>
+        <div class="sbd-card-desc">{{ b.description }}</div>
+      </div>
+    </div>
+  </div>
+</div>

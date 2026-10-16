@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150" role="img" aria-label="A well site with a pump jack and a flowline">
+  <rect width="240" height="150" rx="14" fill="#e8f1fb"/>
+  <circle cx="196" cy="34" r="16" fill="#f7b538"/>
+  <path d="M0 112 C60 98 120 104 240 94 V150 H0Z" fill="#d9c7a3"/>
+  <path d="M0 124 C70 114 150 122 240 112 V150 H0Z" fill="#c9b28a"/>
+  <rect x="44" y="96" width="70" height="8" rx="2" fill="#1f3a68"/>
+  <path d="M60 96 L78 52 L96 96" fill="none" stroke="#1f3a68" stroke-width="5" stroke-linejoin="round"/>
+  <rect x="40" y="46" width="84" height="10" rx="5" fill="#0b6e99" transform="rotate(-12 82 51)"/>
+  <path d="M44 54 q-12 6 -6 22" fill="none" stroke="#0b6e99" stroke-width="6" stroke-linecap="round"/>
+  <line x1="38" y1="76" x2="38" y2="100" stroke="#1f3a68" stroke-width="3"/>
+  <path d="M114 101 H232" stroke="#f58220" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="150" cy="101" r="5" fill="#ffffff" stroke="#f58220" stroke-width="3"/>
+  <circle cx="196" cy="101" r="5" fill="#ffffff" stroke="#f58220" stroke-width="3"/>
+</svg>

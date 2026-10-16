@@ -1,0 +1,46 @@
+<div id="page-report-grid" class="page active">
+
+  <div class="breadcrumb rg-bc">
+    <a (click)="back()">Standard Reports</a>
+    <span class="rg-bc-sep">›</span>
+    <a class="current">{{ spec?.name || 'Report' }}</a>
+  </div>
+
+  <div class="page-title-row">
+    <div class="rg-title-wrap">
+      <div class="page-title">{{ spec?.name || 'Report' }}</div>
+      <div class="page-subtitle">{{ spec?.description || 'Grouped report' }}</div>
+    </div>
+    <div class="rg-actions" *ngIf="spec">
+      <button class="rg-btn" *ngIf="canEdit" (click)="editReport()" title="Edit this report">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </button>
+      <button class="rg-btn" (click)="exportCsv()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M5 21h14"/></svg>
+        Export CSV
+      </button>
+      <button class="rg-btn rg-btn--primary" (click)="exportExcel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M5 21h14"/></svg>
+        Export Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Report chrome (logo + title block + banner) -->
+  <div class="rg-report-head" *ngIf="hasHeader">
+    <img *ngIf="spec?.header?.logo" [src]="spec?.header?.logo" [style.width.px]="spec?.header?.logoWidth || 120" class="rg-logo" alt="logo">
+    <div class="rg-head-text">
+      <div class="rg-head-title" *ngIf="spec?.header?.title">{{ spec?.header?.title }}</div>
+      <div class="rg-head-sub" *ngIf="spec?.header?.subtitle">{{ spec?.header?.subtitle }}</div>
+    </div>
+    <img *ngIf="spec?.header?.logoRight" [src]="spec?.header?.logoRight" [style.width.px]="spec?.header?.logoRightWidth || 120" class="rg-logo rg-logo-r" alt="logo">
+  </div>
+  <div class="rg-banner" *ngIf="spec?.header?.banner" [style.background]="spec?.style?.bannerBg || '#2E7D32'">{{ spec?.header?.banner }}</div>
+
+  <div class="rg-grid-wrap" *ngIf="spec">
+    <div id="rgGrid"></div>
+  </div>
+
+  <div class="rg-missing" *ngIf="!spec">This report could not be found.</div>
+</div>

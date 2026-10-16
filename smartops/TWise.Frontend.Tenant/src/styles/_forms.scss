@@ -1,0 +1,70 @@
+// ============================================================
+// Forms
+// ============================================================
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  margin-bottom: $spacing-md;
+
+  label {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: $color-text-primary;
+  }
+}
+
+.form-control {
+  width: 100%;
+  height: 36px;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  font-size: $font-size-base;
+  font-family: $font-family-base;
+  color: $color-text-primary;
+  background-color: $color-bg-card;
+  @include transition(border-color);
+  outline: none;
+
+  &::placeholder { color: $color-text-muted; }
+
+  &:hover { border-color: $color-secondary-light; }
+
+  &:focus {
+    border-color: $color-primary;
+    box-shadow: 0 0 0 3px $color-primary-50;
+  }
+
+  &.is-invalid {
+    border-color: $color-danger;
+    &:focus { box-shadow: 0 0 0 3px rgba($color-danger, 0.15); }
+  }
+
+  &:disabled {
+    background-color: $color-bg-app;
+    color: $color-text-muted;
+    cursor: not-allowed;
+  }
+}
+
+select.form-control {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23636e72' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.form-error {
+  font-size: $font-size-sm;
+  color: $color-danger;
+}
+
+.form-hint {
+  font-size: $font-size-sm;
+  color: $color-text-muted;
+}

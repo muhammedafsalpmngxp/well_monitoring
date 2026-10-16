@@ -1,0 +1,197 @@
+name: Build and Push TWise Images to ECR
+# Phase 1 successor to deploy-demo.yml / deploy-twise-{demo,dev,qa}.yml.
+# Builds all four TWise images from committed source only (no server-side
+# patching), pushes them to ECR, then (Phase 2) rolls each ECS service to
+# the new image.
+#
+# ⚠️ PLACEHOLDERS — fill in before this workflow can run successfully:
+#   - vars.AWS_REGION            (repo/org "Variables", e.g. us-east-1)
+#   - secrets.AWS_ECR_ROLE_ARN   (IAM role for GitHub OIDC to assume — this
+#                                  is module.github_oidc.role_arn's output
+#                                  once /home/ngxp/ngxp/projects/infra/envs/dev
+#                                  has been applied)
+#   - the ECR_REPOSITORY values below, if you want different names
+#
+# The `deploy` job assumes the Terraform in /home/ngxp/ngxp/projects/infra
+# (envs/dev) has already been applied at least once — it rolls existing ECS
+# services, it does not create them. CLUSTER below must match that
+# Terraform's naming (local.name = "twise-${local.env}").
+
+on:
+  push:
+    branches: [devops]
+    paths:
+      - "smartops/services/dotnet/TWise.Backend.ControlPlane/**"
+      - "smartops/services/dotnet/TWise.Backend.Tenant/**"
+      - "smartops/services/python/etl/**"
+      - "smartops/shared/**"
+      - "smartops/TWise.Frontend.Tenant/**"
+      - "smartops/Directory.Build.props"
+      - ".github/workflows/build-push-twise-ecr.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write   # required for OIDC AWS role assumption
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}   # placeholder — set as a repo/org Variable
+
+jobs:
+  build-and-push:
+    name: Build & push TWise images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: controlplane
+            context: smartops
+            dockerfile: smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Dockerfile
+            ecr_repository: twise-controlplane        # placeholder — adjust to your naming
+          - name: tenant
+            context: smartops
+            dockerfile: smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Dockerfile
+            ecr_repository: twise-tenant               # placeholder
+          - name: etl
+            context: smartops
+            dockerfile: smartops/services/python/etl/Dockerfile
+            ecr_repository: twise-etl                   # placeholder
+          - name: frontend
+            context: smartops/TWise.Frontend.Tenant
+            dockerfile: smartops/TWise.Frontend.Tenant/Dockerfile
+            ecr_repository: twise-frontend               # placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}   # placeholder — set as a repo secret
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories --repository-names "${{ matrix.ecr_repository }}" \
+            --region "${{ env.AWS_REGION }}" >/dev/null 2>&1 || \
+          aws ecr create-repository --repository-name "${{ matrix.ecr_repository }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --image-scanning-configuration scanOnPush=true
+
+      - name: Set image tags
+        id: tags
+        run: |
+          SHA_TAG="${GITHUB_SHA::12}"
+          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          echo "branch_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      # Required for cache-from/cache-to: type=gha below — the default
+      # "docker" buildx driver can't export/import the GHA cache backend,
+      # only the "docker-container" driver this sets up can.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/${{ matrix.ecr_repository }}:${{ steps.tags.outputs.sha_tag }}
+            ${{ steps.ecr-login.outputs.registry }}/${{ matrix.ecr_repository }}:${{ steps.tags.outputs.branch_tag }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    name: Deploy ${{ matrix.name }} to ECS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: controlplane
+            ecr_repository: twise-controlplane
+          - name: tenant
+            ecr_repository: twise-tenant
+          - name: etl
+            ecr_repository: twise-etl
+          - name: frontend
+            ecr_repository: twise-frontend
+
+    env:
+      # Must match local.name in infra/envs/dev/main.tf ("twise-${local.env}").
+      CLUSTER: twise-dev
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Set image tag
+        id: tags
+        run: echo "sha_tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Roll a new task definition revision and update the service
+        id: deploy
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          FAMILY="${CLUSTER}-${{ matrix.name }}"
+          SERVICE="${CLUSTER}-${{ matrix.name }}"
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          IMAGE="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${{ matrix.ecr_repository }}:${{ steps.tags.outputs.sha_tag }}"
+
+          aws ecs describe-task-definition --task-definition "$FAMILY" \
+            --query 'taskDefinition' > current-task-def.json
+
+          jq --arg IMAGE "$IMAGE" \
+            '.containerDefinitions[0].image = $IMAGE
+             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                   .compatibilities, .registeredAt, .registeredBy)' \
+            current-task-def.json > new-task-def.json
+
+          NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "new_arn=${NEW_ARN}" >> "$GITHUB_OUTPUT"
+
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" \
+            --task-definition "$NEW_ARN" --force-new-deployment
+
+      - name: Wait for the rollout to stabilize
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          # Without this the job goes green the moment the API call returns,
+          # even if every new task then crash-loops. The service's deployment
+          # circuit breaker rolls back; this makes the workflow report it.
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER" --services "${CLUSTER}-${{ matrix.name }}"
+
+          # The circuit breaker above rolls the service back to the previous
+          # task definition on failure, and `wait services-stable` still
+          # exits 0 once that rollback itself stabilizes — so a crash-looping
+          # image can otherwise show green here. Confirm the service is
+          # actually running the revision we just deployed.
+          RUNNING_ARN=$(aws ecs describe-services --cluster "$CLUSTER" \
+            --services "${CLUSTER}-${{ matrix.name }}" \
+            --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' \
+            --output text)
+
+          if [ "$RUNNING_ARN" != "${{ steps.deploy.outputs.new_arn }}" ]; then
+            echo "::error::${{ matrix.name }}: ECS rolled back to a previous task definition (deployment circuit breaker triggered). Expected ${{ steps.deploy.outputs.new_arn }}, but the PRIMARY deployment is running ${RUNNING_ARN}. Check CloudWatch logs for the failing container before retrying."
+            exit 1
+          fi
+
+          echo "Confirmed ${{ matrix.name }} is running the new task definition: ${RUNNING_ARN}"

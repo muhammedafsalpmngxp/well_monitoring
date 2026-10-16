@@ -1,0 +1,1721 @@
+<app-page-header title="Database View Builder" subtitle="Combine tables, joins, and filters into a reusable SQL view."
+  [breadcrumbs]="[{label:'Home'}, {label:'Settings', route:'/settings'}, {label:'Database View', route:'/settings/database-view'}, {label:'Builder'}]">
+  <span page-header-icon class="db-builder-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path
+        d="M17.5 4.16675C17.5 5.54746 14.1422 6.66675 10 6.66675C5.85787 6.66675 2.5 5.54746 2.5 4.16675M17.5 4.16675C17.5 2.78604 14.1422 1.66675 10 1.66675C5.85787 1.66675 2.5 2.78604 2.5 4.16675M17.5 4.16675V15.8341C17.5 17.2174 14.1667 18.3341 10 18.3341C5.83333 18.3341 2.5 17.2174 2.5 15.8341V4.16675M17.5 10.0007C17.5 11.3841 14.1667 12.5007 10 12.5007C5.83333 12.5007 2.5 11.3841 2.5 10.0007"
+        stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </span>
+  <div class="db-builder-header-actions">
+    <app-button variant="secondary" (clicked)="requestDiscard()">Discard</app-button>
+    <app-button variant="secondary" (clicked)="requestReset()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path
+          d="M1.5 10.5C1.5 10.5 1.59099 11.1369 4.22703 13.773C6.86307 16.409 11.1369 16.409 13.773 13.773C14.7069 12.839 15.31 11.6995 15.5821 10.5M6 10.5H1.5V15M16.5 7.5C16.5 7.5 16.409 6.86307 13.773 4.22703C11.1369 1.59099 6.86307 1.59099 4.22703 4.22703C3.29307 5.16098 2.69002 6.30054 2.41787 7.5M12 7.5H16.5V3"
+          stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Reset
+    </app-button>
+    <app-button *ngIf="canSaveView" variant="primary" [disabled]="saveLoading" (clicked)="saveView()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d="M10.5 1.70215V4.80005C10.5 5.22009 10.5 5.43011 10.5818 5.59055C10.6537 5.73167 10.7683 5.8464 10.9095 5.91831C11.0699 6.00005 11.2799 6.00005 11.7 6.00005H14.7979M6 11.25V13.5M12 9.75V13.5M9 7.875V13.5M15 7.49117V12.9C15 14.1602 15 14.7901 14.7548 15.2715C14.5391 15.6949 14.1949 16.0391 13.7715 16.2548C13.2901 16.5 12.6601 16.5 11.4 16.5H6.6C5.33988 16.5 4.70982 16.5 4.22852 16.2548C3.80516 16.0391 3.46095 15.6949 3.24524 15.2715C3 14.7901 3 14.1602 3 12.9V5.1C3 3.83988 3 3.20982 3.24524 2.72852C3.46095 2.30516 3.80516 1.96095 4.22852 1.74524C4.70982 1.5 5.33988 1.5 6.6 1.5H9.00885C9.55912 1.5 9.8343 1.5 10.0933 1.56217C10.3228 1.61729 10.5423 1.70819 10.7437 1.83156C10.9707 1.9707 11.1653 2.16527 11.5544 2.55442L13.9456 4.94558C14.3348 5.33473 14.5293 5.5293 14.6684 5.75636C14.7918 5.95767 14.8827 6.17715 14.9378 6.40673C15 6.66568 15 6.94084 15 7.49117Z"
+          stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      {{ saveLoading ? 'Saving…' : 'Save View' }}
+    </app-button>
+  </div>
+</app-page-header>
+<div *ngIf="saveError" class="db-builder-save-error">{{ saveError }}</div>
+
+<div class="page-content db-builder-page">
+  <div class="db-builder-namebar">
+    <label>View Name<span class="db-builder-required">*</span></label>
+    <input type="text" [(ngModel)]="viewName" placeholder="e.g. well_activity_view" aria-label="View name" required
+      [class.db-builder-input-invalid]="saveAttempted && !viewName.trim()" />
+    <label>Description</label>
+    <input type="text" class="db-builder-namebar__description" [(ngModel)]="viewDescription" maxlength="500"
+      placeholder="One row per well per day. What the view is for." aria-label="View description" />
+    <div class="db-builder-type-select">
+      <label>Type</label>
+      <div class="db-builder-cselect db-builder-cselect--locked"
+        data-tooltip="Type is fixed by how this item was created and can't be changed here.">
+        <span>{{ viewType === 'view' ? 'View' : (viewType === 'cte' ? 'CTE' : 'Component') }}</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M4 7.3335V5.3335C4 3.49255 5.49238 2.00016 7.33333 2.00016H8.66667C10.5076 2.00016 12 3.49255 12 5.3335V7.3335M4.8 14.0002H11.2C11.9467 14.0002 12.32 14.0002 12.6053 13.8548C12.8562 13.727 13.0601 13.523 13.1879 13.2721C13.3333 12.9869 13.3333 12.6135 13.3333 11.8668V9.46683C13.3333 8.72009 13.3333 8.34672 13.1879 8.06151C13.0601 7.81062 12.8562 7.60665 12.6053 7.47882C12.32 7.3335 11.9467 7.3335 11.2 7.3335H4.8C4.05326 7.3335 3.6799 7.3335 3.39469 7.47882C3.1438 7.60665 2.93983 7.81062 2.812 8.06151C2.66667 8.34672 2.66667 8.72009 2.66667 9.46683V11.8668C2.66667 12.6135 2.66667 12.9869 2.812 13.2721C2.93983 13.523 3.1438 13.727 3.39469 13.8548C3.6799 14.0002 4.05326 14.0002 4.8 14.0002Z"
+            stroke="#98A2B3" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="contractViolations" class="db-builder-contract" role="status">
+    <span class="badge" [class.badge-success]="!contractViolations.length" [class.badge-warning]="contractViolations.length">
+      {{ contractViolations.length ? 'Not model-compliant' : 'Model-compliant' }}
+    </span>
+    <ul *ngIf="contractViolations.length" class="db-builder-contract__list">
+      <li *ngFor="let v of contractViolations">Rule {{ v.rule }}: {{ v.message }}</li>
+    </ul>
+  </div>
+
+  <div class="db-builder-layout" [style.grid-template-columns]="layoutGridColumns">
+
+    <!-- ============ Left panel: Data sources ============ -->
+    <aside class="db-builder-panel db-builder-sources">
+      <div class="db-builder-panel__header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path
+            d="M17.5 4.16797C17.5 5.54868 14.1422 6.66797 10 6.66797C5.85787 6.66797 2.5 5.54868 2.5 4.16797M17.5 4.16797C17.5 2.78726 14.1422 1.66797 10 1.66797C5.85787 1.66797 2.5 2.78726 2.5 4.16797M17.5 4.16797V15.8346C17.5 17.218 14.1667 18.3346 10 18.3346C5.83333 18.3346 2.5 17.218 2.5 15.8346V4.16797M17.5 10.0013C17.5 11.3846 14.1667 12.5013 10 12.5013C5.83333 12.5013 2.5 11.3846 2.5 10.0013"
+            stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <h3>Data sources</h3>
+      </div>
+
+      <div class="db-builder-search">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+            stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <input type="text" placeholder="Search" [(ngModel)]="searchQuery" aria-label="Search tables" />
+      </div>
+
+      <!-- Database connection picker -->
+      <div class="db-builder-conn-select">
+        <label>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+            <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
+            <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"></path>
+          </svg>
+          Database
+        </label>
+        <div class="db-builder-conn-select__wrap">
+          <div appKeyClick class="db-builder-conn-select__custom" [class.open]="connSelectOpen"
+            [class.disabled]="connectionsLoading" (click)="toggleConnSelect($event)"
+            [attr.data-tooltip]="selectedConnectionLabel || (connectionsLoading ? 'Loading…' : 'Choose database…')">
+            <span [class.db-builder-conn-select__custom-placeholder]="!selectedConnectionId">
+              {{ selectedConnectionLabel || (connectionsLoading ? 'Loading…' : 'Choose database…') }}
+            </span>
+            <svg *ngIf="!schemaLoading" class="db-builder-conn-select__chevron" width="10" height="6" viewBox="0 0 12 7"
+              fill="none">
+              <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            <svg *ngIf="schemaLoading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085"
+              stroke-width="2" stroke-linecap="round" class="db-builder-conn-select__chevron db-builder-spin">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            <div class="db-builder-conn-select__custom-panel" *ngIf="connSelectOpen" (click)="$event.stopPropagation()">
+              <div appKeyClick class="db-builder-conn-select__custom-option" *ngFor="let c of connections"
+                [class.active]="selectedConnectionId === c.id" (click)="selectConnection(c.id)">
+                {{ c.connectionName }} ({{ c.databaseName }})
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="db-builder-sources__body">
+        <div *ngIf="!selectedConnectionId" class="db-builder-empty-hint" style="padding: 16px 12px;">
+          Select a database to load tables.
+        </div>
+        <ng-container *ngIf="selectedConnectionId">
+
+          <!-- Referenced CTEs / Subquery Sources -->
+          <div class="db-builder-source-group db-builder-source-group--collapsible" *ngIf="availableCtes.length"
+            [class.db-builder-source-group--collapsed]="isGroupCollapsed('subquery')">
+            <button type="button" class="db-builder-source-group__header" (click)="toggleGroup('subquery')"
+              [attr.aria-expanded]="!isGroupCollapsed('subquery')">
+              <svg class="db-builder-source-group__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M4.5 3L7.5 6L4.5 9" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2"
+                stroke-linecap="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <path d="M14 2v6h6" />
+              </svg>
+              <span>Subquery Sources ({{ referencedCteIds.size }})</span>
+            </button>
+            <div class="db-builder-source-group__body" *ngIf="!isGroupCollapsed('subquery')">
+              <label class="db-builder-ref-check" *ngFor="let cte of filteredAvailableCtes">
+                <input type="checkbox" [checked]="referencedCteIds.has(cte.id)" (change)="toggleCteRef(cte.id)" />
+                <span class="db-builder-ref-check__name">{{ cte.name }}</span>
+                <span class="db-builder-ref-check__badge db-builder-ref-check__badge--{{ cte.viewType }}">{{
+                  cte.viewType }}</span>
+              </label>
+              <p class="db-builder-empty-hint" *ngIf="!filteredAvailableCtes.length">No matching sources.</p>
+            </div>
+          </div>
+
+          <!-- Referenced Components / Union Sources -->
+          <div class="db-builder-source-group db-builder-source-group--collapsible" *ngIf="availableComponents.length"
+            [class.db-builder-source-group--collapsed]="isGroupCollapsed('union')">
+            <button type="button" class="db-builder-source-group__header" (click)="toggleGroup('union')"
+              [attr.aria-expanded]="!isGroupCollapsed('union')">
+              <svg class="db-builder-source-group__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M4.5 3L7.5 6L4.5 9" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2"
+                stroke-linecap="round">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+              </svg>
+              <span>Union Sources ({{ referencedComponentIds.size }})</span>
+            </button>
+            <div class="db-builder-source-group__body" *ngIf="!isGroupCollapsed('union')">
+              <label class="db-builder-ref-check" *ngFor="let comp of filteredAvailableComponents">
+                <input type="checkbox" [checked]="referencedComponentIds.has(comp.id)"
+                  (change)="toggleComponentRef(comp.id)" />
+                <span class="db-builder-ref-check__name">{{ comp.name }}</span>
+                <span class="db-builder-ref-check__badge db-builder-ref-check__badge--{{ comp.viewType }}">{{
+                  comp.viewType }}</span>
+              </label>
+              <p class="db-builder-empty-hint" *ngIf="!filteredAvailableComponents.length">No matching sources.</p>
+            </div>
+          </div>
+
+          <div class="db-builder-source-group db-builder-source-group--collapsible"
+            [class.db-builder-source-group--collapsed]="isGroupCollapsed('inview')">
+            <button type="button" class="db-builder-source-group__header" (click)="toggleGroup('inview')"
+              [attr.aria-expanded]="!isGroupCollapsed('inview')">
+              <svg class="db-builder-source-group__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M4.5 3L7.5 6L4.5 9" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              <span>Tables in view ({{ tablesInView.length }})</span>
+            </button>
+            <div class="db-builder-source-group__body" *ngIf="!isGroupCollapsed('inview')">
+              <ng-container *ngFor="let table of filteredTablesInView">
+                <div class="db-builder-table-row">
+                  <button class="db-builder-table-row__chevron" (click)="toggleExpand('inview:' + table.alias)"
+                    title="Toggle columns">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"
+                      [class.db-builder-table-row__chevron-icon--open]="isExpanded('inview:' + table.alias)"
+                      class="db-builder-table-row__chevron-icon">
+                      <path d="M4.5 3L7.5 6L4.5 9" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <span class="db-builder-table-row__icon-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" fill="none">
+                      <path
+                        d="M9.00056 6.75V11.25M9.00056 6.75H15.7506M9.00056 6.75H2.25047M9.00056 11.25H15.7506M9.00056 11.25H2.25M9.00056 11.25V15.75M9.00056 15.75H12.1506C13.4107 15.75 14.0407 15.75 14.522 15.5048C14.9454 15.289 15.2896 14.9448 15.5053 14.5215C15.7506 14.0402 15.7506 13.4101 15.7506 12.15V11.25M2.25047 6.75L2.25 11.25L2.25056 12.15C2.25056 13.4101 2.25056 14.0402 2.49579 14.5215C2.71151 14.9448 3.05572 15.289 3.47908 15.5048C3.96038 15.75 4.59044 15.75 5.85056 15.75H9.00056M15.7506 11.25V6.75M15.7506 6.75V5.85C15.7506 4.58988 15.7506 3.95982 15.5053 3.47852C15.2896 3.05516 14.9454 2.71095 14.522 2.49524C14.0407 2.25 13.4107 2.25 12.1506 2.25H5.85056C4.59044 2.25 3.96038 2.25 3.47908 2.49524C3.05572 2.71095 2.71151 3.05516 2.49579 3.47852C2.25056 3.95982 2.25056 4.58988 2.25056 5.85L2.25047 6.75"
+                        stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </span>
+                  <span class="db-builder-table-row__info">
+                    <span class="db-builder-table-row__name">{{ table.name }}</span>
+                    <span class="db-builder-table-row__count">{{ table.columns }} columns</span>
+                  </span>
+                  <span class="db-builder-table-row__badge"
+                    [class.db-builder-table-row__badge--base]="table.role === 'Base'">{{ table.role }}</span>
+                </div>
+                <div class="db-builder-table-row__columns" *ngIf="isExpanded('inview:' + table.alias)">
+                  <span *ngFor="let col of columnsFor(table.name)">{{ table.alias }}.{{ col }}</span>
+                </div>
+              </ng-container>
+              <p class="db-builder-empty-hint" *ngIf="!filteredTablesInView.length">No matching tables in view.</p>
+            </div>
+          </div>
+
+          <div class="db-builder-source-group db-builder-source-group--collapsible"
+            [class.db-builder-source-group--collapsed]="isGroupCollapsed('available')">
+            <button type="button" class="db-builder-source-group__header" (click)="toggleGroup('available')"
+              [attr.aria-expanded]="!isGroupCollapsed('available')">
+              <svg class="db-builder-source-group__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M4.5 3L7.5 6L4.5 9" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              <span>Available tables ({{ filteredAvailableTables.length }})</span>
+            </button>
+            <div class="db-builder-source-group__body" *ngIf="!isGroupCollapsed('available')">
+              <ng-container *ngFor="let table of filteredAvailableTables">
+                <div class="db-builder-table-row db-builder-table-row--available">
+                  <button class="db-builder-table-row__chevron" (click)="toggleExpand('avail:' + table.id)"
+                    title="Toggle columns">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"
+                      [class.db-builder-table-row__chevron-icon--open]="isExpanded('avail:' + table.id)"
+                      class="db-builder-table-row__chevron-icon">
+                      <path d="M4.5 3L7.5 6L4.5 9" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <span class="db-builder-table-row__icon-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" fill="none">
+                      <path
+                        d="M9.00056 6.75V11.25M9.00056 6.75H15.7506M9.00056 6.75H2.25047M9.00056 11.25H15.7506M9.00056 11.25H2.25M9.00056 11.25V15.75M9.00056 15.75H12.1506C13.4107 15.75 14.0407 15.75 14.522 15.5048C14.9454 15.289 15.2896 14.9448 15.5053 14.5215C15.7506 14.0402 15.7506 13.4101 15.7506 12.15V11.25M2.25047 6.75L2.25 11.25L2.25056 12.15C2.25056 13.4101 2.25056 14.0402 2.49579 14.5215C2.71151 14.9448 3.05572 15.289 3.47908 15.5048C3.96038 15.75 4.59044 15.75 5.85056 15.75H9.00056M15.7506 11.25V6.75M15.7506 6.75V5.85C15.7506 4.58988 15.7506 3.95982 15.5053 3.47852C15.2896 3.05516 14.9454 2.71095 14.522 2.49524C14.0407 2.25 13.4107 2.25 12.1506 2.25H5.85056C4.59044 2.25 3.96038 2.25 3.47908 2.49524C3.05572 2.71095 2.71151 3.05516 2.49579 3.47852C2.25056 3.95982 2.25056 4.58988 2.25056 5.85L2.25047 6.75"
+                        stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </span>
+                  <span class="db-builder-table-row__info">
+                    <span class="db-builder-table-row__name">{{ table.name }}</span>
+                    <span class="db-builder-table-row__count">{{ table.columns }} columns</span>
+                  </span>
+                  <button class="db-builder-table-row__add" title="Add to view" (click)="addTable(table)">
+                    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+                <div class="db-builder-table-row__columns" *ngIf="isExpanded('avail:' + table.id)">
+                  <span *ngFor="let col of columnsFor(table.name)">{{ col }}</span>
+                </div>
+              </ng-container>
+              <p class="db-builder-empty-hint" *ngIf="!filteredAvailableTables.length && !schemaLoading">No more tables
+                to add.</p>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+    </aside>
+
+    <div class="db-builder-divider" [class.db-builder-divider--active]="resizingPanel === 'sources'"
+      title="Drag to resize" (mousedown)="onDividerMouseDown($event, 'sources')"><span></span><span></span><span></span>
+    </div>
+
+    <!-- ============ Middle panel: Tables & Joins / Filters / Options / Columns ============ -->
+    <section class="db-builder-panel db-builder-middle">
+      <div class="db-builder-tabs">
+        <button class="db-builder-tabs__tab" [class.active]="activeMiddleTab === 'tables'"
+          (click)="setMiddleTab('tables')">Tables &amp; Joins</button>
+        <button class="db-builder-tabs__tab" [class.active]="activeMiddleTab === 'columns'"
+          (click)="setMiddleTab('columns')">Columns</button>
+        <button class="db-builder-tabs__tab" [class.active]="activeMiddleTab === 'filters'"
+          (click)="setMiddleTab('filters')">Filters</button>
+        <button class="db-builder-tabs__tab" [class.active]="activeMiddleTab === 'options'"
+          (click)="setMiddleTab('options')">Options</button>
+        <button class="db-builder-tabs__tab" [class.active]="activeMiddleTab === 'ctes'"
+          (click)="setMiddleTab('ctes')">CTEs &amp; Union</button>
+        <button class="db-builder-tabs__tab" [class.active]="activeMiddleTab === 'indexes'"
+          (click)="setMiddleTab('indexes')">Indexes</button>
+      </div>
+
+      <div class="db-builder-middle__body" (scroll)="closeDropdown()">
+
+        <!-- Tables & Joins -->
+        <ng-container *ngIf="activeMiddleTab === 'tables'">
+          <div class="db-builder-section-head">
+            <div class="db-builder-section-head__left">
+              <h3>Tables &amp; Joins</h3>
+              <span class="db-builder-count-pill">{{ tablesInView.length }} tables</span>
+            </div>
+          </div>
+
+          <div class="db-builder-join-card db-builder-join-card--base">
+            <span class="db-builder-pill db-builder-pill--base">Base</span>
+            <span class="db-builder-icon-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path
+                  d="M9.00056 6.75V11.25M9.00056 6.75H15.7506M9.00056 6.75H2.25047M9.00056 11.25H15.7506M9.00056 11.25H2.25M9.00056 11.25V15.75M9.00056 15.75H12.1506C13.4107 15.75 14.0407 15.75 14.522 15.5048C14.9454 15.289 15.2896 14.9448 15.5053 14.5215C15.7506 14.0402 15.7506 13.4101 15.7506 12.15V11.25M2.25047 6.75L2.25 11.25L2.25056 12.15C2.25056 13.4101 2.25056 14.0402 2.49579 14.5215C2.71151 14.9448 3.05572 15.289 3.47908 15.5048C3.96038 15.75 4.59044 15.75 5.85056 15.75H9.00056M15.7506 11.25V6.75M15.7506 6.75V5.85C15.7506 4.58988 15.7506 3.95982 15.5053 3.47852C15.2896 3.05516 14.9454 2.71095 14.522 2.49524C14.0407 2.25 13.4107 2.25 12.1506 2.25H5.85056C4.59044 2.25 3.96038 2.25 3.47908 2.49524C3.05572 2.71095 2.71151 3.05516 2.49579 3.47852C2.25056 3.95982 2.25056 4.58988 2.25056 5.85L2.25047 6.75"
+                  stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="db-builder-join-card__label db-builder-join-card__label--from">FROM</span>
+            <strong class="db-builder-join-card__table">{{ baseTable.name }}</strong>
+            <span class="db-builder-join-card__label">AS</span>
+            <input type="text" class="db-builder-alias-input" [(ngModel)]="baseTable.alias"
+              aria-label="Base table alias" />
+            <button class="db-builder-icon-btn db-builder-icon-btn--danger db-builder-icon-btn--auto"
+              [title]="canRemoveBaseTable ? 'Remove base table' : 'Remove all joins first, or use Set as Base on a join instead'"
+              [disabled]="!canRemoveBaseTable" (click)="removeBaseTable()">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M6 2H10M2 4H14M12.6667 4L12.1991 11.0129C12.129 12.065 12.0939 12.5911 11.8667 12.99C11.6666 13.3412 11.3648 13.6235 11.0011 13.7998C10.588 14 10.0607 14 9.0062 14H6.9938C5.93927 14 5.41202 14 4.99889 13.7998C4.63517 13.6235 4.33339 13.3412 4.13332 12.99C3.90607 12.5911 3.871 12.065 3.80086 11.0129L3.33333 4M6.66667 7V10.3333M9.33333 7V10.3333"
+                  stroke="#D92D20" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="db-builder-joins-timeline">
+            <div class="db-builder-join-card" [class.db-builder-join-card--invalid]="!isJoinConditionValid(join)"
+              *ngFor="let join of joins">
+              <div class="db-builder-join-card__row">
+                <span class="db-builder-pill db-builder-pill--join">Join</span>
+                <div class="db-builder-select-wrap db-builder-select-wrap--jointype">
+                  <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('join:' + join.id)"
+                    [attr.data-tooltip]="join.type" (click)="toggleDropdown($event, 'join:' + join.id)">
+                    <span>{{ join.type }}</span>
+                    <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                      xmlns="http://www.w3.org/2000/svg">
+                      <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('join:' + join.id)"
+                      [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                      [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                      <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                          <path
+                            d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                            stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                          (click)="$event.stopPropagation()" />
+                      </div>
+                      <div appKeyClick class="db-builder-cselect-option" *ngFor="let type of filterStrings(joinTypes)"
+                        [class.active]="join.type === type" (click)="join.type = type; closeDropdown()">
+                        {{ type }}
+                      </div>
+                      <div class="db-builder-cselect-empty" *ngIf="!filterStrings(joinTypes).length">No matches</div>
+                    </div>
+                  </div>
+                </div>
+                <span class="db-builder-icon-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 18 18" fill="none">
+                    <path
+                      d="M9.00056 6.75V11.25M9.00056 6.75H15.7506M9.00056 6.75H2.25047M9.00056 11.25H15.7506M9.00056 11.25H2.25M9.00056 11.25V15.75M9.00056 15.75H12.1506C13.4107 15.75 14.0407 15.75 14.522 15.5048C14.9454 15.289 15.2896 14.9448 15.5053 14.5215C15.7506 14.0402 15.7506 13.4101 15.7506 12.15V11.25M2.25047 6.75L2.25 11.25L2.25056 12.15C2.25056 13.4101 2.25056 14.0402 2.49579 14.5215C2.71151 14.9448 3.05572 15.289 3.47908 15.5048C3.96038 15.75 4.59044 15.75 5.85056 15.75H9.00056M15.7506 11.25V6.75M15.7506 6.75V5.85C15.7506 4.58988 15.7506 3.95982 15.5053 3.47852C15.2896 3.05516 14.9454 2.71095 14.522 2.49524C14.0407 2.25 13.4107 2.25 12.1506 2.25H5.85056C4.59044 2.25 3.96038 2.25 3.47908 2.49524C3.05572 2.71095 2.71151 3.05516 2.49579 3.47852C2.25056 3.95982 2.25056 4.58988 2.25056 5.85L2.25047 6.75"
+                      stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </span>
+                <strong class="db-builder-join-card__table">{{ join.table }}</strong>
+                <span class="db-builder-join-card__label">AS</span>
+                <input type="text" class="db-builder-alias-input" [(ngModel)]="join.alias" aria-label="Join alias" />
+                <div class="db-builder-join-menu">
+                  <button class="db-builder-icon-btn db-builder-icon-btn--auto" title="More options"
+                    (click)="toggleDropdown($event, 'join-menu:' + join.id)">
+                    <svg width="16" height="4" viewBox="0 0 16 4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="2" cy="2" r="1.5" fill="#667085" />
+                      <circle cx="8" cy="2" r="1.5" fill="#667085" />
+                      <circle cx="14" cy="2" r="1.5" fill="#667085" />
+                    </svg>
+                  </button>
+                  <div class="db-builder-join-menu__panel" *ngIf="isDropdownOpen('join-menu:' + join.id)"
+                    (click)="$event.stopPropagation()">
+                    <button type="button" (click)="promoteToBase(join)">Set as Base</button>
+                  </div>
+                </div>
+                <button class="db-builder-icon-btn db-builder-icon-btn--danger" title="Remove join"
+                  (click)="removeJoin(join)">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      d="M6 2H10M2 4H14M12.6667 4L12.1991 11.0129C12.129 12.065 12.0939 12.5911 11.8667 12.99C11.6666 13.3412 11.3648 13.6235 11.0011 13.7998C10.588 14 10.0607 14 9.0062 14H6.9938C5.93927 14 5.41202 14 4.99889 13.7998C4.63517 13.6235 4.33339 13.3412 4.13332 12.99C3.90607 12.5911 3.871 12.065 3.80086 11.0129L3.33333 4M6.66667 7V10.3333M9.33333 7V10.3333"
+                      stroke="#D92D20" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="db-builder-on">
+                <span class="db-builder-on__label" *ngIf="join.conditions.length">ON</span>
+                <div class="db-builder-condition" *ngFor="let condition of join.conditions">
+                  <div class="db-builder-select-wrap">
+                    <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('cond-la:' + condition.id)"
+                      [attr.data-tooltip]="condition.leftAlias"
+                      (click)="toggleDropdown($event, 'cond-la:' + condition.id)">
+                      <span>{{ condition.leftAlias }}</span>
+                      <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                          stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('cond-la:' + condition.id)"
+                        [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                        [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                        <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path
+                              d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                              stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                          <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                            (click)="$event.stopPropagation()" />
+                        </div>
+                        <div appKeyClick class="db-builder-cselect-option" *ngFor="let a of filterAliases(aliasesInView)"
+                          [class.active]="condition.leftAlias === a.alias"
+                          (click)="condition.leftAlias = a.alias; closeDropdown()">
+                          {{ a.alias }} {{ a.table }}
+                        </div>
+                        <div class="db-builder-cselect-empty" *ngIf="!filterAliases(aliasesInView).length">No matches
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="db-builder-select-wrap">
+                    <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('cond-lc:' + condition.id)"
+                      [attr.data-tooltip]="condition.leftColumn"
+                      (click)="toggleDropdown($event, 'cond-lc:' + condition.id)">
+                      <span>{{ condition.leftColumn }}</span>
+                      <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                          stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('cond-lc:' + condition.id)"
+                        [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                        [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                        <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path
+                              d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                              stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                          <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                            (click)="$event.stopPropagation()" />
+                        </div>
+                        <div appKeyClick class="db-builder-cselect-option"
+                          *ngFor="let col of filterStrings(columnsFor(tableNameFor(condition.leftAlias)))"
+                          [class.active]="condition.leftColumn === col"
+                          (click)="condition.leftColumn = col; closeDropdown()">
+                          {{ col }}
+                        </div>
+                        <div class="db-builder-cselect-empty" *ngIf="!filterStrings(columnsFor(tableNameFor(condition.leftAlias))).length">
+                          No matches</div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="db-builder-condition__eq">=</span>
+                  <div class="db-builder-select-wrap">
+                    <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('cond-ra:' + condition.id)"
+                      [attr.data-tooltip]="condition.rightAlias"
+                      (click)="toggleDropdown($event, 'cond-ra:' + condition.id)">
+                      <span>{{ condition.rightAlias }}.</span>
+                      <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                          stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('cond-ra:' + condition.id)"
+                        [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                        [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                        <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path
+                              d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                              stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                          <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                            (click)="$event.stopPropagation()" />
+                        </div>
+                        <div appKeyClick class="db-builder-cselect-option" *ngFor="let a of filterAliases(aliasesInView)"
+                          [class.active]="condition.rightAlias === a.alias"
+                          (click)="condition.rightAlias = a.alias; closeDropdown()">
+                          {{ a.alias }}.
+                        </div>
+                        <div class="db-builder-cselect-empty" *ngIf="!filterAliases(aliasesInView).length">No matches
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="db-builder-select-wrap">
+                    <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('cond-rc:' + condition.id)"
+                      [attr.data-tooltip]="condition.rightColumn"
+                      (click)="toggleDropdown($event, 'cond-rc:' + condition.id)">
+                      <span>{{ condition.rightColumn }}</span>
+                      <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                          stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('cond-rc:' + condition.id)"
+                        [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                        [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                        <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path
+                              d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                              stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                          <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                            (click)="$event.stopPropagation()" />
+                        </div>
+                        <div appKeyClick class="db-builder-cselect-option" *ngFor="let col of filterStrings(columnsFor(tableNameFor(condition.rightAlias)))"
+                          [class.active]="condition.rightColumn === col"
+                          (click)="condition.rightColumn = col; closeDropdown()">
+                          {{ col }}
+                        </div>
+                        <div class="db-builder-cselect-empty" *ngIf="!filterStrings(columnsFor(tableNameFor(condition.rightAlias))).length">No
+                          matches</div>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="db-builder-icon-btn" title="Remove condition"
+                    (click)="removeCondition(join, condition)">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M3.3335 8H12.6668" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+
+              </div>
+              <p class="db-builder-on__required" *ngIf="!isJoinConditionValid(join)">
+                <span aria-hidden="true">*</span> An ON condition is required for this join.
+              </p>
+              <button class="db-builder-add-condition" (click)="addCondition(join)">
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+                Add Condition (AND)
+              </button>
+            </div>
+          </div>
+
+          <p class="db-builder-empty-hint" *ngIf="!joins.length">Add a table from the left panel to create a join.</p>
+        </ng-container>
+
+        <!-- Filters -->
+        <ng-container *ngIf="activeMiddleTab === 'filters'">
+          <div class="db-builder-section-head">
+            <div class="db-builder-section-head__left">
+              <h3>Filters</h3>
+              <span class="db-builder-where-label">WHERE</span>
+            </div>
+            <button class="db-builder-add-btn" (click)="addFilter()">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Add Condition
+            </button>
+          </div>
+
+          <div class="db-builder-filter-row" *ngFor="let filter of filters; let i = index">
+            <span class="db-builder-pill db-builder-pill--where" *ngIf="i === 0">WHERE</span>
+            <div class="db-builder-select-wrap db-builder-select-wrap--sm" *ngIf="i > 0">
+              <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('filter-logic:' + filter.id)"
+                [attr.data-tooltip]="filter.logic" (click)="toggleDropdown($event, 'filter-logic:' + filter.id)">
+                <span>{{ filter.logic }}</span>
+                <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                  xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('filter-logic:' + filter.id)"
+                  [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                  [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                  <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                        stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                      (click)="$event.stopPropagation()" />
+                  </div>
+                  <div appKeyClick class="db-builder-cselect-option" *ngFor="let lg of filterStrings(filterLogicOptions)"
+                    [class.active]="filter.logic === lg" (click)="filter.logic = lg; closeDropdown()">
+                    {{ lg }}
+                  </div>
+                  <div class="db-builder-cselect-empty" *ngIf="!filterStrings(filterLogicOptions).length">No matches
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="db-builder-select-wrap">
+              <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('filter-alias:' + filter.id)"
+                [attr.data-tooltip]="filter.tableAlias" (click)="toggleDropdown($event, 'filter-alias:' + filter.id)">
+                <span>{{ filter.tableAlias }}</span>
+                <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                  xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('filter-alias:' + filter.id)"
+                  [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                  [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                  <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                        stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                      (click)="$event.stopPropagation()" />
+                  </div>
+                  <div appKeyClick class="db-builder-cselect-option" *ngFor="let a of filterAliases(aliasesInView)"
+                    [class.active]="filter.tableAlias === a.alias"
+                    (click)="filter.tableAlias = a.alias; closeDropdown()">
+                    {{ a.alias }} {{ a.table }}
+                  </div>
+                  <div class="db-builder-cselect-empty" *ngIf="!filterAliases(aliasesInView).length">No matches</div>
+                </div>
+              </div>
+            </div>
+            <div class="db-builder-select-wrap">
+              <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('filter-col:' + filter.id)"
+                [attr.data-tooltip]="filter.column" (click)="toggleDropdown($event, 'filter-col:' + filter.id)">
+                <span>{{ filter.column }}</span>
+                <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                  xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('filter-col:' + filter.id)"
+                  [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                  [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                  <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                        stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                      (click)="$event.stopPropagation()" />
+                  </div>
+                  <div appKeyClick class="db-builder-cselect-option"
+                    *ngFor="let col of filterStrings(columnsFor(tableNameFor(filter.tableAlias)))"
+                    [class.active]="filter.column === col" (click)="filter.column = col; closeDropdown()">
+                    {{ col }}
+                  </div>
+                  <div class="db-builder-cselect-empty"
+                    *ngIf="!filterStrings(columnsFor(tableNameFor(filter.tableAlias))).length">No matches</div>
+                </div>
+              </div>
+            </div>
+            <!-- Date-part extraction (YEAR, MONTH, etc.) for date columns -->
+            <div class="db-builder-select-wrap db-builder-select-wrap--sm" *ngIf="datePartsForFilter(filter).length">
+              <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('filter-dp:' + filter.id)"
+                [attr.data-tooltip]="filter.datePart || 'None'"
+                (click)="toggleDropdown($event, 'filter-dp:' + filter.id)">
+                <span>{{ filter.datePart || 'None' }}</span>
+                <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                  xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('filter-dp:' + filter.id)"
+                  [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                  [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                  <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                        stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                      (click)="$event.stopPropagation()" />
+                  </div>
+                  <div appKeyClick class="db-builder-cselect-option" *ngFor="let dp of filterStrings(datePartsForFilter(filter))"
+                    [class.active]="filter.datePart === dp" (click)="filter.datePart = dp; closeDropdown()">
+                    {{ dp || 'None' }}
+                  </div>
+                  <div class="db-builder-cselect-empty" *ngIf="!filterStrings(datePartsForFilter(filter)).length">No
+                    matches</div>
+                </div>
+              </div>
+            </div>
+            <div class="db-builder-select-wrap db-builder-select-wrap--sm">
+              <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('filter-op:' + filter.id)"
+                [attr.data-tooltip]="filter.operator" (click)="toggleDropdown($event, 'filter-op:' + filter.id)">
+                <span>{{ filter.operator }}</span>
+                <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none"
+                  xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085" stroke-width="1.4"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('filter-op:' + filter.id)"
+                  [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                  [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                  <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                        stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                      (click)="$event.stopPropagation()" />
+                  </div>
+                  <div appKeyClick class="db-builder-cselect-option" *ngFor="let op of filterStrings(operatorsForFilter(filter))"
+                    [class.active]="filter.operator === op" (click)="filter.operator = op; closeDropdown()">
+                    {{ op }}
+                  </div>
+                  <div class="db-builder-cselect-empty" *ngIf="!filterStrings(operatorsForFilter(filter)).length">No
+                    matches</div>
+                </div>
+              </div>
+            </div>
+            <ng-container *ngIf="!operatorHasNoValue(filter.operator)">
+              <!-- CTE subquery mode for IN/NOT IN -->
+              <ng-container *ngIf="(filter.operator === 'IN' || filter.operator === 'NOT IN') && cteNames.length">
+                <div class="db-builder-select-wrap db-builder-select-wrap--sm">
+                  <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('filter-cte:' + filter.id)"
+                    [attr.data-tooltip]="filter.subqueryCte ? ('CTE: ' + filter.subqueryCte) : 'Value list'"
+                    (click)="toggleDropdown($event, 'filter-cte:' + filter.id)">
+                    <span>{{ filter.subqueryCte ? ('CTE: ' + filter.subqueryCte) : 'Value list' }}</span>
+                    <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none">
+                      <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                    <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('filter-cte:' + filter.id)"
+                      [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                      [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                      <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                          <path
+                            d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                            stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                          (click)="$event.stopPropagation()" />
+                      </div>
+                      <div appKeyClick class="db-builder-cselect-option" [class.active]="!filter.subqueryCte"
+                        (click)="filter.subqueryCte = ''; closeDropdown()">Value list</div>
+                      <div appKeyClick class="db-builder-cselect-option" *ngFor="let cte of filterStrings(cteNames)"
+                        [class.active]="filter.subqueryCte === cte" (click)="filter.subqueryCte = cte; closeDropdown()">
+                        CTE: {{ cte }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+              <!-- Subquery column when CTE selected -->
+              <input *ngIf="filter.subqueryCte" type="text" class="db-builder-alias-input" style="width:140px"
+                placeholder="column from CTE" [(ngModel)]="filter.subqueryColumn" />
+              <!-- Normal value inputs (hidden when CTE subquery selected) -->
+              <ng-container *ngIf="!filter.subqueryCte">
+                <input type="text" class="db-builder-alias-input db-builder-alias-input--grow"
+                  [placeholder]="filter.isExpression ? 'e.g. GETDATE()' : 'Value'" [(ngModel)]="filter.value" />
+                <input *ngIf="operatorNeedsValue2(filter.operator)" type="text"
+                  class="db-builder-alias-input db-builder-alias-input--grow"
+                  [placeholder]="filter.isExpression ? 'e.g. DATEADD(YEAR,-1,GETDATE())' : 'and…'"
+                  [(ngModel)]="filter.value2" />
+                <label class="db-builder-expr-toggle"
+                  title="Toggle expression mode — use raw SQL like GETDATE(), YEAR(col), etc.">
+                  <input type="checkbox" [(ngModel)]="filter.isExpression" />
+                  <span>fx</span>
+                </label>
+              </ng-container>
+            </ng-container>
+            <button class="db-builder-icon-btn" title="Remove filter" (click)="removeFilter(filter)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.3335 8H12.6668" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <p class="db-builder-empty-hint" *ngIf="!filters.length">No filters yet — the view returns every row.</p>
+        </ng-container>
+
+        <!-- Options -->
+        <ng-container *ngIf="activeMiddleTab === 'options'">
+          <div class="db-builder-section-head">
+            <h3>Options</h3>
+          </div>
+          <label class="db-builder-checkbox">
+            <input type="checkbox" [(ngModel)]="distinctRows" />
+            Return distinct rows (SELECT DISTINCT) — removes duplicate rows based on all selected output columns.
+          </label>
+
+          <!-- ORDER BY -->
+          <div class="db-builder-section-head" style="margin-top:20px">
+            <div class="db-builder-section-head__left">
+              <h3>Sort (ORDER BY)</h3>
+            </div>
+            <button class="db-builder-add-btn" (click)="addSortRow()">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Add Sort
+            </button>
+          </div>
+          <div class="db-builder-filter-row" *ngFor="let sort of sortRows">
+            <div class="db-builder-sort-col" style="flex:1">
+              <input type="text" class="db-builder-alias-input db-builder-alias-input--grow"
+                placeholder="e.g. m.sort_order" [(ngModel)]="sort.column" list="sort-col-opts" />
+              <datalist id="sort-col-opts">
+                <option *ngFor="let col of selectedColumnKeys" [value]="col"></option>
+                <ng-container *ngFor="let c of calcColumns">
+                  <option *ngIf="c.alias" [value]="c.alias"></option>
+                </ng-container>
+              </datalist>
+            </div>
+            <div class="db-builder-select-wrap db-builder-select-wrap--sm">
+              <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('sort:' + sort.id)"
+                [attr.data-tooltip]="sort.direction" (click)="toggleDropdown($event, 'sort:' + sort.id)">
+                <span>{{ sort.direction }}</span>
+                <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none">
+                  <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+                <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('sort:' + sort.id)"
+                  [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                  [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                  <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                        stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                      (click)="$event.stopPropagation()" />
+                  </div>
+                  <div appKeyClick class="db-builder-cselect-option" *ngFor="let dir of filterStrings(sortDirectionOptions)"
+                    [class.active]="sort.direction === dir" (click)="sort.direction = dir; closeDropdown()">
+                    {{ dir }}
+                  </div>
+                  <div class="db-builder-cselect-empty" *ngIf="!filterStrings(sortDirectionOptions).length">No matches
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button class="db-builder-icon-btn" title="Remove" (click)="removeSortRow(sort)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3.3335 8H12.6668" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+          <p class="db-builder-empty-hint" *ngIf="!sortRows.length">No sort defined — rows return in database order.</p>
+
+          <!-- GROUP BY -->
+          <div class="db-builder-section-head" style="margin-top:20px">
+            <div class="db-builder-section-head__left">
+              <h3>Group By (GROUP BY)</h3>
+            </div>
+            <button class="db-builder-add-btn" (click)="addGroupByExpression()">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Add Group
+            </button>
+          </div>
+          <p class="db-builder-empty-hint" *ngIf="!groupByExpressions.length" style="margin-bottom:4px">
+            No GROUP BY defined — auto-generated when column aggregations (SUM, COUNT, etc.) are used, or add explicit
+            expressions here.
+          </p>
+          <div class="db-builder-filter-row"
+            *ngFor="let expr of groupByExpressions; let gi = index; trackBy: trackByIndex">
+            <input type="text" class="db-builder-alias-input db-builder-alias-input--grow"
+              placeholder="e.g. w.pdo_well_id" [ngModel]="groupByExpressions[gi]"
+              (ngModelChange)="groupByExpressions[gi] = $event" />
+            <button class="db-builder-icon-btn" title="Remove" (click)="removeGroupByExpression(gi)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3.3335 8H12.6668" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- HAVING -->
+          <div class="db-builder-section-head" style="margin-top:20px">
+            <div class="db-builder-section-head__left">
+              <h3>Having (HAVING)</h3>
+            </div>
+          </div>
+          <div class="db-builder-filter-row">
+            <input type="text" class="db-builder-alias-input db-builder-alias-input--grow"
+              placeholder="e.g. COUNT(*) > 10" [(ngModel)]="havingCondition" />
+          </div>
+          <p class="db-builder-empty-hint" style="margin-top:4px">Filter groups after aggregation — only applies when
+            GROUP BY is active.</p>
+
+          <!-- Row Limit -->
+          <div class="db-builder-section-head" style="margin-top:20px">
+            <h3>Row Limit (TOP N)</h3>
+          </div>
+          <div class="db-builder-filter-row">
+            <input type="number" class="db-builder-alias-input" style="width:120px" min="1" placeholder="e.g. 1000"
+              [(ngModel)]="rowLimit" />
+            <span class="db-builder-empty-hint" style="margin:0;padding:0 8px">Leave blank for no limit</span>
+          </div>
+
+        </ng-container>
+
+        <!-- Columns -->
+        <ng-container *ngIf="activeMiddleTab === 'columns'">
+          <div class="db-builder-section-head">
+            <div class="db-builder-section-head__left">
+              <h3>Columns</h3>
+              <span class="db-builder-col-count-label">{{ selectedColumnKeys.length }} of {{ allSelectableColumns.length
+                }} selected</span>
+            </div>
+            <div class="db-builder-col-header-actions">
+              <button class="db-builder-text-btn" (click)="selectAllColumns()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <g clip-path="url(#clip0_874_788)">
+                    <path
+                      d="M4.00016 10.0002L5.3335 11.3335L8.3335 8.3335M5.3335 5.3335V3.46683C5.3335 2.7201 5.3335 2.34672 5.47882 2.06151C5.60665 1.81062 5.81062 1.60665 6.06151 1.47882C6.34672 1.3335 6.7201 1.3335 7.46683 1.3335H12.5335C13.2802 1.3335 13.6536 1.3335 13.9388 1.47882C14.1897 1.60665 14.3937 1.81062 14.5215 2.06151C14.6668 2.34672 14.6668 2.7201 14.6668 3.46683V8.5335C14.6668 9.28023 14.6668 9.65363 14.5215 9.93883C14.3937 10.1897 14.1897 10.3937 13.9388 10.5215C13.6536 10.6668 13.2802 10.6668 12.5335 10.6668H10.6668M3.46683 14.6668H8.5335C9.28023 14.6668 9.65363 14.6668 9.93883 14.5215C10.1897 14.3937 10.3937 14.1897 10.5215 13.9388C10.6668 13.6536 10.6668 13.2802 10.6668 12.5335V7.46683C10.6668 6.7201 10.6668 6.34672 10.5215 6.06151C10.3937 5.81062 10.1897 5.60665 9.93883 5.47882C9.65363 5.3335 9.28023 5.3335 8.5335 5.3335H3.46683C2.7201 5.3335 2.34672 5.3335 2.06151 5.47882C1.81062 5.60665 1.60665 5.81062 1.47882 6.06151C1.3335 6.34672 1.3335 6.7201 1.3335 7.46683V12.5335C1.3335 13.2802 1.3335 13.6536 1.47882 13.9388C1.60665 14.1897 1.81062 14.3937 2.06151 14.5215C2.34672 14.6668 2.72009 14.6668 3.46683 14.6668Z"
+                      stroke="#21409A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_874_788">
+                      <rect width="16" height="16" fill="white" />
+                    </clipPath>
+                  </defs>
+                </svg>
+                All
+              </button>
+              <button class="db-builder-text-btn db-builder-text-btn--muted" (click)="clearAllColumns()">Clear</button>
+            </div>
+          </div>
+
+          <div class="db-builder-col-wrapper" (scroll)="closeDropdown()">
+            <div class="db-builder-col-table-head">
+              <span class="db-builder-col-table-head__check"></span>
+              <span class="db-builder-col-table-head__name">Column</span>
+              <span class="db-builder-col-table-head__type">Type</span>
+              <span class="db-builder-col-table-head__type db-builder-col-table-head__type--select">Aggregate</span>
+              <span class="db-builder-col-table-head__type db-builder-col-table-head__type--select">Transform</span>
+              <span class="db-builder-col-table-head__alias">Output Alias</span>
+            </div>
+
+            <div class="db-builder-col-groups">
+              <div class="db-builder-column-group"
+                [class.db-builder-column-group--collapsed]="!isColGroupExpanded(table.alias)"
+                *ngFor="let table of tablesInView; trackBy: trackByTableAlias">
+                <div appKeyClick class="db-builder-column-group__header" (click)="toggleColGroup(table.alias)">
+                  <svg class="db-builder-col-chevron"
+                    [class.db-builder-col-chevron--open]="isColGroupExpanded(table.alias)" width="14" height="14"
+                    viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4.5 3L7.5 6L4.5 9" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                      stroke-linejoin="round" />
+                  </svg>
+                  <span class="db-builder-icon-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 18 18" fill="none">
+                      <path
+                        d="M9.00056 6.75V11.25M9.00056 6.75H15.7506M9.00056 6.75H2.25047M9.00056 11.25H15.7506M9.00056 11.25H2.25M9.00056 11.25V15.75M9.00056 15.75H12.1506C13.4107 15.75 14.0407 15.75 14.522 15.5048C14.9454 15.289 15.2896 14.9448 15.5053 14.5215C15.7506 14.0402 15.7506 13.4101 15.7506 12.15V11.25M2.25047 6.75L2.25 11.25L2.25056 12.15C2.25056 13.4101 2.25056 14.0402 2.49579 14.5215C2.71151 14.9448 3.05572 15.289 3.47908 15.5048C3.96038 15.75 4.59044 15.75 5.85056 15.75H9.00056M15.7506 11.25V6.75M15.7506 6.75V5.85C15.7506 4.58988 15.7506 3.95982 15.5053 3.47852C15.2896 3.05516 14.9454 2.71095 14.522 2.49524C14.0407 2.25 13.4107 2.25 12.1506 2.25H5.85056C4.59044 2.25 3.96038 2.25 3.47908 2.49524C3.05572 2.71095 2.71151 3.05516 2.49579 3.47852C2.25056 3.95982 2.25056 4.58988 2.25056 5.85L2.25047 6.75"
+                        stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </span>
+                  <span class="db-builder-column-group__title">{{ table.alias }} &middot; {{ table.name }}</span>
+                  <span class="db-builder-col-count-label">{{ selectedCountFor(table.alias, table.name) }} of {{
+                    columnsFor(table.name).length }} selected</span>
+                  <div class="db-builder-col-search" (click)="$event.stopPropagation()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                        stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input type="text" placeholder="Search columns" [ngModel]="columnSearch[table.alias]"
+                      (ngModelChange)="setColumnSearch(table.alias, $event)" />
+                  </div>
+                  <button class="db-builder-text-btn"
+                    (click)="$event.stopPropagation(); selectAllFor(table.alias, table.name)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <g clip-path="url(#clip0_874_883)">
+                        <path
+                          d="M4.00016 10.0002L5.3335 11.3335L8.3335 8.3335M5.3335 5.3335V3.46683C5.3335 2.7201 5.3335 2.34672 5.47882 2.06151C5.60665 1.81062 5.81062 1.60665 6.06151 1.47882C6.34672 1.3335 6.7201 1.3335 7.46683 1.3335H12.5335C13.2802 1.3335 13.6536 1.3335 13.9388 1.47882C14.1897 1.60665 14.3937 1.81062 14.5215 2.06151C14.6668 2.34672 14.6668 2.7201 14.6668 3.46683V8.5335C14.6668 9.28023 14.6668 9.65363 14.5215 9.93883C14.3937 10.1897 14.1897 10.3937 13.9388 10.5215C13.6536 10.6668 13.2802 10.6668 12.5335 10.6668H10.6668M3.46683 14.6668H8.5335C9.28023 14.6668 9.65363 14.6668 9.93883 14.5215C10.1897 14.3937 10.3937 14.1897 10.5215 13.9388C10.6668 13.6536 10.6668 13.2802 10.6668 12.5335V7.46683C10.6668 6.7201 10.6668 6.34672 10.5215 6.06151C10.3937 5.81062 10.1897 5.60665 9.93883 5.47882C9.65363 5.3335 9.28023 5.3335 8.5335 5.3335H3.46683C2.7201 5.3335 2.34672 5.3335 2.06151 5.47882C1.81062 5.60665 1.60665 5.81062 1.47882 6.06151C1.3335 6.34672 1.3335 6.7201 1.3335 7.46683V12.5335C1.3335 13.2802 1.3335 13.6536 1.47882 13.9388C1.60665 14.1897 1.81062 14.3937 2.06151 14.5215C2.34672 14.6668 2.72009 14.6668 3.46683 14.6668Z"
+                          stroke="#21409A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                      </g>
+                      <defs>
+                        <clipPath id="clip0_874_883">
+                          <rect width="16" height="16" fill="white" />
+                        </clipPath>
+                      </defs>
+                    </svg>
+                    All
+                  </button>
+                  <button class="db-builder-text-btn db-builder-text-btn--muted"
+                    (click)="$event.stopPropagation(); clearFor(table.alias, table.name)">Clear</button>
+                </div>
+                <ng-container *ngIf="isColGroupExpanded(table.alias)">
+                  <p class="db-builder-col-search-empty"
+                    *ngIf="columnSearch[table.alias] && !visibleColumnsFor(table.alias, table.name).length">
+                    No columns match "{{ columnSearch[table.alias] }}".</p>
+                  <div class="db-builder-col-row"
+                    *ngFor="let col of visibleColumnsFor(table.alias, table.name); trackBy: trackByColName">
+                    <label class="db-builder-col-row__check">
+                      <input type="checkbox" [checked]="selectedColumns[table.alias + '.' + col]"
+                        (change)="toggleColumn(table.alias + '.' + col)" />
+                    </label>
+                    <span class="db-builder-col-row__name">
+                      {{ col }}
+                      <span class="db-builder-col-row__pk" *ngIf="isPrimaryKey(table.name, col)">PK</span>
+                    </span>
+                    <span class="db-builder-col-row__type">{{ dataTypeFor(table.alias, col) }}</span>
+                    <div appKeyClick class="db-builder-col-row__custom-select"
+                      [class.disabled]="!selectedColumns[table.alias + '.' + col]"
+                      [class.open]="isDropdownOpen(table.alias + '.' + col + ':agg')"
+                      [attr.data-tooltip]="getAggregation(table.alias, col) || 'None'"
+                      (click)="toggleDropdown($event, table.alias + '.' + col + ':agg', !selectedColumns[table.alias + '.' + col])">
+                      <span>{{ getAggregation(table.alias, col) || 'None' }}</span>
+                      <svg class="db-builder-col-row__custom-chevron" width="10" height="6" viewBox="0 0 12 7"
+                        fill="none">
+                        <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                          stroke-linejoin="round" />
+                      </svg>
+                      <div class="db-builder-col-row__custom-panel"
+                        *ngIf="isDropdownOpen(table.alias + '.' + col + ':agg')" [style.top.px]="dropdownPos?.top"
+                        [style.left.px]="dropdownPos?.left" [style.width.px]="dropdownPos?.width"
+                        (click)="$event.stopPropagation()">
+                        <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path
+                              d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                              stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                          <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                            (click)="$event.stopPropagation()" />
+                        </div>
+                        <div appKeyClick class="db-builder-col-row__custom-option" *ngFor="let agg of filterStrings(aggregations)"
+                          [class.active]="getAggregation(table.alias, col) === agg"
+                          (click)="selectAggregation(table.alias, col, agg)">
+                          {{ agg || 'None' }}
+                        </div>
+                        <div class="db-builder-cselect-empty" *ngIf="!filterStrings(aggregations).length">No matches
+                        </div>
+                      </div>
+                    </div>
+                    <div appKeyClick class="db-builder-col-row__custom-select"
+                      *ngIf="transformsForColumn(table.alias, col).length; else naTransform"
+                      [class.disabled]="!selectedColumns[table.alias + '.' + col]"
+                      [class.open]="isDropdownOpen(table.alias + '.' + col + ':transform')"
+                      [attr.data-tooltip]="getTransform(table.alias, col) || 'None'"
+                      (click)="toggleDropdown($event, table.alias + '.' + col + ':transform', !selectedColumns[table.alias + '.' + col])">
+                      <span>{{ getTransform(table.alias, col) || 'None' }}</span>
+                      <svg class="db-builder-col-row__custom-chevron" width="10" height="6" viewBox="0 0 12 7"
+                        fill="none">
+                        <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                          stroke-linejoin="round" />
+                      </svg>
+                      <div class="db-builder-col-row__custom-panel"
+                        *ngIf="isDropdownOpen(table.alias + '.' + col + ':transform')" [style.top.px]="dropdownPos?.top"
+                        [style.left.px]="dropdownPos?.left" [style.width.px]="dropdownPos?.width"
+                        (click)="$event.stopPropagation()">
+                        <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path
+                              d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                              stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                          <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                            (click)="$event.stopPropagation()" />
+                        </div>
+                        <div appKeyClick class="db-builder-col-row__custom-option"
+                          *ngFor="let t of filterStrings(transformsForColumn(table.alias, col))"
+                          [class.active]="getTransform(table.alias, col) === t"
+                          (click)="selectTransform(table.alias, col, t)">
+                          {{ t || 'None' }}
+                        </div>
+                        <div class="db-builder-cselect-empty"
+                          *ngIf="!filterStrings(transformsForColumn(table.alias, col)).length">No matches</div>
+                      </div>
+                    </div>
+                    <ng-template #naTransform>
+                      <span class="db-builder-col-row__select-na">N/A</span>
+                    </ng-template>
+                    <input type="text" class="db-builder-col-row__alias"
+                      [class.db-builder-col-row__alias--inactive]="!selectedColumns[table.alias + '.' + col]"
+                      [value]="getOutputAlias(table.alias, col)" (input)="setOutputAlias(table.alias, col, $event)"
+                      [placeholder]="col" />
+                  </div>
+                </ng-container>
+              </div>
+            </div><!-- end db-builder-col-groups -->
+          </div><!-- end db-builder-col-wrapper -->
+
+          <!-- Calculated Columns -->
+          <div class="db-builder-section-head" style="margin-top:16px">
+            <div class="db-builder-section-head__left">
+              <h3>Calculated Columns</h3>
+            </div>
+            <button class="db-builder-add-btn" (click)="addCalcColumn()">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Add Expression
+            </button>
+          </div>
+          <div class="db-builder-filter-row" *ngFor="let calc of calcColumns">
+            <input type="text" class="db-builder-alias-input db-builder-alias-input--grow"
+              placeholder="e.g. actual_cost - planned_cost" [(ngModel)]="calc.expression" />
+            <span style="font-size:12px;color:#667085;padding:0 6px">AS</span>
+            <input type="text" class="db-builder-alias-input" style="width:140px" placeholder="alias"
+              [(ngModel)]="calc.alias" />
+            <button class="db-builder-icon-btn" title="Remove" (click)="removeCalcColumn(calc)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3.3335 8H12.6668" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+          <p class="db-builder-empty-hint" *ngIf="!calcColumns.length">No calculated columns — click Add Expression to
+            create one (e.g. <code>actual_cost - planned_cost</code>).</p>
+
+          <!-- FROM Source — pick a referenced source when no base table is selected -->
+          <div class="db-builder-from-source" *ngIf="!baseTable.name && allReferencedSourceNames.length">
+            <label>FROM Source</label>
+            <div class="db-builder-from-source__row">
+              <div class="db-builder-select-wrap">
+                <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('fromCte')"
+                  [attr.data-tooltip]="fromCte || '— None —'" (click)="toggleDropdown($event, 'fromCte')">
+                  <span>{{ fromCte || '— None —' }}</span>
+                  <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none">
+                    <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                      stroke-linejoin="round" />
+                  </svg>
+                  <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('fromCte')"
+                    [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                    [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                    <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                        <path
+                          d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                          stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                      <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                        (click)="$event.stopPropagation()" />
+                    </div>
+                    <div appKeyClick class="db-builder-cselect-option" [class.active]="!fromCte"
+                      (click)="fromCte = ''; closeDropdown()">— None —</div>
+                    <div appKeyClick class="db-builder-cselect-option" *ngFor="let name of filterStrings(allReferencedSourceNames)"
+                      [class.active]="fromCte === name" (click)="fromCte = name; closeDropdown()">
+                      {{ name }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <input type="text" class="db-builder-alias-input" placeholder="Alias (e.g. m)" [(ngModel)]="fromCteAlias"
+                style="width:80px;margin-left:8px" />
+            </div>
+          </div>
+
+          <!-- Source Joins — JOIN other CTEs/sources to the FROM source -->
+          <div class="db-builder-source-joins" *ngIf="fromCte && allReferencedSourceNames.length > 1">
+            <div class="db-builder-section-head">
+              <div class="db-builder-section-head__left">
+                <h3>Source Joins</h3>
+              </div>
+              <button class="db-builder-add-btn" (click)="addSourceJoin()">
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                  <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+                Add Join
+              </button>
+            </div>
+            <div class="db-builder-source-join-row" *ngFor="let sj of sourceJoins">
+              <div class="db-builder-source-join-row__top">
+                <div class="db-builder-select-wrap db-builder-select-wrap--sm">
+                  <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('sj-type:' + sj.id)"
+                    [attr.data-tooltip]="sj.joinType" (click)="toggleDropdown($event, 'sj-type:' + sj.id)">
+                    <span>{{ sj.joinType }}</span>
+                    <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none">
+                      <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                    <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('sj-type:' + sj.id)"
+                      [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                      [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                      <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                          <path
+                            d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                            stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                          (click)="$event.stopPropagation()" />
+                      </div>
+                      <div appKeyClick class="db-builder-cselect-option" *ngFor="let jt of filterStrings(sourceJoinTypes)"
+                        [class.active]="sj.joinType === jt" (click)="sj.joinType = jt; closeDropdown()">
+                        {{ jt }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="db-builder-select-wrap db-builder-select-wrap--sm">
+                  <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('sj-src:' + sj.id)"
+                    [attr.data-tooltip]="sj.source || '— Source —'" (click)="toggleDropdown($event, 'sj-src:' + sj.id)">
+                    <span>{{ sj.source || '— Source —' }}</span>
+                    <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none">
+                      <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                    <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('sj-src:' + sj.id)"
+                      [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                      [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                      <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                          <path
+                            d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                            stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                          (click)="$event.stopPropagation()" />
+                      </div>
+                      <div appKeyClick class="db-builder-cselect-option" [class.active]="!sj.source"
+                        (click)="sj.source = ''; closeDropdown()">— Source —</div>
+                      <div appKeyClick class="db-builder-cselect-option"
+                        *ngFor="let name of filterStrings(allReferencedSourceNames)" [class.active]="sj.source === name"
+                        (click)="sj.source = name; closeDropdown()">
+                        {{ name }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <input type="text" class="db-builder-alias-input" placeholder="Alias" [(ngModel)]="sj.alias"
+                  style="width:60px" />
+                <button class="db-builder-icon-btn" title="Remove join" (click)="removeSourceJoin(sj)">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M3.3335 8H12.6668" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+                      stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              <div class="db-builder-source-join-row__on" *ngIf="sj.joinType !== 'CROSS JOIN'">
+                <span class="db-builder-source-join-row__on-label">ON</span>
+                <input type="text" class="db-builder-alias-input db-builder-alias-input--grow"
+                  placeholder="e.g. d.rig_off BETWEEN m.month_start AND m.month_end" [(ngModel)]="sj.onCondition" />
+              </div>
+            </div>
+            <p class="db-builder-empty-hint" *ngIf="!sourceJoins.length">No source joins — add a join to combine
+              CTEs/views together.</p>
+          </div>
+
+        </ng-container>
+
+        <!-- Indexes: existing indexes on the tables this view reads, and the ones that would help it -->
+        <ng-container *ngIf="activeMiddleTab === 'indexes'">
+          <div class="db-builder-section-head">
+            <div class="db-builder-section-head__left">
+              <h3>Indexes</h3>
+              <span class="db-builder-count-pill" *ngIf="indexAdvice">{{ suggestedIndexCount }} suggested</span>
+            </div>
+            <div class="db-index__actions">
+              <button type="button" class="db-builder-add-btn" *ngIf="suggestedIndexCount" (click)="copyAllIndexSql()">
+                {{ copiedIndexSql && copiedIndexSql.includes('\n') ? 'Copied' : 'Copy all CREATE INDEX' }}
+              </button>
+              <button type="button" class="db-builder-add-btn" [disabled]="indexLoading" (click)="loadIndexAdvice(true)">
+                {{ indexLoading ? 'Checking…' : 'Refresh' }}
+              </button>
+            </div>
+          </div>
+          <p class="db-index__note">
+            Suggestions come from the columns this view filters, joins and sorts on, plus SQL Server's missing-index
+            statistics. Nothing is created here: copy the statement and have it reviewed before running it.
+          </p>
+
+          <p class="db-builder-empty-hint" *ngIf="indexLoading && !indexAdvice">Reading indexes…</p>
+          <p class="db-builder-empty-hint" *ngIf="indexError">{{ indexError }}</p>
+          <p class="db-builder-empty-hint" *ngIf="indexAdvice?.supported && indexAdvice?.message">{{ indexAdvice?.message }}</p>
+
+          <section class="db-index" *ngFor="let table of indexAdvice?.tables ?? []">
+            <header class="db-index__head">
+              <h4>{{ table.table }}</h4>
+              <span class="db-index__rows" *ngIf="table.rowCount !== null">{{ table.rowCount | number }} rows</span>
+            </header>
+            <p class="db-index__usage">
+              <span *ngIf="table.filterColumns.length">Filters: {{ table.filterColumns.join(', ') }}</span>
+              <span *ngIf="table.joinColumns.length">Joins: {{ table.joinColumns.join(', ') }}</span>
+              <span *ngIf="table.sortColumns.length">Groups / sorts: {{ table.sortColumns.join(', ') }}</span>
+              <span *ngIf="!table.filterColumns.length && !table.joinColumns.length && !table.sortColumns.length">
+                Read in full: no filter, join or sort column an index can use.
+              </span>
+            </p>
+
+            <h5>Suggested ({{ table.suggestedIndexes.length }})</h5>
+            <p class="db-builder-empty-hint" *ngIf="!table.suggestedIndexes.length">
+              No new index needed: existing indexes already cover the columns this view uses.
+            </p>
+            <div class="db-index__item db-index__item--suggested" *ngFor="let s of table.suggestedIndexes">
+              <div class="db-index__item-main">
+                <strong>{{ s.keyColumns.join(', ') }}</strong>
+                <span class="db-index__tag">{{ s.source }}</span>
+                <span class="db-index__reason">{{ s.reason }}</span>
+                <span class="db-index__reason" *ngIf="s.includedColumns.length">Include: {{ s.includedColumns.join(', ') }}</span>
+              </div>
+              <code class="db-index__sql">{{ s.createSql }}</code>
+              <button type="button" class="db-builder-add-btn" (click)="copyIndexSql(s.createSql)">
+                {{ copiedIndexSql === s.createSql ? 'Copied' : 'Copy' }}
+              </button>
+            </div>
+
+            <h5>Existing ({{ table.existingIndexes.length }})</h5>
+            <p class="db-builder-empty-hint" *ngIf="!table.existingIndexes.length">This table has no indexes.</p>
+            <div class="db-index__item" *ngFor="let ix of table.existingIndexes">
+              <div class="db-index__item-main">
+                <strong>{{ ix.name }}</strong>
+                <span class="db-index__tag">{{ ix.isPrimaryKey ? 'Primary key' : ix.type.toLowerCase() }}{{ ix.isUnique && !ix.isPrimaryKey ? ', unique' : '' }}</span>
+                <span class="db-index__tag db-index__tag--used" *ngIf="ix.supportsView">Used by this view</span>
+                <span class="db-index__reason">Keys: {{ ix.keyColumns.join(', ') }}<ng-container *ngIf="ix.includedColumns.length"> · Include: {{ ix.includedColumns.join(', ') }}</ng-container></span>
+              </div>
+            </div>
+          </section>
+        </ng-container>
+
+        <!-- CTEs & Union -->
+        <ng-container *ngIf="activeMiddleTab === 'ctes'">
+          <!-- DECLARE variables -->
+          <div class="db-builder-section-head">
+            <div class="db-builder-section-head__left">
+              <h3>DECLARE Variables</h3>
+              <span class="db-builder-count-pill">{{ declareVariables.length }}</span>
+            </div>
+            <button class="db-builder-add-btn" (click)="addDeclareVariable()">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Add Variable
+            </button>
+          </div>
+
+          <div class="db-builder-cte-card" *ngFor="let decl of declareVariables">
+            <div class="db-builder-cte-card__header">
+              <span class="db-builder-pill db-builder-pill--cte">DECLARE</span>
+              <span style="font-size:13px;color:#667085;padding:0 2px">@</span>
+              <input type="text" class="db-builder-alias-input" style="width:140px" placeholder="variable_name"
+                [(ngModel)]="decl.name" />
+              <div appKeyClick class="db-builder-cselect" style="width:130px;margin-left:4px"
+                [class.open]="isDropdownOpen('decl:' + decl.id)" [attr.data-tooltip]="decl.dataType"
+                (click)="toggleDropdown($event, 'decl:' + decl.id)">
+                <span>{{ decl.dataType }}</span>
+                <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none">
+                  <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+                <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('decl:' + decl.id)"
+                  [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                  [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                  <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                        stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                      (click)="$event.stopPropagation()" />
+                  </div>
+                  <div appKeyClick class="db-builder-cselect-option" *ngFor="let dt of filterStrings(declareDataTypes)"
+                    [class.active]="decl.dataType === dt" (click)="decl.dataType = dt; closeDropdown()">
+                    {{ dt }}
+                  </div>
+                  <div class="db-builder-cselect-empty" *ngIf="!filterStrings(declareDataTypes).length">No matches</div>
+                </div>
+              </div>
+              <span style="font-size:12px;color:#667085;padding:0 4px">=</span>
+              <input type="text" class="db-builder-alias-input" style="width:200px"
+                placeholder="default value (e.g. '2025-01-01' or GETDATE())" [(ngModel)]="decl.defaultValue"
+                maxlength="200" />
+              <button class="db-builder-icon-btn db-builder-icon-btn--danger" title="Remove variable"
+                (click)="removeDeclareVariable(decl)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M6 2H10M2 4H14M12.6667 4L12.1991 11.0129C12.129 12.065 12.0939 12.5911 11.8667 12.99C11.6666 13.3412 11.3648 13.6235 11.0011 13.7998C10.588 14 10.0607 14 9.0062 14H6.9938C5.93927 14 5.41202 14 4.99889 13.7998C4.63517 13.6235 4.33339 13.3412 4.13332 12.99C3.90607 12.5911 3.871 12.065 3.80086 11.0129L3.33333 4M6.66667 7V10.3333M9.33333 7V10.3333"
+                    stroke="#D92D20" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <p class="db-builder-empty-hint" *ngIf="!declareVariables.length">No variables declared. Use DECLARE to define
+            reusable &#64;parameters (e.g. &#64;start_date DATE = '2025-01-01').</p>
+
+          <!-- CTE definitions -->
+          <div class="db-builder-section-head">
+            <div class="db-builder-section-head__left">
+              <h3>Common Table Expressions (CTEs)</h3>
+              <span class="db-builder-count-pill">{{ cteDefinitions.length }}</span>
+            </div>
+            <button class="db-builder-add-btn" (click)="addCte()">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Add CTE
+            </button>
+          </div>
+
+          <div class="db-builder-cte-card" *ngFor="let cte of cteDefinitions">
+            <div class="db-builder-cte-card__header">
+              <span class="db-builder-pill db-builder-pill--cte">WITH</span>
+              <input type="text" class="db-builder-alias-input" style="width:180px" placeholder="cte_name"
+                [(ngModel)]="cte.name" />
+              <span style="font-size:12px;color:#667085;padding:0 4px">AS</span>
+              <button class="db-builder-icon-btn db-builder-icon-btn--danger" title="Remove CTE"
+                (click)="removeCte(cte)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M6 2H10M2 4H14M12.6667 4L12.1991 11.0129C12.129 12.065 12.0939 12.5911 11.8667 12.99C11.6666 13.3412 11.3648 13.6235 11.0011 13.7998C10.588 14 10.0607 14 9.0062 14H6.9938C5.93927 14 5.41202 14 4.99889 13.7998C4.63517 13.6235 4.33339 13.3412 4.13332 12.99C3.90607 12.5911 3.871 12.065 3.80086 11.0129L3.33333 4M6.66667 7V10.3333M9.33333 7V10.3333"
+                    stroke="#D92D20" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+            <textarea class="db-builder-cte-card__sql" rows="6" spellcheck="false"
+              placeholder="SELECT DISTINCT w.pdo_well_id&#10;FROM core.Well w&#10;INNER JOIN core.WellDeliveryEvent wde ON w.well_key = wde.well_key&#10;WHERE wde.Commissioning_Finish_Date IS NOT NULL"
+              [(ngModel)]="cte.sql"></textarea>
+          </div>
+          <p class="db-builder-empty-hint" *ngIf="!cteDefinitions.length">No CTEs defined. CTEs let you define reusable
+            named subqueries (WITH ... AS).</p>
+
+          <!-- UNION ALL blocks -->
+          <div class="db-builder-section-head" style="margin-top:24px">
+            <div class="db-builder-section-head__left">
+              <h3>UNION ALL Blocks</h3>
+              <span class="db-builder-count-pill">{{ unionBlocks.length }}</span>
+            </div>
+            <button class="db-builder-add-btn" (click)="addUnionBlock()">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M9 3.75V14.25M3.75 9H14.25" stroke="#21409A" stroke-width="1.6" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Add UNION ALL
+            </button>
+          </div>
+          <p class="db-builder-empty-hint" *ngIf="!unionBlocks.length && !cteDefinitions.length"
+            style="margin-bottom:8px">
+            The main query (built in Tables &amp; Joins / Filters / Columns) is the first SELECT. Add UNION ALL blocks
+            to append additional SELECT statements.
+          </p>
+
+          <div class="db-builder-cte-card" *ngFor="let block of unionBlocks; let i = index">
+            <div class="db-builder-cte-card__header">
+              <span class="db-builder-pill db-builder-pill--union">UNION ALL</span>
+              <span style="font-size:12px;color:#667085">Block {{ i + 1 }}</span>
+              <button class="db-builder-icon-btn" title="Toggle mode" style="margin-left:auto;margin-right:4px"
+                (click)="block.mode = block.mode === 'raw' ? 'structured' : 'raw'">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"
+                  stroke-linecap="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+              </button>
+              <button class="db-builder-icon-btn db-builder-icon-btn--danger" title="Remove block"
+                (click)="removeUnionBlock(block)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M6 2H10M2 4H14M12.6667 4L12.1991 11.0129C12.129 12.065 12.0939 12.5911 11.8667 12.99C11.6666 13.3412 11.3648 13.6235 11.0011 13.7998C10.588 14 10.0607 14 9.0062 14H6.9938C5.93927 14 5.41202 14 4.99889 13.7998C4.63517 13.6235 4.33339 13.3412 4.13332 12.99C3.90607 12.5911 3.871 12.065 3.80086 11.0129L3.33333 4M6.66667 7V10.3333M9.33333 7V10.3333"
+                    stroke="#D92D20" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Structured mode -->
+            <ng-container *ngIf="block.mode === 'structured'">
+              <div class="db-builder-union-structured">
+                <div class="db-builder-union-cols">
+                  <div class="db-builder-union-cols__header">
+                    <span>Columns</span>
+                    <button class="db-builder-add-btn db-builder-add-btn--sm" (click)="addUnionBlockColumn(block)">+
+                      Column</button>
+                  </div>
+                  <div class="db-builder-filter-row" *ngFor="let col of block.columns; let ci = index">
+                    <input type="text" class="db-builder-alias-input db-builder-alias-input--grow"
+                      placeholder="e.g. mo + 1" [(ngModel)]="col.expression" />
+                    <span style="font-size:12px;color:#667085;padding:0 6px">AS</span>
+                    <input type="text" class="db-builder-alias-input" style="width:120px" placeholder="alias"
+                      [(ngModel)]="col.alias" />
+                    <button class="db-builder-icon-btn" title="Remove" (click)="removeUnionBlockColumn(block, ci)">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M3.3335 8H12.6668" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+                          stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="db-builder-union-from">
+                  <label>FROM</label>
+                  <div appKeyClick class="db-builder-cselect" [class.open]="isDropdownOpen('union-from:' + block.id)"
+                    [attr.data-tooltip]="block.fromSource || '— None —'"
+                    (click)="toggleDropdown($event, 'union-from:' + block.id)">
+                    <span>{{ block.fromSource || '— None —' }}</span>
+                    <svg class="db-builder-cselect-chevron" width="10" height="6" viewBox="0 0 12 7" fill="none">
+                      <path d="M0.7 0.7L5.7 5.7L10.7 0.7" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </svg>
+                    <div class="db-builder-cselect-panel" *ngIf="isDropdownOpen('union-from:' + block.id)"
+                      [style.top.px]="dropdownPos?.top" [style.left.px]="dropdownPos?.left"
+                      [style.width.px]="dropdownPos?.width" (click)="$event.stopPropagation()">
+                      <div class="db-builder-cselect-search" (click)="$event.stopPropagation()">
+                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                          <path
+                            d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
+                            stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <input type="text" placeholder="Search" [(ngModel)]="dropdownSearch"
+                          (click)="$event.stopPropagation()" />
+                      </div>
+                      <div appKeyClick class="db-builder-cselect-option" [class.active]="!block.fromSource"
+                        (click)="block.fromSource = ''; closeDropdown()">— None —</div>
+                      <div appKeyClick class="db-builder-cselect-option"
+                        *ngFor="let name of filterStrings(allReferencedSourceNames)"
+                        [class.active]="block.fromSource === name" (click)="block.fromSource = name; closeDropdown()">
+                        {{ name }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="db-builder-union-where">
+                  <label>WHERE</label>
+                  <input type="text" class="db-builder-alias-input db-builder-alias-input--grow"
+                    placeholder="e.g. mo < 12" [(ngModel)]="block.whereCondition" />
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- Raw SQL mode -->
+            <textarea *ngIf="block.mode === 'raw'" class="db-builder-cte-card__sql" rows="8" spellcheck="false"
+              placeholder="SELECT&#10;  'Not Commissioned' AS [Type],&#10;  COUNT(DISTINCT w.pdo_well_id) AS [Value]&#10;FROM core.Well w&#10;..."
+              [(ngModel)]="block.sql"></textarea>
+          </div>
+          <p class="db-builder-empty-hint" *ngIf="!unionBlocks.length && cteDefinitions.length">No UNION ALL blocks —
+            the main query runs alone.</p>
+        </ng-container>
+      </div>
+    </section>
+
+    <div class="db-builder-divider" [class.db-builder-divider--active]="resizingPanel === 'right'"
+      title="Drag to resize" (mousedown)="onDividerMouseDown($event, 'right')"><span></span><span></span><span></span>
+    </div>
+
+    <!-- ============ Right panel: SQL / Data Preview ============ -->
+    <aside class="db-builder-panel db-builder-right">
+      <div class="db-builder-tabs">
+        <button class="db-builder-tabs__tab" [class.active]="activeRightTab === 'sql'"
+          (click)="setRightTab('sql')">SQL</button>
+        <button class="db-builder-tabs__tab" [class.active]="activeRightTab === 'preview'"
+          (click)="setRightTab('preview')">Data Preview</button>
+      </div>
+
+      <ng-container *ngIf="activeRightTab === 'sql'">
+        <div class="db-builder-sql-toolbar">
+          <label class="db-builder-toggle">
+            <input type="checkbox" aria-label="Edit SQL" [checked]="editSql" (change)="toggleEditSql()" />
+            <span class="db-builder-toggle__slider"></span>
+          </label>
+          <span class="db-builder-sql-toolbar__label">Edit SQL</span>
+          <div class="db-builder-sql-toolbar__actions">
+            <button class="db-builder-btn" (click)="rebuildSql()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M14.6667 6.66667C14.6667 6.66667 13.33 4.84548 12.2441 3.75883C11.1582 2.67218 9.6576 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14C10.7354 14 13.0433 12.1695 13.7655 9.66667M10.6667 6.66667H14.6667V2.66667"
+                  stroke="#4D555B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              Rebuild
+            </button>
+            <button class="db-builder-btn db-builder-btn--ai" *ngIf="canAiReview" (click)="reviewSql()" [disabled]="aiReviewLoading || !selectedConnectionId" title="Explain this SQL and suggest how to make it faster">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l1.8 4.6L18.4 9.4l-4.6 1.8L12 15.8l-1.8-4.6L5.6 9.4l4.6-1.8z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+              </svg>
+              {{ aiReviewLoading ? 'Reviewing…' : 'AI review' }}
+            </button>
+            <button class="db-builder-btn" (click)="copySql()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <g clip-path="url(#clip0_810_1454)">
+                  <path
+                    d="M10.6654 5.33203V3.46536C10.6654 2.71863 10.6654 2.34526 10.52 2.06004C10.3922 1.80916 10.1882 1.60518 9.93736 1.47736C9.65216 1.33203 9.27876 1.33203 8.53203 1.33203H3.46536C2.71863 1.33203 2.34526 1.33203 2.06004 1.47736C1.80916 1.60518 1.60518 1.80916 1.47736 2.06004C1.33203 2.34526 1.33203 2.71863 1.33203 3.46536V8.53203C1.33203 9.27876 1.33203 9.65216 1.47736 9.93736C1.60518 10.1882 1.80916 10.3922 2.06004 10.52C2.34526 10.6654 2.71863 10.6654 3.46536 10.6654H5.33203M7.46536 14.6654H12.532C13.2788 14.6654 13.6522 14.6654 13.9374 14.52C14.1882 14.3922 14.3922 14.1882 14.52 13.9374C14.6654 13.6522 14.6654 13.2788 14.6654 12.532V7.46536C14.6654 6.71863 14.6654 6.34526 14.52 6.06004C14.3922 5.80916 14.1882 5.60518 13.9374 5.47736C13.6522 5.33203 13.2788 5.33203 12.532 5.33203H7.46536C6.71863 5.33203 6.34526 5.33203 6.06004 5.47736C5.80916 5.60518 5.60518 5.80916 5.47736 6.06004C5.33203 6.34526 5.33203 6.71863 5.33203 7.46536V12.532C5.33203 13.2788 5.33203 13.6522 5.47736 13.9374C5.60518 14.1882 5.80916 14.3922 6.06004 14.52C6.34526 14.6654 6.71863 14.6654 7.46536 14.6654Z"
+                    stroke="#4D555B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </g>
+                <defs>
+                  <clipPath id="clip0_810_1454">
+                    <rect width="16" height="16" fill="white" />
+                  </clipPath>
+                </defs>
+              </svg>
+              {{ copied ? 'Copied' : 'Copy' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="db-builder-sql" *ngIf="!editSql">
+          <div class="db-builder-sql__line" *ngFor="let line of sqlLineViews; let i = index">
+            <span class="db-builder-sql__lineno">{{ i + 1 }}</span>
+            <span class="db-builder-sql__code">
+              <span *ngIf="line.indent">{{ line.indent }}</span>
+              <span class="db-builder-sql__keyword" *ngIf="line.keyword">{{ line.keyword }}</span>
+              <span class="db-builder-sql__text" [class.db-builder-sql__text--comment]="line.isComment">{{ line.rest
+                }}</span>
+            </span>
+          </div>
+        </div>
+
+        <textarea class="db-builder-sql-edit" *ngIf="editSql" [(ngModel)]="manualSql" spellcheck="false"></textarea>
+
+        <!-- AI review: explanation, issues and suggestions grounded in the estimated plan -->
+        <p *ngIf="aiReviewError" class="db-builder-save-error">{{ aiReviewError }}</p>
+        <div class="db-builder-ai-review" *ngIf="aiReview as r">
+          <div class="db-builder-ai-review__head">
+            <strong>AI review</strong>
+            <button type="button" class="db-builder-ai-review__close" (click)="aiReview = null" aria-label="Close review">×</button>
+          </div>
+          <p class="db-builder-ai-review__text">{{ r.explanation }}</p>
+          <ng-container *ngIf="r.issues.length">
+            <h5>Issues</h5>
+            <ul>
+              <li *ngFor="let i of r.issues"><span class="db-builder-ai-review__sev db-builder-ai-review__sev--{{ i.severity }}">{{ i.severity }}</span> {{ i.text }}</li>
+            </ul>
+          </ng-container>
+          <ng-container *ngIf="r.suggestions.length">
+            <h5>Suggestions</h5>
+            <ul><li *ngFor="let s of r.suggestions">{{ s }}</li></ul>
+          </ng-container>
+          <ng-container *ngIf="r.plan as p">
+            <h5>Estimated plan</h5>
+            <p class="db-builder-ai-review__muted">{{ p.statements }} statement{{ p.statements === 1 ? '' : 's' }} · cost {{ p.estimatedCost }} · ~{{ p.estimatedRows | number }} rows. The query was not run.</p>
+            <ul *ngIf="p.scans.length || p.missingIndexes.length || p.warnings.length">
+              <li *ngFor="let s of p.scans">{{ s }}</li>
+              <li *ngFor="let m of p.missingIndexes">Missing index: {{ m }}</li>
+              <li *ngFor="let w of p.warnings">Warning: {{ w }}</li>
+            </ul>
+          </ng-container>
+          <ng-container *ngIf="r.optimisedSql; else noRewrite">
+            <h5>Optimised query</h5>
+            <p class="db-builder-ai-review__muted" *ngIf="r.optimisedNote">{{ r.optimisedNote }}</p>
+            <pre class="db-builder-ai-review__sql">{{ r.optimisedSql }}</pre>
+            <div class="db-builder-ai-review__actions">
+              <button type="button" class="db-builder-btn db-builder-btn--ai" (click)="useOptimisedSql()">Use this SQL</button>
+              <span class="db-builder-ai-review__muted">Run Data Preview and compare before saving.</span>
+            </div>
+          </ng-container>
+          <ng-template #noRewrite><p class="db-builder-ai-review__muted" *ngIf="r.optimisedNote">{{ r.optimisedNote }}</p></ng-template>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="activeRightTab === 'preview'">
+        <!-- Run preview toolbar -->
+        <div class="db-builder-sql-toolbar">
+          <span class="db-builder-sql-toolbar__label" style="flex:1">{{ previewData ? (previewData.rows.length + '
+            rows') : 'Run to see data' }}</span>
+          <button class="db-builder-btn" (click)="runPreview()" [disabled]="previewLoading || !selectedConnectionId">
+            <svg *ngIf="!previewLoading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg *ngIf="previewLoading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" class="db-builder-spin">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            {{ previewLoading ? 'Running…' : 'Run Preview' }}
+          </button>
+        </div>
+
+        <p *ngIf="previewError" class="db-builder-save-error">{{ previewError }}</p>
+
+        <div class="db-builder-preview" *ngIf="previewData && previewData.rows.length; else noPreview">
+          <table class="db-builder-preview__table">
+            <thead>
+              <tr>
+                <th *ngFor="let col of previewData.columns">{{ col }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of previewData.rows">
+                <td *ngFor="let col of previewData.columns">{{ row[col] }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noPreview>
+          <p class="db-builder-empty-hint" *ngIf="!previewLoading">Click <strong>Run Preview</strong> to execute the SQL
+            and see sample rows.</p>
+        </ng-template>
+      </ng-container>
+    </aside>
+  </div>
+</div>
+
+<app-confirmation-dialog [isOpen]="showResetConfirm" title="Reset View"
+  message="This resets the view name, filters, options, and SQL edits back to their starting state. This action cannot be undone."
+  confirmLabel="Reset" cancelLabel="Cancel" variant="danger" (confirmed)="confirmReset()" (cancelled)="cancelReset()">
+</app-confirmation-dialog>
+
+<app-confirmation-dialog [isOpen]="showDiscardConfirm" title="Discard View"
+  message="Any unsaved changes to this view will be lost." confirmLabel="Discard" cancelLabel="Cancel" variant="danger"
+  (confirmed)="confirmDiscard()" (cancelled)="cancelDiscard()">
+</app-confirmation-dialog>

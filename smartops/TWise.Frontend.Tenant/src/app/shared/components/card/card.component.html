@@ -1,0 +1,9 @@
+<div class="card" [class.card--no-padding]="!padding">
+  <div *ngIf="title || subtitle" class="card__header">
+    <h3 *ngIf="title" class="card__title">{{ title }}</h3>
+    <p *ngIf="subtitle" class="card__subtitle">{{ subtitle }}</p>
+  </div>
+  <div class="card__body">
+    <ng-content></ng-content>
+  </div>
+</div>

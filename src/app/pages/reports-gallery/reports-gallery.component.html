@@ -1,0 +1,132 @@
+<div id="page-reports-gallery" class="page active">
+  <div class="page-title-row">
+    <div class="bd-title-wrap">
+      <div class="page-title">{{ pageTitle }}</div>
+      <div class="page-subtitle">Open a report to view it</div>
+    </div>
+    <div class="bd-actions" *ngIf="scope==='my'">
+      <button class="bd-cat-btn" (click)="manageCategories()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Manage Categories
+      </button>
+      <button class="bd-new-btn" (click)="newReport()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Report
+      </button>
+    </div>
+  </div>
+
+  <div class="bd-toolbar">
+    <div class="bd-tabs">
+      <button class="bd-tab" [class.active]="tab==='all'" (click)="setTab('all')">All reports <span class="bd-tab-badge">{{ allCount }}</span></button>
+      <button class="bd-tab" [class.active]="tab==='favourites'" (click)="setTab('favourites')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Favourites <span class="bd-tab-badge">{{ favCount }}</span>
+      </button>
+      <button class="bd-tab" [class.active]="tab==='recent'" (click)="setTab('recent')">Recently viewed</button>
+      <button class="bd-tab" *ngIf="scope==='my'" [class.active]="tab==='draft'" (click)="setTab('draft')">
+        Draft <span class="bd-tab-badge">{{ draftCount }}</span>
+      </button>
+    </div>
+
+    <div class="bd-toolbar-right">
+      <div class="bd-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" [(ngModel)]="search" (ngModelChange)="onFilterChange()" placeholder="Search reports…" />
+      </div>
+      <label class="bd-select">Category:
+        <select [(ngModel)]="categoryFilter" (ngModelChange)="onFilterChange()">
+          <option value="All">All</option>
+          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+        </select>
+      </label>
+      <label class="bd-select">Sort:
+        <select [(ngModel)]="sort" (ngModelChange)="onFilterChange()">
+          <option value="recent">Recently used</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </label>
+      <div class="bd-viewtoggle">
+        <button [class.active]="view==='card'" (click)="setView('card')" title="Card view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </button>
+        <button [class.active]="view==='tile'" (click)="setView('tile')" title="List view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bd-recent" *ngIf="tab==='all' && recentReports.length">
+    <div class="bd-section-label">RECENTLY VIEWED</div>
+    <div class="bd-recent-row">
+      <div class="bd-recent-card" *ngFor="let r of recentReports; trackBy: trackById" (click)="open(r)">
+        <div class="bd-thumb" data-icon="xlsx"><ng-container [ngTemplateOutlet]="ic" [ngTemplateOutletContext]="{ $implicit: 'xlsx' }"></ng-container></div>
+        <div class="bd-recent-body"><div class="bd-card-name">{{ r.name }}</div><div class="bd-card-sub">{{ r.category }}</div></div>
+        <svg class="bd-recent-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <ng-container *ngIf="tab==='all'">
+    <div class="bd-cat" *ngFor="let g of groups">
+      <div class="bd-cat-head" (click)="toggleCategory(g.name)">
+        <svg class="bd-cat-chev" [class.collapsed]="!isExpanded(g.name)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <span class="bd-cat-name">{{ g.name }}</span>
+        <span class="bd-cat-badge">{{ g.reports.length }}</span>
+      </div>
+      <div class="bd-grid" [class.tile]="view==='tile'" *ngIf="isExpanded(g.name)">
+        <ng-container *ngFor="let r of g.reports; trackBy: trackById">
+          <ng-container [ngTemplateOutlet]="reportCard" [ngTemplateOutletContext]="{ $implicit: r }"></ng-container>
+        </ng-container>
+      </div>
+    </div>
+    <div class="bd-empty" *ngIf="!groups.length">
+      {{ scope==='my' ? 'No reports yet — click “New Report” to create one.' : 'No reports match your filters.' }}
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="tab!=='all'">
+    <div class="bd-grid" [class.tile]="view==='tile'">
+      <ng-container *ngFor="let r of flatReports; trackBy: trackById">
+        <ng-container [ngTemplateOutlet]="reportCard" [ngTemplateOutletContext]="{ $implicit: r }"></ng-container>
+      </ng-container>
+    </div>
+    <div class="bd-empty" *ngIf="!flatReports.length">
+      {{ tab==='favourites' ? 'No favourite reports yet — tap the star on a report to add it.'
+         : (tab==='draft' ? 'No draft reports — everything is published.' : 'No recently viewed reports yet.') }}
+    </div>
+  </ng-container>
+</div>
+
+<ng-template #reportCard let-r>
+  <div class="bd-card" (click)="open(r)">
+    <div class="bd-thumb" data-icon="xlsx"><ng-container [ngTemplateOutlet]="ic" [ngTemplateOutletContext]="{ $implicit: 'xlsx' }"></ng-container></div>
+    <div class="bd-card-body">
+      <div class="bd-card-name">
+        {{ r.name }}
+        <span class="bd-draft-badge" *ngIf="scope==='my' && isDraft(r)">Draft</span>
+      </div>
+      <div class="bd-card-desc">{{ r.desc }}</div>
+      <div class="bd-card-meta"><span>{{ r.category }}</span></div>
+    </div>
+    <button class="bd-publish-btn" *ngIf="scope==='my' && isDraft(r)" (click)="publish(r, $event)"
+            title="Publish to Standard Reports" aria-label="Publish">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><polyline points="5 12 12 5 19 12"/></svg>
+    </button>
+    <button class="bd-fav" [class.on]="isFav(r.id)" (click)="toggleFav(r, $event)" title="Favourite">
+      <svg viewBox="0 0 24 24" [attr.fill]="isFav(r.id) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </button>
+    <svg class="bd-card-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>
+</ng-template>
+
+<ng-template #ic let-t>
+  <svg *ngIf="t==='bar'"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+  <svg *ngIf="t==='donut'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3 a9 9 0 0 1 8 5"/></svg>
+  <svg *ngIf="t==='line'"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 15 9 9 13 12 21 5"/></svg>
+  <svg *ngIf="t==='kpi'"   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="7" width="16" height="10" rx="2"/><line x1="7" y1="12" x2="13" y2="12"/></svg>
+  <svg *ngIf="t==='table'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="10" y1="5" x2="10" y2="19"/></svg>
+  <!-- Excel-style spreadsheet icon — reports are tabular data -->
+  <svg *ngIf="t==='xlsx'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+</ng-template>

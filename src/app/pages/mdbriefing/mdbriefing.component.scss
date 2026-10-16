@@ -1,0 +1,46 @@
+/* ── Dark theme ── */
+html:not(.navbar-light) #page-mdbriefing {
+  --surface: #112448;
+  --surface-2: #172d54;
+  --bg: #0b1e38;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-2: rgba(255, 255, 255, 0.05);
+  --txt-1: #e8ecf5;
+  --txt-2: #c7cfe0;
+  --txt-dim: rgba(232, 236, 245, 0.6);
+  --txt-muted: rgba(232, 236, 245, 0.5);
+  --accent: #29378d;
+}
+
+html:not(.navbar-light) .page-scroll:has(#page-mdbriefing.active) {
+  background: #0b1e38;
+}
+
+/* ── Light theme ── */
+html.navbar-light #page-mdbriefing {
+  --surface: #ffffff;
+  --surface-2: #f8f9fb;
+  --bg: #f5f5f7;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-2: rgba(0, 0, 0, 0.06);
+  --txt-1: #1a1a2e;
+  --txt-2: #3a3a5c;
+  --txt-dim: rgba(60, 60, 80, 0.6);
+  --txt-muted: rgba(60, 60, 80, 0.5);
+  --accent: #29378d;
+}
+
+html.navbar-light .page-scroll:has(#page-mdbriefing.active) {
+  background: #f5f5f7;
+}
+
+#page-mdbriefing {
+  #mdb-pg-listen-icon {
+    display: inline-flex;
+  }
+
+  .mdb-datebar-lbl svg {
+    vertical-align: middle;
+    margin-right: 5px;
+  }
+}

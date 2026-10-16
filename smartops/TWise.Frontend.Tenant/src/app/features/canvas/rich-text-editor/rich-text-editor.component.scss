@@ -1,0 +1,80 @@
+.rich-text {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  overflow: hidden;
+
+  &:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-50); }
+
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-app);
+  }
+
+  &__tool {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-primary);
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); color: var(--color-primary); }
+  }
+
+  &__divider { width: 1px; height: 18px; margin: 0 2px; background: var(--color-border); }
+
+  &__size {
+    height: 26px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    font-size: 12px;
+  }
+
+  &__color {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); }
+    span { border-bottom: 3px solid #e11d48; line-height: 1; }
+    &--highlight span { border-bottom-color: #facc15; }
+    input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  }
+
+  &--large &__area { min-height: 320px; max-height: calc(70dvh - 160px); font-size: 15px; }
+
+  &__area {
+    min-height: 120px;
+    max-height: 280px;
+    padding: var(--spacing-sm);
+    overflow: auto;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-text-primary);
+    outline: none;
+
+    &:empty::before { content: 'Write the text'; color: var(--color-text-label); }
+  }
+
+  &__link { display: flex; gap: 4px; padding: 4px; border-top: 1px solid var(--color-border-subtle); }
+
+  &__problem { margin: 0; padding: 0 var(--spacing-sm) var(--spacing-xs); color: var(--color-danger); font-size: 12px; }
+}

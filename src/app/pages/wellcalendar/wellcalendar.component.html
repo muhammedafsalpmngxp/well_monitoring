@@ -1,0 +1,191 @@
+<div id="page-wellcalendar" class="page active wca-body">
+
+  <!-- <div class="breadcrumb">
+    <a data-page="cmdoverview">{{ 'SIDEBAR.WELL_OPERATIONS' | translate }}</a>
+    <span>›</span>
+    <span class="current">{{ 'SIDEBAR.WELL_PLANNER' | translate }}</span>
+  </div> -->
+
+  <!-- Page header -->
+  <div class="page-title-row">
+    <div class="wca-title-row-left">
+      <div class="page-title wca-page-title">
+        Well Planner
+        <span class="wca-badge-new">NEW</span>
+      </div>
+      <div class="page-subtitle">Well-by-well activity timeline · history · current schedule · forward plan · switch range to day / week / month</div>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="wca-kpi-strip">
+
+    <!-- Active Wells -->
+    <div class="kpi k-blue wca-kpi clickable" role="button" tabindex="0" title="Open Active wells in All Wells" onclick="wcaOpenWellsFiltered('inprogress')">
+      <div class="kpi-head">
+        <span class="kpi-label">Active Wells</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val blue" id="wcaKpiActive">0</div>
+      <div class="kpi-unit">In current range</div>
+    </div>
+
+    <!-- On Schedule -->
+    <div class="kpi k-green wca-kpi clickable" role="button" tabindex="0" title="Open On-Schedule (high performing) wells" onclick="wcaOpenWellsFiltered('highperf')">
+      <div class="kpi-head">
+        <span class="kpi-label">On Schedule</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val green" id="wcaKpiOn">0</div>
+      <div class="kpi-unit">Activities tracking plan</div>
+    </div>
+
+    <!-- At Risk -->
+    <div class="kpi k-gold wca-kpi clickable" role="button" tabindex="0" title="Open At-Risk wells" onclick="wcaOpenWellsFiltered('onhold')">
+      <div class="kpi-head">
+        <span class="kpi-label">At Risk</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val amber" id="wcaKpiAtRisk">0</div>
+      <div class="kpi-unit">Slipping · monitor</div>
+    </div>
+
+    <!-- Overdue / Stalled -->
+    <div class="kpi k-red wca-kpi clickable" role="button" tabindex="0" title="Open Overdue / Critical wells" onclick="wcaOpenWellsFiltered('critical')">
+      <div class="kpi-head">
+        <span class="kpi-label">Overdue / Stalled</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val red" id="wcaKpiOverdue">0</div>
+      <div class="kpi-unit">Past plan end · action</div>
+    </div>
+
+    <!-- Total Activities -->
+    <div class="kpi k-teal wca-kpi clickable" role="button" tabindex="0" title="Open all wells" onclick="wcaOpenWellsFiltered('all')">
+      <div class="kpi-head">
+        <span class="kpi-label">Total Activities</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val teal" id="wcaKpiTotal">0</div>
+      <div class="kpi-unit">Across visible window</div>
+    </div>
+
+    <!-- Milestones -->
+    <div class="kpi k-blue wca-kpi clickable" role="button" tabindex="0" title="Open all wells (milestones)" onclick="wcaOpenWellsFiltered('all')">
+      <div class="kpi-head">
+        <span class="kpi-label">Milestones</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val blue" id="wcaKpiMilestone">0</div>
+      <div class="kpi-unit">In current range</div>
+    </div>
+
+  </div>
+
+  <!-- Main calendar card -->
+  <div class="wca-card">
+
+    <!-- View toggle (hidden — Well / Crew mode is selected from the sidebar entries) -->
+    <div class="wca-tabs wca-view-toggle">
+      <button class="wca-tab active" data-tab="well" onclick="wcaSetTab('well',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+        Well Timeline
+      </button>
+      <button class="wca-tab" data-tab="crew" onclick="wcaSetTab('crew',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Crew Timeline
+      </button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="wca-toolbar">
+      <div class="wca-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="wcaSearch" placeholder="Search well, milestone, activity, crew..." oninput="wcaSearch()" />
+      </div>
+
+      <div class="wca-toolbar-right">
+        <!-- Crew-mode-only well filter -->
+        <div class="wca-crew-well-filter" id="wcaCrewWellFilter">
+          <label>Filter by Well:</label>
+          <select id="wcaCrewWellFilterSelect" onchange="wcaSetCrewWellFilter(this.value)">
+            <option value="all">All Wells</option>
+          </select>
+        </div>
+
+        <div class="wca-pill-group" id="wcaRangeToggle">
+          <button class="wca-pill" data-range="day"   onclick="wcaSetRange('day',this)">Day</button>
+          <button class="wca-pill active" data-range="week"  onclick="wcaSetRange('week',this)">Week</button>
+          <button class="wca-pill" data-range="month" onclick="wcaSetRange('month',this)">Month</button>
+        </div>
+
+        <div class="wca-nav">
+          <button class="wca-nav-btn" onclick="wcaShift(-1)" title="Previous">‹</button>
+          <span class="wca-nav-label" id="wcaNavLabel">—</span>
+          <button class="wca-nav-btn" onclick="wcaShift(1)" title="Next">›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend (top, compact) -->
+    <div class="wca-legend wca-legend-top">
+      <span class="wca-legend-group">
+        <span class="wca-legend-grouplbl">Phases:</span>
+        <span class="wca-legend-item"><span class="wca-leg-block wca-leg-block--fl-start"></span>Flowline Start</span>
+        <span class="wca-legend-item"><span class="wca-leg-block wca-leg-block--fl-finish"></span>Flowline Finish</span>
+        <span class="wca-legend-item"><span class="wca-leg-block wca-leg-block--hookup"></span>Hook Up</span>
+        <span class="wca-legend-item"><span class="wca-leg-block wca-leg-block--handover"></span>Handover</span>
+      </span>
+      <span class="wca-legend-group">
+        <span class="wca-legend-grouplbl">Activities:</span>
+        <span class="wca-legend-item"><span class="wca-leg-dot wca-leg-dot--welding"></span>Welding</span>
+        <span class="wca-legend-item"><span class="wca-leg-dot wca-leg-dot--civil"></span>Civil</span>
+        <span class="wca-legend-item"><span class="wca-leg-dot wca-leg-dot--rigging"></span>Rigging</span>
+        <span class="wca-legend-item"><span class="wca-leg-dot wca-leg-dot--other"></span>Other</span>
+        <span class="wca-legend-item"><span class="wca-leg-bar wca-leg-unassigned"></span>Unassigned</span>
+        <span class="wca-legend-item"><span class="wca-leg-bar wca-leg-gap"></span>No activity (gap)</span>
+        <span class="wca-legend-item">
+          <svg class="wca-leg-rig" viewBox="0 0 16 20" fill="none" stroke="#fff" stroke-width="0.8">
+            <path d="M3 18 L8 2 L13 18 Z" fill="#FF0000"/>
+            <line x1="5" y1="14" x2="11" y2="14"/>
+            <line x1="6" y1="10" x2="10" y2="10"/>
+            <line x1="6.5" y1="6" x2="9.5" y2="6"/>
+            <rect x="2" y="18" width="12" height="2" fill="#FF0000"/>
+          </svg>
+          Rig-On
+        </span>
+        <span class="wca-legend-item"><span class="wca-leg-today"></span>Today</span>
+      </span>
+    </div>
+
+    <!-- Calendar grid -->
+    <div class="wca-grid-wrap">
+      <table class="wca-grid">
+        <thead>
+          <tr id="wcaHeaderRow">
+            <th class="wca-col-well">Well · Milestone · Activity</th>
+            <th class="wca-col-proj">Crew Id</th>
+            <th class="wca-col-cal" id="wcaDateHeaderCell">
+              <div class="wca-date-month" id="wcaDateMonth"><!-- month label --></div>
+              <div class="wca-date-header" id="wcaDateHeader"><!-- date cells --></div>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="wcaBody"><!-- rows injected --></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>

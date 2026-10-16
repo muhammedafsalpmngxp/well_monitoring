@@ -1,0 +1,42 @@
+<div id="page-crewmaster" class="page active">
+
+        <!-- <div class="breadcrumb">
+          <a>{{ 'CREWMASTER.BREADCRUMB_CREW_ACTIVITIES' | translate }}</a>
+          <span>›</span>
+          <span class="current">{{ 'CREWMASTER.BREADCRUMB_CREW_MASTER' | translate }}</span>
+        </div> -->
+
+        <div class="page-title-row">
+          <div>
+            <div class="page-title">{{ 'CREWMASTER.PAGE_TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'CREWMASTER.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- Category summary / filter cards -->
+        <div class="cm-summary-row" id="cm-summary"></div>
+
+        <!-- Toolbar -->
+        <div class="cm-toolbar">
+          <div class="cm-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="cm-search-input" type="text" [placeholder]="'CREWMASTER.SEARCH_PLACEHOLDER' | translate" />
+          </div>
+          <div class="cm-view-toggle" id="cm-view-toggle">
+            <button class="cm-view-btn" data-view="grid">
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="7" y="1" width="4" height="4" rx="0.5"/><rect x="1" y="7" width="4" height="4" rx="0.5"/><rect x="7" y="7" width="4" height="4" rx="0.5"/></svg>
+              {{ 'CREWMASTER.VIEW_GRID' | translate }}
+            </button>
+            <button class="cm-view-btn active" data-view="table">
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="1.5" y1="3" x2="10.5" y2="3"/><line x1="1.5" y1="6" x2="10.5" y2="6"/><line x1="1.5" y1="9" x2="10.5" y2="9"/></svg>
+              {{ 'CREWMASTER.VIEW_TABLE' | translate }}
+            </button>
+          </div>
+          <div class="cm-result-count" id="cm-count">{{ 'CREWMASTER.RESULT_COUNT' | translate }}</div>
+        </div>
+
+        <!-- Results container -->
+        <div id="cm-results"></div>
+        <div id="cmCrewGrid" class="ag-theme-alpine-dark"></div>
+
+      </div><!-- /page-crewmaster -->

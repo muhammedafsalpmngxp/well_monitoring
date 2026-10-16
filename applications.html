@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Applications · Al Tasnim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #f5f6fa;
+    --surface:   #ffffff;
+    --surface-2: #f8fafc;
+    --border:    rgba(15,23,42,0.08);
+    --border-2:  #e2e8f0;
+    --txt-1:     #16203d;
+    --txt-2:     #3a3a5c;
+    --txt-dim:   rgba(30,41,59,0.6);
+    --txt-muted: #94a3b8;
+
+    /* ── Brand theme: one primary, one secondary — everything else is neutral ── */
+    --primary:    #29378d;
+    --primary-2:  #3b4bb0;
+    --primary-soft: rgba(41,55,141,0.10);
+    --secondary:   #F59E0B;
+    --secondary-2: #FBBF24;
+    --secondary-soft: rgba(245,158,11,0.14);
+
+    --green:  #16a34a;
+    --red:    #dc2626;
+    --teal:   #0d9488;
+    --purple: #7c3aed;
+    --orange: #f97316;
+    --sidebar-w: 248px;
+    --topbar-h:  56px;
+  }
+
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--txt-1);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ── Shell ───────────────────────────────────────────────────────── */
+  .shell { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar ──────────────────────────────────────────────────────── */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: #ffffff;
+    border-right: 1px solid var(--border-2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sb-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-2);
+  }
+  .sb-logo-mark {
+    width:45px; height: 45px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sb-logo-mark img { width: 100%; height: 100%; object-fit: cover; }
+  .sb-brand-text { flex: 1; min-width: 0; }
+  .sb-brand-name {
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .sb-brand-sub {
+    color: var(--txt-muted);
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    margin-top: 1px;
+  }
+  .sb-collapse-btn {
+    width: 22px; height: 22px;
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-2);
+    border-radius: 50%;
+    background: #fff;
+    color: #64748b;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .sb-collapse-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .sb-collapse-btn svg { width: 12px; height: 12px; }
+
+  .sb-nav { padding: 10px 8px 20px; flex: 1; overflow-y: auto; }
+
+  .sb-section-label {
+    padding: 14px 10px 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--txt-muted);
+  }
+
+  .sb-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    margin: 1px 0;
+    border-radius: 9px;
+    cursor: pointer;
+    color: #334155;
+    font-size: 12.5px;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
+    text-decoration: none;
+  }
+  .sb-item:hover { background: var(--surface-2); }
+  .sb-item.active {
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-weight: 700;
+  }
+  .sb-item.active .sb-icon svg { stroke: var(--primary); }
+
+  .sb-icon {
+    width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sb-icon svg {
+    width: 16px; height: 16px;
+    stroke: var(--txt-muted); fill: none;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    transition: stroke 0.15s;
+  }
+  .sb-item:hover .sb-icon svg { stroke: #64748b; }
+
+  .sb-item-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sb-item-badge {
+    font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 10px;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--primary-soft);
+    color: var(--primary);
+    border: 1px solid rgba(41,55,141,0.25);
+  }
+
+  /* ── Main column ─────────────────────────────────────────────────── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .topbar {
+    height: var(--topbar-h);
+    flex-shrink: 0;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-2);
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 10px;
+  }
+  .nb-spacer { flex: 1; }
+
+  .nb-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 340px;
+    max-width: 40vw;
+    height: 36px;
+    padding: 0 14px 0 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border-2);
+    background: #EEF3F9;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .nb-search:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(41,55,141,.12); }
+  .nb-search-icon {
+    position: absolute; left: 11px;
+    width: 15px; height: 15px;
+    color: var(--txt-muted);
+    pointer-events: none;
+  }
+  .nb-search input {
+    flex: 1; height: 100%;
+    border: 0; outline: none; background: transparent;
+    font: inherit; font-size: 12.5px; color: var(--txt-1);
+  }
+  .nb-search input::placeholder { color: var(--txt-muted); }
+
+  .nb-ai-btn {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #e26b31;
+    flex-shrink: 0;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .nb-ai-btn:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(226,107,49,.45); }
+  .nb-ai-btn svg { width: 16px; height: 16px; }
+
+  .nb-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #334155;
+    cursor: pointer;
+    font: inherit;
+    transition: border-color .15s;
+  }
+  .nb-pill:hover { border-color: #cbd5e1; }
+  .nb-pill svg { width: 14px; height: 14px; stroke: #64748b; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nb-pill.theme svg { stroke: var(--secondary); }
+  .nb-pill .caret { width: 10px; height: 10px; }
+
+  .nb-bell {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid var(--border-2);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .15s;
+  }
+  .nb-bell:hover { border-color: #cbd5e1; }
+  .nb-bell svg { width: 15px; height: 15px; stroke: #64748b; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nb-bell::after {
+    content: ''; position: absolute; top: 8px; right: 9px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--secondary);
+    box-shadow: 0 0 0 2px #fff;
+  }
+
+  .nb-user {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 4px 11px 4px 4px;
+    background: #ffffff;
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .nb-user:hover { border-color: #cbd5e1; }
+  .nb-user-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-2), var(--primary));
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .nb-user-meta { display: flex; flex-direction: column; line-height: 1.15; }
+  .nb-user-name { font-size: 12px; font-weight: 600; color: #0f172a; }
+  .nb-user-role { font-size: 10px; color: var(--txt-muted); }
+
+  /* ── Content area ────────────────────────────────────────────────── */
+  .page-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; 
+    padding: 20px 20px 20px; }
+
+  .page-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 15px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15,23,42,.03), 0 6px 18px rgba(15,23,42,.045);
+  }
+  .page-title { font-size: 20px; font-weight: 800; color: var(--txt-1); letter-spacing: -0.3px; }
+  .page-subtitle { color: var(--txt-muted); font-size: 12px; margin-top: 4px; line-height: 1.5; }
+  .page-meta-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    background: var(--secondary-soft);
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 999px;
+    color: #B45309;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+
+  /* ── Section labels ──────────────────────────────────────────────── */
+  .apps-section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--txt-muted);
+    margin: 4px 0 12px;
+  }
+  .apps-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-2);
+  }
+
+  /* ── Hero tile — the one fully-connected application ─────────────── */
+  .apps-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 2px rgba(15,23,42,.03), 0 10px 26px rgba(15,23,42,.07);
+    color: var(--txt-1);
+    overflow: hidden;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    width: 100%;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+
+  .apps-hero::after {
+    /* Decorative secondary-colour glow, ties the hero back to the theme's accent */
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,158,11,0.16), transparent 70%);
+    pointer-events: none;
+  }
+  .apps-hero-icon {
+    width: 64px; height: 64px;
+    flex-shrink: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--primary-2), var(--primary));
+    box-shadow: 0 4px 10px rgba(41,55,141,0.32);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .apps-hero-icon svg { width: 32px; height: 32px; stroke: #fff; }
+  .apps-hero-body { flex: 1; min-width: 0; position: relative; z-index: 1; }
+  .apps-hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    color: #B45309;
+    margin-bottom: 6px;
+  }
+  .apps-hero-eyebrow::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--secondary);
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.28);
+  }
+  .apps-hero-name { font-size: 20px; font-weight: 800; letter-spacing: -0.2px; color: var(--txt-1); }
+  .apps-hero-desc { margin-top: 5px; font-size: 12.5px; color: var(--txt-dim); line-height: 1.5; max-width: 560px; }
+  .apps-hero-cta {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 20px;
+    background: linear-gradient(180deg, var(--primary-2), var(--primary));
+    color: #fff;
+    font-weight: 800;
+    font-size: 12.5px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(41,55,141,0.3);
+    position: relative; z-index: 1;
+    transition: box-shadow .15s, transform .15s;
+    white-space: nowrap;
+  }
+  .apps-hero:hover .apps-hero-cta {
+    box-shadow: 0 5px 14px rgba(41,55,141,0.4);
+    transform: translateX(2px);
+  }
+  .apps-hero-cta svg { width: 15px; height: 15px; }
+
+  /* ── Secondary grid — not-yet-connected applications. auto-fit (not
+     auto-fill) + a smaller minimum so today's 4 tiles sit evenly in one row
+     instead of 3+1 with an orphan card stranded on its own line. ── */
+  .apps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .apps-tile {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    width: 100%;
+    box-shadow: 0 1px 2px rgba(15,23,42,.03);
+    transition: box-shadow .18s ease, transform .15s ease, border-color .15s ease;
+  }
+  .apps-tile:hover {
+    box-shadow: 0 10px 24px rgba(15,23,42,0.1);
+
+    border-color: rgba(41,55,141,0.22);
+  }
+  .apps-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .apps-tile-icon {
+    width: 46px; height: 46px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+  }
+  .apps-tile-icon-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.5px;
+  }
+  .apps-tile-icon svg { width: 22px; height: 22px; }
+
+  .apps-tile-body { flex: 1; min-width: 0; }
+  .apps-tile-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .apps-tile-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--txt-1);
+    letter-spacing: 0.1px;
+  }
+  .apps-tile-cat {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--txt-dim);
+    border: 1px solid var(--border-2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .apps-tile-desc {
+    margin-top: 5px;
+    font-size: 11.5px;
+    color: var(--txt-dim);
+    line-height: 1.5;
+  }
+  .apps-tile-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #B45309;
+    background: var(--secondary-soft);
+    border: 1px solid rgba(245,158,11,0.3);
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .apps-tile-status::before {
+    content: '';
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--secondary);
+  }
+
+  /* Per-tile icon accents — kept for scannability, all pulled from the same
+     secondary-leaning warm/cool neutral family so they read as siblings
+     rather than five unrelated brand colours. */
+  .apps-tile-icon.vise   { background: linear-gradient(135deg, #22b8a6, var(--teal)); box-shadow: 0 4px 10px rgba(13,148,136,.28); }
+  .apps-tile-icon.acc    { background: linear-gradient(135deg, #fb923c, var(--orange)); box-shadow: 0 4px 10px rgba(249,115,22,.28); }
+  .apps-tile-icon.p6     { background: linear-gradient(135deg, #a78bfa, var(--purple)); box-shadow: 0 4px 10px rgba(124,58,237,.28); }
+  .apps-tile-icon.sap    { background: linear-gradient(135deg, var(--primary-2), var(--primary)); box-shadow: 0 4px 10px rgba(41,55,141,.28); }
+
+  /* Compact responsive */
+  @media (max-width: 900px) {
+    .sidebar { width: 64px; }
+    .sb-brand { padding: 12px 12px; }
+    .sb-brand-text, .sb-collapse-btn, .sb-section-label, .sb-item-label, .sb-item-badge { display: none; }
+    .sb-item { padding: 9px 12px; justify-content: center; }
+    .apps-hero { flex-wrap: wrap; }
+    .apps-hero-cta { width: 100%; justify-content: center; }
+  }
+  @media (max-width: 720px) {
+    .sidebar { display: none; }
+    .nb-pill.lang, .nb-user-meta { display: none; }
+    .page-scroll { padding: 14px 14px 24px; }
+    .apps-grid { grid-template-columns: 1fr; }
+    .apps-hero { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+ <div class="sb-brand">
+  <div class="sb-logo-mark">
+    <img  src="src/assets/logo-new.png" alt="Al Tasnim">
+  </div>
+  <div  class="sb-brand-text">
+    <div  class="sb-brand-name">Al Tasnim</div>
+    <div class="sb-brand-sub">T-Wise</div></div>
+  <button type="button" class="sb-collapse-btn" aria-label="Collapse sidebar" title="Collapse sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+</div>
+
+    <nav class="sb-nav">
+      <div class="sb-section-label">Launcher</div>
+
+      <a class="sb-item active">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        </div>
+        <span class="sb-item-label">All Applications</span>
+        <span class="sb-item-badge">5</span>
+      </a>
+
+      <a class="sb-item" href="https://wmr-demo.prod-app.in">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2 L3 7 V17 L12 22 L21 17 V7 Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <span class="sb-item-label">SmartOps Dashboard</span>
+      </a>
+
+      <div class="sb-section-label">Account</div>
+
+      <a class="sb-item" href="login.html">
+        <div class="sb-icon">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </div>
+        <span class="sb-item-label">Sign out</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── Main column ─────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="nb-search">
+        <svg class="nb-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search Well ID…" autocomplete="off" aria-label="Search Well ID">
+      </div>
+
+      <div class="nb-spacer"></div>
+
+      <button class="nb-ai-btn" type="button" aria-label="Open Jenny AI Assistant" title="Jenny AI">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </button>
+
+      <button class="nb-bell" type="button" aria-label="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
+
+      <button class="nb-pill lang" type="button" aria-label="Language">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span>US English</span>
+        <svg class="caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      <button class="nb-pill theme" type="button" aria-label="Theme">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/></svg>
+        <span>Light</span>
+        <svg class="caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      <div class="nb-user">
+        <div class="nb-user-avatar">S</div>
+        <div class="nb-user-meta">
+          <span class="nb-user-name">Site Engineer</span>
+          <span class="nb-user-role">Custom Access</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page content -->
+    <div class="page-scroll">
+
+      <div class="page-title-row">
+        <div>
+          <div class="page-title">All Applications</div>
+          <div class="page-subtitle">Pick an application to launch · <strong style="color:var(--primary)">Al Tasnim SmartOps</strong> is ready — the rest are being connected</div>
+        </div>
+        <span class="page-meta-pill">5 APPS</span>
+      </div>
+
+      <!-- Featured — the one application that's actually wired up -->
+      <button type="button" class="apps-hero" onclick="window.location.href='https://wmr-demo.prod-app.in'" aria-label="Launch Al Tasnim SmartOps">
+        <div class="apps-hero-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="9" rx="1"/>
+            <rect x="14" y="3" width="7" height="5" rx="1"/>
+            <rect x="14" y="12" width="7" height="9" rx="1"/>
+            <rect x="3" y="16" width="7" height="5" rx="1"/>
+          </svg>
+        </div>
+        <div class="apps-hero-body">
+          <div class="apps-hero-eyebrow">Featured · Ready to launch</div>
+          <div class="apps-hero-name">Al Tasnim SmartOps</div>
+          <div class="apps-hero-desc">Real-time well operations intelligence · KPIs · forecasts · agentic insights</div>
+        </div>
+        <span class="apps-hero-cta">
+          Launch Dashboard
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </span>
+      </button>
+
+      <div class="apps-section-label">Other applications</div>
+
+      <div class="apps-grid">
+
+        <!-- Vise (T-Wise) -->
+        <button type="button" class="apps-tile" onclick="alert('Vise is not yet connected.');" aria-label="Vise">
+          <div class="apps-tile-icon vise" aria-hidden="true"><span class="apps-tile-icon-text">V</span></div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">Vise</div>
+              <span class="apps-tile-cat">Materials</span>
+            </div>
+            <div class="apps-tile-desc">Material availability · IPM stock buffers · expedite &amp; transfer requests</div>
+            <span class="apps-tile-status">Not yet connected</span>
+          </div>
+        </button>
+
+        <!-- ACC -->
+        <button type="button" class="apps-tile" onclick="alert('ACC is not yet connected.');" aria-label="ACC">
+          <div class="apps-tile-icon acc" aria-hidden="true"><span class="apps-tile-icon-text">A</span></div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">ACC</div>
+              <span class="apps-tile-cat">Engineering</span>
+            </div>
+            <div class="apps-tile-desc">Autodesk Construction Cloud · drawings · RFIs · field issues</div>
+            <span class="apps-tile-status">Not yet connected</span>
+          </div>
+        </button>
+
+        <!-- P6 -->
+        <button type="button" class="apps-tile" onclick="alert('P6 is not yet connected.');" aria-label="P6">
+          <div class="apps-tile-icon p6" aria-hidden="true"><span class="apps-tile-icon-text">P6</span></div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">P6</div>
+              <span class="apps-tile-cat">Planning</span>
+            </div>
+            <div class="apps-tile-desc">Primavera P6 · programme schedule · critical path · resource loading</div>
+            <span class="apps-tile-status">Not yet connected</span>
+          </div>
+        </button>
+
+        <!-- SAP -->
+        <button type="button" class="apps-tile" onclick="alert('SAP is not yet connected.');" aria-label="SAP">
+          <div class="apps-tile-icon sap" aria-hidden="true"><span class="apps-tile-icon-text">S</span></div>
+          <div class="apps-tile-body">
+            <div class="apps-tile-row">
+              <div class="apps-tile-name">SAP</div>
+              <span class="apps-tile-cat">ERP</span>
+            </div>
+            <div class="apps-tile-desc">Procurement · POs · invoicing · asset master · cost controlling</div>
+            <span class="apps-tile-status">Not yet connected</span>
+          </div>
+        </button>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,94 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "map-reduce-research",
+    "description": "Runtime fan-out via the Send API",
+    "created_at": "2026-09-22T11:08:33.272Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [
+      {
+        "name": "topics",
+        "type": "list",
+        "reducer": "last",
+        "description": "Subtopics to research"
+      },
+      {
+        "name": "findings",
+        "type": "list",
+        "reducer": "append",
+        "description": "One entry per branch"
+      }
+    ],
+    "routers": [],
+    "interrupts": [],
+    "map_reduce": {
+      "name": "fan_out_topics",
+      "over": "topics",
+      "worker": "topic_researcher",
+      "collect_into": "findings",
+      "reducer_node": "synthesizer"
+    },
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "planner",
+        "role": "a research planner",
+        "goal": "Break the question into 3 independent subtopics and list them",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      },
+      {
+        "name": "topic_researcher",
+        "role": "a subtopic researcher",
+        "goal": "Research the single subtopic you were given",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      },
+      {
+        "name": "synthesizer",
+        "role": "a synthesizer",
+        "goal": "Merge all branch findings into one answer",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [],
+    "tools": [],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

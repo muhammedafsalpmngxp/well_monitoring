@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "SmartOps.Finance": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:7003",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    }
+  }
+}

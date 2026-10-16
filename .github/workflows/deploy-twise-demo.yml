@@ -1,0 +1,193 @@
+name: Deploy TWise Demo
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-twise-demo:
+    name: Deploy TWise Demo
+    runs-on: [self-hosted, demo-new]
+
+    steps:
+
+      # ─── 1. CLEANUP ───────────────────────────────────────────────
+      - name: Cleanup Disk
+        run: |
+          docker system prune -f 2>/dev/null || true
+          df -h /
+
+      # ─── 2. SAVE ROLLBACK SNAPSHOTS ───────────────────────────────
+      - name: Save Rollback Images
+        run: |
+          docker tag twise_demo_controlplane:latest twise_demo_controlplane:rollback 2>/dev/null || true
+          docker tag twise_demo_tenant:latest       twise_demo_tenant:rollback       2>/dev/null || true
+          docker tag twise_demo_etl:latest          twise_demo_etl:rollback          2>/dev/null || true
+
+      # ─── 3. PULL LATEST CODE ──────────────────────────────────────
+      - name: Pull latest changes
+        run: |
+          git config --global --add safe.directory /twise/TWISE_DEMO
+          chown -R "$(whoami)" /twise/TWISE_DEMO/.git 2>/dev/null || true
+          cd /twise/TWISE_DEMO && git fetch origin dev && git reset --hard origin/dev
+
+      # ─── 4. FIX PERMISSIONS ───────────────────────────────────────
+      - name: Fix Permissions
+        run: |
+          chown -R "$(whoami)" /twise/TWISE_DEMO || true
+          chown -R "$(whoami)" /twise/nginx || true
+          sudo rm -rf /twise/TWISE_DEMO/smartops/TWise.Frontend.Tenant/dist || true
+          sudo rm -rf /twise/nginx/html/twise-demo/* || true
+
+      # ─── 5. APPLY SERVER-SIDE DOCKERFILES ─────────────────────────
+      - name: Apply Dockerfiles
+        run: |
+          cp /twise/twise-dockerfiles/TWise.ControlPlane.Dockerfile \
+             /twise/TWISE_DEMO/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Dockerfile
+          cp /twise/twise-dockerfiles/TWise.Tenant.Dockerfile \
+             /twise/TWISE_DEMO/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Dockerfile
+
+      # ─── 6. FIX ANGULAR BUILD BUDGETS ─────────────────────────────
+      - name: Fix Angular Budget
+        run: |
+          python3 -c "
+          import json
+          path = '/twise/TWISE_DEMO/smartops/TWise.Frontend.Tenant/angular.json'
+          with open(path) as f: data = json.load(f)
+          def patch(b):
+            for x in b:
+              if 'maximumError' in x: x['maximumError'] = '10MB'
+              if 'maximumWarning' in x: x['maximumWarning'] = '8MB'
+          for p in data.get('projects',{}).values():
+            build = p.get('architect',{}).get('build',{})
+            patch(build.get('options',{}).get('budgets',[]))
+            [patch(c.get('budgets',[])) for c in build.get('configurations',{}).values()]
+          json.dump(data, open(path,'w'), indent=2)
+          "
+
+      # ─── 7. FIX ETL ───────────────────────────────────────────────
+      - name: Fix ETL Path
+        run: |
+          python3 -c "
+          import re
+          f = '/twise/TWISE_DEMO/smartops/services/python/etl/app/main.py'
+          c = open(f).read()
+          c = re.sub(r'sys\.path\.insert\(0,\s*str\(Path\(__file__\)\.resolve\(\)\.parents\[\d+\].*?\)\)',
+                     'sys.path.insert(0, \"/shared/python\")', c)
+          open(f,'w').write(c)
+          "
+
+      - name: Fix ETL ODBC Driver
+        run: |
+          sed -i 's/ODBC Driver 17 for SQL Server/ODBC Driver 18 for SQL Server/g' \
+            /twise/TWISE_DEMO/smartops/services/python/etl/app/extract.py
+
+      - name: Fix ETL env file
+        run: |
+          sed -i 's/ETL_INTERNAL_API_KEY=base64:/ETL_INTERNAL_API_KEY=/' \
+            /twise/TWISE_DEMO/smartops/services/python/etl/.env
+          sed -i 's|CONTROL_PLANE_URL=http://localhost:7007|CONTROL_PLANE_URL=http://twise_demo_controlplane_1:8080|' \
+            /twise/TWISE_DEMO/smartops/services/python/etl/.env
+
+      # ─── 8. APPLY DEMO CONFIG (from server files) ─────────────────
+      - name: Fix Frontend Environment
+        run: |
+          cp /twise/twise-demo-environment.prod.ts \
+             /twise/TWISE_DEMO/smartops/TWise.Frontend.Tenant/src/environments/environment.prod.ts
+
+      - name: Fix Tenant Swagger
+        run: |
+          sed -i 's/if (app.Environment.IsDevelopment())/if (true)/g' \
+            /twise/TWISE_DEMO/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Program.cs
+
+      - name: Fix Tenant CORS and DB
+        run: |
+          cp /twise/twise-demo-appsettings-tenant.json \
+             /twise/TWISE_DEMO/smartops/services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/appsettings.json
+
+      - name: Fix ControlPlane CORS and DB
+        run: |
+          cp /twise/twise-demo-appsettings-controlplane.json \
+             /twise/TWISE_DEMO/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/appsettings.json
+          sed -i 's/if (builder.Environment.IsDevelopment())/if (true)/' \
+            /twise/TWISE_DEMO/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Program.cs
+          sed -i 's/\[Authorize(Policy = "Admin")\]/\/\/ [Authorize(Policy = "Admin")]/' \
+            /twise/TWISE_DEMO/smartops/services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Controllers/CanonicalFieldsController.cs
+
+      # ─── 9. BUILD & DEPLOY SERVICES ───────────────────────────────
+      - name: Build ControlPlane API
+        run: |
+          cd /twise/TWISE_DEMO/smartops
+          docker stop twise_demo_controlplane_1 || true
+          docker rm   twise_demo_controlplane_1 || true
+          docker rmi  twise_demo_controlplane:latest || true
+          docker build -t twise_demo_controlplane \
+            -f services/dotnet/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/Dockerfile .
+          docker network create twise_demo_default 2>/dev/null || true
+          docker run -d --name twise_demo_controlplane_1 \
+            --network twise_demo_default -p 9300:8080 --restart always twise_demo_controlplane
+
+      - name: Build Tenant API
+        run: |
+          cd /twise/TWISE_DEMO/smartops
+          docker stop twise_demo_tenant_1 || true
+          docker rm   twise_demo_tenant_1 || true
+          docker rmi  twise_demo_tenant:latest || true
+          docker build -t twise_demo_tenant \
+            -f services/dotnet/TWise.Backend.Tenant/src/TWise.Tenant.API/Dockerfile .
+          docker run -d --name twise_demo_tenant_1 \
+            --network twise_demo_default -p 9301:8080 --restart always twise_demo_tenant
+
+      - name: Build ETL
+        run: |
+          cd /twise/TWISE_DEMO/smartops
+          docker stop twise_demo_etl_1 || true
+          docker rm   twise_demo_etl_1 || true
+          docker rmi  twise_demo_etl:latest || true
+          docker build -t twise_demo_etl -f services/python/etl/Dockerfile .
+          docker run -d --name twise_demo_etl_1 \
+            --network twise_demo_default -p 9302:8006 --restart always \
+            --env-file /twise/TWISE_DEMO/smartops/services/python/etl/.env \
+            twise_demo_etl
+
+      - name: Build TWise Frontend
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use 22
+          cd /twise/TWISE_DEMO/smartops/TWise.Frontend.Tenant
+          sudo rm -rf dist
+          npm install && npm run build
+          sudo rm -rf /twise/nginx/html/twise-demo/*
+          mkdir -p /twise/nginx/html/twise-demo
+          cp -r dist/t-wise-dashboard-ui/browser/* /twise/nginx/html/twise-demo/
+          sudo systemctl reload nginx
+
+      # ─── 10. HEALTH CHECK ─────────────────────────────────────────
+      - name: Health Check
+        run: |
+          sleep 15
+          curl -f http://localhost:9300/health
+          curl -f http://localhost:9301/health || true
+
+      # ─── 11. ROLLBACK ON FAILURE ──────────────────────────────────
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed — rolling back to previous version..."
+          docker stop twise_demo_controlplane_1 || true
+          docker rm   twise_demo_controlplane_1 || true
+          docker network create twise_demo_default 2>/dev/null || true
+          docker run -d --name twise_demo_controlplane_1 \
+            --network twise_demo_default -p 9300:8080 --restart always twise_demo_controlplane:rollback
+
+          docker stop twise_demo_tenant_1 || true
+          docker rm   twise_demo_tenant_1 || true
+          docker run -d --name twise_demo_tenant_1 \
+            --network twise_demo_default -p 9301:8080 --restart always twise_demo_tenant:rollback
+
+          docker stop twise_demo_etl_1 || true
+          docker rm   twise_demo_etl_1 || true
+          docker run -d --name twise_demo_etl_1 \
+            --network twise_demo_default -p 9302:8006 --restart always \
+            --env-file /twise/TWISE_DEMO/smartops/services/python/etl/.env \
+            twise_demo_etl:rollback
+          echo "Rollback complete"

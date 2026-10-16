@@ -1,0 +1,235 @@
+:host { display: flex; flex-direction: column; min-height: 0; }
+
+.canvas-data {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--color-bg-card);
+  border-left: 1px solid var(--color-border);
+
+  &__header {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    height: 44px;
+    padding: 0 var(--spacing-md);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  &__title { margin: 0; font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-height: 0;
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-primary) transparent;
+  }
+
+  &__dataset { margin: 0; }
+
+  &__actions { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+  &__quick { flex: 1; min-width: 140px; }
+
+  &__summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    list-style: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    cursor: pointer;
+
+    &::-webkit-details-marker { display: none; }
+    &:hover { background: var(--color-primary-50); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  // A CSS chevron that turns when the group opens, as the style reference's tree does.
+  &__chevron {
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid var(--color-text-label);
+    border-bottom: 1.5px solid var(--color-text-label);
+    transform: rotate(-45deg);
+    transition: transform 0.15s ease;
+  }
+
+  &__group[open] > &__summary &__chevron { transform: rotate(45deg); }
+
+  &__group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  // The count chip of the list-page tabs.
+  &__count {
+    padding: 0 6px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-app);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-label);
+  }
+
+  &__list { margin: 0; padding: 0; list-style: none; }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 28px;
+    padding-left: var(--spacing-md);
+    border-radius: var(--radius-sm);
+    cursor: grab;
+
+    &:hover { background: var(--color-primary-50); }
+    &:active { cursor: grabbing; }
+  }
+
+  &__glyph {
+    flex-shrink: 0;
+    width: 16px;
+    font-size: 11px;
+    font-weight: 600;
+    font-style: italic;
+    text-align: center;
+    color: var(--color-text-label);
+
+    &--measure { font-size: 13px; font-style: normal; color: var(--color-primary); }
+    // A measure over more than one table: amber tile, so it reads apart from single-table measures.
+    &--multi { border-radius: 4px; background: #fff3d6; color: #c2410c; }
+  }
+
+  &__entry {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: inherit;
+
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+    &--measure { font-weight: 600; }
+  }
+
+  &__edit,
+  &__add-column {
+    padding: 2px var(--spacing-xs);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  &__edit { opacity: 0; transition: opacity 0.15s ease; }
+  &__row:hover &__edit,
+  &__edit:focus-visible { opacity: 1; }
+
+  &__add-column { margin: 2px 0 0 var(--spacing-md); }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__chevron,
+    &__edit { transition: none; }
+  }
+}
+
+.canvas-data__folder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px var(--spacing-xs) 2px 22px;
+  padding: 3px var(--spacing-xs);
+  border-radius: 6px;
+  background: #fff7e6;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+
+  app-icon ::ng-deep svg { width: 13px; height: 13px; color: #f59e0b; }
+}
+
+.canvas-data__header { display: flex; align-items: center; }
+.canvas-data__title { flex: 1; }
+.canvas-data__collapse {
+  display: inline-flex;
+  padding: var(--spacing-xs);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-label);
+  cursor: pointer;
+
+  &:hover { background: var(--color-primary-50); color: var(--color-primary); }
+  ::ng-deep svg { width: 16px; height: 16px; }
+}
+
+.canvas-data__row--hidden { opacity: 0.5; }
+
+.canvas-data__rename { flex: 1; min-width: 0; height: 26px; padding: 2px 6px; font-size: 13px; }
+
+.canvas-data__show-hidden { align-self: flex-start; margin-left: 0; }
+
+// The entry's right-click menu: fixed to the pointer, above the panes.
+.canvas-data__menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  padding: var(--spacing-xs) 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 16%);
+}
+
+.canvas-data__menu-title {
+  margin: 0;
+  padding: 4px var(--spacing-md) 6px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.canvas-data__menu-item {
+  padding: 6px var(--spacing-md);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  &:hover:not(:disabled), &:focus-visible { background: var(--color-primary-50); color: var(--color-primary); outline: none; }
+  &:disabled { color: var(--color-text-muted); cursor: default; }
+}
+
+.canvas-data__menu-sep { height: 1px; margin: 4px 0; background: var(--color-border-subtle); }
+
+.canvas-data__menu-note { margin: 4px 0 0; padding: 4px var(--spacing-md) 2px; font-size: 11px; color: var(--color-text-subtle); }

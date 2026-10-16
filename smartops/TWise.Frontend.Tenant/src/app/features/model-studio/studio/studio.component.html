@@ -1,0 +1,162 @@
+<header class="studio__bar">
+  <div class="studio__title">
+    <span class="studio__title-icon" aria-hidden="true"><app-icon name="database_view"></app-icon></span>
+    <div class="studio__title-text">
+      <h1 class="studio__name" [title]="dataset?.name || 'Model Studio'">{{ dataset?.name || 'Model Studio' }}</h1>
+      <span *ngIf="dataset" class="studio__status" [class.studio__status--published]="isPublished && !dataset.hasDraftChanges"
+        [class.studio__status--changed]="isPublished && dataset.hasDraftChanges" role="status">
+        <span class="studio__status-dot" aria-hidden="true"></span>{{ statusLabel }}
+      </span>
+    </div>
+  </div>
+
+  <div *ngIf="dataset && !loading && !readonly" class="studio__ribbon">
+    <div class="studio__group" role="group" aria-labelledby="ribbon-get-data">
+      <div class="studio__group-actions">
+        <app-button variant="ghost" size="sm" (clicked)="getDataOpen = true">
+          <app-icon name="database_view" aria-hidden="true"></app-icon>Get data
+        </app-button>
+      </div>
+      <span id="ribbon-get-data" class="studio__group-label">Data</span>
+    </div>
+    <div class="studio__group" role="group" aria-labelledby="ribbon-relationships">
+      <div class="studio__group-actions">
+        <app-button variant="ghost" size="sm" [disabled]="busy || dataset.sources.length < 2" (clicked)="relationshipDialog = { relationship: null }">
+          <app-icon name="key" aria-hidden="true"></app-icon>New relationship
+        </app-button>
+      </div>
+      <span id="ribbon-relationships" class="studio__group-label">Relationships</span>
+    </div>
+    <div class="studio__group" role="group" aria-labelledby="ribbon-calculations">
+      <div class="studio__group-actions">
+        <app-button variant="ghost" size="sm" [disabled]="busy || !dataset.sources.length" (clicked)="openFormula(null)">
+          <app-icon name="measure" aria-hidden="true"></app-icon>New measure
+        </app-button>
+        <app-button variant="ghost" size="sm" [disabled]="busy || !activeSource" (clicked)="newColumn()">
+          <app-icon name="column_add" aria-hidden="true"></app-icon>New column
+        </app-button>
+      </div>
+      <span id="ribbon-calculations" class="studio__group-label">Calculations</span>
+    </div>
+    <div class="studio__group" role="group" aria-labelledby="ribbon-transform">
+      <div class="studio__group-actions">
+        <app-button variant="ghost" size="sm" [disabled]="busy || !activeSource" (clicked)="openTransforms()">
+          <app-icon name="transform" aria-hidden="true"></app-icon>Transform
+        </app-button>
+      </div>
+      <span id="ribbon-transform" class="studio__group-label">Transform</span>
+    </div>
+  </div>
+
+  <div class="studio__end">
+    <a *ngIf="canvasRoute" class="btn btn-secondary btn-sm" [routerLink]="canvasRoute">Back to canvas</a>
+    <ng-container *ngIf="dataset && !loading && !readonly">
+      <app-button *ngIf="isPublished && dataset.hasDraftChanges" variant="ghost" size="sm" [disabled]="busy" (clicked)="discardDraft()">
+        <app-icon name="undo" aria-hidden="true"></app-icon>Discard draft
+      </app-button>
+      <app-button variant="primary" size="sm" [disabled]="busy || !dataset.sources.length || (isPublished && !dataset.hasDraftChanges)"
+        [loading]="publishing" (clicked)="publish()"
+        [attr.title]="isPublished && !dataset.hasDraftChanges ? 'Nothing to publish: canvases already read this version.' : null">
+        <app-icon name="publish" aria-hidden="true"></app-icon>Publish
+      </app-button>
+    </ng-container>
+    <a class="studio__close" [routerLink]="listRoute" aria-label="Close and go back to the data models" title="Close">
+      <app-icon name="close" aria-hidden="true"></app-icon>
+    </a>
+  </div>
+</header>
+
+<div *ngIf="toast" class="studio__toast" [class.category-modal__toast]="toast.kind === 'success'"
+  [class.category-modal__error]="toast.kind === 'error'" role="status">{{ toast.text }}</div>
+<div *ngIf="loading" class="studio__loading" role="status" aria-label="Loading the data model">
+  <app-loader type="skeleton-table"></app-loader>
+</div>
+<p *ngIf="error" class="studio__error category-modal__error" role="alert">{{ error }}</p>
+
+<div *ngIf="dataset && !loading" class="studio" [class.studio--data]="view === 'data'"
+  [class.studio--inspector-folded]="folded.inspector" [class.studio--pane-folded]="folded.pane"
+  [style.--studio-inspector-width]="(folded.inspector ? foldedWidth : widths.inspector) + 'px'"
+  [style.--studio-pane-width]="(folded.pane ? foldedWidth : widths.pane) + 'px'">
+  <nav class="studio__rail" aria-label="Studio views">
+    <button type="button" class="studio__rail-button" [class.studio__rail-button--active]="view === 'model'"
+      [attr.aria-pressed]="view === 'model'" (click)="view = 'model'">
+      <app-icon name="grid_view" aria-hidden="true"></app-icon>
+      <span>Model</span>
+    </button>
+    <button type="button" class="studio__rail-button" [class.studio__rail-button--active]="view === 'data'"
+      [attr.aria-pressed]="view === 'data'" (click)="view = 'data'">
+      <app-icon name="database_view" aria-hidden="true"></app-icon>
+      <span>Data</span>
+    </button>
+  </nav>
+
+  <section class="studio__panel studio__canvas" aria-label="Diagram" [hidden]="view !== 'model'">
+    <app-empty-state *ngIf="!dataset.sources.length" appIcon="database_view" title="No tables yet"
+      description="Get data lists the tables, views and files you can load into this data model.">
+      <app-button *ngIf="!readonly" variant="primary" (clicked)="getDataOpen = true">Get data</app-button>
+    </app-empty-state>
+    <app-model-diagram *ngIf="dataset.sources.length" [datasetId]="dataset.id" [sources]="dataset.sources" [relationships]="dataset.relationships"
+      [suggestions]="suggestions" [columns]="columns" [calculatedColumns]="dataset.calculatedColumns" [measures]="dataset.measures"
+      [selection]="selection" [readonly]="readonly || busy"
+      (selectionChange)="select($event)" (connect)="connect($event)" (acceptSuggestion)="acceptSuggestion($event)">
+    </app-model-diagram>
+  </section>
+
+  <div class="studio__grip studio__grip--inspector" role="separator" aria-orientation="vertical" tabindex="0"
+    aria-label="Resize the Properties pane" [attr.aria-valuenow]="widths.inspector"
+    [attr.aria-valuemin]="paneLimits.inspector.min" [attr.aria-valuemax]="paneLimits.inspector.max" [hidden]="view !== 'model' || folded.inspector"
+    (pointerdown)="startResize('inspector', $event)" (keydown)="nudgePane('inspector', $event)"></div>
+
+  <aside class="studio__panel studio__inspector" aria-label="Properties" [hidden]="view !== 'model'">
+    <button *ngIf="folded.inspector" type="button" class="studio__strip" aria-label="Show the Properties pane" (click)="fold('inspector', false)">
+      <app-icon name="chevron_left" aria-hidden="true"></app-icon><span>Properties</span>
+    </button>
+    <app-model-inspector *ngIf="!folded.inspector" [dataset]="dataset" [selection]="selection" [columns]="columns" [readonly]="readonly || busy"
+      (saveRls)="saveRls($event)" (removeSource)="removeSource($event)" (saveCardinality)="saveCardinality($event)" (saveSourceDetails)="saveSourceDetails($event)"
+      (removeRelationship)="removeRelationship($event)" (editRelationship)="relationshipDialog = { relationship: $event }" (refreshViewSource)="refreshViewSource($event)" (saveParameters)="saveParameters($event)"
+      (openTransforms)="openTransformsFor($event.source, $event.column)" (editMeasure)="openFormula($event)"
+      (editColumn)="openColumn($event.source, $event.column)" (selectionChange)="select($event)" (saveDetails)="saveDetails($event)" (collapse)="fold('inspector', true)">
+    </app-model-inspector>
+  </aside>
+
+  <section *ngIf="view === 'data'" class="studio__panel studio__data" aria-label="Table rows">
+    <app-model-data-view [dataset]="dataset" [source]="activeSource ?? null" [columns]="columns"></app-model-data-view>
+  </section>
+
+  <div class="studio__grip studio__grip--pane" role="separator" aria-orientation="vertical" tabindex="0"
+    aria-label="Resize the Data pane" [attr.aria-valuenow]="widths.pane" [hidden]="folded.pane"
+    [attr.aria-valuemin]="paneLimits.pane.min" [attr.aria-valuemax]="paneLimits.pane.max"
+    (pointerdown)="startResize('pane', $event)" (keydown)="nudgePane('pane', $event)"></div>
+
+  <aside class="studio__panel studio__pane" aria-label="Data pane">
+    <button *ngIf="folded.pane" type="button" class="studio__strip" aria-label="Show the Data pane" (click)="fold('pane', false)">
+      <app-icon name="chevron_left" aria-hidden="true"></app-icon><span>Data</span>
+    </button>
+    <app-model-data-pane *ngIf="!folded.pane" [dataset]="dataset" [columns]="columns" [activeSourceId]="activeSource?.id ?? null"
+      [selection]="selection" [readonly]="readonly || busy" (selectSource)="selectSource($event)" (selectionChange)="select($event)"
+      (editMeasure)="openFormula($event)" (removeMeasure)="removeMeasure($event)" (placeMeasure)="placeMeasure($event)"
+      (editColumn)="openColumn($event.source, $event.column)" (removeColumn)="removeColumn($event)" (toggleHidden)="toggleHidden($event.source, $event.column)"
+      (collapse)="fold('pane', true)">
+    </app-model-data-pane>
+  </aside>
+</div>
+
+<app-formula-builder *ngIf="formula && dataset" [dataset]="dataset" [columns]="columns" [measure]="formula.measure" [saving]="busy"
+  [serverError]="formulaError" (save)="saveMeasure($event)" (cancelled)="closeFormula()"></app-formula-builder>
+
+<app-calculated-column-dialog *ngIf="columnDialog && dataset" [dataset]="dataset" [columns]="columns" [source]="columnDialog.source"
+  [column]="columnDialog.column" [saving]="busy" [serverError]="formulaError" (save)="saveColumn($event)"
+  (cancelled)="columnDialog = null"></app-calculated-column-dialog>
+
+<app-transform-dialog *ngIf="transformDialog && dataset" [dataset]="dataset" [columns]="columns" [sourceId]="transformDialog.sourceId"
+  [column]="transformDialog.column" [readonly]="readonly" [saving]="busy" (add)="addTransform($event)"
+  (remove)="removeTransform($event)" (closed)="transformDialog = null"></app-transform-dialog>
+
+<app-relationship-dialog *ngIf="relationshipDialog && dataset" [dataset]="dataset" [relationship]="relationshipDialog.relationship"
+  [saving]="busy" (save)="saveRelationship($event)" (cancelled)="relationshipDialog = null"></app-relationship-dialog>
+
+<app-get-data *ngIf="getDataOpen && dataset" [dataset]="dataset" [tables]="tables"
+  (loaded)="onDataLoaded($event)" (cancelled)="closeGetData($event)"></app-get-data>
+
+<app-confirmation-dialog [isOpen]="!!confirm" [title]="confirm?.title ?? ''" [message]="confirm?.message ?? ''"
+  [confirmLabel]="confirm?.confirmLabel ?? 'Remove'" (confirmed)="runConfirmed()" (cancelled)="confirm = null"></app-confirmation-dialog>

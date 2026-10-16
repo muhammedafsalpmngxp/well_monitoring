@@ -1,0 +1,89 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.app-date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  background: var(--color-bg-card, #fff);
+  border: 1px solid #C9D3E2;
+  border-radius: 10px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+  text-transform: none;
+
+  &:focus-within {
+    border-color: var(--color-primary);
+  }
+
+  &--disabled {
+    opacity: 0.6;
+  }
+
+  &__display {
+    flex: 1;
+    min-width: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    color: #172033;
+  }
+
+  &__display--placeholder {
+    color: #667085;
+  }
+
+  &__native {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    cursor: pointer;
+
+    &::-webkit-calendar-picker-indicator {
+      position: absolute;
+      right: 0;
+      width: 28px;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    &::-webkit-datetime-edit,
+    &::-webkit-datetime-edit-fields-wrapper,
+    &::-webkit-datetime-edit-text,
+    &::-webkit-datetime-edit-month-field,
+    &::-webkit-datetime-edit-day-field,
+    &::-webkit-datetime-edit-year-field {
+      color: transparent;
+    }
+  }
+
+  &__native:disabled {
+    cursor: not-allowed;
+  }
+
+  &__icon {
+    position: relative;
+    flex-shrink: 0;
+    pointer-events: none;
+    color: #667085;
+    margin-left: 4px;
+  }
+}
+

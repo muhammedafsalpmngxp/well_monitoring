@@ -1,0 +1,108 @@
+<app-page-header title="AI Relationships" subtitle="How datasets connect through shared columns. Confirmed links tell the AI where to look when a dataset lacks what a question asks for." [breadcrumbs]="breadcrumbs">
+  <span page-header-icon class="ai-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="5" cy="6" r="2.5" /><circle cx="19" cy="6" r="2.5" /><circle cx="12" cy="18" r="2.5" /><path d="M7 7.5l3.5 8M17 7.5l-3.5 8M7.5 6h9" />
+    </svg>
+  </span>
+  <button type="button" class="btn btn-secondary" (click)="showAdd = !showAdd; showScan = false">+ Add link</button>
+  <button type="button" class="btn btn-primary" (click)="showScan = !showScan; showAdd = false">Scan datasets</button>
+</app-page-header>
+
+<div class="page-content ai">
+  <p *ngIf="error" class="ai__msg ai__msg--bad" role="alert">{{ error }}</p>
+  <p *ngIf="message" class="ai__msg ai__msg--ok" role="status">{{ message }}</p>
+
+  <!-- Scan: pick the datasets to compare (first rows of each are loaded once, then cached 10 minutes) -->
+  <section class="ai__card" *ngIf="showScan">
+    <div class="ai__card-head">
+      <h3>Scan for shared columns</h3>
+      <span class="ai__hint">Two columns with the same name whose values overlap by at least 30% become a suggested link. Tick the datasets to compare (none ticked = the first 40). Links you already confirmed or rejected are kept.</span>
+    </div>
+    <div class="rel__pick">
+      <label class="rel__pick-all"><input type="checkbox" [checked]="scanSelection.size === datasets.length && datasets.length > 0" (change)="toggleScanAll($any($event.target).checked)" /> All ({{ datasets.length }})</label>
+      <label *ngFor="let d of datasets"><input type="checkbox" [checked]="scanSelection.has(d.sourceType + ':' + d.sourceId)" (change)="toggleScan(d.sourceType + ':' + d.sourceId)" /> <span [title]="d.name">{{ d.name }}</span> <small class="ai__hint">{{ d.sourceType }}</small></label>
+    </div>
+    <div class="ai__actions">
+      <button type="button" class="btn btn-primary" [disabled]="scanning || scanSelection.size > 40" (click)="scan()">{{ scanning ? 'Scanning…' : 'Scan ' + (scanSelection.size || 'first 40') + ' datasets' }}</button>
+      <button type="button" class="btn btn-secondary" (click)="showScan = false">Cancel</button>
+      <span class="ai__hint" *ngIf="scanSelection.size > 40">At most 40 datasets per scan.</span>
+    </div>
+  </section>
+
+  <!-- Manual link -->
+  <section class="ai__card" *ngIf="showAdd">
+    <h3>Add a link</h3>
+    <form class="rel__add" (ngSubmit)="addRelation()">
+      <label>Dataset
+        <select [(ngModel)]="add.from" name="from" (change)="pickDataset('from')"><option value="">Choose…</option><option *ngFor="let d of datasets" [value]="d.sourceType + ':' + d.sourceId">{{ d.name }}</option></select>
+      </label>
+      <label>Column
+        <input type="text" list="fromCols" [(ngModel)]="add.fromColumn" name="fromColumn" placeholder="e.g. well_code" />
+        <datalist id="fromCols"><option *ngFor="let c of fromColumns" [value]="c"></option></datalist>
+      </label>
+      <label>Related dataset
+        <select [(ngModel)]="add.to" name="to" (change)="pickDataset('to')"><option value="">Choose…</option><option *ngFor="let d of datasets" [value]="d.sourceType + ':' + d.sourceId">{{ d.name }}</option></select>
+      </label>
+      <label>Column
+        <input type="text" list="toCols" [(ngModel)]="add.toColumn" name="toColumn" placeholder="e.g. WellCode" />
+        <datalist id="toCols"><option *ngFor="let c of toColumns" [value]="c"></option></datalist>
+      </label>
+      <div class="ai__actions">
+        <button type="submit" class="btn btn-primary" [disabled]="!canAdd || adding">{{ adding ? 'Saving…' : 'Save link' }}</button>
+        <button type="button" class="btn btn-secondary" (click)="showAdd = false">Cancel</button>
+      </div>
+    </form>
+  </section>
+
+  <app-loader *ngIf="loading" size="lg"></app-loader>
+
+  <div class="rel__grid" *ngIf="!loading">
+    <!-- Graph -->
+    <section class="ai__card">
+      <h3>Graph</h3>
+      <p class="ai__hint" *ngIf="!nodes.length">No links yet. Run a scan or add one by hand.</p>
+      <svg *ngIf="nodes.length" class="rel__svg" [attr.viewBox]="'0 0 ' + size + ' ' + size" role="img" aria-label="Relationship graph">
+        <line *ngFor="let l of links" [attr.x1]="l.x1" [attr.y1]="l.y1" [attr.x2]="l.x2" [attr.y2]="l.y2"
+          [class.rel__edge--confirmed]="l.rel.status === 'confirmed'" [class.rel__edge--suggested]="l.rel.status === 'suggested'">
+          <title>{{ l.rel.fromName }}.{{ l.rel.fromColumn }} ↔ {{ l.rel.toName }}.{{ l.rel.toColumn }} ({{ l.rel.status }})</title>
+        </line>
+        <g *ngFor="let n of nodes; trackBy: trackByKey" [attr.transform]="'translate(' + n.x + ',' + n.y + ')'">
+          <circle r="16" [class.rel__node--import]="n.sourceType === 'import'"><title>{{ n.name }} · {{ n.links }} link{{ n.links === 1 ? '' : 's' }}</title></circle>
+          <text y="4" text-anchor="middle" class="rel__node-count">{{ n.links }}</text>
+          <text y="30" text-anchor="middle" class="rel__node-label">{{ n.name.length > 22 ? (n.name | slice:0:21) + '…' : n.name }}</text>
+        </g>
+      </svg>
+      <p class="ai__hint rel__legend"><span class="rel__swatch rel__swatch--confirmed"></span> confirmed <span class="rel__swatch rel__swatch--suggested"></span> suggested · circles: views (blue), imports (green); the number is how many links a dataset has.</p>
+    </section>
+
+    <!-- Links -->
+    <section class="ai__card">
+      <div class="ai__card-head">
+        <h3>Links</h3>
+        <div class="rel__tabs">
+          <button type="button" class="ai__tab" [class.ai__tab--on]="filter === 'all'" (click)="filter = 'all'">All ({{ relations.length }})</button>
+          <button type="button" class="ai__tab" [class.ai__tab--on]="filter === 'suggested'" (click)="filter = 'suggested'">Suggested ({{ count('suggested') }})</button>
+          <button type="button" class="ai__tab" [class.ai__tab--on]="filter === 'confirmed'" (click)="filter = 'confirmed'">Confirmed ({{ count('confirmed') }})</button>
+          <button type="button" class="ai__tab" [class.ai__tab--on]="filter === 'rejected'" (click)="filter = 'rejected'">Rejected ({{ count('rejected') }})</button>
+        </div>
+      </div>
+      <p class="ai__hint" *ngIf="!shown.length">Nothing here.</p>
+      <table class="ai__table" *ngIf="shown.length">
+        <thead><tr><th>Dataset · column</th><th>Related dataset · column</th><th>Overlap</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let r of shown; trackBy: trackById">
+            <td><strong>{{ r.fromName }}</strong><br /><code>{{ r.fromColumn }}</code></td>
+            <td><strong>{{ r.toName }}</strong><br /><code>{{ r.toColumn }}</code></td>
+            <td>{{ r.overlap !== null ? (r.overlap | percent:'1.0-0') : '—' }}</td>
+            <td><span class="rel__status rel__status--{{ r.status }}">{{ r.status }}</span></td>
+            <td class="rel__actions">
+              <button type="button" class="btn btn-primary btn-sm" *ngIf="r.status !== 'confirmed'" [disabled]="busyId === r.id" (click)="setStatus(r, 'confirmed')">Confirm</button>
+              <button type="button" class="btn btn-secondary btn-sm" *ngIf="r.status !== 'rejected'" [disabled]="busyId === r.id" (click)="setStatus(r, 'rejected')">Reject</button>
+              <button type="button" class="btn btn-secondary btn-sm" [disabled]="busyId === r.id" (click)="remove(r)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,139 @@
+<div id="page-perfanalysis" class="page active perf-body">
+
+  <!-- <div class="breadcrumb">
+    <a data-page="cmdoverview">{{ 'SIDEBAR.CREW_ACTIVITIES' | translate }}</a>
+    <span>›</span>
+    <span class="current">Performance Analysis</span>
+  </div> -->
+
+  <!-- Page header -->
+  <div class="page-title-row">
+    <div class="perf-head-flex">
+      <div class="page-title perf-title-inline">
+        Performance Analysis Matrix
+        <span class="perf-badge-new">NEW</span>
+      </div>
+      <div class="page-subtitle">Cross-tabulate any two dimensions · spot crews strong on one activity but weak on another · identify training gaps and biased norms</div>
+    </div>
+  </div>
+
+  <!-- Summary tiles -->
+  <div class="perf-summary-strip">
+
+    <!-- Records Analysed -->
+    <div class="kpi k-blue">
+      <div class="kpi-head">
+        <span class="kpi-label">Records Analysed</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val blue" id="perfTileRecords">0</div>
+      <div class="kpi-unit">In current dataset</div>
+    </div>
+
+    <!-- Top Combination -->
+    <div class="kpi k-green">
+      <div class="kpi-head">
+        <span class="kpi-label">Top Combination</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val green" id="perfTileTop">—</div>
+      <div class="kpi-unit" id="perfTileTopSub">—</div>
+    </div>
+
+    <!-- Weakest Combination -->
+    <div class="kpi k-red">
+      <div class="kpi-head">
+        <span class="kpi-label">Weakest Combination</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val red" id="perfTileBot">—</div>
+      <div class="kpi-unit" id="perfTileBotSub">—</div>
+    </div>
+
+    <!-- Overall Avg PI -->
+    <div class="kpi k-blue perf-kpi-navy">
+      <div class="kpi-head">
+        <span class="kpi-label">Overall Avg PI</span>
+        <span class="kpi-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </span>
+      </div>
+      <div class="kpi-val navy" id="perfTileAvg">P0.0</div>
+      <div class="kpi-unit">All cells, weighted by count</div>
+    </div>
+
+  </div>
+
+  <!-- Dimension picker controls -->
+  <div class="card perf-controls">
+    <div class="perf-control-block">
+      <label>Rows (Y-axis)</label>
+      <select id="perfRowDim" class="dq-filter-sel" onchange="renderPerfAnalysis()">
+        <option value="crew">Crew ID</option>
+        <option value="group">Crew Group / Type</option>
+        <option value="activity">Activity ID</option>
+        <option value="well">Well ID</option>
+        <option value="cluster">Cluster</option>
+        <option value="milestone">Milestone</option>
+      </select>
+    </div>
+    <button type="button" class="perf-swap-btn" onclick="perfSwapDims()" title="Swap row and column dimensions">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      Swap
+    </button>
+    <div class="perf-control-block">
+      <label>Columns (X-axis)</label>
+      <select id="perfColDim" class="dq-filter-sel" onchange="renderPerfAnalysis()">
+        <option value="crew">Crew ID</option>
+        <option value="group">Crew Group / Type</option>
+        <option value="activity" selected>Activity ID</option>
+        <option value="well">Well ID</option>
+        <option value="cluster">Cluster</option>
+        <option value="milestone">Milestone</option>
+      </select>
+    </div>
+    <div class="perf-control-block">
+      <label>Cell Metric</label>
+      <select id="perfMetric" class="dq-filter-sel" onchange="renderPerfAnalysis()">
+        <option value="pi" selected>Avg PI Rating</option>
+        <option value="count">Record Count</option>
+      </select>
+    </div>
+    <div class="perf-legend">
+      <span class="perf-leg-item"><span class="perf-leg-sw perf-leg-low"></span>≤ P5</span>
+      <span class="perf-leg-item"><span class="perf-leg-sw perf-leg-mid"></span>P6–P7</span>
+      <span class="perf-leg-item"><span class="perf-leg-sw perf-leg-high"></span>≥ P8</span>
+    </div>
+  </div>
+
+  <!-- Matrix card -->
+  <div class="card perf-matrix-card">
+    <div class="card-head">
+      <div class="perf-head-flex">
+        <div class="card-title" id="perfMatrixTitle">Crew ID × Activity ID</div>
+        <div class="card-sub" id="perfMatrixSub">Average PI per intersection · click any cell to drill in</div>
+      </div>
+    </div>
+    <div class="perf-matrix-wrap">
+      <div id="perfMatrix" class="ag-theme-alpine-dark" style="height:600px; width:100%;"></div>
+    </div>
+  </div>
+
+  <!-- Insights -->
+  <div class="card perf-insights-card">
+    <div class="card-head">
+      <div class="perf-head-flex">
+        <div class="card-title">Auto Insights</div>
+        <div class="card-sub">Outliers, training gaps, and norm-mismatch flags from the current matrix</div>
+      </div>
+    </div>
+    <div id="perfInsights" class="perf-insights-list"><!-- injected --></div>
+  </div>
+
+</div>

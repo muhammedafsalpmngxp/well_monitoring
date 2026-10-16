@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150" role="img" aria-label="A field crew hard hat and a daily task list">
+  <rect width="240" height="150" rx="14" fill="#efedf8"/>
+  <path d="M34 96 C34 62 58 42 90 42 C122 42 146 62 146 96Z" fill="#f7b538"/>
+  <rect x="24" y="94" width="132" height="12" rx="6" fill="#e09a1d"/>
+  <rect x="84" y="42" width="12" height="54" rx="4" fill="#e09a1d"/>
+  <rect x="164" y="30" width="56" height="84" rx="8" fill="#ffffff" stroke="#4361ee" stroke-width="3"/>
+  <path d="M174 50 l5 5 9 -10 M174 72 l5 5 9 -10" fill="none" stroke="#3a0ca3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M194 52 H210 M194 74 H210 M178 96 H210" stroke="#7209b7" stroke-width="3" stroke-linecap="round"/>
+</svg>

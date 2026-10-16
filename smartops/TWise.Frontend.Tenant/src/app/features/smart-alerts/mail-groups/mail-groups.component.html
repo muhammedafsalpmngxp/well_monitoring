@@ -1,0 +1,68 @@
+<div class="mg__bar">
+  <p class="mg__intro">A mail group is a named list of addresses, such as people outside TWise. Pick it as a recipient in any schedule.</p>
+  <app-button *ngIf="canCreate" variant="primary" (clicked)="open(null)">New mail group</app-button>
+</div>
+
+<div *ngIf="toast" class="dp-toast" [class.dp-toast--error]="toast.kind === 'error'" role="status">{{ toast.text }}</div>
+
+<app-loader *ngIf="loading" size="lg"></app-loader>
+<p *ngIf="!loading && error" class="dp-error" role="alert">{{ error }}</p>
+
+<app-empty-state *ngIf="!loading && !error && groups.length === 0" appIcon="user" title="No mail groups yet"
+  description="Group the addresses you send to often, then add the group to a schedule in one go.">
+  <app-button *ngIf="canCreate" variant="primary" (clicked)="open(null)">New mail group</app-button>
+</app-empty-state>
+
+<div *ngIf="!loading && groups.length > 0" class="mg__list">
+  <article *ngFor="let g of groups; trackBy: trackGroup" class="mg-card">
+    <div class="mg-card__head">
+      <span class="mg-card__avatar" aria-hidden="true">{{ g.name.charAt(0).toUpperCase() }}</span>
+      <div class="mg-card__titles">
+        <h3 class="mg-card__name">{{ g.name }}</h3>
+        <p class="mg-card__description">{{ g.description || g.members.length + ' address' + (g.members.length === 1 ? '' : 'es') }}</p>
+      </div>
+      <span class="dp-count">{{ g.members.length }}</span>
+    </div>
+    <div class="mg-card__members">
+      <span *ngFor="let m of g.members.slice(0, 4); trackBy: trackText" class="mg-chip">{{ m }}</span>
+      <span *ngIf="g.members.length > 4" class="mg-chip mg-chip--more">+{{ g.members.length - 4 }} more</span>
+    </div>
+    <div *ngIf="canModify" class="mg-card__actions">
+      <button type="button" class="dp-action" (click)="open(g)">Edit</button>
+      <button type="button" class="dp-action dp-action--danger" (click)="pendingDelete = g">Delete</button>
+    </div>
+  </article>
+</div>
+
+<div *ngIf="formOpen" class="dp-overlay" (click)="formOpen = false">
+  <form appDialog (dialogClose)="formOpen = false" class="dp-modal" role="dialog" aria-modal="true" aria-labelledby="mg-title" (click)="$event.stopPropagation()" (ngSubmit)="save()">
+    <h2 id="mg-title" class="dp-modal__title">{{ editing ? 'Edit mail group' : 'New mail group' }}</h2>
+    <div class="form-group">
+      <label for="mg-name">Name</label>
+      <input id="mg-name" class="form-control" name="name" maxlength="120" required [(ngModel)]="form.name" />
+    </div>
+    <div class="form-group">
+      <label for="mg-description">Description <span class="mg__optional">optional</span></label>
+      <input id="mg-description" class="form-control" name="description" maxlength="400" [(ngModel)]="form.description" />
+    </div>
+    <div class="form-group">
+      <label for="mg-draft">Addresses <span class="mg__optional">{{ form.members.length }}</span></label>
+      <div class="mg__members-box">
+        <span *ngFor="let m of form.members; trackBy: trackText" class="mg-chip">
+          {{ m }}<button type="button" class="mg-chip__remove" [attr.aria-label]="'Remove ' + m" (click)="removeMember(m)">&times;</button>
+        </span>
+        <input id="mg-draft" class="mg__draft" name="draft" autocomplete="off" placeholder="Type or paste addresses"
+          [(ngModel)]="form.draft" (keydown)="onDraftKey($event)" (blur)="addMembers()" />
+      </div>
+      <p class="form-hint">Separate addresses with commas, semicolons or spaces.</p>
+    </div>
+    <p *ngIf="formError" class="form-error" role="alert">{{ formError }}</p>
+    <div class="dp-modal__actions">
+      <app-button variant="secondary" (clicked)="formOpen = false">Cancel</app-button>
+      <app-button variant="primary" type="submit" [loading]="saving">Save</app-button>
+    </div>
+  </form>
+</div>
+
+<app-confirmation-dialog [isOpen]="!!pendingDelete" title="Delete mail group" [message]="deleteMessage" confirmLabel="Delete"
+  (confirmed)="confirmDelete()" (cancelled)="pendingDelete = null"></app-confirmation-dialog>

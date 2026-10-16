@@ -1,0 +1,52 @@
+<div id="page-flowdesigner" class="page active">
+        <div class="breadcrumb">
+          <a>{{ 'FLOWDESIGNER.PROCESS_AUTOMATION' | translate }}</a><span>›</span>
+          <span class="current">{{ 'FLOWDESIGNER.FLOW_DESIGNER' | translate }}</span>
+        </div>
+        <div class="page-title-row">
+          <div class="fd-title-wrap">
+            <div class="page-title">{{ 'FLOWDESIGNER.FLOW_DESIGNER' | translate }}</div>
+            <div class="page-subtitle">{{ 'FLOWDESIGNER.SUBTITLE' | translate }}</div>
+          </div>
+          <button class="fd-btn fd-btn-primary" onclick="fdOpenEditor(null)">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            {{ 'FLOWDESIGNER.NEW_FLOW' | translate }}
+          </button>
+        </div>
+
+        <!-- Toolbar / filters -->
+        <div class="fd-toolbar">
+          <div class="fd-search-wrap">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="fdSearch" class="fd-search-input" [placeholder]="'FLOWDESIGNER.SEARCH_PLACEHOLDER' | translate" oninput="fdRenderList()"/>
+          </div>
+          <select class="fd-filter-sel" id="fdStatusFilter" onchange="fdRenderList()">
+            <option value="">{{ 'FLOWDESIGNER.ALL_STATUSES' | translate }}</option>
+            <option value="published">{{ 'FLOWDESIGNER.PUBLISHED' | translate }}</option>
+            <option value="draft">{{ 'FLOWDESIGNER.DRAFT' | translate }}</option>
+            <option value="error">{{ 'FLOWDESIGNER.ERROR' | translate }}</option>
+          </select>
+          <select class="fd-filter-sel" id="fdTriggerFilter" onchange="fdRenderList()">
+            <option value="">{{ 'FLOWDESIGNER.ALL_INITIATORS' | translate }}</option>
+            <option value="record">{{ 'FLOWDESIGNER.DATA_RECORD' | translate }}</option>
+            <option value="schedule">{{ 'FLOWDESIGNER.TIME_BASED' | translate }}</option>
+            <option value="module">{{ 'FLOWDESIGNER.MODULE_EVENT' | translate }}</option>
+          </select>
+          <div id="fdListCount">0 {{ 'FLOWDESIGNER.FLOWS' | translate }}</div>
+          <button class="fd-btn" onclick="fdRenderList()">
+            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+            {{ 'FLOWDESIGNER.REFRESH' | translate }}
+          </button>
+        </div>
+
+        <!-- Listing grid -->
+        <div class="fd-grid-container">
+          <div class="fd-grid-toolbar">
+            <svg class="fd-grid-toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <span class="fd-grid-toolbar-title">{{ 'FLOWDESIGNER.FLOW_DESIGNER' | translate }}</span>
+            <span class="fd-records-badge" id="fdRecordsBadge">15 {{ 'FLOWDESIGNER.FLOWS' | translate }}</span>
+            <span class="fd-grid-hint">{{ 'COMMON.SORT_FILTER' | translate }}</span>
+          </div>
+          <div id="fdFlowsGrid" class="ag-theme-alpine-dark"></div>
+        </div>
+      </div><!-- /page-flowdesigner -->

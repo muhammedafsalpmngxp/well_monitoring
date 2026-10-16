@@ -1,0 +1,82 @@
+/* Charts gallery page — styles are global (ViewEncapsulation.None) so the
+   JS-injected cards pick them up. Scoped under #page-charts. */
+#page-charts {
+  .charts-section { margin-top: 22px; }
+
+  .charts-section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .charts-section-title { font-size: 15px; font-weight: 700; color: var(--txt-1, #1f2937); }
+  .charts-section-sub   { font-size: 12px; color: var(--txt-muted, #94a3b8); }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .charts-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: var(--card-bg, #fff);
+    border: 1px solid rgba(41, 55, 141, 0.14);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: box-shadow .15s ease, transform .15s ease, border-color .15s ease;
+    position: relative;
+  }
+  .charts-card:hover {
+    box-shadow: 0 6px 18px rgba(41, 55, 141, 0.12);
+    border-color: rgba(41, 55, 141, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .charts-card-thumb {
+    flex: 0 0 auto;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(41, 55, 141, 0.08);
+    color: #29378d;
+  }
+  .charts-card-thumb svg { width: 26px; height: 26px; }
+  .charts-thumb--donut, .charts-thumb--pie { color: #7c3aed; background: rgba(124, 58, 237, 0.1); }
+  .charts-thumb--line { color: #0ea5e9; background: rgba(14, 165, 233, 0.1); }
+  .charts-thumb--kpi  { color: #16a34a; background: rgba(22, 163, 74, 0.1); }
+  .charts-thumb--table{ color: #d97706; background: rgba(217, 119, 6, 0.1); }
+
+  .charts-card-body { flex: 1 1 auto; min-width: 0; }
+  .charts-card-name {
+    font-size: 13.5px; font-weight: 700; color: var(--txt-1, #1f2937);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .charts-card-desc {
+    font-size: 11.5px; color: var(--txt-muted, #94a3b8); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .charts-card-type {
+    position: absolute; top: 10px; right: 10px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: #64748b;
+    background: rgba(100, 116, 139, 0.12);
+    border-radius: 6px; padding: 2px 6px;
+  }
+
+  .charts-empty {
+    grid-column: 1 / -1;
+    padding: 28px;
+    text-align: center;
+    color: var(--txt-muted, #94a3b8);
+    border: 1px dashed rgba(41, 55, 141, 0.22);
+    border-radius: 12px;
+    font-size: 13px;
+  }
+}

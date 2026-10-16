@@ -1,0 +1,200 @@
+<div id="page-forecastai" class="page active fai-body">
+<!-- 
+    <div class="fai-breadcrumb">
+      <span>{{ 'FORECASTAI.BREADCRUMB_OVERVIEW' | translate }}</span><span class="fai-sep">&nbsp;›&nbsp;</span>
+      <span>{{ 'FORECASTAI.BREADCRUMB_AI_INTELLIGENCE' | translate }}</span><span class="fai-sep">&nbsp;›&nbsp;</span>
+      <span class="fai-bc-cur">{{ 'FORECASTAI.BREADCRUMB_FORECAST_AI' | translate }}</span><span class="fai-sep">&nbsp;›&nbsp;</span>
+      <span>NL0010 &ndash; Nimr Field &ndash;</span>
+      <span class="fai-bc-badge">{{ 'FORECASTAI.ACTIVE' | translate }}</span>
+    </div> -->
+
+    <div class="fai-toolbar">
+      <div class="fai-period-group">
+        <button class="fai-period-btn fai-active">{{ 'FORECASTAI.MONTHLY' | translate }}</button>
+        <button class="fai-period-btn">{{ 'FORECASTAI.WEEKLY' | translate }}</button>
+        <button class="fai-period-btn">{{ 'FORECASTAI.DAILY' | translate }}</button>
+      </div>
+      <div class="fai-toolbar-right">
+        <button class="fai-tb-btn">📅 Feb 2026</button>
+        <button class="fai-tb-btn fai-tb-export"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> {{ 'FORECASTAI.EXPORT_CSV' | translate }}</button>
+        <button class="fai-tb-btn fai-tb-btn-green">↻ {{ 'FORECASTAI.SYNC_NOW' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="fai-title-row">
+      <div class="fai-title-block">
+      
+        <div class="fai-title">{{ 'FORECASTAI.PREDICTIVE_DELAY_FORECAST' | translate }}</div>
+        <!-- <div class="fai-live-badge">
+          <span class="fai-live-dot"></span>{{ 'FORECASTAI.LIVE' | translate }} &middot; Feb 2026</div> -->
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="fai-tb-btn">{{ 'FORECASTAI.ALL_PROJECTS' | translate }} &#9662;</button>
+        <button class="fai-tb-btn">&#8635; {{ 'FORECASTAI.SYNC_NOW' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="fai-kpi-grid">
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'FORECASTAI.HIGH_RISK_WELLS' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">3</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'FORECASTAI.FROM_LAST_WEEK' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#f59e0b"></div>
+        <div class="atg-kpi-label">{{ 'FORECASTAI.MEDIUM_RISK' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#f59e0b">3</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'FORECASTAI.MONITOR_CLOSELY' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22c55e"></div>
+        <div class="atg-kpi-label">{{ 'FORECASTAI.LOW_RISK' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22c55e">4</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'FORECASTAI.RECOVERED' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#4e8ef7"></div>
+        <div class="atg-kpi-label">{{ 'FORECASTAI.AVG_RISK_SCORE' | translate }}</div>
+        <div class="atg-kpi-val">44</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'FORECASTAI.PER_REVIEW' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22c55e"></div>
+        <div class="atg-kpi-label">{{ 'FORECASTAI.FORECAST_ACCURACY' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22c55e">84%</div>
+        <div class="atg-kpi-unit" style="margin-top:8px">{{ 'FORECASTAI.LAST_4_WEEKS' | translate }}</div>
+      </div>
+    </div>
+
+    <div class="fai-panels">
+      <div class="fai-panel">
+        <div class="fai-panel-title">{{ 'FORECASTAI.RISK_SCORE_SIGNAL_BREAKDOWN' | translate }}</div>
+        <div class="fai-panel-sub">{{ 'FORECASTAI.SIGNALS_CHECKED_PER_WELL' | translate }}</div>
+        <table class="fai-sig-table">
+          <thead><tr><th>{{ 'FORECASTAI.WELL' | translate }}</th><th>{{ 'FORECASTAI.DELAY_TREND' | translate }}</th><th>{{ 'FORECASTAI.PROG_SLOPE' | translate }}</th><th>{{ 'FORECASTAI.STAGE_STALL' | translate }}</th><th>{{ 'FORECASTAI.SCOPE_RISK' | translate }}</th><th>{{ 'FORECASTAI.DATA_RATE' | translate }}</th></tr></thead>
+          <tbody id="fai-sig-tbody"></tbody>
+        </table>
+      </div>
+      <div class="fai-panel">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="fai-panel-title">{{ 'FORECASTAI.RISK_DISTRIBUTION' | translate }}</div>
+          <div style="font-size:10px;color:var(--txt-muted)">{{ 'FORECASTAI.WELLS_WEEKLY' | translate }}</div>
+        </div>
+        <div style="position:relative;width:200px;height:200px;margin:20px auto 0">
+          <canvas id="fai-chart-dist" width="200" height="200"></canvas>
+        </div>
+        <div class="fai-dist-legend">
+          <span><span class="fai-dist-dot" style="background:#ef4444"></span>{{ 'FORECASTAI.HIGH' | translate }}: 3</span>
+          <span><span class="fai-dist-dot" style="background:#f59e0b"></span>{{ 'FORECASTAI.MEDIUM' | translate }}: 3</span>
+          <span><span class="fai-dist-dot" style="background:#22c55e"></span>{{ 'FORECASTAI.LOW' | translate }}: 4</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="fai-risk-header fai-risk-header-high">
+      <span>&#9679;</span><span>&#9651;</span>{{ 'FORECASTAI.HIGH_RISK_IMMEDIATE_ACTION' | translate }}
+    </div>
+
+    <div class="fai-well-card-high">
+      <div>
+        <div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-high">34565</span><span class="fai-wc-name">Nimr North-12</span><span class="fai-wc-type-badge">PRODUCFR</span></div>
+        <div class="fai-wc-claude">&#9432; CLAUDE &#8594;</div>
+        <div class="fai-wc-desc">{{ 'FORECASTAI.WELL_34565_DESC' | translate }}</div>
+        <div class="fai-wc-tags"><span class="fai-tag fai-tag-pdo">PDO-1001</span><span class="fai-tag fai-tag-prog">{{ 'FORECASTAI.PROG' | translate }}: 31%</span><span class="fai-tag fai-tag-delay">{{ 'FORECASTAI.DELAY' | translate }}: +38d</span><span class="fai-tag fai-tag-stage">{{ 'FORECASTAI.STAGE_STALLED' | translate }}</span></div>
+      </div>
+      <div class="fai-wc-right">
+        <div class="fai-risk-badge-high">{{ 'FORECASTAI.HIGH_RISK_LABEL' | translate }}</div>
+        <div class="fai-score-big fai-score-big-high">84</div>
+        <div class="fai-score-label">{{ 'FORECASTAI.RISK_SCORE_OUT_OF_100' | translate }}</div>
+        <div class="fai-signal-rows">
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.DELAY_TREND' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-high" style="width:90%"></div></div><span class="fai-signal-val" style="color:#ef4444">9</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.PROG_SLOPE' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-high" style="width:80%"></div></div><span class="fai-signal-val" style="color:#ef4444">8</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.STAGE_STALL' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-high" style="width:100%"></div></div><span class="fai-signal-val" style="color:#ef4444">10</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.SCOPE_RISK' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:60%"></div></div><span class="fai-signal-val" style="color:#f59e0b">6</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.DATA_RATE' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:70%"></div></div><span class="fai-signal-val" style="color:#f59e0b">7</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fai-well-card-high">
+      <div>
+        <div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-high">36758</span><span class="fai-wc-name">Nimr Central-4</span><span class="fai-wc-type-badge">INJECTOR</span></div>
+        <div class="fai-wc-claude">&#9432; CLAUDE &#8594;</div>
+        <div class="fai-wc-desc">{{ 'FORECASTAI.WELL_36758_DESC' | translate }}</div>
+        <div class="fai-wc-tags"><span class="fai-tag fai-tag-pdo">PDO-1002</span><span class="fai-tag fai-tag-prog">{{ 'FORECASTAI.PROG' | translate }}: 45%</span><span class="fai-tag fai-tag-delay">{{ 'FORECASTAI.DELAY' | translate }}: +29d</span><span class="fai-tag fai-tag-stage">{{ 'FORECASTAI.STAGE_STALLED' | translate }}</span></div>
+      </div>
+      <div class="fai-wc-right">
+        <div class="fai-risk-badge-high">{{ 'FORECASTAI.HIGH_RISK_LABEL' | translate }}</div>
+        <div class="fai-score-big fai-score-big-high">76</div>
+        <div class="fai-score-label">{{ 'FORECASTAI.RISK_SCORE_OUT_OF_100' | translate }}</div>
+        <div class="fai-signal-rows">
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.DELAY_TREND' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:70%"></div></div><span class="fai-signal-val" style="color:#f59e0b">7</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.PROG_SLOPE' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:60%"></div></div><span class="fai-signal-val" style="color:#f59e0b">6</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.STAGE_STALL' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-high" style="width:90%"></div></div><span class="fai-signal-val" style="color:#ef4444">9</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.SCOPE_RISK' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:50%"></div></div><span class="fai-signal-val" style="color:#f59e0b">5</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.DATA_RATE' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:70%"></div></div><span class="fai-signal-val" style="color:#f59e0b">7</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fai-well-card-high">
+      <div>
+        <div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-high">36757</span><span class="fai-wc-name">Nimr South-7</span><span class="fai-wc-type-badge">PRODUCFR</span></div>
+        <div class="fai-wc-claude">&#9432; CLAUDE &#8594;</div>
+        <div class="fai-wc-desc">{{ 'FORECASTAI.WELL_36757_DESC' | translate }}</div>
+        <div class="fai-wc-tags"><span class="fai-tag fai-tag-pdo">PDO-1003</span><span class="fai-tag fai-tag-prog">{{ 'FORECASTAI.PROG' | translate }}: 28%</span><span class="fai-tag fai-tag-delay">{{ 'FORECASTAI.DELAY' | translate }}: +21d</span><span class="fai-tag fai-tag-scope">{{ 'FORECASTAI.SCOPE_CHANGE' | translate }}</span></div>
+      </div>
+      <div class="fai-wc-right">
+        <div class="fai-risk-badge-high">{{ 'FORECASTAI.HIGH_RISK_LABEL' | translate }}</div>
+        <div class="fai-score-big fai-score-big-high">68</div>
+        <div class="fai-score-label">{{ 'FORECASTAI.RISK_SCORE_OUT_OF_100' | translate }}</div>
+        <div class="fai-signal-rows">
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.DELAY_TREND' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:60%"></div></div><span class="fai-signal-val" style="color:#f59e0b">6</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.PROG_SLOPE' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:70%"></div></div><span class="fai-signal-val" style="color:#f59e0b">7</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.STAGE_STALL' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-high" style="width:80%"></div></div><span class="fai-signal-val" style="color:#ef4444">8</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.SCOPE_RISK' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-high" style="width:90%"></div></div><span class="fai-signal-val" style="color:#ef4444">9</span></div>
+          <div class="fai-signal-row"><span class="fai-signal-name">{{ 'FORECASTAI.DATA_RATE' | translate }}</span><div class="fai-signal-bar-wrap"><div class="fai-signal-bar fai-bar-mid" style="width:50%"></div></div><span class="fai-signal-val" style="color:#f59e0b">5</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fai-risk-header fai-risk-header-medium" >
+      <span>&#9679;</span>{{ 'FORECASTAI.MEDIUM_RISK_MONITOR_CLOSELY' | translate }}
+    </div>
+
+    <div class="fai-well-card-med">
+      <div class="fai-wc-med-header"><div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-medium">33153</span><span class="fai-wc-name">Nimr East-3</span><span class="fai-wc-type-badge">PRODUCFR</span></div><div class="fai-wc-med-meta">{{ 'FORECASTAI.PROG' | translate }}: 52% &middot; {{ 'FORECASTAI.DELAY' | translate }}: +14d &middot; {{ 'FORECASTAI.SCORE' | translate }}: 55</div></div>
+      <div class="fai-wc-med-desc">{{ 'FORECASTAI.WELL_33153_MED_DESC' | translate }}</div>
+    </div>
+    <div class="fai-well-card-med">
+      <div class="fai-wc-med-header"><div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-medium">37797</span><span class="fai-wc-name">Nimr North-8</span><span class="fai-wc-type-badge">INJECTOR</span></div><div class="fai-wc-med-meta">{{ 'FORECASTAI.PROG' | translate }}: 65% &middot; {{ 'FORECASTAI.DELAY' | translate }}: +10d &middot; {{ 'FORECASTAI.SCORE' | translate }}: 48</div></div>
+      <div class="fai-wc-med-desc">{{ 'FORECASTAI.WELL_37797_MED_DESC' | translate }}</div>
+    </div>
+    <div class="fai-well-card-med">
+      <div class="fai-wc-med-header"><div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-medium">34561</span><span class="fai-wc-name">Nimr West-2</span><span class="fai-wc-type-badge">PRODUCFR</span></div><div class="fai-wc-med-meta">{{ 'FORECASTAI.PROG' | translate }}: 78% &middot; {{ 'FORECASTAI.DELAY' | translate }}: +8d &middot; {{ 'FORECASTAI.SCORE' | translate }}: 44</div></div>
+      <div class="fai-wc-med-desc">{{ 'FORECASTAI.WELL_34561_MED_DESC' | translate }}</div>
+    </div>
+
+    <div class="fai-risk-header fai-risk-header-low" >
+      <span>&#9679;</span>{{ 'FORECASTAI.LOW_RISK_ON_TRACK' | translate }}
+    </div>
+
+    <div class="fai-well-card-low">
+      <div class="fai-wc-med-header"><div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-low">ALBRG-WI3</span><span class="fai-wc-name">Al Bargi West-3</span><span class="fai-wc-type-badge">INJECTOR</span></div><div class="fai-wc-med-meta" style="color:#22c55e">{{ 'FORECASTAI.PROG' | translate }}: 78% &middot; {{ 'FORECASTAI.DELAY' | translate }}: +2d &middot; {{ 'FORECASTAI.SCORE' | translate }}: 22</div></div>
+      <div class="fai-wc-med-desc">{{ 'FORECASTAI.WELL_ALBRG_WI3_DESC' | translate }}</div>
+    </div>
+    <div class="fai-well-card-low">
+      <div class="fai-wc-med-header"><div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-low">33153</span><span class="fai-wc-name">Nimr North-14</span><span class="fai-wc-type-badge">PRODUCFR</span></div><div class="fai-wc-med-meta" style="color:#22c55e">{{ 'FORECASTAI.PROG' | translate }}: 82% &middot; {{ 'FORECASTAI.DELAY' | translate }}: +1d &middot; {{ 'FORECASTAI.SCORE' | translate }}: 18</div></div>
+      <div class="fai-wc-med-desc">{{ 'FORECASTAI.WELL_33153_LOW_DESC' | translate }}</div>
+    </div>
+    <div class="fai-well-card-low">
+      <div class="fai-wc-med-header"><div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-low">ALBRG-OP1</span><span class="fai-wc-name">Al Bargi OP-1</span><span class="fai-wc-type-badge">PRODUCFR</span></div><div class="fai-wc-med-meta" style="color:#22c55e">{{ 'FORECASTAI.PROG' | translate }}: 88% &middot; {{ 'FORECASTAI.DELAY' | translate }}: +1d &middot; {{ 'FORECASTAI.SCORE' | translate }}: 14</div></div>
+      <div class="fai-wc-med-desc">{{ 'FORECASTAI.WELL_ALBRG_OP1_DESC' | translate }}</div>
+    </div>
+    <div class="fai-well-card-low">
+      <div class="fai-wc-med-header"><div class="fai-wc-title"><span class="fai-wc-id fai-wc-id-low">NMR-WSW-1</span><span class="fai-wc-name">Nimr WSW-1</span><span class="fai-wc-type-badge">PRODUCFR</span></div><div class="fai-wc-med-meta" style="color:#22c55e">{{ 'FORECASTAI.PROG' | translate }}: 91% &middot; {{ 'FORECASTAI.ON_TIME' | translate }} &middot; {{ 'FORECASTAI.SCORE' | translate }}: 8</div></div>
+      <div class="fai-wc-med-desc">{{ 'FORECASTAI.WELL_NMR_WSW1_DESC' | translate }}</div>
+    </div>
+
+  </div><!-- /page-forecastai -->

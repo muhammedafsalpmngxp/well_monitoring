@@ -1,0 +1,29 @@
+<section class="functions" [attr.aria-label]="mode === 'row' ? 'Functions for a column' : 'Functions for a measure'">
+  <label class="functions__label" [attr.for]="'function-search-' + mode">Functions</label>
+  <input [id]="'function-search-' + mode" class="form-control functions__search" type="search" autocomplete="off"
+    placeholder="Search by name or what it does" [(ngModel)]="term" [ngModelOptions]="{ standalone: true }" />
+  <div class="functions__filters" role="group" aria-label="Function category">
+    <button type="button" class="functions__filter" [class.functions__filter--active]="!category" [attr.aria-pressed]="!category"
+      (click)="category = null">All</button>
+    <button *ngFor="let name of categories" type="button" class="functions__filter" [class.functions__filter--active]="category === name"
+      [attr.aria-pressed]="category === name" (click)="category = name">{{ name }}</button>
+  </div>
+
+  <div class="functions__list">
+    <section *ngFor="let group of groups; trackBy: trackCategory" class="functions__group" [attr.aria-label]="group.category">
+      <h3 class="functions__category">{{ group.category }}</h3>
+      <ul class="functions__items">
+        <li *ngFor="let fn of group.functions; trackBy: trackName" class="functions__item">
+          <div class="functions__head">
+            <code class="functions__signature">{{ fn.signature }}</code>
+            <button type="button" class="btn btn-ghost btn-sm functions__insert" [attr.aria-label]="'Insert an example of ' + fn.name"
+              (click)="choose(fn)">Insert</button>
+          </div>
+          <p class="functions__description">{{ fn.description }}</p>
+          <code class="functions__example">{{ example(fn) }}</code>
+        </li>
+      </ul>
+    </section>
+    <p *ngIf="!groups.length" class="functions__empty" role="status">No {{ category ? category.toLowerCase() + ' ' : '' }}function matches "{{ term }}".</p>
+  </div>
+</section>

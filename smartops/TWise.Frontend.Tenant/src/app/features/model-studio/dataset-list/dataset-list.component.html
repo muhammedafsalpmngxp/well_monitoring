@@ -1,0 +1,68 @@
+<app-page-header [title]="mode === 'standard' ? 'Standard Data Models' : mode === 'wip' ? 'WIP Data Models' : 'Model Studio'"
+  [subtitle]="mode === 'standard' ? 'Published data models that canvases read.' : 'Connect tables once and define measures once, then reuse them in every report.'"
+  [breadcrumbs]="[{ label: 'Home' }, { label: 'Model Studio' }, { label: mode === 'standard' ? 'Standard Data Models' : mode === 'wip' ? 'WIP Data Models' : 'Data Models' }]">
+  <span page-header-icon class="dataset-list__icon"><app-icon name="database_view" aria-hidden="true"></app-icon></span>
+  <app-button *ngIf="canCreate && mode !== 'standard'" variant="primary" (clicked)="openCreate()">New data model</app-button>
+</app-page-header>
+
+<div *ngIf="toast" class="dataset-list__toast" [class.dataset-list__toast--error]="toast.kind === 'error'" role="status">
+  {{ toast.text }}
+</div>
+
+<app-loader *ngIf="loading" size="lg"></app-loader>
+<p *ngIf="!loading && error" class="dataset-list__error" role="alert">{{ error }}</p>
+
+<app-empty-state *ngIf="!loading && !error && shown.length === 0" appIcon="database_view"
+  [title]="mode === 'standard' ? 'No published data models yet' : 'No data models yet'"
+  [description]="mode === 'standard' ? 'Data models appear here once they are published.' : 'A data model joins your tables once, so anyone can build reports from them without writing SQL.'">
+  <app-button *ngIf="canCreate && mode !== 'standard'" variant="primary" (clicked)="openCreate()">New data model</app-button>
+</app-empty-state>
+
+<div *ngIf="!loading && shown.length > 0" class="dataset-list__grid">
+  <app-item-card *ngFor="let dataset of shown" [title]="dataset.name" [description]="dataset.description"
+    [status]="dataset.status === 'published' ? 'Published' : 'Draft'" [published]="dataset.status === 'published'"
+    accent="purple" icon="database_view" preview="assets/images/data-model-preview.svg"
+    [category]="connectionName(dataset.connectionId)" [modified]="'Created ' + (dataset.createdAt | date: 'mediumDate')"
+    [canPublish]="canModify && dataset.status !== 'published'" [publishing]="publishingId === dataset.id"
+    [hasMenu]="canModify" (opened)="open(dataset)" (publish)="publish(dataset)">
+    <button item-card-action type="button" (click)="open(dataset)">Open</button>
+    <button item-card-action type="button" (click)="publish(dataset)">Publish</button>
+    <button item-card-action type="button" class="item-card-danger" (click)="pendingDelete = dataset">Delete</button>
+  </app-item-card>
+</div>
+
+<div *ngIf="createOpen" class="dataset-list__overlay" (click)="createOpen = false">
+  <form appDialog (dialogClose)="createOpen = false" class="dataset-list__modal" role="dialog" aria-modal="true" aria-labelledby="new-dataset-title"
+    (click)="$event.stopPropagation()" (ngSubmit)="create()">
+    <h2 id="new-dataset-title" class="dataset-list__modal-title">New data model</h2>
+    <div class="form-group">
+      <label for="dataset-name">Name</label>
+      <input id="dataset-name" class="form-control" name="name" maxlength="128" required [(ngModel)]="form.name" />
+    </div>
+    <div class="form-group">
+      <label for="dataset-description">Description</label>
+      <textarea id="dataset-description" class="form-control" name="description" maxlength="500" rows="3"
+        [(ngModel)]="form.description"></textarea>
+    </div>
+    <div class="form-group">
+      <label for="dataset-connection">Connection</label>
+      <select id="dataset-connection" class="form-control" name="connectionId" required [(ngModel)]="form.connectionId">
+        <option [ngValue]="null" disabled>Choose a connection</option>
+        <option *ngFor="let connection of eligibleConnections" [ngValue]="connection.id">
+          {{ connection.connectionName }} ({{ connection.databaseName }})
+        </option>
+      </select>
+      <p *ngIf="noEligibleConnection" class="form-error" role="status">
+        No SQL Server connection is set up. Ask an administrator to add one.
+      </p>
+    </div>
+    <p *ngIf="formError" class="form-error" role="alert">{{ formError }}</p>
+    <div class="dataset-list__modal-actions">
+      <app-button variant="secondary" (clicked)="createOpen = false">Cancel</app-button>
+      <app-button variant="primary" type="submit" [loading]="saving" [disabled]="noEligibleConnection">Create</app-button>
+    </div>
+  </form>
+</div>
+
+<app-confirmation-dialog [isOpen]="!!pendingDelete" title="Delete data model" [message]="deleteMessage" confirmLabel="Delete"
+  (confirmed)="confirmDelete()" (cancelled)="pendingDelete = null"></app-confirmation-dialog>

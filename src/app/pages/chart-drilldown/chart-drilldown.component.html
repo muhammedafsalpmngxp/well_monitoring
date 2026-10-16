@@ -1,0 +1,107 @@
+<div id="page-chart-drilldown" class="page active">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb cdd-breadcrumb">
+    <a (click)="goToCharts()">Standard Charts</a>
+    <span class="cdd-bc-sep">›</span>
+    <a class="current">{{ def?.title || 'Chart' }}</a>
+  </div>
+
+  <!-- Title row -->
+  <div class="page-title-row">
+    <div class="cdd-title-wrap">
+      <div class="page-title">{{ def?.title || 'Chart' }}</div>
+      <div class="page-subtitle">{{ def?.sub || '' }}</div>
+    </div>
+    <div class="cdd-actions" *ngIf="def">
+      <button class="cdd-btn" (click)="exportPng()" *ngIf="!activeSeg" title="Export chart as PNG">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        PNG
+      </button>
+      <button class="cdd-btn" (click)="exportCsv()" title="Export data as CSV">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- Chart panel (level 1) -->
+  <div class="cdd-panel" *ngIf="def && !activeSeg">
+    <!-- Chart-level filters (Plant / Resource / Discipline …) -->
+    <div id="cddFilterBar" class="cdd-filter-bar" style="display:none"></div>
+    <div class="cdd-panel-bar">
+      <div class="cdd-view">
+        <button type="button" [class.active]="view==='chart'" (click)="setView('chart')">Chart</button>
+        <button type="button" [class.active]="view==='table'" (click)="setView('table')">Data table</button>
+      </div>
+      <div class="cdd-panel-hint" *ngIf="view==='chart'">Click a segment to drill into the well grid</div>
+      <div class="cdd-size" *ngIf="view==='chart'" title="Resize the chart">
+        <span class="cdd-size-lbl">Size</span>
+        <button type="button" [class.active]="chartHeight===320" (click)="setChartHeight(320)">S</button>
+        <button type="button" [class.active]="chartHeight===440" (click)="setChartHeight(440)">M</button>
+        <button type="button" [class.active]="chartHeight===620" (click)="setChartHeight(620)">L</button>
+      </div>
+    </div>
+
+    <!-- Chart view -->
+    <div class="cdd-chart-wrap" *ngIf="view==='chart'" [style.height.px]="chartHeight">
+      <canvas id="cddChartCanvas"></canvas>
+    </div>
+
+    <!-- Data table view -->
+    <div class="cdd-tablewrap" *ngIf="view==='table'">
+      <table class="lp-table">
+        <thead>
+          <tr><th>Category</th><th>Wells</th><th>% of total</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of def.segments">
+            <td><span class="cdd-swatch" [style.background]="s.color"></span>{{ s.label }}</td>
+            <td>{{ s.value }}</td>
+            <td>{{ segPct(s.value) }}</td>
+          </tr>
+          <tr class="cdd-total-row">
+            <td>Total</td><td>{{ segTotal }}</td><td>100%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- In-page grid (level 2 — for charts without a dedicated grid page) -->
+  <div class="cdd-panel" *ngIf="def && activeSeg">
+    <div class="cdd-drill-head">
+      <button type="button" class="cdd-back" (click)="backToChart()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to chart
+      </button>
+      <span class="cdd-drill-seg">
+        <span class="cdd-dot" [style.background]="activeSeg.color"></span>
+        {{ activeSeg.label }}
+        <span class="cdd-drill-count">{{ gridRows.length }} record(s)</span>
+      </span>
+    </div>
+    <div class="cdd-tablewrap">
+      <table class="lp-table">
+        <thead>
+          <tr><th *ngFor="let c of def.cols">{{ c }}</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of gridRows">
+            <td *ngFor="let cell of r">{{ cell }}</td>
+          </tr>
+          <tr *ngIf="!gridRows.length">
+            <td [attr.colspan]="def.cols.length" class="cdd-empty-cell">No wells in this segment.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Unknown / missing chart -->
+  <div class="cdd-panel cdd-missing" *ngIf="!def">
+    <p>This chart could not be found.</p>
+    <button class="cdd-btn" (click)="goToCharts()">Back to Standard Charts</button>
+  </div>
+
+</div>

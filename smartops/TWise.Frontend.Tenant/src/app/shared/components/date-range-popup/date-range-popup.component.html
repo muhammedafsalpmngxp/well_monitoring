@@ -1,0 +1,155 @@
+<div class="drp-backdrop" *ngIf="open" (click)="onClose()"></div>
+
+<div class="drp-card" *ngIf="open" [class.drp-card--compact]="compact" [style.top.px]="cardTop"
+  [style.left.px]="cardLeft" [style.width.px]="cardWidth" [style.max-height.px]="cardMaxHeight"
+  (click)="$event.stopPropagation()">
+  <!-- Header -->
+  <div class="drp-header">
+    <h3 class="drp-title">Select Date Range</h3>
+    <button type="button" class="drp-close" aria-label="Close" (click)="onClose()">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M12.5 7.5L7.5 12.5M7.5 7.5L12.5 12.5M18.3 10A8.3 8.3 0 111.7 10a8.3 8.3 0 0116.6 0Z"
+          stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+  </div>
+
+  <div class="drp-body">
+    <!-- From / To text inputs -->
+    <div class="drp-fields">
+      <div class="drp-field">
+        <label>From</label>
+        <div class="drp-input">
+          <input type="text" [ngModel]="fromDisplay" (ngModelChange)="onFromDisplayInput($event)" placeholder="mm-dd-yyyy" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+      </div>
+      <span class="drp-arrow">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </span>
+      <div class="drp-field">
+        <label>To</label>
+        <div class="drp-input">
+          <input type="text" [ngModel]="toDisplay" (ngModelChange)="onToDisplayInput($event)" placeholder="mm-dd-yyyy" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dual calendars -->
+    <div class="drp-calendars">
+      <div class="drp-calendar">
+        <div class="drp-cal-head">
+          <button type="button" class="drp-nav" aria-label="Previous month" (click)="shiftLeftMonth(-1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#344054" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <span class="drp-cal-title">{{ leftTitle }}</span>
+          <button type="button" class="drp-nav" aria-label="Next month" (click)="shiftLeftMonth(1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#344054" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+        <div class="drp-weekdays">
+          <span *ngFor="let w of weekdays">{{ w }}</span>
+        </div>
+        <div class="drp-days">
+          <button type="button" *ngFor="let c of leftCells; trackBy: trackByIso" class="drp-day"
+            [class.drp-day--muted]="c.otherMonth" [class.drp-day--range]="c.inRange"
+            [class.drp-day--from]="c.isFrom" [class.drp-day--to]="c.isTo" [disabled]="c.disabled"
+            (click)="selectDay(c, 'from')">
+            {{ c.day }}
+          </button>
+        </div>
+      </div>
+
+      <div class="drp-calendar">
+        <div class="drp-cal-head">
+          <button type="button" class="drp-nav" aria-label="Previous month" (click)="shiftRightMonth(-1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#344054" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <span class="drp-cal-title">{{ rightTitle }}</span>
+          <button type="button" class="drp-nav" aria-label="Next month" (click)="shiftRightMonth(1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#344054" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+        <div class="drp-weekdays">
+          <span *ngFor="let w of weekdays">{{ w }}</span>
+        </div>
+        <div class="drp-days">
+          <button type="button" *ngFor="let c of rightCells; trackBy: trackByIso" class="drp-day"
+            [class.drp-day--muted]="c.otherMonth" [class.drp-day--range]="c.inRange"
+            [class.drp-day--from]="c.isFrom" [class.drp-day--to]="c.isTo" [disabled]="c.disabled"
+            (click)="selectDay(c, 'to')">
+            {{ c.day }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OR divider -->
+    <div class="drp-or">
+      <span class="drp-or__line"></span>
+      <span class="drp-or__pill">OR</span>
+      <span class="drp-or__line"></span>
+    </div>
+
+    <!-- Quick Adjust slider -->
+    <div class="drp-quick">
+      <!-- <h4 class="drp-quick__title">Quick Adjust</h4> -->
+      <div class="drp-slider">
+        <span class="drp-slider__bubble" [style.left.%]="fromPct">{{ fromThumbLabel }}</span>
+        <span class="drp-slider__bubble" [style.left.%]="toPct">{{ toThumbLabel }}</span>
+        <div class="drp-slider__track">
+          <div class="drp-slider__fill" [style.left.%]="fromPct" [style.width.%]="toPct - fromPct"></div>
+        </div>
+        <input type="range" class="drp-slider__input" [min]="0" [max]="maxDay" [value]="sliderFrom"
+          (input)="onSliderFrom($any($event.target).value)" aria-label="Start date" />
+        <input type="range" class="drp-slider__input" [min]="0" [max]="maxDay" [value]="sliderTo"
+          (input)="onSliderTo($any($event.target).value)" aria-label="End date" />
+      </div>
+      <div class="drp-slider__scale">
+        <span>{{ sliderStartLabel }}</span>
+        <span>{{ sliderEndLabel }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="drp-footer">
+    <button type="button" class="drp-btn drp-btn--ghost" (click)="onReset()">Reset</button>
+    <button type="button" class="drp-btn drp-btn--primary" (click)="onApply()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      Apply
+    </button>
+  </div>
+</div>

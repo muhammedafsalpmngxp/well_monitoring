@@ -1,0 +1,94 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "multi-tool",
+    "description": "One agent, three tools",
+    "created_at": "2026-09-22T11:08:33.271Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": true,
+    "state_channels": [],
+    "routers": [],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "assistant",
+        "role": "a capable assistant",
+        "goal": "Use the available tools to answer. Chain several if a question needs it",
+        "backstory": "",
+        "tools": [
+          "get_weather",
+          "calculate",
+          "get_time"
+        ],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [],
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Get the current weather for a named city.",
+        "parameters": [
+          {
+            "name": "city",
+            "type": "str",
+            "description": "City name"
+          }
+        ],
+        "return_type": "str",
+        "implementation": "celsius = 18 + hash(city.lower()) % 12\nreturn f\"{city}: sunny, {celsius}C\""
+      },
+      {
+        "name": "calculate",
+        "description": "Evaluate a arithmetic expression, e.g. '(3 + 4) * 12'.",
+        "parameters": [
+          {
+            "name": "expression",
+            "type": "str",
+            "description": "Arithmetic to evaluate"
+          }
+        ],
+        "return_type": "str",
+        "implementation": "# Deliberately restricted: no builtins, so this cannot import or exec.\ntry:\n    return str(eval(expression, {\"__builtins__\": {}}, {}))\nexcept Exception as e:\n    return f\"Could not evaluate {expression!r}: {e}\""
+      },
+      {
+        "name": "get_time",
+        "description": "Get the current UTC time.",
+        "parameters": [],
+        "return_type": "str",
+        "implementation": "from datetime import datetime, timezone\nreturn datetime.now(timezone.utc).strftime(\"%Y-%m-%d %H:%M UTC\")"
+      }
+    ],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

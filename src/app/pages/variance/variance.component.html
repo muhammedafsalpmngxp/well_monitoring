@@ -1,0 +1,85 @@
+<div id="page-variance" class="page active va-body">
+
+        <div class="breadcrumb">
+          <a data-page="cmdoverview">{{ 'SIDEBAR.ANALYTICS_REPORTS' | translate }}</a>
+          <span>›</span>
+          <span class="current">{{ 'VARIANCE.TITLE' | translate }}</span>
+        </div>
+
+        <div class="va-topbar">
+          <div>
+            <div class="va-title">
+              <div class="va-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#29378d" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+              {{ 'VARIANCE.TITLE' | translate }}
+            </div>
+            <div class="va-subtitle">{{ 'COMMON.LIVE' | translate }} &nbsp;&middot;&nbsp; FEB 2026</div>
+          </div>
+          <div class="va-toolbar">
+            <div class="va-period-group">
+              <button class="va-period-btn va-active">{{ 'COMMON.MONTHLY' | translate }}</button>
+              <button class="va-period-btn">{{ 'COMMON.WEEKLY' | translate }}</button>
+              <button class="va-period-btn">{{ 'COMMON.DAILY' | translate }}</button>
+            </div>
+            <button class="va-tb-btn">&#128197; Feb 2026</button>
+            <button class="va-tb-btn">{{ 'VARIANCE.ALL_PROJECTS' | translate }} &#9662;</button>
+            <button class="va-tb-btn va-tb-export"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> {{ 'COMMON.EXPORT_CSV' | translate }}</button>
+            <button class="va-tb-btn va-tb-btn-green">&#8635; {{ 'COMMON.SYNC_NOW' | translate }}</button>
+          </div>
+        </div>
+
+        <div class="va-kpi-grid">
+          <div class="atg-kpi">
+            <div class="atg-kpi-accent" style="background:#ef4444"></div>
+            <div class="atg-kpi-label">{{ 'VARIANCE.AVG_RIG_DELAY' | translate }}</div>
+            <div class="atg-kpi-val" style="color:#ef4444">+18d</div>
+            <div class="atg-kpi-unit" style="margin-top:8px">{{ 'VARIANCE.VARIANCE_COUNT' | translate: {count: 18} }}</div>
+          </div>
+          <div class="atg-kpi">
+            <div class="atg-kpi-accent" style="background:#ef4444"></div>
+            <div class="atg-kpi-label">{{ 'VARIANCE.AVG_BL_DELAY' | translate }}</div>
+            <div class="atg-kpi-val" style="color:#ef4444">+19d</div>
+            <div class="atg-kpi-unit" style="margin-top:8px">{{ 'VARIANCE.VARIANCE_COUNT' | translate: {count: 19} }}</div>
+          </div>
+          <div class="atg-kpi">
+            <div class="atg-kpi-accent" style="background:#ef4444"></div>
+            <div class="atg-kpi-label">{{ 'VARIANCE.WELLS_OVER_LATE' | translate }}</div>
+            <div class="atg-kpi-val" style="color:#ef4444">6</div>
+            <div class="atg-kpi-unit" style="margin-top:8px">{{ 'VARIANCE.CRITICAL_THRESHOLD' | translate }}</div>
+          </div>
+          <div class="atg-kpi">
+            <div class="atg-kpi-accent" style="background:#22c55e"></div>
+            <div class="atg-kpi-label">{{ 'VARIANCE.ON_SCHEDULE' | translate }}</div>
+            <div class="atg-kpi-val" style="color:#22c55e">24</div>
+            <div class="atg-kpi-unit" style="margin-top:8px">{{ 'VARIANCE.RECOVERED' | translate: {count: 12} }}</div>
+          </div>
+        </div>
+
+        <div class="va-charts-row">
+          <div class="va-chart-card">
+            <div class="va-chart-title">{{ 'VARIANCE.PLAN_VS_ACTUAL' | translate }}</div>
+            <div class="va-chart-sub">{{ 'VARIANCE.PLAN_VS_ACTUAL_SUB' | translate }}</div>
+            <div style="position:relative;height:240px"><canvas id="va-chart-planact"></canvas></div>
+          </div>
+          <div class="va-chart-card">
+            <div class="va-chart-title">{{ 'VARIANCE.DELAY_DIST' | translate }}</div>
+            <div class="va-chart-sub">{{ 'VARIANCE.DELAY_DIST_SUB' | translate }}</div>
+            <div style="position:relative;height:240px"><canvas id="va-chart-dist"></canvas></div>
+          </div>
+        </div>
+
+        <div class="va-heatmap-card">
+          <div class="va-hm-header">
+            <div>
+              <div class="va-chart-title">{{ 'VARIANCE.WEEKLY_HEATMAP' | translate }}</div>
+              <div class="va-chart-sub">{{ 'VARIANCE.WEEKLY_HEATMAP_SUB' | translate }}</div>
+            </div>
+            <div class="va-hm-legend">
+              <span><span class="va-hm-legend-dot" style="background:#22c55e"></span>{{ 'VARIANCE.LEGEND_EARLY' | translate }}</span>
+              <span><span class="va-hm-legend-dot" style="background:#f59e0b"></span>{{ 'VARIANCE.LEGEND_AT_RISK' | translate }}</span>
+              <span><span class="va-hm-legend-dot" style="background:#ef4444"></span>{{ 'VARIANCE.LEGEND_CRITICAL' | translate }}</span>
+            </div>
+          </div>
+          <table class="va-hm-table" id="va-hm-table"></table>
+        </div>
+
+      </div><!-- /page-variance -->

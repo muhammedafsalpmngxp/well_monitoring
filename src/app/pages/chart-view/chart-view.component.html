@@ -1,0 +1,44 @@
+<div id="page-chart-view" class="page active">
+
+  <div class="breadcrumb cv-bc">
+    <a (click)="back()">Charts</a>
+    <span class="cv-sep">›</span>
+    <a class="current">{{ title }}</a>
+  </div>
+
+  <div class="page-title-row">
+    <div class="cv-title-wrap">
+      <div class="page-title">{{ title }}</div>
+      <div class="page-subtitle">{{ subtitle }}</div>
+    </div>
+    <div class="cv-actions" *ngIf="found">
+      <button class="cv-btn" *ngIf="canEdit" (click)="edit()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </button>
+      <button class="cv-btn" *ngIf="hasTable" (click)="toggleTable()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="20"/></svg>
+        {{ showTable ? 'Hide data table' : 'Data table' }}
+      </button>
+      <button class="cv-btn" (click)="exportCsv()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M5 21h14"/></svg>
+        Export CSV
+      </button>
+    </div>
+  </div>
+
+  <div class="cv-missing" *ngIf="!found">This chart could not be found.</div>
+
+  <div class="cv-card" *ngIf="found">
+    <div id="cvFilterBar" class="cv-filter-bar" style="display:none"></div>
+    <!-- Labour-productivity bespoke viewer (Chart / Data-table toggle + drill) -->
+    <div id="cvLabourHost" class="cv-labour-host" *ngIf="isLabour"></div>
+    <div class="cv-chart-wrap" *ngIf="!isLabour">
+      <canvas id="cvChartCanvas" style="display:none"></canvas>
+      <div id="cvChartKpi" class="db-custom-kpi" style="display:none"></div>
+      <div id="cvChartTable" class="db-custom-tablewrap" style="display:none"></div>
+      <div id="cvChartEmpty" class="cv-empty">Rendering…</div>
+    </div>
+    <div id="cvDataTable" class="cv-data-table" style="display:none" *ngIf="!isLabour"></div>
+  </div>
+</div>

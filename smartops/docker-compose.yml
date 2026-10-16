@@ -1,0 +1,166 @@
+version: "3.9"
+
+# Bring the whole platform up locally:
+#   docker compose up --build
+# This launches:
+#   • Microsoft SQL Server 2022
+#   • TimescaleDB (PostgreSQL with time-series extension)
+#   • Redis (used by SignalR backplane + alerts pub/sub)
+#   • YARP API Gateway (:7000)
+#   • 6 .NET services (:7001-:7006)
+#   • 5 Python AI services (:8001-:8005)
+
+x-dotnet-base: &dotnet-base
+  build:
+    context: .
+    dockerfile: services/dotnet/SmartOps.Auth/Dockerfile   # override per service below
+  env_file: .env
+  restart: unless-stopped
+  depends_on:
+    - mssql
+
+services:
+  # ─── Data ───────────────────────────────────────────────────────────────
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-YourStrong!Pass1}"
+      MSSQL_PID: "Developer"
+    ports: ["1433:1433"]
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./infra/sql/init-mssql.sql:/init-mssql.sql:ro
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: "${TIMESCALE_USER:-smartops}"
+      POSTGRES_PASSWORD: "${TIMESCALE_PASSWORD:-smartops}"
+      POSTGRES_DB: "${TIMESCALE_DB:-smartops_ts}"
+    ports: ["5432:5432"]
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./infra/sql/init-timescale.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis_data:/data]
+
+  # ─── Gateway ────────────────────────────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    ports: ["7000:7000"]
+    env_file: .env
+    depends_on: [auth, wells, finance, workflow, reports, integrations, controlplane,
+                 jenny, predictive, anomaly, crew-optimizer, vision]
+
+  # ─── .NET services ──────────────────────────────────────────────────────
+  auth:
+    build:
+      context: .
+      dockerfile: services/dotnet/SmartOps.Auth/Dockerfile
+    ports: ["7001:7001"]
+    env_file: .env
+    depends_on: [mssql]
+
+  wells:
+    build:
+      context: .
+      dockerfile: services/dotnet/SmartOps.Wells/src/SmartOps.Wells.API/Dockerfile
+    ports: ["7002:7002"]
+    env_file: .env
+    depends_on: [mssql]
+
+  finance:
+    build:
+      context: .
+      dockerfile: services/dotnet/SmartOps.Finance/Dockerfile
+    ports: ["7003:7003"]
+    env_file: .env
+    depends_on: [mssql]
+
+  workflow:
+    build:
+      context: .
+      dockerfile: services/dotnet/SmartOps.Workflow/Dockerfile
+    ports: ["7004:7004"]
+    env_file: .env
+    depends_on: [mssql]
+
+  reports:
+    build:
+      context: .
+      dockerfile: services/dotnet/SmartOps.Reports/Dockerfile
+    ports: ["7005:7005"]
+    env_file: .env
+    depends_on: [mssql, redis]
+
+  integrations:
+    build:
+      context: .
+      dockerfile: services/dotnet/SmartOps.Integrations/Dockerfile
+    ports: ["7006:7006"]
+    env_file: .env
+    depends_on: [mssql]
+
+  controlplane:
+    build:
+      context: .
+      dockerfile: services/dotnet/SmartOps.ControlPlane/Dockerfile
+    ports: ["7007:7007"]
+    env_file: .env
+    depends_on: [mssql]
+
+  # ─── Python AI services ─────────────────────────────────────────────────
+  jenny:
+    build:
+      context: .
+      dockerfile: services/python/jenny_ai/Dockerfile
+    ports: ["8001:8001"]
+    env_file: .env
+
+  predictive:
+    build:
+      context: .
+      dockerfile: services/python/predictive/Dockerfile
+    ports: ["8002:8002"]
+    env_file: .env
+
+  anomaly:
+    build:
+      context: .
+      dockerfile: services/python/anomaly/Dockerfile
+    ports: ["8003:8003"]
+    env_file: .env
+
+  crew-optimizer:
+    build:
+      context: .
+      dockerfile: services/python/crew_optimizer/Dockerfile
+    ports: ["8004:8004"]
+    env_file: .env
+
+  vision:
+    build:
+      context: .
+      dockerfile: services/python/vision/Dockerfile
+    ports: ["8005:8005"]
+    env_file: .env
+
+  # Runs agents built on Agentic AI → Create New Agent (LangGraph); only the Tenant API calls it.
+  agent-runtime:
+    build:
+      context: .
+      dockerfile: services/python/agent_runtime/Dockerfile
+    ports: ["8006:8006"]
+    env_file: .env
+
+volumes:
+  mssql_data:
+  timescale_data:
+  redis_data:

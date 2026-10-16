@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in · AL Tasnim</title>
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  :root {
+    --navy: #1f3a6b;
+    --navy-deep: #1b3460;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --label: #6b7280;
+    --line: #e5e7eb;
+    --field-line: #e2e8f0;
+    --accent-dot: #2f6fed;
+  }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+    color: var(--ink);
+    background: #ffffff;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+  }
+
+  /* ───────────────────────── Left hero ───────────────────────── */
+  .hero {
+    flex: 1.55;
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 40px 48px 34px;
+    color: #fff;
+    /* Drop a real rig photo at src/assets/login-rig.jpg to replace the gradient. */
+    background:
+      linear-gradient(180deg, rgba(20,35,60,0.10) 0%, rgba(10,20,40,0.45) 55%, rgba(6,13,28,0.92) 100%),
+      url('src/assets/login-rig.jpg') center / cover no-repeat,
+      linear-gradient(160deg, #8a97ad 0%, #41577a 28%, #20365a 58%, #0b1a35 100%);
+  }
+
+  .hero-logo {
+    width: 150px;
+    background: rgba(255,255,255,0.92);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  }
+  .hero-logo img { width: 100%; display: block; }
+
+  .hero-body { margin-top: auto; max-width: 620px; }
+  .hero-title {
+    font-size: clamp(34px, 4vw, 52px);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.5px;
+    margin: 0 0 18px;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.35);
+  }
+  .hero-title .dot { color: var(--accent-dot); }
+  .hero-desc {
+    font-size: 16px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.85);
+    max-width: 420px;
+    margin: 0;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.4);
+  }
+
+  /* Stats bar */
+  .hero-stats {
+    margin-top: 34px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: rgba(8,15,28,0.42);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 14px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    overflow: hidden;
+  }
+  .hero-stat {
+    padding: 20px 24px;
+    border-left: 1px solid rgba(255,255,255,0.14);
+  }
+  .hero-stat:first-child { border-left: 0; }
+  .hero-stat-val { font-size: 30px; font-weight: 800; line-height: 1; }
+  .hero-stat-lbl { font-size: 13px; color: rgba(255,255,255,0.72); margin-top: 7px; }
+
+  /* ───────────────────────── Right auth ───────────────────────── */
+  .auth {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 56px;
+    background: #fff;
+    min-width: 420px;
+  }
+
+  .lang {
+    position: absolute;
+    top: 30px;
+    right: 48px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .lang a { text-decoration: none; cursor: pointer; }
+  .lang .active { color: var(--navy); font-weight: 700; }
+  .lang .alt { color: #9aa3af; }
+  .lang .sep { color: #d6dae1; }
+
+  .card {
+    width: 100%;
+    max-width: 430px;
+    background: #fff;
+    border: 1px solid #eef0f3;
+    border-radius: 16px;
+    box-shadow: 0 18px 50px rgba(15,23,42,0.07);
+    padding: 40px 38px 30px;
+  }
+
+  .card-title { font-size: 28px; font-weight: 800; color: var(--navy); letter-spacing: -0.3px; margin: 0; }
+  .card-sub { font-size: 14.5px; color: var(--muted); margin: 8px 0 26px; }
+
+  .field { margin-bottom: 18px; }
+  .field-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--label);
+    margin-bottom: 8px;
+  }
+  .field-wrap { position: relative; display: flex; align-items: center; }
+  .input {
+    width: 100%;
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    padding: 14px 16px;
+    border: 1px solid var(--field-line);
+    border-radius: 10px;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .input::placeholder { color: #9aa3af; }
+  .input:focus {
+    outline: none;
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(31,58,107,0.12);
+  }
+  .field-wrap .input { padding-right: 46px; }
+  .pass-toggle {
+    position: absolute; right: 8px;
+    background: transparent; border: 0; padding: 8px;
+    cursor: pointer; color: #9aa3af; display: flex; align-items: center;
+    border-radius: 6px;
+  }
+  .pass-toggle:hover { color: var(--ink); }
+
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 4px 0 22px;
+    font-size: 14px;
+  }
+  .remember { display: inline-flex; align-items: center; gap: 9px; color: #475569; cursor: pointer; user-select: none; }
+  .remember input { width: 16px; height: 16px; accent-color: var(--navy); cursor: pointer; }
+  .forgot { color: var(--navy); font-weight: 700; text-decoration: none; }
+  .forgot:hover { text-decoration: underline; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 15px 18px;
+    font: inherit;
+    font-size: 15px; font-weight: 700;
+    color: #fff;
+    background: var(--navy);
+    border: 0;
+    border-radius: 11px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    transition: background .15s ease, box-shadow .15s ease, transform .12s ease;
+    box-shadow: 0 10px 22px rgba(31,58,107,0.22);
+  }
+  .btn-primary:hover { background: var(--navy-deep); box-shadow: 0 12px 26px rgba(31,58,107,0.30); }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary:disabled { opacity: .75; cursor: not-allowed; }
+  .btn-primary svg { width: 17px; height: 17px; }
+
+  .divider {
+    display: flex; align-items: center; gap: 14px;
+    margin: 22px 0;
+    font-size: 12px; color: #9ca3af; letter-spacing: 0.5px;
+  }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  .btn-ms {
+    width: 100%;
+    padding: 13px 16px;
+    font: inherit;
+    font-size: 14.5px; font-weight: 600;
+    color: #374151;
+    background: #fff;
+    border: 1px solid var(--field-line);
+    border-radius: 11px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 11px;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .btn-ms:hover { background: #f8fafc; border-color: #cbd5e1; }
+  .ms-mark { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 2px; width: 16px; height: 16px; }
+  .ms-mark i { display: block; width: 7px; height: 7px; }
+  .ms-mark i:nth-child(1){ background:#f25022; }
+  .ms-mark i:nth-child(2){ background:#7fba00; }
+  .ms-mark i:nth-child(3){ background:#00a4ef; }
+  .ms-mark i:nth-child(4){ background:#ffb900; }
+
+  .card-foot { text-align: center; margin-top: 30px; }
+  .card-foot-line {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    font-size: 13px; color: #6b7280;
+  }
+  .card-foot-line a { color: #6b7280; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .card-foot-line a:hover { color: var(--navy); }
+  .card-foot-line .sep { color: #d6dae1; }
+  .card-foot-line svg { width: 14px; height: 14px; }
+  .card-copy { font-size: 12.5px; color: #9aa3af; margin-top: 8px; }
+
+  /* ───────────────────────── Responsive ───────────────────────── */
+  @media (max-width: 980px) {
+    .wrap { flex-direction: column; }
+    .hero { border-radius: 0; padding: 28px 26px; min-height: 360px; }
+    .hero-stats { margin-top: 24px; }
+    .auth { min-width: 0; padding: 40px 22px; }
+    .lang { right: 22px; top: 18px; }
+  }
+  @media (max-width: 520px) {
+    .hero-stat { padding: 16px 14px; }
+    .hero-stat-val { font-size: 24px; }
+    .card { padding: 30px 22px 24px; border: 0; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ── Left: hero ─────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-logo">
+      <img src="src/assets/logo-new.png" alt="AL Tasnim">
+    </div>
+
+    <div class="hero-body">
+      <h1 class="hero-title">
+        Monitor Wells.<br>
+        Track Operations.<br>
+        Operational Excellence<span class="dot">.</span>
+      </h1>
+      <p class="hero-desc">Manage drilling operations, rigs, and field assets from one secure platform.</p>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-val">20+</div>
+          <div class="hero-stat-lbl">Enterprise Clients</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">45</div>
+          <div class="hero-stat-lbl">Active Projects</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">24/7</div>
+          <div class="hero-stat-lbl">Support</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">99.9%</div>
+          <div class="hero-stat-lbl">System Uptime</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Right: auth ────────────────────────────────────────────── -->
+  <section class="auth">
+    <div class="lang">
+      <a class="active">English</a>
+      <span class="sep">|</span>
+      <a class="alt">العربية</a>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Welcome Back</h2>
+      <p class="card-sub">Access your Well &amp; Rig Management workspace.</p>
+
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label class="field-label" for="email">Email Address</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="username" placeholder="name@company.com">
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="pass">Password</label>
+          <div class="field-wrap">
+            <input class="input" id="pass" name="pass" type="password" autocomplete="current-password" placeholder="Enter your password">
+            <button type="button" class="pass-toggle" id="passToggle" aria-label="Show password" title="Show password">
+              <svg id="eyeOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg id="eyeOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="display:none">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label class="remember"><input type="checkbox" id="remember"> Remember Me</label>
+          <a href="#" class="forgot" onclick="event.preventDefault();alert('Please contact your administrator to reset your password.');">Forgot Password?</a>
+        </div>
+
+        <button type="submit" class="btn-primary" id="submitBtn">
+          <span id="submitText">Sign In</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+
+        <div class="divider">OR</div>
+
+        <button type="button" class="btn-ms" onclick="alert('Microsoft sign-in is not yet connected.');">
+          <span class="ms-mark"><i></i><i></i><i></i><i></i></span>
+          Sign in with Microsoft
+        </button>
+      </form>
+
+      <div class="card-foot">
+        <div class="card-foot-line">
+          <a href="#" onclick="event.preventDefault();alert('Please contact your administrator.');">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Contact Administrator
+          </a>
+          <span class="sep">|</span>
+          <span>Version 2.0</span>
+        </div>
+        <div class="card-copy">© 2026 Al Tasnim Enterprises LLC.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  (function () {
+    var form   = document.getElementById('loginForm');
+    var pass   = document.getElementById('pass');
+    var btn    = document.getElementById('submitBtn');
+    var btnTx  = document.getElementById('submitText');
+    var toggle = document.getElementById('passToggle');
+    var eyeOn  = document.getElementById('eyeOpen');
+    var eyeOff = document.getElementById('eyeOff');
+
+    toggle.addEventListener('click', function () {
+      var hidden = pass.type === 'password';
+      pass.type = hidden ? 'text' : 'password';
+      eyeOn.style.display  = hidden ? 'none' : '';
+      eyeOff.style.display = hidden ? '' : 'none';
+      toggle.title = hidden ? 'Hide password' : 'Show password';
+      toggle.setAttribute('aria-label', toggle.title);
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      btn.disabled = true;
+      btnTx.textContent = 'Signing in…';
+      setTimeout(function () { window.location.href = 'applications.html'; }, 350);
+    });
+
+    setTimeout(function () {
+      var email = document.getElementById('email');
+      (email && !email.value ? email : pass).focus();
+    }, 50);
+  })();
+</script>
+
+</body>
+</html>

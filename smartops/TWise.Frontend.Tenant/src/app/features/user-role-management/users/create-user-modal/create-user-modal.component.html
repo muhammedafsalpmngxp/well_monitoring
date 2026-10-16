@@ -1,0 +1,463 @@
+<div *ngIf="isOpen" class="dialog-backdrop" (click)="onDiscard()">
+  <div appDialog (dialogClose)="onDiscard()" class="dialog dialog--lg create-user-modal" (click)="$event.stopPropagation()">
+    <div class="create-user-modal__header">
+      <div class="create-user-modal__header-title">
+        <span class="create-user-modal__header-icon">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="8.5" cy="7" r="4"></circle>
+            <line x1="20" y1="8" x2="20" y2="14"></line>
+            <line x1="23" y1="11" x2="17" y2="11"></line>
+          </svg>
+        </span>
+        <h3>{{ isEditMode ? 'Edit User' : 'Create User' }}</h3>
+        <span role="img" class="create-user-modal__header-info" data-tooltip="Create or edit a&#10;user profile" aria-label="Create or edit a user profile">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+          >
+            <path
+              d="M9 0.5C13.6944 0.5 17.5 4.30558 17.5 9C17.5 13.6944 13.6944 17.5 9 17.5C4.30558 17.5 0.5 13.6944 0.5 9C0.5 4.30558 4.30558 0.5 9 0.5Z"
+              fill="#EAF1FF"
+              stroke="#CFE0FF"
+            />
+            <path
+              d="M10.1658 5.15248C10.8475 5.15248 11.4 4.59991 11.4 3.91828C11.4 3.23665 10.8475 2.68408 10.1658 2.68408C9.48421 2.68408 8.93164 3.23665 8.93164 3.91828C8.93164 4.59991 9.48421 5.15248 10.1658 5.15248Z"
+              fill="#21409A"
+            />
+            <path
+              d="M10.9461 12.6598C10.8933 12.645 10.8329 12.6576 10.7923 12.6926C9.66367 13.6944 9.33467 13.8176 9.24547 13.824C9.11327 13.8144 9.07387 13.7416 9.10827 13.6204C9.07387 13.1438 9.39767 11.6722 10.0707 9.24642C10.6359 7.21782 10.6885 6.80642 10.6789 6.67382C10.6647 6.47582 10.5663 6.32202 10.3869 6.21642C10.2161 6.11622 9.98187 6.07622 9.69147 6.09722C9.20187 6.13262 8.61907 6.33842 7.95927 6.70922C7.77067 6.81542 7.57407 6.94242 7.37527 7.08642C6.85087 7.46642 6.56327 8.04442 6.60567 8.63222C6.64687 8.72142 6.75587 8.73662 6.85587 8.70122C7.37627 8.21742 7.72287 7.92082 7.88647 7.81942C8.06107 7.71142 8.21667 7.65202 8.34947 7.64242C8.42887 7.71842 8.41947 7.95602 8.37787 8.10222C7.39247 11.5004 6.94387 13.5708 7.00587 14.4316C7.02707 14.7242 7.14027 14.9516 7.34267 15.108C7.54747 15.2666 7.81527 15.3354 8.13787 15.312C8.48927 15.2866 8.91107 15.1316 9.42707 14.8382C9.67527 14.697 9.99687 14.4688 10.3831 14.16C10.8385 13.7956 11.0781 13.2868 11.0405 12.764C11.0369 12.7162 11.0001 12.6754 10.9461 12.6598Z"
+              fill="#21409A"
+            />
+          </svg>
+        </span>
+      </div>
+      <button
+        type="button"
+        class="create-user-modal__close"
+        (click)="onDiscard()"
+        aria-label="Close"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M15 9L9 15M9 9L15 15M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <div class="create-user-modal__content">
+      <div class="create-user-modal__body">
+        <div class="create-user-modal__section-blue">
+          <div class="create-user-modal__section-title">
+            <span class="create-user-modal__step">1</span> Basic details
+            <span role="img" class="create-user-modal__lbl-info" data-tooltip="User profile and&#10;basic account details" aria-label="User profile and basic account details">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 15 15"
+                fill="none"
+              >
+                <path
+                  d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                  fill="#EAF1FF"
+                  stroke="#C8D7FF"
+                />
+                <path
+                  d="M9.12043 10.55C9.07643 10.5377 9.02609 10.5482 8.99226 10.5773C8.05176 11.4122 7.77759 11.5148 7.70326 11.5202C7.69393 11.5208 7.67326 11.5122 7.64593 11.485C7.61159 11.4515 7.59309 11.4075 7.58893 11.3505C7.56026 10.9533 7.83009 9.72702 8.39093 7.70552C8.86193 6.01502 8.90576 5.67218 8.89776 5.56168C8.88593 5.39668 8.80393 5.26852 8.65443 5.18052C8.51209 5.09702 8.31693 5.06368 8.07493 5.08118C7.66693 5.11068 7.18126 5.28218 6.63143 5.59118C6.47426 5.67968 6.31043 5.78552 6.14476 5.90552C5.70776 6.22218 5.46809 6.70385 5.50343 7.19368C5.50626 7.23385 5.53776 7.26802 5.58309 7.28068C5.62859 7.29318 5.67943 7.28152 5.71193 7.25118C6.14559 6.84802 6.43443 6.60085 6.57076 6.51635C6.71626 6.42635 6.84593 6.37685 6.95659 6.36885C6.99743 6.36585 7.01793 6.36435 7.02276 6.43218C7.02926 6.52235 7.01493 6.63018 6.98026 6.75202C6.15909 9.58385 5.78526 11.3092 5.83693 12.0265C5.85459 12.2703 5.94893 12.4598 6.11759 12.5902C6.28826 12.7223 6.51143 12.7797 6.78026 12.7602C7.07309 12.739 7.42459 12.6098 7.85459 12.3653C8.06143 12.2477 8.32943 12.0575 8.65126 11.8002C9.03076 11.4965 9.23043 11.0725 9.19909 10.6368C9.19609 10.597 9.16543 10.563 9.12043 10.55Z"
+                  fill="#21409A"
+                />
+                <path
+                  d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                  fill="#21409A"
+                />
+              </svg>
+            </span>
+          </div>
+          <div class="create-user-modal__grid create-user-modal__grid--3x2">
+            <!-- Row 1: UserType, Name (search), EmployeeId -->
+            <div class="form-group">
+              <label
+                >User Type <span class="create-user-modal__required">*</span>
+                <span role="img" class="create-user-modal__lbl-info" data-tooltip="Choose the user&#10;type for this account" aria-label="Choose the user type for this account"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 15 15"
+                    fill="none"
+                  >
+                    <path
+                      d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                      fill="#EAF1FF"
+                      stroke="#C8D7FF"
+                    />
+                    <path
+                      d="M9.12043 10.55C9.07643 10.5377 9.02609 10.5482 8.99226 10.5773C8.05176 11.4122 7.77759 11.5148 7.70326 11.5202C7.69393 11.5208 7.67326 11.5122 7.64593 11.485C7.61159 11.4515 7.59309 11.4075 7.58893 11.3505C7.56026 10.9533 7.83009 9.72702 8.39093 7.70552C8.86193 6.01502 8.90576 5.67218 8.89776 5.56168C8.88593 5.39668 8.80393 5.26852 8.65443 5.18052C8.51209 5.09702 8.31693 5.06368 8.07493 5.08118C7.66693 5.11068 7.18126 5.28218 6.63143 5.59118C6.47426 5.67968 6.31043 5.78552 6.14476 5.90552C5.70776 6.22218 5.46809 6.70385 5.50343 7.19368C5.50626 7.23385 5.53776 7.26802 5.58309 7.28068C5.62859 7.29318 5.67943 7.28152 5.71193 7.25118C6.14559 6.84802 6.43443 6.60085 6.57076 6.51635C6.71626 6.42635 6.84593 6.37685 6.95659 6.36885C6.99743 6.36585 7.01793 6.36435 7.02276 6.43218C7.02926 6.52235 7.01493 6.63018 6.98026 6.75202C6.15909 9.58385 5.78526 11.3092 5.83693 12.0265C5.85459 12.2703 5.94893 12.4598 6.11759 12.5902C6.28826 12.7223 6.51143 12.7797 6.78026 12.7602C7.07309 12.739 7.42459 12.6098 7.85459 12.3653C8.06143 12.2477 8.32943 12.0575 8.65126 11.8002C9.03076 11.4965 9.23043 11.0725 9.19909 10.6368C9.19609 10.597 9.16543 10.563 9.12043 10.55Z"
+                      fill="#21409A"
+                    />
+                    <path
+                      d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                      fill="#21409A"
+                    /></svg></span
+              ></label>
+              <select
+                class="form-control"
+                [(ngModel)]="userType"
+                (ngModelChange)="onUserTypeChange()"
+              >
+                <option value="internal">Internal</option>
+                <option value="external">External</option>
+              </select>
+            </div>
+            <div class="form-group create-user-modal__search-group">
+              <label
+                >Name <span class="create-user-modal__required">*</span>
+                <span role="img" class="create-user-modal__lbl-info" data-tooltip="Choose or enter the&#10;full user name" aria-label="Choose or enter the full user name"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 15 15"
+                    fill="none"
+                  >
+                    <path
+                      d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                      fill="#EAF1FF"
+                      stroke="#C8D7FF"
+                    />
+                    <path
+                      d="M9.12043 10.55C9.07643 10.5377 9.02609 10.5482 8.99226 10.5773C8.05176 11.4122 7.77759 11.5148 7.70326 11.5202C7.69393 11.5208 7.67326 11.5122 7.64593 11.485C7.61159 11.4515 7.59309 11.4075 7.58893 11.3505C7.56026 10.9533 7.83009 9.72702 8.39093 7.70552C8.86193 6.01502 8.90576 5.67218 8.89776 5.56168C8.88593 5.39668 8.80393 5.26852 8.65443 5.18052C8.51209 5.09702 8.31693 5.06368 8.07493 5.08118C7.66693 5.11068 7.18126 5.28218 6.63143 5.59118C6.47426 5.67968 6.31043 5.78552 6.14476 5.90552C5.70776 6.22218 5.46809 6.70385 5.50343 7.19368C5.50626 7.23385 5.53776 7.26802 5.58309 7.28068C5.62859 7.29318 5.67943 7.28152 5.71193 7.25118C6.14559 6.84802 6.43443 6.60085 6.57076 6.51635C6.71626 6.42635 6.84593 6.37685 6.95659 6.36885C6.99743 6.36585 7.01793 6.36435 7.02276 6.43218C7.02926 6.52235 7.01493 6.63018 6.98026 6.75202C6.15909 9.58385 5.78526 11.3092 5.83693 12.0265C5.85459 12.2703 5.94893 12.4598 6.11759 12.5902C6.28826 12.7223 6.51143 12.7797 6.78026 12.7602C7.07309 12.739 7.42459 12.6098 7.85459 12.3653C8.06143 12.2477 8.32943 12.0575 8.65126 11.8002C9.03076 11.4965 9.23043 11.0725 9.19909 10.6368C9.19609 10.597 9.16543 10.563 9.12043 10.55Z"
+                      fill="#21409A"
+                    />
+                    <path
+                      d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                      fill="#21409A"
+                    /></svg></span
+              ></label>
+              <div class="create-user-modal__search-wrapper">
+                <input
+                  type="text"
+                  class="form-control"
+                  [class.is-invalid]="errors.name"
+                  [placeholder]="isInternal ? 'Search by name...' : 'Enter name'"
+                  [ngModel]="name"
+                  (ngModelChange)="onNameInput($event)"
+                  (blur)="hideSearchDropdown()"
+                  autocomplete="off"
+                />
+                <span *ngIf="isInternal" class="create-user-modal__search-icon">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                </span>
+                <div
+                  class="create-user-modal__search-dropdown"
+                  *ngIf="showSearchDropdown && isInternal"
+                >
+                  <div
+                    class="create-user-modal__search-item"
+                    *ngFor="let result of searchResults"
+                    (mousedown)="selectSearchResult(result)"
+                  >
+                    <span class="create-user-modal__search-item-name">{{
+                      result.displayName
+                    }}</span>
+                    <span class="create-user-modal__search-item-email">{{ result.email }}</span>
+                  </div>
+                  <div
+                    class="create-user-modal__search-empty"
+                    *ngIf="!searchResults.length && !isSearching"
+                  >
+                    No results found
+                  </div>
+                  <div class="create-user-modal__search-loading" *ngIf="isSearching">
+                    Searching...
+                  </div>
+                </div>
+              </div>
+              <span class="form-error" *ngIf="errors.name">{{ errors.name }}</span>
+            </div>
+            <div class="form-group">
+              <label
+                >Employee ID
+                <span role="img" class="create-user-modal__lbl-info" data-tooltip="Enter the employee&#10;ID if available" aria-label="Enter the employee ID if available"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 15 15"
+                    fill="none"
+                  >
+                    <path
+                      d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                      fill="#EAF1FF"
+                      stroke="#C8D7FF"
+                    />
+                    <path
+                      d="M9.12043 10.55C9.07643 10.5377 9.02609 10.5482 8.99226 10.5773C8.05176 11.4122 7.77759 11.5148 7.70326 11.5202C7.69393 11.5208 7.67326 11.5122 7.64593 11.485C7.61159 11.4515 7.59309 11.4075 7.58893 11.3505C7.56026 10.9533 7.83009 9.72702 8.39093 7.70552C8.86193 6.01502 8.90576 5.67218 8.89776 5.56168C8.88593 5.39668 8.80393 5.26852 8.65443 5.18052C8.51209 5.09702 8.31693 5.06368 8.07493 5.08118C7.66693 5.11068 7.18126 5.28218 6.63143 5.59118C6.47426 5.67968 6.31043 5.78552 6.14476 5.90552C5.70776 6.22218 5.46809 6.70385 5.50343 7.19368C5.50626 7.23385 5.53776 7.26802 5.58309 7.28068C5.62859 7.29318 5.67943 7.28152 5.71193 7.25118C6.14559 6.84802 6.43443 6.60085 6.57076 6.51635C6.71626 6.42635 6.84593 6.37685 6.95659 6.36885C6.99743 6.36585 7.01793 6.36435 7.02276 6.43218C7.02926 6.52235 7.01493 6.63018 6.98026 6.75202C6.15909 9.58385 5.78526 11.3092 5.83693 12.0265C5.85459 12.2703 5.94893 12.4598 6.11759 12.5902C6.28826 12.7223 6.51143 12.7797 6.78026 12.7602C7.07309 12.739 7.42459 12.6098 7.85459 12.3653C8.06143 12.2477 8.32943 12.0575 8.65126 11.8002C9.03076 11.4965 9.23043 11.0725 9.19909 10.6368C9.19609 10.597 9.16543 10.563 9.12043 10.55Z"
+                      fill="#21409A"
+                    />
+                    <path
+                      d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                      fill="#21409A"
+                    /></svg></span
+              ></label>
+              <input
+                type="text"
+                class="form-control"
+                placeholder="e.g. 118416"
+                [class.is-invalid]="errors.employeeId"
+                [(ngModel)]="employeeId"
+                (ngModelChange)="onIdentityInput()"
+                [readonly]="isInternal"
+              />
+              <span class="form-error" *ngIf="errors.employeeId" role="alert">{{ errors.employeeId }}</span>
+            </div>
+
+            <!-- Row 2: Email, Password, Status -->
+            <div class="form-group">
+              <label
+                >Email ID <span class="create-user-modal__required">*</span>
+                <span role="img" class="create-user-modal__lbl-info" data-tooltip="Set the user email&#10;address for login" aria-label="Set the user email address for login"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 15 15"
+                    fill="none"
+                  >
+                    <path
+                      d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                      fill="#EAF1FF"
+                      stroke="#C8D7FF"
+                    />
+                    <path
+                      d="M9.12043 10.55C9.07643 10.5377 9.02609 10.5482 8.99226 10.5773C8.05176 11.4122 7.77759 11.5148 7.70326 11.5202C7.69393 11.5208 7.67326 11.5122 7.64593 11.485C7.61159 11.4515 7.59309 11.4075 7.58893 11.3505C7.56026 10.9533 7.83009 9.72702 8.39093 7.70552C8.86193 6.01502 8.90576 5.67218 8.89776 5.56168C8.88593 5.39668 8.80393 5.26852 8.65443 5.18052C8.51209 5.09702 8.31693 5.06368 8.07493 5.08118C7.66693 5.11068 7.18126 5.28218 6.63143 5.59118C6.47426 5.67968 6.31043 5.78552 6.14476 5.90552C5.70776 6.22218 5.46809 6.70385 5.50343 7.19368C5.50626 7.23385 5.53776 7.26802 5.58309 7.28068C5.62859 7.29318 5.67943 7.28152 5.71193 7.25118C6.14559 6.84802 6.43443 6.60085 6.57076 6.51635C6.71626 6.42635 6.84593 6.37685 6.95659 6.36885C6.99743 6.36585 7.01793 6.36435 7.02276 6.43218C7.02926 6.52235 7.01493 6.63018 6.98026 6.75202C6.15909 9.58385 5.78526 11.3092 5.83693 12.0265C5.85459 12.2703 5.94893 12.4598 6.11759 12.5902C6.28826 12.7223 6.51143 12.7797 6.78026 12.7602C7.07309 12.739 7.42459 12.6098 7.85459 12.3653C8.06143 12.2477 8.32943 12.0575 8.65126 11.8002C9.03076 11.4965 9.23043 11.0725 9.19909 10.6368C9.19609 10.597 9.16543 10.563 9.12043 10.55Z"
+                      fill="#21409A"
+                    />
+                    <path
+                      d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                      fill="#21409A"
+                    /></svg></span
+              ></label>
+              <input
+                type="email"
+                class="form-control"
+                [class.is-invalid]="errors.email"
+                placeholder="name@company.com"
+                [(ngModel)]="email"
+                (ngModelChange)="onIdentityInput()"
+                [readonly]="isInternal && !!email"
+              />
+              <span class="form-error" *ngIf="errors.email" role="alert">{{ errors.email }}</span>
+            </div>
+            <div class="form-group" *ngIf="!isEditMode">
+              <label>Password (auto-generated)</label>
+              <div class="create-user-modal__password-wrapper">
+                <input type="text" class="form-control" [value]="generatedPassword" readonly />
+                <button
+                  type="button"
+                  class="create-user-modal__regenerate-btn"
+                  (click)="generatePassword()"
+                  title="Regenerate password"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label
+                >Status <span class="create-user-modal__required">*</span>
+                <span role="img" class="create-user-modal__lbl-info" data-tooltip="Set whether the user&#10;is active or inactive" aria-label="Set whether the user is active or inactive"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 15 15"
+                    fill="none"
+                  >
+                    <path
+                      d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                      fill="#EAF1FF"
+                      stroke="#C8D7FF"
+                    />
+                    <path
+                      d="M9.12043 10.55C9.07643 10.5377 9.02609 10.5482 8.99226 10.5773C8.05176 11.4122 7.77759 11.5148 7.70326 11.5202C7.69393 11.5208 7.67326 11.5122 7.64593 11.485C7.61159 11.4515 7.59309 11.4075 7.58893 11.3505C7.56026 10.9533 7.83009 9.72702 8.39093 7.70552C8.86193 6.01502 8.90576 5.67218 8.89776 5.56168C8.88593 5.39668 8.80393 5.26852 8.65443 5.18052C8.51209 5.09702 8.31693 5.06368 8.07493 5.08118C7.66693 5.11068 7.18126 5.28218 6.63143 5.59118C6.47426 5.67968 6.31043 5.78552 6.14476 5.90552C5.70776 6.22218 5.46809 6.70385 5.50343 7.19368C5.50626 7.23385 5.53776 7.26802 5.58309 7.28068C5.62859 7.29318 5.67943 7.28152 5.71193 7.25118C6.14559 6.84802 6.43443 6.60085 6.57076 6.51635C6.71626 6.42635 6.84593 6.37685 6.95659 6.36885C6.99743 6.36585 7.01793 6.36435 7.02276 6.43218C7.02926 6.52235 7.01493 6.63018 6.98026 6.75202C6.15909 9.58385 5.78526 11.3092 5.83693 12.0265C5.85459 12.2703 5.94893 12.4598 6.11759 12.5902C6.28826 12.7223 6.51143 12.7797 6.78026 12.7602C7.07309 12.739 7.42459 12.6098 7.85459 12.3653C8.06143 12.2477 8.32943 12.0575 8.65126 11.8002C9.03076 11.4965 9.23043 11.0725 9.19909 10.6368C9.19609 10.597 9.16543 10.563 9.12043 10.55Z"
+                      fill="#21409A"
+                    />
+                    <path
+                      d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                      fill="#21409A"
+                    /></svg></span
+              ></label>
+              <div class="create-user-modal__status-select">
+                <span
+                  class="create-user-modal__status-dot create-user-modal__status-dot--{{ status }}"
+                ></span>
+                <select class="form-control" [(ngModel)]="status">
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="create-user-modal__section-orange">
+          <div class="create-user-modal__section-title">
+            <span class="create-user-modal__step">2</span> Access &amp; permissions
+            <span role="img" class="create-user-modal__lbl-info" data-tooltip="Manage user access&#10;and permissions" aria-label="Manage user access and permissions">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 15 15"
+                fill="none"
+              >
+                <path
+                  d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                  fill="#EAF1FF"
+                  stroke="#C8D7FF"
+                />
+                <path
+                  d="M9.12043 10.55C9.07643 10.5377 9.02609 10.5482 8.99226 10.5773C8.05176 11.4122 7.77759 11.5148 7.70326 11.5202C7.69393 11.5208 7.67326 11.5122 7.64593 11.485C7.61159 11.4515 7.59309 11.4075 7.58893 11.3505C7.56026 10.9533 7.83009 9.72702 8.39093 7.70552C8.86193 6.01502 8.90576 5.67218 8.89776 5.56168C8.88593 5.39668 8.80393 5.26852 8.65443 5.18052C8.51209 5.09702 8.31693 5.06368 8.07493 5.08118C7.66693 5.11068 7.18126 5.28218 6.63143 5.59118C6.47426 5.67968 6.31043 5.78552 6.14476 5.90552C5.70776 6.22218 5.46809 6.70385 5.50343 7.19368C5.50626 7.23385 5.53776 7.26802 5.58309 7.28068C5.62859 7.29318 5.67943 7.28152 5.71193 7.25118C6.14559 6.84802 6.43443 6.60085 6.57076 6.51635C6.71626 6.42635 6.84593 6.37685 6.95659 6.36885C6.99743 6.36585 7.01793 6.36435 7.02276 6.43218C7.02926 6.52235 7.01493 6.63018 6.98026 6.75202C6.15909 9.58385 5.78526 11.3092 5.83693 12.0265C5.85459 12.2703 5.94893 12.4598 6.11759 12.5902C6.28826 12.7223 6.51143 12.7797 6.78026 12.7602C7.07309 12.739 7.42459 12.6098 7.85459 12.3653C8.06143 12.2477 8.32943 12.0575 8.65126 11.8002C9.03076 11.4965 9.23043 11.0725 9.19909 10.6368C9.19609 10.597 9.16543 10.563 9.12043 10.55Z"
+                  fill="#21409A"
+                />
+                <path
+                  d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                  fill="#21409A"
+                />
+              </svg>
+            </span>
+          </div>
+          <div class="create-user-modal__access-grid">
+            <div class="create-user-modal__access-col">
+              <app-multi-select
+                label="SW Authorization (Roles)"
+                [required]="true"
+                placeholder="Search role"
+                [options]="roleSelectOptions"
+                [selectedIds]="selectedRoleIds"
+                (selectedIdsChange)="selectedRoleIds = $event"
+                [invalid]="!!errors.roles"
+              ></app-multi-select>
+              <span class="form-error" *ngIf="errors.roles">{{ errors.roles }}</span>
+            </div>
+
+            <div class="create-user-modal__access-col">
+              <app-multi-select
+                label="Plant Access"
+                [required]="true"
+                placeholder="Search plant"
+                [options]="plantSelectOptions"
+                [selectedIds]="selectedPlantIds"
+                (selectedIdsChange)="selectedPlantIds = $event"
+                [invalid]="!!errors.plants"
+              ></app-multi-select>
+              <span class="form-error" *ngIf="errors.plants">{{ errors.plants }}</span>
+            </div>
+
+            <div class="create-user-modal__org-mapping">
+              <div class="create-user-modal__org-mapping-title">Organization Mapping</div>
+
+              <ng-container *ngIf="orgMapping as mapping; else noMapping">
+                <div class="create-user-modal__org-hint">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                  Fields auto-populated from Plant mapping
+                </div>
+                <div class="create-user-modal__org-row">
+                  <span>Cluster</span><strong>{{ mapping.cluster }}</strong>
+                </div>
+                <div class="create-user-modal__org-row">
+                  <span>Sector</span><strong>{{ mapping.sector }}</strong>
+                </div>
+                <div class="create-user-modal__org-row">
+                  <span>BU</span><strong>{{ mapping.bu }}</strong>
+                </div>
+                <div class="create-user-modal__org-row">
+                  <span>Division</span><strong>{{ mapping.division }}</strong>
+                </div>
+                <div class="create-user-modal__org-row">
+                  <span>Plant</span><strong>{{ mapping.plant }}</strong>
+                </div>
+              </ng-container>
+              <ng-template #noMapping>
+                <p class="create-user-modal__org-empty">
+                  Select a plant to see organization mapping.
+                </p>
+              </ng-template>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /__body -->
+      <div class="create-user-modal__footer">
+        <span class="form-error" *ngIf="errors.save" role="alert">{{ errors.save }}</span>
+        <app-button variant="secondary" (clicked)="onDiscard()">Discard</app-button>
+        <app-button variant="primary" [disabled]="isSaving" (clicked)="onSave()">{{
+          isEditMode ? 'Update' : 'Save'
+        }}</app-button>
+      </div>
+    </div>
+    <!-- /__content -->
+  </div>
+</div>

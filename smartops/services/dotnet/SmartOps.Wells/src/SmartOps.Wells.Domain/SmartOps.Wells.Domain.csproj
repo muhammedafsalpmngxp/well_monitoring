@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SmartOps.Wells.Domain</RootNamespace>
+  </PropertyGroup>
+  <!-- Domain has a single first-party dependency: AuditableEntity base class (pure POCO, no EF) -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\shared\dotnet\SmartOps.Shared\SmartOps.Shared.csproj" />
+  </ItemGroup>
+</Project>

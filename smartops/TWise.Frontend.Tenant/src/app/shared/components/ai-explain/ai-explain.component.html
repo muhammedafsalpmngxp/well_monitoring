@@ -1,0 +1,22 @@
+<ng-container *ngIf="allowed">
+  <button type="button" class="aix__btn" (click)="open ? close() : explain()" [disabled]="!hasData && !open" [title]="hasData ? 'Explain this chart with AI' : 'No chart data yet'">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 3l1.8 4.6L18.4 9.4l-4.6 1.8L12 15.8l-1.8-4.6L5.6 9.4l4.6-1.8z" />
+    </svg>
+    {{ isDashboard ? 'Explain dashboard' : 'Explain' }}
+  </button>
+
+  <div class="aix__pop" *ngIf="open" role="dialog" aria-label="AI explanation">
+    <div class="aix__head">
+      <strong>AI explanation<small class="aix__cached" *ngIf="cached && !busy" title="Same data as before; Regenerate asks again">cached</small></strong>
+      <span class="aix__actions">
+        <button type="button" class="aix__link" *ngIf="text && !busy" (click)="explain(true)">Regenerate</button>
+        <button type="button" class="aix__link" *ngIf="text && !busy" (click)="copy()">Copy</button>
+        <button type="button" class="aix__close" aria-label="Close" (click)="close()">&times;</button>
+      </span>
+    </div>
+    <p class="aix__status" *ngIf="busy && !text"><span class="aix__dot"></span>{{ isDashboard ? 'Reading the dashboard…' : 'Reading the chart…' }}</p>
+    <p class="aix__text" *ngIf="text">{{ text }}<span class="aix__cursor" *ngIf="busy"></span></p>
+    <p class="aix__error" *ngIf="error">{{ error }}</p>
+  </div>
+</ng-container>

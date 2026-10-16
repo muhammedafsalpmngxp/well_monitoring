@@ -1,0 +1,711 @@
+// Sidebar component styles
+//
+// Rendered only via *ngIf="isMobileOpen" in the template — i.e. only ever
+// present in the DOM on small screens where the drawer can be open.
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 99;
+}
+
+.sidebar {
+
+  width: var(--sidebar-width);
+  // Pre-compensated for FontSizeService's zoom on <app-root> (see its doc comment) —
+  // keeps this matching .main-content's height at every text-size setting instead of
+  // just at Medium (100%).
+  height: calc(100vh / var(--app-zoom-factor, 1));
+
+  border-right: none;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.25s ease;
+  z-index: 100;
+
+position: relative;
+&::before{
+position: absolute;
+  right: 0;
+  top: -2px;
+  width: 23px;
+  height: 23px;
+  background: url(/assets/icons/left-side-icon.svg) no-repeat;
+  content: "";
+}
+  &--collapsed {
+    width: var(--sidebar-collapsed-width);
+    overflow: visible;
+
+    .sidebar__menu-link {
+      margin: 0px;
+      padding: 5px;
+      width: 100%;
+      justify-content: center;
+      margin-bottom: 8px;
+
+    }
+    // Icon-only rail has no label text, so `.expanded:not(.active)`'s color/weight
+    // tweak (meant for the expanded-but-not-current-route case) is invisible here —
+    // without this, the icon whose flyout is open looks unselected while a stale
+    // `.active` route icon (e.g. Settings) keeps the only visible highlight.
+    .sidebar__menu-link.expanded:not(.active) {
+      background: linear-gradient(90deg, #21409A 0%, #153584 100%);
+      border-left: 4px solid #F58220;
+    }
+    .sidebar__menu{
+      padding: 0 11px;
+    }
+    .sidebar__nav-section{
+      padding-top: 40px;
+    }
+    .sidebar__brand{
+      height: 80px;
+    }
+  }
+
+  // Below the tablet breakpoint the sidebar becomes an off-canvas drawer:
+  // hidden by default (slid off-screen) and toggled via the navbar's
+  // hamburger button, instead of permanently reserving layout width.
+  // `position: fixed` is essential here — without it the element still
+  // participates in .main-layout's flex flow, so `transform: translateX`
+  // only moves the *paint*, leaving its width reserved as a blank gutter
+  // on the left (and pushing/overflowing the content on the right).
+  @media (max-width: 992px) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: var(--sidebar-width);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 0 0 0 transparent;
+
+    &--collapsed {
+      width: var(--sidebar-width);
+    }
+
+    &--mobile-open {
+      transform: translateX(0);
+      box-shadow: 4px 0 24px rgba(16, 24, 40, 0.18);
+      background: #fff;
+    }
+  }
+
+  @media (max-width: 480px) {
+    width: min(var(--sidebar-width), 84vw);
+
+    &--collapsed {
+      width: min(var(--sidebar-width), 84vw);
+    }
+  }
+
+  &__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0px 16px;
+  background: #fff;
+  border-radius: 0px 24px 0px 24px;
+  height: 89px;
+  border-bottom: none;
+
+    &--collapsed {
+      justify-content: center;
+    padding: 0px 5px;
+   
+    }
+  }
+
+  &__logo {
+  width: 200px;
+  max-width: 100%;
+  object-fit: contain;
+  flex-shrink: 0;
+  }
+
+  // Section 2: search + nav menu — the dark navy background with the
+  // dot-grid texture and blue glow lives here, not on the outer .sidebar,
+  // so it's scoped to just this middle section (logo and promo sections
+  // have their own, separate backgrounds).
+  &__nav-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+background: url(/assets/images/left-bg.png) no-repeat center center;
+background-size:cover;
+      padding-top: 20px;
+  border-radius: 0 24px 24px 1px;
+  overflow: hidden;
+  }
+
+  &__promo-section {
+   flex-shrink: 0;
+  background: #fff;
+  padding: 10px 16px 16px 16px;
+  border-radius: 24px 0px 0px 0px;
+
+    &--collapsed {
+      display: flex;
+      justify-content: center;
+   padding: 13px 0 8px;
+    }
+  }
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+padding: 0px 16px 17px;
+    border-bottom: none;
+
+    &--collapsed {
+      justify-content: center;
+      padding: 0px;
+    }
+  }
+
+  &__search {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 10px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    transition: border-color 0.15s ease;
+    font-size: 14px;
+    font-weight: 400;
+
+    svg path {
+      stroke: #8B97BE;
+    }
+
+    &:focus-within {
+      border-color: #F58220;
+    }
+  }
+
+  &__search-icon {
+    display: block;
+    color: #8B97BE;
+    flex-shrink: 0;
+  }
+
+  &__search-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    color: #fff;
+
+    &::placeholder {
+      color: #8B97BE;
+    }
+  }
+
+
+  &__nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #F58220 transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #F58220;
+      border-radius: 30px;
+    }
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 56px 16px 24px;
+    text-align: center;
+  }
+
+  &__empty-art {
+    margin-bottom: 16px;
+  }
+
+  &__empty-title {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  &__empty-text {
+    margin: 0 0 16px;
+    font-size: 13px;
+    color: #C3CCE6;
+  }
+
+  &__empty-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: #F58220;
+    }
+  }
+
+  &__group-label {
+    padding: 12px 16px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+  }
+
+  &__menu {
+    list-style: none;
+    padding: 0 16px;
+  }
+
+  &__menu-item {
+   position: relative;
+  padding-bottom: 10px;
+    
+  }
+
+  &__menu-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    box-sizing: border-box;
+    padding: 5px 11px;
+    width: 100%;
+
+    border: none;
+    background: transparent;
+    color: #B9C4DE;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: background 0.15s ease, color 0.15s ease;
+border-left: 4px solid transparent;
+    &:hover {
+     background: linear-gradient(90deg, #21409A 0%, #153584 100%);
+
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 6px 14px rgba(20, 40, 110, 0.4);
+
+border-left: 4px solid #F58220
+    }
+
+    &.active {
+      background: linear-gradient(90deg, #21409A 0%, #153584 100%);
+      color: #fff;
+      font-weight: 600;
+      border-left: 4px solid #F58220;
+    }
+
+    &.expanded:not(.active) {
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+
+  &__icon {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+
+  &__icon-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+
+
+
+  }
+
+  &__label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 400;
+    font-size: 14px;
+  }
+
+  &__arrow {
+    display: block;
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+
+    &--expanded {
+      transform: rotate(90deg);
+    }
+  }
+
+  &__badge {
+    flex-shrink: 0;
+    padding: 3px 5px;
+   background: linear-gradient(90deg, #3654C7 0%, #84609A 50%, #F58220 100%);
+
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 6px;
+    margin-left: auto;
+    box-shadow: 0px 1px 4px 0px #00000029;
+
+  }
+
+  // The arrow normally claims the free space; with a badge in front of it the
+  // badge does, so the two sit together on the right instead of splitting it.
+  &__badge + &__arrow {
+    margin-left: 0;
+  }
+
+  &__submenu-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease;
+    overflow: hidden;
+
+    &--expanded {
+      grid-template-rows: 1fr;
+    }
+  }
+
+  &__submenu {
+    position: relative;
+    list-style: none;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0 6px 0 29px;
+
+    .sidebar__submenu-wrap--expanded & {
+      padding: 10px 6px 7px 29px;
+    }
+
+    // The vertical connector is drawn per item (see &__submenu-item::before) rather than once
+    // on the list with a fixed bottom offset, which drifted off the last item's curve whenever
+    // the list scrolled (flyout) or the last row's height differed.
+  }
+
+  // The connector dot lives outside the pill (as a sibling, not a child of
+  // the link) so the link's own rounded background never clips against it —
+  // it used to sit inside `.sidebar__submenu-link` and visually collide with
+  // the pill's border-radius. `order: -1` puts it first visually even though
+  // it's last in markup, which lets `.active + .sidebar__submenu-dot` below
+  // style it off the link's real active state.
+  &__submenu-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 5px 0;
+
+    // Vertical connector segment: spans this row and its margins so rows join up; the last
+    // row stops where its dot's curved elbow begins.
+    .has-connector > &::before {
+      content: "";
+      position: absolute;
+      left: -4px;
+      top: -5px;
+      bottom: -5px;
+      width: 1px;
+      background: #8FA5C7;
+    }
+
+    .has-connector > &:last-child::before {
+      bottom: calc(50% + 9px);
+    }
+
+    // Inline submenu: reach up through the list's top padding to the parent row.
+    .sidebar__submenu-wrap--expanded .has-connector > &:first-child::before {
+      top: -15px;
+    }
+
+    &--hidden {
+      display: none !important;
+    }
+  }
+
+  &__submenu-dot {
+    order: -1;
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: none;
+    background: #6F7882;
+    transition: background 0.15s ease;
+    position: relative;
+    left: 10px;
+    &::before{
+      position: absolute;
+      content: "";
+      left: -14px;
+      top: -6px;
+      width: 13px;
+      height: 9px;
+      border-left: 1px solid #8FA5C7;
+      border-bottom: 1px solid #8FA5C7;
+      border-bottom-left-radius: 6px;
+    }
+  }
+
+  &__submenu-link {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    color: #AAB4D4;
+    text-decoration: none;
+    font-size: 14px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background 0.15s ease, color 0.15s ease;
+border: 1px solid transparent;
+    &:hover {
+background: #14286E;
+  border: 1px solid #214CA7;
+    }
+
+    &.active {
+background: #203A96;
+  border: 1px solid #214CA7;
+  border-radius: 10px;
+    }
+
+    &.active+.sidebar__submenu-dot {
+      background: #F58220;
+    }
+  }
+
+  &__submenu-icon {
+    display: none;
+  }
+
+  &__submenu-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 400;
+    font-size: 14px;
+  }
+
+  // Collapsed sidebar: a floating panel that stands in for the inline
+  // submenu (which has nowhere to expand into at icon-only width).
+  // `position: fixed` (not absolute) so it escapes .sidebar__nav's scroll
+  // clipping instead of forcing that container to overflow:visible — see
+  // repo memory collapsed-sidebar-no-scroll-flyout-overflow-visible.
+  &__flyout {
+position: fixed;
+  left: calc(var(--sidebar-collapsed-width) + 12px);
+  z-index: 60;
+  min-width: 230px;
+background: url(/assets/images/left-bg.png) no-repeat center center;
+background-size: cover;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 16px 32px rgba(4, 10, 40, 0.45);
+  border: 1px solid #779AFF52;
+
+    &::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: var(--flyout-arrow-top, 20px);
+  width: 14px;
+  height: 14px;
+  background: #001251;
+  border-left: 1px solid #779AFF52;
+  border-bottom: 1px solid #779AFF52;
+  border-radius: 0 0 0 3px;
+  transform: rotate(45deg);
+    }
+  }
+
+  // Never taller than the window: a long submenu scrolls inside the panel. Scroll the list,
+  // not the panel itself, so the arrow sticking out on the left isn't clipped.
+  &__flyout &__submenu {
+    max-height: calc(100vh / var(--app-zoom-factor, 1) - 110px);
+    overflow-y: auto;
+  }
+
+  &__flyout-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 0px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  &__flyout-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  // ─── Product Tour card at bottom of sidebar ──────────────────────────────
+  &__promo {
+
+    padding: 10px 12px;
+background: #071D55;
+border-radius: 100px;
+
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    backdrop-filter: blur(9.5px);
+
+
+    &:hover {
+      background: #1B3282;
+    }
+
+    &--collapsed {
+      padding: 8px;
+      gap: 0;
+      border-radius: 50%;
+    }
+  }
+
+  &__promo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+
+    flex-shrink: 0;
+
+    img{
+      width: 100%;
+    }
+  }
+
+  &__promo-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  &__promo-arrow {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  &__promo-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.3;
+    font-family: var(--font-family-base);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__promo-text {
+    font-size: 11px;
+    color: #AAB4D4;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.backgroudProductWhite{
+background: #fff;
+  border-radius: 24px 0px 0px 0px;
+  padding: 20px;
+}
+.logoOuterDivMain{
+background: #000D39;
+
+ padding: 0px 0px 0px 2px;
+ border-radius: 0px 30px 0px 0px;
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 12px 20px;
+  transition: padding 0.2s ease;
+
+  &--collapsed {
+    padding: 12px;
+  }
+}
+
+.sidebar__logo {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.productTourBgSecMain{
+background: #000E44;
+padding: 2px 0px 0px -1px;
+}

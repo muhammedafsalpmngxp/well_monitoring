@@ -1,0 +1,48 @@
+<div id="page-commission" class="page active">
+        <div class="comm-body">
+          <div class="breadcrumb"><a>{{ 'COMMISSION.BREADCRUMB_COMPLETION' | translate }}</a><span>›</span><span class="current">{{ 'COMMISSION.BREADCRUMB_COMMISSIONING' | translate }}</span></div>
+          <div class="page-title-row">
+            <div><div class="page-title">{{ 'COMMISSION.TITLE' | translate }}</div><div class="page-subtitle">{{ 'COMMISSION.SUBTITLE' | translate }}</div></div>
+          </div>
+
+          <div class="comm-kpi-grid">
+            <div class="comm-kpi ck-green">
+              <div class="comm-kpi-label">{{ 'COMMISSION.KPI_COMMISSIONING_PROGRESS' | translate }}</div>
+              <div class="comm-kpi-val" style="color:var(--green)">50%</div>
+              <div class="comm-kpi-bar-track"><div class="comm-kpi-bar-fill" style="width:50%;background:var(--amber)"></div></div>
+            </div>
+            <div class="comm-kpi ck-teal">
+              <div class="comm-kpi-label">{{ 'COMMISSION.KPI_WELLS_COMPLETED' | translate }}</div>
+              <div class="comm-kpi-val" style="color:var(--teal)">10</div>
+            </div>
+            <div class="comm-kpi ck-blue">
+              <div class="comm-kpi-label">{{ 'COMMISSION.KPI_WELLS_IN_PROGRESS' | translate }}</div>
+              <div class="comm-kpi-val" style="color:var(--txt-1)">10</div>
+            </div>
+            <div class="comm-kpi ck-amber">
+              <div class="comm-kpi-label">{{ 'COMMISSION.KPI_RLMU_SUBMISSIONS' | translate }}</div>
+              <div class="comm-kpi-val" style="color:var(--green)">10/20</div>
+            </div>
+          </div>
+
+          <div class="comm-panel">
+            <div class="comm-panel-title">{{ 'COMMISSION.PANEL_OVERALL_PROGRESS_BY_WELL' | translate }}</div>
+            <div class="comm-chart-wrap">
+              <canvas id="comm-chart-progress"></canvas>
+            </div>
+          </div>
+
+          <div class="comm-panel">
+            <div class="comm-panel-title">{{ 'COMMISSION.PANEL_COMPLETION_TIMELINE' | translate }}</div>
+            <table class="comm-table">
+              <thead>
+                <tr>
+                  <th>{{ 'COMMISSION.TH_WELL' | translate }}</th><th>{{ 'COMMISSION.TH_EXP_RIG_ON' | translate }}</th><th>{{ 'COMMISSION.TH_EXP_RIG_OFF' | translate }}</th>
+                  <th>{{ 'COMMISSION.TH_ACT_RIG_ON' | translate }}</th><th>{{ 'COMMISSION.TH_ACT_RIG_OFF' | translate }}</th><th>{{ 'COMMISSION.TH_TYPE' | translate }}</th><th>{{ 'COMMISSION.TH_STATUS' | translate }}</th>
+                </tr>
+              </thead>
+              <tbody id="comm-table-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /page-commission -->

@@ -1,0 +1,57 @@
+:host {
+  display: contents;
+}
+
+#awDetailOverlay {
+  /* Absolute within .main-col (position:relative) so it fills the content
+     area below the topbar, right of the sidebar, and scrolls internally. */
+  position: absolute;
+  top:67px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+  font-family: 'Inter', 'Calibri', 'Arial', sans-serif;
+}
+
+#awDetailInner {
+  min-height: 100%;
+  padding: 0 0 40px;
+}
+
+/* KPI grid responsive inside well detail overlay */
+#awDetailInner .kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 1200px) {
+  #awDetailInner .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  #awDetailInner .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  #awDetailInner .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wd-flex-fill {
+  flex: 1;
+  min-width: 0;
+}
+
+.kpi{
+  background: #fff!important;
+}

@@ -1,0 +1,45 @@
+#page-db-views {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+
+  .dbv-title-wrap { flex: 1; }
+  .dbv-actions { display: flex; gap: 8px; align-items: center; }
+
+  .dbv-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; font: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--txt-1); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; transition: border-color .12s, background .12s, color .12s;
+  }
+  .dbv-btn svg { width: 15px; height: 15px; }
+  .dbv-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .dbv-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .dbv-btn--primary:hover { color: #fff; filter: brightness(.94); }
+
+  .dbv-grid-wrap { flex: 1; min-height: 420px; margin-top: 12px; }
+  #dbvGrid { height: 100%; width: 100%; }
+
+  .ag-theme-alpine, .ag-theme-alpine-dark {
+    --ag-font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    --ag-font-size: 13px;
+    --ag-header-height: 42px;
+  }
+  .dbv-grid .ag-row { cursor: pointer; }
+
+  .dbv-name-cell { line-height: 1.25; }
+  .dbv-name { display: block; font-weight: 600; font-family: 'IBM Plex Mono', monospace; color: var(--txt-1); }
+  .dbv-desc { display: block; font-size: 11px; color: var(--txt-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .dbv-tag { font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 20px; letter-spacing: .3px; }
+  .dbv-tag--builtin { background: #E3ECF5; color: #2a5a8a; }
+  .dbv-tag--custom { background: #E7F3EB; color: #2e6a3a; }
+
+  .dbv-rowbtn {
+    font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 10px; margin-right: 6px;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--txt-1); cursor: pointer;
+  }
+  .dbv-rowbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .dbv-rowbtn--danger:hover { border-color: #c0392b; color: #c0392b; }
+}

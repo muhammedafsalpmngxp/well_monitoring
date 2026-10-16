@@ -1,0 +1,30 @@
+<div id="page-charts" class="page active">
+  <div class="page-title-row">
+    <div class="db-title-wrap">
+      <div class="page-title">Charts</div>
+      <div class="page-subtitle">Standard charts and the charts you have created</div>
+    </div>
+    <button class="fd-btn fd-btn-primary db-new-btn" (click)="addChart()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Chart
+    </button>
+  </div>
+
+  <!-- Standard Charts -->
+  <div class="charts-section">
+    <div class="charts-section-head">
+      <span class="charts-section-title">Standard Charts</span>
+      <span class="charts-section-sub">Ready-made charts available to everyone</span>
+    </div>
+    <div class="charts-grid" id="chartsStandardGrid"><!-- injected --></div>
+  </div>
+
+  <!-- My Charts -->
+  <div class="charts-section">
+    <div class="charts-section-head">
+      <span class="charts-section-title">My Charts</span>
+      <span class="charts-section-sub">Charts you created with the chart builder</span>
+    </div>
+    <div class="charts-grid" id="chartsMyGrid"><!-- injected --></div>
+  </div>
+</div>

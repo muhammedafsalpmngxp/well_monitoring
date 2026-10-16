@@ -1,0 +1,116 @@
+<div id="page-crewassign" class="page active">
+        <div class="ca-body">
+          <div class="breadcrumb">
+            <a>{{ 'CREWASSIGN.BREADCRUMB_PARENT' | translate }}</a><span>›</span>
+            <span class="current">{{ 'CREWASSIGN.BREADCRUMB_CURRENT' | translate }}</span>
+          </div>
+
+          <!-- Hero -->
+          <div class="ca-hero">
+            <div class="ca-hero-main">
+              <div class="ca-hero-eyebrow">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                {{ 'CREWASSIGN.HERO_EYEBROW' | translate }}
+              </div>
+              <div class="ca-hero-title">{{ 'CREWASSIGN.HERO_TITLE' | translate }}</div>
+              <div class="ca-hero-sub">{{ 'CREWASSIGN.HERO_SUB' | translate }}</div>
+            </div>
+            <div class="ca-hero-stat">
+              <div class="ca-hero-stat-lbl">{{ 'CREWASSIGN.STAT_CREWS_TRACKED' | translate }}</div>
+              <div class="ca-hero-stat-val p">61</div>
+              <div class="ca-hero-stat-sub">{{ 'CREWASSIGN.STAT_ALL_FORMATIONS' | translate }}</div>
+            </div>
+            <div class="ca-hero-stat">
+              <div class="ca-hero-stat-lbl">{{ 'CREWASSIGN.STAT_TOTAL_SESSIONS' | translate }}</div>
+              <div class="ca-hero-stat-val b" id="ca-stat-sessions">—</div>
+              <div class="ca-hero-stat-sub">{{ 'CREWASSIGN.STAT_INCL_PLANNED' | translate }}</div>
+            </div>
+            <div class="ca-hero-stat">
+              <div class="ca-hero-stat-lbl">{{ 'CREWASSIGN.STAT_ACTIVE_TODAY' | translate }}</div>
+              <div class="ca-hero-stat-val g" id="ca-stat-active">—</div>
+              <div class="ca-hero-stat-sub">{{ 'CREWASSIGN.STAT_ON_DEPLOYMENT' | translate }}</div>
+            </div>
+            <div class="ca-hero-stat">
+              <div class="ca-hero-stat-lbl">{{ 'CREWASSIGN.STAT_AVG_UTILIZATION' | translate }}</div>
+              <div class="ca-hero-stat-val a" id="ca-stat-util">—</div>
+              <div class="ca-hero-stat-sub">{{ 'CREWASSIGN.STAT_90_DAY_AVG' | translate }}</div>
+            </div>
+          </div>
+
+          <!-- T-Wise simulation banner -->
+          <div class="ca-tw-notice">
+            <span class="ca-tw-badge">{{ 'CREWASSIGN.SIMULATED' | translate }}</span>
+            <span>{{ 'CREWASSIGN.TWISE_NOTICE' | translate }}</span>
+          </div>
+
+          <!-- Controls row -->
+          <div class="ca-controls">
+            <div class="ca-range-group" id="ca-range-group">
+              <button class="ca-range-btn" data-r="30p" onclick="caSetRange('30p',this)">{{ 'CREWASSIGN.RANGE_PAST_30' | translate }}</button>
+              <button class="ca-range-btn active" data-r="90p" onclick="caSetRange('90p',this)">{{ 'CREWASSIGN.RANGE_PAST_90' | translate }}</button>
+              <button class="ca-range-btn" data-r="30f" onclick="caSetRange('30f',this)">{{ 'CREWASSIGN.RANGE_NEXT_30' | translate }}</button>
+              <button class="ca-range-btn" data-r="full" onclick="caSetRange('full',this)">{{ 'CREWASSIGN.RANGE_FULL_120' | translate }}</button>
+            </div>
+            <div id="ca-disc-pills" style="display:inline-flex;gap:6px;flex-wrap:wrap"></div>
+            <div class="ca-search">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="caSearch" [placeholder]="'CREWASSIGN.SEARCH_PLACEHOLDER' | translate" oninput="caSearchFn()"/>
+            </div>
+            <div class="ca-view-toggle">
+              <button class="ca-view-btn active" id="caTimelineBtn" onclick="caSetView('timeline',this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg>{{ 'CREWASSIGN.VIEW_TIMELINE' | translate }}
+              </button>
+              <button class="ca-view-btn" id="caListBtn" onclick="caSetView('list',this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>{{ 'CREWASSIGN.VIEW_LIST' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Gantt / Timeline view -->
+          <div id="caTimelineWrap" class="ca-gantt-wrap">
+            <div class="ca-gantt-top">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;color:var(--txt-muted)"><line x1="3" y1="12" x2="21" y2="12"/><line x1="6" y1="6" x2="18" y2="6"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+              <span class="ca-gantt-top-title">{{ 'CREWASSIGN.DEPLOYMENT_TIMELINE' | translate }}</span>
+              <span class="ca-records-badge" id="caRecordsBadge">{{ 'CREWASSIGN.DASH_SESSIONS' | translate }}</span>
+              <span class="ca-top-hint">{{ 'CREWASSIGN.TIMELINE_HINT' | translate }}</span>
+              <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+                <span style="background:rgba(168,139,245,0.15);color:#7c3aed;border:1px solid rgba(168,139,245,0.35);font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;letter-spacing:0.4px">
+                  <span style="width:6px;height:6px;border-radius:50%;background:#7c3aed;display:inline-block"></span>{{ 'CREWASSIGN.SIMULATED' | translate }}
+                </span>
+                <a style="font-size:11px;color:var(--accent);font-weight:500;cursor:pointer" onclick="navigate('crewmaster',document.querySelector('#nav-crewmaster'))">{{ 'CREWASSIGN.VIEW_CREW_MASTER' | translate }}</a>
+              </span>
+            </div>
+            <div class="ca-gantt-body" id="caGanttBody">
+              <div class="ca-gantt-crew-col">
+                <div class="ca-gantt-crew-header">{{ 'CREWASSIGN.CREW_HEADER' | translate }}</div>
+                <div id="caGanttCrewList"></div>
+              </div>
+              <div class="ca-gantt-timeline" id="caGanttTimeline"></div>
+            </div>
+            <div class="ca-legend">
+              <span style="font-weight:700;color:var(--txt-2)">{{ 'CREWASSIGN.LEGEND' | translate }}</span>
+              <span class="ca-legend-item"><span class="ca-legend-swatch past"></span>{{ 'CREWASSIGN.LEGEND_PAST_DEPLOYMENT' | translate }}</span>
+              <span class="ca-legend-item"><span class="ca-legend-swatch future"></span>{{ 'CREWASSIGN.LEGEND_PLANNED_FUTURE' | translate }}</span>
+              <span class="ca-legend-item"><span class="ca-legend-swatch standby"></span>{{ 'CREWASSIGN.LEGEND_STANDBY' | translate }}</span>
+              <span class="ca-legend-item"><span class="ca-legend-swatch rest"></span>{{ 'CREWASSIGN.LEGEND_REST_ROTATION' | translate }}</span>
+              <span class="ca-legend-item" style="margin-left:auto"><span class="ca-legend-today"></span>{{ 'CREWASSIGN.LEGEND_TODAY' | translate }}</span>
+            </div>
+          </div>
+
+          <!-- List view (AG Grid) -->
+          <div id="caGridWrap" class="ca-gantt-wrap">
+            <div class="ca-gantt-top">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;color:var(--txt-muted)"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              <span class="ca-gantt-top-title">{{ 'CREWASSIGN.ASSIGNMENT_LEDGER' | translate }}</span>
+              <span class="ca-records-badge" id="caGridRecordsBadge">{{ 'CREWASSIGN.DASH_ROWS' | translate }}</span>
+              <span class="ca-top-hint">{{ 'CREWASSIGN.GRID_HINT' | translate }}</span>
+              <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+                <span style="background:rgba(168,139,245,0.15);color:#7c3aed;border:1px solid rgba(168,139,245,0.35);font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;letter-spacing:0.4px">
+                  <span style="width:6px;height:6px;border-radius:50%;background:#7c3aed;display:inline-block"></span>{{ 'CREWASSIGN.SIMULATED' | translate }}
+                </span>
+              </span>
+            </div>
+            <div id="caAssignGrid" class="ag-theme-alpine-dark" style="width:100%;height:580px"></div>
+          </div>
+        </div>
+      </div>

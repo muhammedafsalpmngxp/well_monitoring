@@ -1,0 +1,87 @@
+<div id="page-predict" class="page active">
+        <!-- <div class="breadcrumb"><a>{{ 'PREDICT.BREADCRUMB_1' | translate }}</a><span>›</span><span class="current">{{ 'PREDICT.BREADCRUMB_CURRENT' | translate }}</span></div> -->
+        <div class="page-title-row">
+          <div style="flex:1">
+            <div class="page-title">{{ 'PREDICT.PAGE_TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'PREDICT.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+          <span class="pa-conf-badge">{{ 'PREDICT.MODEL_CONFIDENCE' | translate }}: 94.3%</span>
+        </div>
+
+        <!-- Programme forecast strip -->
+        <div class="pa-strip" id="paStrip"></div>
+
+        <!-- Rig-on alerts -->
+        <div class="pa-rig-alerts" id="paRigAlerts"></div>
+
+        <!-- Tabs -->
+        <div class="ai-tabs">
+          <div class="ai-tab active" onclick="switchPaTab('pred',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPaTab('pred',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            {{ 'PREDICT.TAB_WELL_PREDICTIONS' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPaTab('rate',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPaTab('rate',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            {{ 'PREDICT.TAB_RATE_INTELLIGENCE' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPaTab('whatif',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPaTab('whatif',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ 'PREDICT.TAB_WHAT_IF' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPaTab('prog',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPaTab('prog',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            {{ 'PREDICT.TAB_PROGRAMME_FORECAST' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPaTab('backward',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPaTab('backward',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            {{ 'PREDICT.TAB_BACKWARD_SCHEDULE' | translate }}
+          </div>
+        </div>
+
+        <div id="patab-pred" class="ai-tab-content active">
+          <div id="paPredGrid" class="ag-theme-alpine"></div>
+
+          <!-- Recommended Actions -->
+          <div class="card pa-rec-card" style="padding:14px;margin-top:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+              <div>
+                <div class="card-title">{{ 'PREDICT.REC_TITLE' | translate }}</div>
+                <div class="card-sub">{{ 'PREDICT.REC_SUB' | translate }}</div>
+              </div>
+              <a class="pa-rec-info" href="javascript:void(0)" onclick="showRecHelp()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                {{ 'PREDICT.REC_HOW' | translate }}
+              </a>
+            </div>
+            <div id="paRecGrid" class="ag-theme-alpine-dark"></div>
+            <div id="paRecEmpty" style="display:none;padding:14px;font-size:12px;color:var(--txt-muted);text-align:center">{{ 'PREDICT.REC_EMPTY' | translate }}</div>
+            <div style="margin-top:10px"><a class="pa-rec-link" href="javascript:void(0)" onclick="viewAllRecommendations()">{{ 'PREDICT.REC_VIEW_ALL' | translate }} →</a></div>
+          </div>
+        </div>
+        <div id="patab-rate" class="ai-tab-content">
+          <div style="margin-bottom:10px"><canvas id="paRateChart" style="max-height:360px"></canvas></div>
+          <div id="paRateInsights"></div>
+        </div>
+        <div id="patab-whatif" class="ai-tab-content">
+          <div style="margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--txt-2)">Well ID</span>
+            <select class="pa-wi-select" id="paWiWell" onchange="paWiOnWellChange()"></select>
+            <span style="font-size:12px;color:var(--txt-2);margin-left:6px">Activity</span>
+            <select class="pa-wi-select" id="paWiActivity" onchange="updateWhatIf()"></select>
+            <span style="font-size:11px;color:var(--txt-muted)">{{ 'PREDICT.ADJUST_LEVERS_HINT' | translate }}</span>
+          </div>
+          <div id="paWiHeader" class="pa-wi-header"></div>
+          <div class="pa-whatif-grid" id="paWhatifGrid"></div>
+        </div>
+        <div id="patab-prog" class="ai-tab-content">
+          <div class="pa-prog-row" id="paProgContainer"></div>
+        </div>
+        <div id="patab-backward" class="ai-tab-content">
+          <div style="margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--txt-2)">{{ 'PREDICT.WELL_LABEL' | translate }}</span>
+            <select class="pa-wi-select" id="paBsWellSelect" onchange="renderBackwardSchedule()"></select>
+            <span style="font-size:11px;color:var(--txt-muted)">{{ 'PREDICT.BACKWARD_HINT' | translate }}</span>
+          </div>
+          <div id="paBsContainer"></div>
+        </div>
+      </div><!-- /page-predict -->

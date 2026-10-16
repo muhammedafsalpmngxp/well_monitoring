@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SmartOps.Wells.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SmartOps.Wells.Application\SmartOps.Wells.Application.csproj" />
+    <ProjectReference Include="..\SmartOps.Wells.Domain\SmartOps.Wells.Domain.csproj" />
+    <ProjectReference Include="..\SmartOps.Wells.Contracts\SmartOps.Wells.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\..\..\shared\dotnet\SmartOps.Shared\SmartOps.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- EF Core Design referenced for tooling only -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.10" />
+  </ItemGroup>
+</Project>

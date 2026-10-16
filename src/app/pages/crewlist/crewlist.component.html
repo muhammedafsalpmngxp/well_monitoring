@@ -1,0 +1,210 @@
+<div id="page-crewlist" class="page active">
+        <div class="cl-body">
+          <!-- Title row with back button -->
+          <div class="page-title-row">
+            <div class="cl-title-left">
+              <button class="cl-back-btn" (click)="goBack()" title="Back">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <div>
+                <div class="page-title">{{ 'CREWLIST.HERO_TITLE' | translate }}</div>
+                <div class="page-sub">{{ 'CREWLIST.HERO_SUB' | translate }}</div>
+              </div>
+            </div>
+            <button class="dq-rel-badge" [ngClass]="dqAvgRelClass()" (click)="dqDrawerOpen = true" title="Reliability Score (avg across tables)">{{ dqAvgReliability() }}%</button>
+          </div>
+
+          <!-- KPI strip -->
+          <div class="kpi-grid cl-kpi-grid">
+            <div class="kpi k-blue">
+              <div class="kpi-head">
+                <span class="kpi-label">{{ 'CREWLIST.TOTAL_CREWS' | translate }}</span>
+                <span class="kpi-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </span>
+              </div>
+              <div *ngIf="!loading" class="kpi-val">{{ statTotal }}</div>
+              <div *ngIf="loading" class="cl-skel cl-skel-stat"></div>
+              <div class="kpi-unit">{{ 'CREWLIST.ACROSS_DISCIPLINES' | translate }}</div>
+            </div>
+
+            <div class="kpi k-green">
+              <div class="kpi-head">
+                <span class="kpi-label">{{ 'CREWLIST.DEPLOYED' | translate }}</span>
+                <span class="kpi-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                </span>
+              </div>
+              <div *ngIf="!loading" class="kpi-val green">{{ statDeployed }}</div>
+              <div *ngIf="loading" class="cl-skel cl-skel-stat"></div>
+              <div class="kpi-unit">{{ 'CREWLIST.ON_ACTIVE_WELLS' | translate }}</div>
+            </div>
+
+            <!-- Standby KPI hidden per requirements -->
+            <div class="kpi k-gold" style="display:none">
+              <div class="kpi-head">
+                <span class="kpi-label">{{ 'CREWLIST.STANDBY' | translate }}</span>
+                <span class="kpi-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </span>
+              </div>
+              <div *ngIf="!loading" class="kpi-val amber">{{ statStandby }}</div>
+              <div *ngIf="loading" class="cl-skel cl-skel-stat"></div>
+              <div class="kpi-unit">{{ 'CREWLIST.AVAILABLE_THIS_WEEK' | translate }}</div>
+            </div>
+
+            <div class="kpi k-teal">
+              <div class="kpi-head">
+                <span class="kpi-label">{{ 'CREWLIST.UNASSIGNED' | translate }}</span>
+                <span class="kpi-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-9-9c2.49 0 4.74 1.01 6.36 2.64L21 8"/>
+                    <polyline points="21 3 21 8 16 8"/>
+                  </svg>
+                </span>
+              </div>
+              <div *ngIf="!loading" class="kpi-val teal">{{ statUnassigned }}</div>
+              <div *ngIf="loading" class="cl-skel cl-skel-stat"></div>
+              <div class="kpi-unit">{{ 'CREWLIST.NOT_DEPLOYED' | translate }}</div>
+            </div>
+          </div>
+
+          <!-- Skeleton Loader -->
+          <div *ngIf="loading" class="cl-skeleton-wrap">
+            <div class="cl-skeleton-filters">
+              <div class="cl-skel cl-skel-pill" *ngFor="let p of [1,2,3,4,5,6,7,8]"></div>
+              <div class="cl-skel cl-skel-search"></div>
+            </div>
+            <div class="cl-skeleton-grid">
+              <div class="cl-skeleton-header">
+                <div class="cl-skel" *ngFor="let c of [1,2,3,4,5,6,7,8,9]" style="flex:1;height:16px;border-radius:3px"></div>
+              </div>
+              <div class="cl-skeleton-row" *ngFor="let r of [1,2,3,4,5,6,7,8,9,10]">
+                <div class="cl-skel" *ngFor="let c of [1,2,3,4,5,6,7,8,9]" style="flex:1;height:14px;border-radius:3px"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filters + View Toggle -->
+          <div class="cl-filter-row" id="cl-filters" *ngIf="!loading">
+            <!-- Discipline filter pills — populated by JS -->
+            <div class="cl-view-toggle">
+              <button class="cl-view-btn" id="clCardBtn" (click)="setView('card', $event)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>{{ 'CREWLIST.CARD_VIEW' | translate }}
+              </button>
+              <button class="cl-view-btn active" id="clGridBtn" (click)="setView('grid', $event)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>{{ 'CREWLIST.GRID_VIEW' | translate }}
+              </button>
+            </div>
+            <div class="cl-search">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="clSearch" [placeholder]="'CREWLIST.SEARCH_PLACEHOLDER' | translate" (input)="onSearchInput()"/>
+            </div>
+          </div>
+
+          <!-- Card view -->
+          <div id="cl-card-view" class="cl-grid" style="display:none" *ngIf="!loading"></div>
+
+          <!-- Grid view -->
+          <div id="cl-grid-view" *ngIf="!loading">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:4px">
+              <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);background:var(--surface-2)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;color:var(--txt-muted)"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <span style="font-size:10pt;font-weight:700;color:var(--txt-1)">{{ 'CREWLIST.CREW_DATA_GRID' | translate }}</span>
+                <span class="cl-records-badge" id="clRecordsBadge">{{ 'CREWLIST.RECORDS_COUNT' | translate }}</span>
+                <span class="cl-grid-hint">{{ 'CREWLIST.GRID_HINT' | translate }}</span>
+                <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+                  <button class="cl-export-btn" (click)="exportToExcel()" title="Export to Excel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    {{ 'CREWLIST.EXPORT_EXCEL' | translate }}
+                  </button>
+                  <span style="background:rgba(0,176,80,0.12);color:#00B050;border:1px solid rgba(0,176,80,0.35);font-size:9pt;font-weight:700;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;letter-spacing:0.4px">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#00B050;display:inline-block"></span>{{ 'CREWLIST.LIVE' | translate }}
+                  </span>
+                  <a style="font-size:9pt;color:var(--accent);font-weight:500;cursor:pointer" (click)="navigateTo('crewmaster')">{{ 'CREWLIST.VIEW_CREW_MASTER' | translate }}</a>
+                </span>
+              </div>
+              <div id="clCrewsGrid" class="ag-theme-alpine" style="width:100%;height:580px"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DQ Info Drawer (matches cmdoverview design) -->
+        <div class="dq-scrim" [class.open]="dqDrawerOpen" (click)="dqDrawerOpen = false"></div>
+
+        <aside class="dq-drawer" [class.open]="dqDrawerOpen" role="dialog" aria-modal="false" aria-label="Data quality details">
+          <!-- Header -->
+          <div class="dq-dhead">
+            <div>
+              <div class="dq-dhead__title">Crew List</div>
+              <div class="dq-dhead__sub">DB integration notes &amp; reliability</div>
+            </div>
+            <button class="dq-close-x" (click)="dqDrawerOpen = false" aria-label="Close">&times;</button>
+          </div>
+
+          <!-- Body -->
+          <div class="dq-dbody">
+            <p class="dq-desc">{{dqDesc}}</p>
+
+            <!-- Tabs -->
+            <div class="dq-tabs" *ngIf="dqTables.length > 1">
+              <button *ngFor="let t of dqTables; let i = index"
+                      class="dq-tab" [class.active]="dqActiveTab === i"
+                      (click)="dqActiveTab = i">{{t.name}}</button>
+            </div>
+
+            <!-- One panel per table -->
+            <ng-container *ngIf="dqTables.length > 0">
+              <div *ngFor="let t of dqTables; let i = index" [hidden]="dqActiveTab !== i">
+                <div class="dq-tname-row">
+                  <code class="dq-tname-code">{{t.name}}</code>
+                  <span class="dq-relchip" [ngClass]="dqRelClass(t)">Reliability: {{dqRelLabel(t)}}</span>
+                </div>
+                <div class="dq-relbar">
+                  <span [style.width]="dqRelPct(t) + '%'" [style.background]="dqRelColor(t)"></span>
+                </div>
+                <table class="dq-table">
+                  <thead>
+                    <tr>
+                      <th>Field(s)</th>
+                      <th>Issue / validation concern</th>
+                      <th>Type</th>
+                      <th>Severity</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let iss of t.issues">
+                      <td><code class="dq-fld">{{iss.field}}</code></td>
+                      <td>{{iss.issue}}</td>
+                      <td>{{iss.type}}</td>
+                      <td><span class="dq-pill" [ngClass]="'dq-sev-' + iss.severity.toLowerCase()">{{iss.severity}}</span></td>
+                      <td><span class="dq-pill" [ngClass]="iss.status === 'Fixed' ? 'dq-st-fixed' : iss.status === 'In progress' ? 'dq-st-prog' : 'dq-st-open'">{{iss.status}}</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ng-container>
+          </div>
+
+          <!-- Footer -->
+          <div class="dq-dfoot">
+            <span class="dq-footnote" *ngIf="dqTables.length > 1">Calculated from {{dqTables.length}} tables — one tab per table.</span>
+            <span class="dq-footnote" *ngIf="dqTables.length <= 1"></span>
+            <button class="dq-close-btn" (click)="dqDrawerOpen = false">Close</button>
+          </div>
+        </aside>
+      </div>

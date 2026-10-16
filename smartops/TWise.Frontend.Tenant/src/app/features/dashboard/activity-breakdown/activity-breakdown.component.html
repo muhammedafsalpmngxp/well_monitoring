@@ -1,0 +1,1753 @@
+<div class="ab-calendar-view" [hidden]="utilizationReport !== null">
+  <app-page-header [title]="wellName" [breadcrumbs]="breadcrumbs">
+    <span page-header-icon class="ab-page-icon">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 20 20"
+        fill="none"
+      >
+        <path
+          d="M7 2.5H3.83333C3.36662 2.5 3.13327 2.5 2.95501 2.59082C2.79821 2.67072 2.67072 2.79821 2.59082 2.95501C2.5 3.13327 2.5 3.36662 2.5 3.83333V7C2.5 7.46671 2.5 7.70007 2.59082 7.87833C2.67072 8.03513 2.79821 8.16261 2.95501 8.24251C3.13327 8.33333 3.36662 8.33333 3.83333 8.33333H7C7.46671 8.33333 7.70007 8.33333 7.87833 8.24251C8.03513 8.16261 8.16261 8.03513 8.24251 7.87833C8.33333 7.70007 8.33333 7.46671 8.33333 7V3.83333C8.33333 3.36662 8.33333 3.13327 8.24251 2.95501C8.16261 2.79821 8.03513 2.67072 7.87833 2.59082C7.70007 2.5 7.46671 2.5 7 2.5Z"
+          stroke="white"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M16.166 2.5H12.9993C12.5326 2.5 12.2993 2.5 12.121 2.59082C11.9642 2.67072 11.8368 2.79821 11.7568 2.95501C11.666 3.13327 11.666 3.36662 11.666 3.83333V7C11.666 7.46671 11.666 7.70007 11.7568 7.87833C11.8368 8.03513 11.9642 8.16261 12.121 8.24251C12.2993 8.33333 12.5326 8.33333 12.9993 8.33333H16.166C16.6328 8.33333 16.8661 8.33333 17.0443 8.24251C17.2012 8.16261 17.3286 8.03513 17.4085 7.87833C17.4993 7.70007 17.4993 7.46671 17.4993 7V3.83333C17.4993 3.36662 17.4993 3.13327 17.4085 2.95501C17.3286 2.79821 17.2012 2.67072 17.0443 2.59082C16.8661 2.5 16.6328 2.5 16.166 2.5Z"
+          stroke="white"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M16.166 11.6667H12.9993C12.5326 11.6667 12.2993 11.6667 12.121 11.7576C11.9642 11.8375 11.8368 11.9649 11.7568 12.1217C11.666 12.3 11.666 12.5333 11.666 13.0001V16.1667C11.666 16.6335 11.666 16.8668 11.7568 17.0451C11.8368 17.2019 11.9642 17.3293 12.121 17.4092C12.2993 17.5001 12.5326 17.5001 12.9993 17.5001H16.166C16.6328 17.5001 16.8661 17.5001 17.0443 17.4092C17.2012 17.3293 17.3286 17.2019 17.4085 17.0451C17.4993 16.8668 17.4993 16.6335 17.4993 16.1667V13.0001C17.4993 12.5333 17.4993 12.3 17.4085 12.1217C17.3286 11.9649 17.2012 11.8375 17.0443 11.7576C16.8661 11.6667 16.6328 11.6667 16.166 11.6667Z"
+          stroke="white"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M7 11.6667H3.83333C3.36662 11.6667 3.13327 11.6667 2.95501 11.7576C2.79821 11.8375 2.67072 11.9649 2.59082 12.1217C2.5 12.3 2.5 12.5333 2.5 13.0001V16.1667C2.5 16.6335 2.5 16.8668 2.59082 17.0451C2.67072 17.2019 2.79821 17.3293 2.95501 17.4092C3.13327 17.5001 3.36662 17.5001 3.83333 17.5001H7C7.46671 17.5001 7.70007 17.5001 7.87833 17.4092C8.03513 17.3293 8.16261 17.2019 8.24251 17.0451C8.33333 16.8668 8.33333 16.6335 8.33333 16.1667V13.0001C8.33333 12.5333 8.33333 12.3 8.24251 12.1217C8.16261 11.9649 8.03513 11.8375 7.87833 11.7576C7.70007 11.6667 7.46671 11.6667 7 11.6667Z"
+          stroke="white"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </span>
+    <div class="ab-header-actions">
+      <button
+        class="ab-header-actions__btn"
+        [class.active]="showFilterPanel"
+        (click)="showFilterPanel = !showFilterPanel"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+        >
+          <path
+            d="M2.25 3.778C1.747 3.214 1.494 2.933 1.485 2.693a1 1 0 01.242-.54C1.911 2 2.29 2 3.046 2h9.895c.756 0 1.075 0 1.26.153a1 1 0 01.242.54c-.01.24-.256.52-.761 1.085L9.932 8.03a1.5 1.5 0 00-.272.232 1.5 1.5 0 00-.166.366 1.5 1.5 0 00-.046.371v3.565c0 .13 0 .196-.02.252a.5.5 0 01-.139.188c-.044.04-.104.066-.225.115l-2.267.907c-.245.098-.367.147-.466.127a.5.5 0 01-.214-.124c-.054-.084-.054-.216-.054-.48V8.74a1.5 1.5 0 00-.046-.371 1.5 1.5 0 00-.166-.366 1.5 1.5 0 00-.272-.232L2.25 3.778z"
+            stroke="#21409A"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        {{ showFilterPanel ? 'Hide Filter' : 'Show Filter' }}
+        <svg
+          style="transition: transform 0.15s ease"
+          [style.transform]="showFilterPanel ? 'rotate(180deg)' : 'none'"
+          width="14"
+          height="14"
+          viewBox="0 0 20 20"
+          fill="none"
+        >
+          <path
+            d="M5 12.5L10 7.5L15 12.5"
+            stroke="#21409A"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+    </div>
+  </app-page-header>
+
+  <!-- Filter bar — same structure/classes as ops-dashboard -->
+  <ng-container *ngIf="showFilterPanel" [ngTemplateOutlet]="calendarFilters"></ng-container>
+  <ng-template #calendarFilters>
+    <div class="ops-dashboard__filter-bar">
+      <div class="ops-dashboard__filter-field">
+        <label>Country</label>
+        <div appKeyClick
+          class="ops-dashboard__filter-select"
+          [class.open]="openFilterName === 'country'"
+          (click)="toggleFilterDropdown('country', $event)"
+          [attr.title]="filterCountry || 'Select'"
+        >
+          <span [class.ops-dashboard__filter-select-placeholder]="!filterCountry">{{
+            filterCountry || 'Select'
+          }}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M4 6l4 4 4-4"
+              stroke="#667085"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <div
+            class="ops-dashboard__filter-select-panel"
+            *ngIf="openFilterName === 'country'"
+            (click)="$event.stopPropagation()"
+          >
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
+              *ngIf="filterCountry"
+              (click)="selectFilterOption('country', '')"
+            >
+              All
+            </div>
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option"
+              *ngFor="let c of filterCountryOptions"
+              [class.active]="c === filterCountry"
+              (click)="selectFilterOption('country', c)"
+            >
+              {{ c }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label>Sector</label>
+        <div appKeyClick
+          class="ops-dashboard__filter-select"
+          [class.open]="openFilterName === 'sector'"
+          (click)="toggleFilterDropdown('sector', $event)"
+          [attr.title]="filterSector || 'Select'"
+        >
+          <span [class.ops-dashboard__filter-select-placeholder]="!filterSector">{{
+            filterSector || 'Select'
+          }}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M4 6l4 4 4-4"
+              stroke="#667085"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <div
+            class="ops-dashboard__filter-select-panel"
+            *ngIf="openFilterName === 'sector'"
+            (click)="$event.stopPropagation()"
+          >
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
+              *ngIf="filterSector"
+              (click)="selectFilterOption('sector', '')"
+            >
+              All
+            </div>
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option"
+              *ngFor="let s of filterSectorOptions"
+              [class.active]="s === filterSector"
+              (click)="selectFilterOption('sector', s)"
+            >
+              {{ s }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label>Business Unit</label>
+        <div appKeyClick
+          class="ops-dashboard__filter-select"
+          [class.open]="openFilterName === 'businessUnit'"
+          (click)="toggleFilterDropdown('businessUnit', $event)"
+          [attr.title]="filterBusinessUnit || 'Select'"
+        >
+          <span [class.ops-dashboard__filter-select-placeholder]="!filterBusinessUnit">{{
+            filterBusinessUnit || 'Select'
+          }}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M4 6l4 4 4-4"
+              stroke="#667085"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <div
+            class="ops-dashboard__filter-select-panel"
+            *ngIf="openFilterName === 'businessUnit'"
+            (click)="$event.stopPropagation()"
+          >
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
+              *ngIf="filterBusinessUnit"
+              (click)="selectFilterOption('businessUnit', '')"
+            >
+              All
+            </div>
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option"
+              *ngFor="let b of filterBusinessUnitOptions"
+              [class.active]="b === filterBusinessUnit"
+              (click)="selectFilterOption('businessUnit', b)"
+            >
+              {{ b }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label>Division</label>
+        <div appKeyClick
+          class="ops-dashboard__filter-select"
+          [class.open]="openFilterName === 'division'"
+          (click)="toggleFilterDropdown('division', $event)"
+          [attr.title]="filterDivision || 'Select'"
+        >
+          <span [class.ops-dashboard__filter-select-placeholder]="!filterDivision">{{
+            filterDivision || 'Select'
+          }}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M4 6l4 4 4-4"
+              stroke="#667085"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <div
+            class="ops-dashboard__filter-select-panel"
+            *ngIf="openFilterName === 'division'"
+            (click)="$event.stopPropagation()"
+          >
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
+              *ngIf="filterDivision"
+              (click)="selectFilterOption('division', '')"
+            >
+              All
+            </div>
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option"
+              *ngFor="let d of filterDivisionOptions"
+              [class.active]="d === filterDivision"
+              (click)="selectFilterOption('division', d)"
+            >
+              {{ d }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label>Cluster</label>
+        <div
+          class="ops-dashboard__filter-select"
+          [class.open]="openFilterName === 'cluster'"
+          [class.ops-dashboard__filter-select--locked]="
+            !isAdmin && filterClusterOptions.length <= 1
+          "
+          (click)="
+            (isAdmin || filterClusterOptions.length > 1) && toggleFilterDropdown('cluster', $event)
+          "
+          [attr.title]="filterCluster || 'Select'"
+        >
+          <span [class.ops-dashboard__filter-select-placeholder]="!filterCluster">{{
+            filterCluster || 'Select'
+          }}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M4 6l4 4 4-4"
+              stroke="#667085"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <svg
+            *ngIf="!isAdmin"
+            class="ops-dashboard__filter-lock"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#98A2B3"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0110 0v4"></path>
+          </svg>
+          <div
+            class="ops-dashboard__filter-select-panel"
+            *ngIf="openFilterName === 'cluster'"
+            (click)="$event.stopPropagation()"
+          >
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
+              *ngIf="filterCluster"
+              (click)="selectFilterOption('cluster', '')"
+            >
+              All
+            </div>
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option"
+              *ngFor="let c of filterClusterOptions"
+              [class.active]="c === filterCluster"
+              (click)="selectFilterOption('cluster', c)"
+            >
+              {{ c }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label>Plant</label>
+        <div
+          class="ops-dashboard__filter-select"
+          [class.open]="openFilterName === 'plant'"
+          [class.ops-dashboard__filter-select--locked]="!isAdmin && filterPlantOptions.length <= 1"
+          (click)="
+            (isAdmin || filterPlantOptions.length > 1) && toggleFilterDropdown('plant', $event)
+          "
+          [attr.title]="filterPlant || 'Select'"
+        >
+          <span [class.ops-dashboard__filter-select-placeholder]="!filterPlant">{{
+            filterPlant || 'Select'
+          }}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M4 6l4 4 4-4"
+              stroke="#667085"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <svg
+            *ngIf="!isAdmin"
+            class="ops-dashboard__filter-lock"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#98A2B3"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0110 0v4"></path>
+          </svg>
+          <div
+            class="ops-dashboard__filter-select-panel"
+            *ngIf="openFilterName === 'plant'"
+            (click)="$event.stopPropagation()"
+          >
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
+              *ngIf="filterPlant"
+              (click)="selectFilterOption('plant', '')"
+            >
+              All
+            </div>
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option"
+              *ngFor="let p of filterPlantOptions"
+              [class.active]="p === filterPlant"
+              (click)="selectFilterOption('plant', p)"
+            >
+              {{ p }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label for="calendar-from">From</label>
+        <div class="ops-dashboard__filter-date">
+          <app-date-input
+            id="calendar-from"
+            [(ngModel)]="filterFrom"
+            (ngModelChange)="filterQuickRange = ''"
+          ></app-date-input>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label for="calendar-to">To</label>
+        <div class="ops-dashboard__filter-date">
+          <app-date-input
+            id="calendar-to"
+            [(ngModel)]="filterTo"
+            (ngModelChange)="filterQuickRange = ''"
+            [min]="filterFrom || undefined"
+          ></app-date-input>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label>Quick Range</label>
+        <div appKeyClick
+          class="ops-dashboard__filter-select"
+          [class.open]="openFilterName === 'quickRange'"
+          (click)="toggleFilterDropdown('quickRange', $event)"
+        >
+          <span [class.ops-dashboard__filter-select-placeholder]="!filterQuickRange">{{
+            filterQuickRange || 'Select'
+          }}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M4 6l4 4 4-4"
+              stroke="#667085"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <div
+            class="ops-dashboard__filter-select-panel"
+            *ngIf="openFilterName === 'quickRange'"
+            (click)="$event.stopPropagation()"
+          >
+            <div appKeyClick
+              class="ops-dashboard__filter-select-option"
+              *ngFor="let q of filterQuickRangeOptions"
+              [class.active]="q === filterQuickRange"
+              (click)="selectFilterOption('quickRange', q)"
+            >
+              {{ q }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-dashboard__filter-field">
+        <label>&nbsp;</label>
+        <div class="ab-toolbar__right">
+          <button class="ab-expand-btn" (click)="resetDashboardFilters()">Reset</button>
+          <button
+            class="ab-header-actions__btn"
+            [disabled]="!filterFrom || !filterTo || filterTo < filterFrom"
+            (click)="applyDashboardFilters()"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  </ng-template>
+  <div class="page-content ab-page">
+    <div class="ab-section">
+      <div class="ab-toolbar">
+        <div class="ab-toolbar__row">
+          <div class="ab-toggle-group">
+            <button
+              class="ab-toggle-btn"
+              [class.active]="timeUnit === 'day'"
+              [attr.aria-pressed]="timeUnit === 'day'"
+              (click)="setTimeUnit('day')"
+            >
+              Day
+            </button>
+            <button
+              class="ab-toggle-btn"
+              [class.active]="timeUnit === 'week'"
+              [attr.aria-pressed]="timeUnit === 'week'"
+              (click)="setTimeUnit('week')"
+            >
+              Week
+            </button>
+            <button
+              class="ab-toggle-btn"
+              [class.active]="timeUnit === 'month'"
+              [attr.aria-pressed]="timeUnit === 'month'"
+              (click)="setTimeUnit('month')"
+            >
+              Month
+            </button>
+          </div>
+          <span class="ab-toolbar__label">View</span>
+          <div class="ab-nav-arrows">
+            <button
+              class="ab-nav-btn"
+              [disabled]="!canGoToToday"
+              [title]="canGoToToday ? 'Go to today' : 'Today is outside the selected date range'"
+              (click)="goToToday()"
+            >
+              Today
+            </button>
+            <button
+              class="ab-nav-arrow"
+              [attr.aria-label]="'Previous ' + timeUnit"
+              [title]="
+                canNavigateTimeline(-1) ? 'Previous ' + timeUnit : 'Start of selected date range'
+              "
+              [disabled]="!canNavigateTimeline(-1)"
+              (click)="navigateTimeline(-1)"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 18 18"
+                fill="none"
+              >
+                <path
+                  d="M11.25 13.5L6.75 9L11.25 4.5"
+                  stroke="#21409A"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <button
+              class="ab-nav-arrow"
+              [attr.aria-label]="'Next ' + timeUnit"
+              [title]="canNavigateTimeline(1) ? 'Next ' + timeUnit : 'End of selected date range'"
+              [disabled]="!canNavigateTimeline(1)"
+              (click)="navigateTimeline(1)"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 18 18"
+                fill="none"
+              >
+                <path
+                  d="M6.75 13.5L11.25 9L6.75 4.5"
+                  stroke="#21409A"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+          <span class="ab-toolbar__label">Show</span>
+          <div class="ab-toggle-group">
+            <button
+              class="ab-toggle-btn"
+              [class.active]="!showUnassigned"
+              (click)="setCrewView('assigned')"
+            >
+              Assigned
+            </button>
+            <button
+              class="ab-toggle-btn"
+              [class.active]="showUnassigned"
+              (click)="setCrewView('unassigned')"
+            >
+              Unassigned
+            </button>
+          </div>
+          <ng-container *ngIf="!showUnassigned">
+            <span class="ab-toolbar__label">View</span>
+            <fieldset class="ab-toggle-group ab-schedule-view" aria-label="Schedule view">
+              <button
+                class="ab-toggle-btn"
+                [class.active]="scheduleFilter === 'planned'"
+                [attr.aria-pressed]="scheduleFilter === 'planned'"
+                (click)="setScheduleFilter('planned')"
+              >
+                Planned
+              </button>
+              <button
+                class="ab-toggle-btn"
+                [class.active]="scheduleFilter === 'actual'"
+                [attr.aria-pressed]="scheduleFilter === 'actual'"
+                (click)="setScheduleFilter('actual')"
+              >
+                Actual
+              </button>
+            </fieldset>
+          </ng-container>
+          <div class="ab-toolbar__right">
+            <button
+              #utilizationReportButton
+              type="button"
+              class="ab-expand-btn ab-report-button"
+              title="Open crew utilization report"
+              [disabled]="loading || !!loadError"
+              (click)="openUtilizationReport()"
+            >
+              <span appCrewReportIcon="FileSpreadsheet"></span>Utilization Report
+            </button>
+            <button class="ab-expand-btn" (click)="expandAll()">Expand all</button>
+            <button class="ab-expand-btn" (click)="collapseAll()">Collapse all</button>
+          </div>
+        </div>
+      </div>
+
+      <dl
+        class="ab-summary"
+        [attr.aria-label]="
+          crewPlanning && scheduleFilter === 'actual'
+            ? 'Actual crew totals and average utilization for applied date range'
+            : 'Crew totals and average utilization for visible date period'
+        "
+      >
+        <div *ngFor="let metric of visibleCalendarSummary" class="ab-summary__metric">
+          <dt>
+            <span
+              class="ab-summary__icon"
+              aria-hidden="true"
+              [appCrewReportIcon]="
+                metric.label === 'Total crew groups'
+                  ? 'Network'
+                  : metric.label === 'Total actual crews'
+                    ? 'Users'
+                    : metric.label === 'Avg Planned Utilization'
+                      ? 'CalendarDays'
+                      : 'Gauge'
+              "
+            ></span>
+            <span>{{ metric.label }}</span>
+          </dt>
+          <dd>
+            {{
+              metric.count === null
+                ? 'N/A'
+                : (metric.count | number: (metric.unit ? '1.0-1' : '1.0-0'))
+            }}{{ metric.count === null ? '' : metric.unit }}
+          </dd>
+        </div>
+      </dl>
+
+      <!-- ─── Inline assign panel ────────────────────────────────────────────── -->
+      <div class="ab-assign-overlay" *ngIf="assignPanel" (click)="closeAssign()">
+        <div appDialog (dialogClose)="closeAssign()" class="ab-assign" (click)="$event.stopPropagation()">
+          <div class="ab-assign__head">
+            <span class="ab-assign__head-icon">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+              >
+                <path
+                  d="M17.5 9.16675L11.1716 2.83832C10.7392 2.40594 10.523 2.18975 10.2707 2.03515C10.047 1.89807 9.80317 1.79706 9.54808 1.73582C9.26033 1.66675 8.95458 1.66675 8.34317 1.66675H5M2.5 7.25008V8.8955C2.5 9.30317 2.5 9.507 2.54605 9.69883C2.58687 9.86883 2.65422 10.0314 2.7456 10.1806C2.84867 10.3487 2.9928 10.4929 3.28105 10.7812L9.78108 17.2812C10.4411 17.9412 10.7711 18.2712 11.1517 18.3948C11.4864 18.5036 11.8469 18.5036 12.1817 18.3948C12.5622 18.2712 12.8922 17.9412 13.5522 17.2812L15.6144 15.219C16.2744 14.559 16.6044 14.229 16.7281 13.8484C16.8368 13.5137 16.8368 13.1532 16.7281 12.8184C16.6044 12.4378 16.2744 12.1078 15.6144 11.4478L9.53108 5.36447C9.24283 5.07622 9.09867 4.93208 8.9305 4.82902C8.78133 4.73763 8.61875 4.67029 8.44875 4.62947C8.25691 4.58342 8.05308 4.58341 7.64543 4.58341H5.16667C4.23325 4.58341 3.76653 4.58341 3.41002 4.76507C3.09642 4.92486 2.84144 5.17982 2.68166 5.49343C2.5 5.84995 2.5 6.31666 2.5 7.25008Z"
+                  stroke="white"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+            <span class="ab-assign__title">Assign activities</span>
+            <button
+              class="ab-assign__close"
+              (click)="closeAssign()"
+              aria-label="Close"
+              [disabled]="assignPanel.saving"
+            >
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path
+                  d="M13.8 7.8L7.8 13.8M7.8 7.8L13.8 13.8M20.8 10.8C20.8 16.3 16.3 20.8 10.8 20.8C5.3 20.8 0.8 16.3 0.8 10.8C0.8 5.3 5.3 0.8 10.8 0.8C16.3 0.8 20.8 5.3 20.8 10.8Z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div class="ab-assign__body">
+            <div class="ab-assign__meta">
+              <div>
+                <label>Crew group</label
+                ><span>{{ assignPanel.crewGroupName || assignPanel.crewGroupCode }}</span>
+              </div>
+              <div>
+                <label>Crew</label><span>{{ assignPanel.crewUid }}</span>
+              </div>
+            </div>
+
+            <div class="ab-assign__field">
+              <label for="assign-activity-search"
+                >Activities ({{ assignPanel.selectedActivityCodes.length }} selected)</label
+              >
+              <div class="ab-assign__loading" *ngIf="assignPanel.loadingActivities">
+                Loading activities…
+              </div>
+              <ng-container *ngIf="!assignPanel.loadingActivities && assignPanel.activities.length">
+                <input
+                  id="assign-activity-search"
+                  type="search"
+                  placeholder="Search activities"
+                  [(ngModel)]="assignPanel.activitySearch"
+                  [disabled]="assignPanel.saving"
+                />
+                <div class="ab-assign__options" role="group" aria-label="Activities">
+                  <label
+                    class="ab-assign__option"
+                    *ngFor="let activity of filteredAssignActivities"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="assignPanel.selectedActivityCodes.includes(activity.activityCode)"
+                      (change)="toggleAssignActivity(activity.activityCode)"
+                      [disabled]="assignPanel.saving"
+                    />
+                    <span
+                      ><strong>{{ activity.activityCode }}</strong
+                      >{{ activity.activityName }}</span
+                    >
+                  </label>
+                  <div class="ab-assign__hint" *ngIf="!filteredAssignActivities.length">
+                    No matching activities.
+                  </div>
+                </div>
+              </ng-container>
+              <div
+                class="ab-assign__hint"
+                *ngIf="
+                  !assignPanel.loadingActivities &&
+                  assignPanel.activities.length === 0 &&
+                  !assignError
+                "
+              >
+                No activities available for this crew group.
+              </div>
+            </div>
+
+            <div class="ab-assign__dates">
+              <div class="ab-assign__field">
+                <label for="assign-start">Planned start (all selected)</label>
+                <input
+                  id="assign-start"
+                  type="date"
+                  [(ngModel)]="assignPanel.plannedStart"
+                  [disabled]="assignPanel.saving"
+                />
+              </div>
+              <div class="ab-assign__field">
+                <label for="assign-end">Planned end (all selected)</label>
+                <input
+                  id="assign-end"
+                  type="date"
+                  [(ngModel)]="assignPanel.plannedEnd"
+                  [min]="assignPanel.plannedStart"
+                  [disabled]="assignPanel.saving"
+                />
+              </div>
+            </div>
+
+            <div class="ab-assign__error" *ngIf="assignError" role="alert">{{ assignError }}</div>
+
+            <div class="ab-assign__actions">
+              <button
+                class="ab-assign__cancel"
+                (click)="closeAssign()"
+                [disabled]="assignPanel.saving"
+              >
+                Cancel
+              </button>
+              <button
+                class="ab-assign__confirm"
+                (click)="confirmAssign()"
+                [disabled]="!assignPanel.selectedActivityCodes.length || assignPanel.saving"
+              >
+                {{ assignPanel.saving ? 'Assigning…' : 'Assign' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Gantt Grid ─────────────────────────────────────────────────────── -->
+      <div
+        class="ab-gantt"
+        [class.ab-gantt--crew-planning]="crewPlanning"
+        [class.ab-gantt--clustered]="groupBy === 'crew-group'"
+        [style.--ab-day-width]="100 / totalDays + '%'"
+      >
+        <div class="ab-gantt__loading" *ngIf="loading || unassignedLoading">
+          <app-loader size="lg"></app-loader>
+        </div>
+        <div class="ab-gantt__error" *ngIf="loadError && !loading" role="alert">
+          <span>{{ loadError }}</span>
+          <button type="button" class="ab-gantt__retry" (click)="reload()">Retry</button>
+        </div>
+        <!-- Left Panel -->
+        <div class="ab-gantt__left">
+          <div class="ab-gantt__left-header">
+            <div class="ab-gantt__left-title-row">
+              <span class="ab-gantt__left-title">Crew Groups / Crew IDs</span>
+            </div>
+            <div class="ab-gantt__search-row">
+              <div class="ab-gantt__search">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M14 14L11.1 11.1M12.667 7.333a5.333 5.333 0 11-10.667 0 5.333 5.333 0 0110.667 0z"
+                    stroke="#667085"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search crew group or crew ID…"
+                  [(ngModel)]="searchTerm"
+                />
+              </div>
+              <div class="ab-gantt__filter-wrap">
+                <button
+                  class="ab-gantt__filter-btn"
+                  [class.active]="rowFilterSelected.size > 0 || showRowFilter"
+                  title="Filter rows by status"
+                  (click)="
+                    showRowFilter = !showRowFilter;
+                    showUtilizationFilter = false;
+                    $event.stopPropagation()
+                  "
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                  >
+                    <path
+                      d="M1.33398 3.06667C1.33398 2.6933 1.33398 2.50661 1.40664 2.36401C1.47056 2.23857 1.57255 2.13658 1.69799 2.07266C1.8406 2 2.02728 2 2.40065 2H13.6007C13.9741 2 14.1607 2 14.3033 2.07266C14.4288 2.13658 14.5307 2.23857 14.5947 2.36401C14.6673 2.50661 14.6673 2.6933 14.6673 3.06667V3.51293C14.6673 3.69213 14.6673 3.78173 14.6454 3.86504C14.626 3.93887 14.5941 4.00882 14.551 4.07184C14.5024 4.14295 14.4347 4.20163 14.2993 4.319L10.0354 8.01433C9.89998 8.13167 9.83225 8.1904 9.78365 8.26147C9.74058 8.32453 9.70865 8.39447 9.68918 8.46827C9.66732 8.5516 9.66732 8.6412 9.66732 8.8204V12.3056C9.66732 12.4359 9.66732 12.5011 9.64632 12.5575C9.62772 12.6073 9.59752 12.6519 9.55818 12.6877C9.51365 12.7281 9.45312 12.7523 9.33205 12.8008L7.06538 13.7075C6.82038 13.8055 6.69785 13.8545 6.5995 13.834C6.5135 13.8161 6.43802 13.7651 6.38948 13.6918C6.33398 13.6081 6.33398 13.4761 6.33398 13.2123V8.8204C6.33398 8.6412 6.33398 8.5516 6.31208 8.46827C6.29268 8.39447 6.26074 8.32453 6.21766 8.26147C6.16904 8.1904 6.10133 8.13167 5.96591 8.01433L1.70206 4.319C1.56664 4.20163 1.49893 4.14295 1.45031 4.07184C1.40722 4.00882 1.37528 3.93887 1.35588 3.86504C1.33398 3.78173 1.33398 3.69213 1.33398 3.51293V3.06667Z"
+                      stroke="#21409A"
+                      stroke-width="1.4"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+                <div
+                  class="ab-row-filter-panel"
+                  *ngIf="showRowFilter"
+                  (click)="$event.stopPropagation()"
+                >
+                  <div appKeyClick
+                    class="ab-row-filter-panel__option"
+                    [class.active]="rowFilterSelected.size === 0 && !searchTerm.trim()"
+                    (click)="clearRowFilter()"
+                  >
+                    All
+                  </div>
+                  <ng-container *ngFor="let opt of rowFilterOptions">
+                    <div appKeyClick
+                      class="ab-row-filter-panel__option"
+                      [class.ab-row-filter-panel__option--group]="opt.type === 'group'"
+                      [class.ab-row-filter-panel__option--crew]="opt.type === 'crew'"
+                      [class.active]="rowFilterSelected.has(opt.name)"
+                      (click)="toggleRowFilter(opt.name)"
+                    >
+                      <span class="ab-row-filter-panel__check">{{
+                        rowFilterSelected.has(opt.name) ? '✓' : ''
+                      }}</span>
+                      {{ opt.name }}
+                    </div>
+                  </ng-container>
+                </div>
+              </div>
+              <div class="ab-gantt__filter-wrap">
+                <button
+                  type="button"
+                  class="ab-gantt__filter-btn"
+                  [class.active]="utilizationFilter !== 'all' || showUtilizationFilter"
+                  title="Filter by crew utilization"
+                  aria-label="Filter by crew utilization"
+                  aria-controls="crew-utilization-filter"
+                  [attr.aria-expanded]="showUtilizationFilter"
+                  (click)="
+                    showUtilizationFilter = !showUtilizationFilter;
+                    showRowFilter = false;
+                    $event.stopPropagation()
+                  "
+                >
+                  <span appCrewReportIcon="Gauge"></span>
+                </button>
+                <div
+                  *ngIf="showUtilizationFilter"
+                  id="crew-utilization-filter"
+                  class="ab-utilization-filter"
+                  role="group"
+                  aria-label="Crew utilization filters"
+                  (click)="$event.stopPropagation()"
+                >
+                  <div class="ab-toggle-group" role="group" aria-label="Utilization basis">
+                    <button
+                      type="button"
+                      class="ab-toggle-btn"
+                      [class.active]="utilizationBasis === 'planned'"
+                      [attr.aria-pressed]="utilizationBasis === 'planned'"
+                      (click)="setScheduleFilter('planned')"
+                    >
+                      Planned
+                    </button>
+                    <button
+                      type="button"
+                      class="ab-toggle-btn"
+                      [class.active]="utilizationBasis === 'actual'"
+                      [attr.aria-pressed]="utilizationBasis === 'actual'"
+                      (click)="setScheduleFilter('actual')"
+                    >
+                      Actual
+                    </button>
+                  </div>
+                  <label for="crew-utilization-range">Crew utilization</label>
+                  <select id="crew-utilization-range" [(ngModel)]="utilizationFilter">
+                    <option *ngFor="let option of utilizationFilterOptions" [value]="option.value">
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div #leftRows class="ab-gantt__left-rows" (scroll)="syncBarScroll($event)">
+            <ng-container *ngIf="groupBy === 'crew-group'">
+              <ng-container *ngFor="let cluster of ganttClusters; trackBy: trackHierarchyRow">
+                <button
+                  type="button"
+                  class="ab-row ab-row--cluster"
+                  [attr.data-hierarchy-key]="cluster.id"
+                  [attr.aria-label]="'Toggle cluster ' + cluster.name"
+                  [attr.aria-expanded]="cluster.expanded"
+                  (click)="toggleCluster(cluster, $event)"
+                >
+                  <span
+                    class="ab-row__cluster-chevron"
+                    [appCrewReportIcon]="cluster.expanded ? 'ChevronDown' : 'ChevronRight'"
+                  ></span>
+                  <div class="ab-row__info">
+                    <span class="ab-row__name" [title]="cluster.name">{{ cluster.name }}</span>
+                  </div>
+                  <span role="img"
+                    *ngIf="visibleClusterUtilization(cluster) as utilization"
+                    class="ab-row__badge ab-row__badge--utilization"
+                    [title]="utilizationTitle(utilization)"
+                    [attr.aria-label]="
+                      utilization.percent === null
+                        ? utilizationLabel + ' unavailable: no roster crews'
+                        : (utilization.percent | number: '1.0-1') +
+                          '% ' +
+                          utilizationLabel.toLowerCase()
+                    "
+                    >{{
+                      utilization.percent === null
+                        ? 'N/A'
+                        : (utilization.percent | number: '1.0-1') + '%'
+                    }}</span
+                  >
+                </button>
+                <ng-container *ngIf="cluster.expanded">
+                  <ng-container *ngFor="let group of cluster.groups; trackBy: trackHierarchyRow">
+                    <!-- Group header row -->
+                    <div appKeyClick
+                      class="ab-row ab-row--group"
+                      [attr.data-hierarchy-key]="group.hierarchyKey"
+                      [class.ab-row--group-expanded]="group.expanded"
+                      [class.ab-row--selected]="
+                        selectedGroupId === (group.hierarchyKey || group.id)
+                      "
+                      [style.border-left-color]="group.expanded ? group.color : 'transparent'"
+                      (click)="selectGroup(group)"
+                    >
+                      <button
+                        class="ab-row__chevron"
+                        (click)="toggleGroup(group, $event)"
+                        [attr.aria-label]="'Toggle ' + group.name"
+                        [attr.aria-expanded]="group.expanded"
+                      >
+                        <svg
+                          *ngIf="group.expanded"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                        >
+                          <path
+                            d="M12 10L8 6L4 10"
+                            stroke="#21409A"
+                            stroke-width="1.4"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                        <svg
+                          *ngIf="!group.expanded"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                        >
+                          <path
+                            d="M6 12L10 8L6 4"
+                            [attr.stroke]="group.color"
+                            stroke-width="1.4"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </button>
+                      <span class="ab-row__crew-icon" [style.background]="group.color">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <path
+                            d="M14.6673 14V12.6667C14.6673 11.4241 13.8175 10.3801 12.6673 10.084M10.334 2.19384C11.3113 2.58943 12.0007 3.54754 12.0007 4.66667C12.0007 5.78579 11.3113 6.74393 10.334 7.13947M11.334 14C11.334 12.7575 11.334 12.1363 11.131 11.6462C10.8603 10.9928 10.3412 10.4737 9.68778 10.203C9.19772 10 8.57652 10 7.33398 10H5.33398C4.09147 10 3.47022 10 2.98016 10.203C2.32675 10.4737 1.80762 10.9928 1.53697 11.6462C1.33398 12.1363 1.33398 12.7575 1.33398 14M9.00065 4.66667C9.00065 6.13943 7.80672 7.33333 6.33398 7.33333C4.86122 7.33333 3.66732 6.13943 3.66732 4.66667C3.66732 3.19391 4.86122 2 6.33398 2C7.80672 2 9.00065 3.19391 9.00065 4.66667Z"
+                            stroke="white"
+                            stroke-width="1.4"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </span>
+                      <div class="ab-row__info">
+                        <span
+                          class="ab-row__name"
+                          [title]="group.crewGroupName || 'Name not available'"
+                          >{{ group.name }}</span
+                        >
+                        <div class="ab-row__meta">
+                          <div *ngIf="!crewPlanning" class="ab-row__segbar">
+                            <span
+                              *ngFor="let seg of getSegments(groupActivities(group))"
+                              [style.width.%]="seg.pct"
+                              [style.background]="seg.color"
+                            ></span>
+                          </div>
+                          <span class="ab-row__sub" [style.color]="group.color">{{
+                            group.subtitle
+                          }}</span>
+                        </div>
+                      </div>
+                      <span role="img"
+                        *ngIf="visibleGroupUtilization(group) as utilization"
+                        class="ab-row__badge ab-row__badge--utilization"
+                        [title]="utilizationTitle(utilization)"
+                        [attr.aria-label]="
+                          utilization.percent === null
+                            ? utilizationLabel + ' unavailable: no roster crews'
+                            : (utilization.percent | number: '1.0-1') +
+                              '% ' +
+                              utilizationLabel.toLowerCase()
+                        "
+                        >{{
+                          utilization.percent === null
+                            ? 'N/A'
+                            : (utilization.percent | number: '1.0-1') + '%'
+                        }}</span
+                      >
+                      <span
+                        *ngIf="!crewPlanning"
+                        class="ab-row__badge"
+                        [style.border-color]="getWellBarColor(group)"
+                        [style.color]="getWellBarColor(group)"
+                        [style.background]="getBadgeBg(getWellBarColor(group))"
+                        >{{ group.percent }}%</span
+                      >
+                    </div>
+
+                    <!-- Well rows -->
+                    <ng-container *ngIf="group.expanded">
+                      <ng-container
+                        *ngFor="
+                          let well of visibleCrews(group);
+                          let crewIndex = index;
+                          trackBy: trackHierarchyRow
+                        "
+                      >
+                        <div appKeyClick
+                          class="ab-row ab-row--well"
+                          [attr.data-hierarchy-key]="well.hierarchyKey"
+                          [class.ab-row--crew-planning]="crewPlanning"
+                          [style.height.px]="crewPlanning ? well.rowHeight : null"
+                          [class.ab-row--selected]="
+                            selectedWellId === (well.hierarchyKey || well.id)
+                          "
+                          (click)="selectWell(well, group, $event)"
+                        >
+                          <span class="ab-row__well-icon">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                              <path
+                                d="M11.6673 12.25C11.6673 11.4359 11.6673 11.0289 11.5669 10.6977C11.3407 9.95196 10.757 9.36833 10.0113 9.14212C9.68008 9.04167 9.27308 9.04167 8.45898 9.04167H5.54232C4.72824 9.04167 4.3212 9.04167 3.98999 9.14212C3.24425 9.36833 2.66067 9.95196 2.43446 10.6977C2.33398 11.0289 2.33398 11.4359 2.33398 12.25M9.62565 4.375C9.62565 5.82475 8.45041 7 7.00065 7C5.5509 7 4.37565 5.82475 4.37565 4.375C4.37565 2.92525 5.5509 1.75 7.00065 1.75C8.45041 1.75 9.62565 2.92525 9.62565 4.375Z"
+                                stroke="#1765E8"
+                                stroke-width="1.4"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                              />
+                            </svg>
+                          </span>
+                          <div class="ab-row__info">
+                            <span class="ab-row__name" [title]="well.name">{{
+                              scheduleFilter === 'actual' || (well.unassigned && !showUnassigned)
+                                ? well.name
+                                : 'crew-' + (crewIndex + 1)
+                            }}</span>
+                            <span
+                              *ngIf="
+                                scheduleFilter === 'actual'
+                                  ? !visibleActivities(well).length
+                                  : well.noActivities
+                              "
+                              class="ab-row__sub ab-row__sub--muted"
+                              >{{
+                                scheduleFilter === 'actual'
+                                  ? 'No actual activities'
+                                  : 'No planned activities'
+                              }}</span
+                            >
+                            <div *ngIf="!well.noActivities" class="ab-row__meta">
+                              <div *ngIf="!crewPlanning" class="ab-row__segbar">
+                                <span
+                                  *ngFor="let seg of getSegments(visibleActivities(well))"
+                                  [style.width.%]="seg.pct"
+                                  [style.background]="seg.color"
+                                ></span>
+                              </div>
+                              <span *ngIf="visibleActivities(well).length" class="ab-row__sub"
+                                >{{ visibleActivities(well).length }} activities</span
+                              >
+                            </div>
+                          </div>
+                          <span
+                            *ngIf="crewPlanning ? !well.unassigned : !well.noActivities"
+                            class="ab-row__badge"
+                            [attr.title]="
+                              crewPlanning
+                                ? (scheduleFilter === 'actual'
+                                    ? well.actualDays
+                                    : well.bookedDays) +
+                                  ' of ' +
+                                  totalDays +
+                                  (scheduleFilter === 'actual'
+                                    ? ' calendar days of recorded actual work'
+                                    : ' calendar days booked across all clusters (including preview)')
+                                : null
+                            "
+                            [style.border-color]="crewPlanning ? '#CBD5E1' : getWellBarColor(well)"
+                            [style.color]="crewPlanning ? '#344054' : getWellBarColor(well)"
+                            [style.background]="
+                              crewPlanning ? '#F8FAFC' : getBadgeBg(getWellBarColor(well))
+                            "
+                            >{{
+                              crewPlanning
+                                ? ((crewUtilization(
+                                    group,
+                                    well,
+                                    scheduleFilter === 'actual' ? 'actual' : 'planned'
+                                  ) | number: '1.0-1') ?? 'N/A')
+                                : (well.percent ?? group.percent)
+                            }}{{
+                              crewPlanning &&
+                              crewUtilization(
+                                group,
+                                well,
+                                scheduleFilter === 'actual' ? 'actual' : 'planned'
+                              ) === null
+                                ? ''
+                                : '%'
+                            }}</span
+                          >
+                          <span
+                            *ngIf="hasManualActivity(well)"
+                            class="ab-activity-source ab-activity-source--assignment"
+                            >Maps</span
+                          >
+                        </div>
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </ng-container>
+              </ng-container>
+            </ng-container>
+
+            <!-- Flat well hierarchy (Show: Wells) -->
+            <ng-container *ngIf="groupBy === 'well'">
+              <ng-container *ngFor="let well of filteredWellRows">
+                <div appKeyClick class="ab-row ab-row--well" (click)="toggleCrew(well, $event)">
+                  <button class="ab-row__chevron" (click)="toggleCrew(well, $event)">
+                    <svg
+                      *ngIf="well.expanded"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                    >
+                      <path
+                        d="M12 10L8 6L4 10"
+                        stroke="#21409A"
+                        stroke-width="1.4"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                    <svg
+                      *ngIf="!well.expanded"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                    >
+                      <path
+                        d="M6 12L10 8L6 4"
+                        stroke="#21409A"
+                        stroke-width="1.4"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <span class="ab-row__well-icon">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path
+                        d="M11.6673 12.25C11.6673 11.4359 11.6673 11.0289 11.5669 10.6977C11.3407 9.95196 10.757 9.36833 10.0113 9.14212C9.68008 9.04167 9.27308 9.04167 8.45898 9.04167H5.54232C4.72824 9.04167 4.3212 9.04167 3.98999 9.14212C3.24425 9.36833 2.66067 9.95196 2.43446 10.6977C2.33398 11.0289 2.33398 11.4359 2.33398 12.25M9.62565 4.375C9.62565 5.82475 8.45041 7 7.00065 7C5.5509 7 4.37565 5.82475 4.37565 4.375C4.37565 2.92525 5.5509 1.75 7.00065 1.75C8.45041 1.75 9.62565 2.92525 9.62565 4.375Z"
+                        stroke="#1765E8"
+                        stroke-width="1.4"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <div class="ab-row__info">
+                    <span class="ab-row__name">{{ well.name }}</span>
+                    <div class="ab-row__meta">
+                      <div class="ab-row__segbar">
+                        <span
+                          *ngFor="let seg of getSegments(visibleActivities(well))"
+                          [style.width.%]="seg.pct"
+                          [style.background]="seg.color"
+                        ></span>
+                      </div>
+                      <span class="ab-row__sub"
+                        >{{ visibleActivities(well).length }} activities</span
+                      >
+                    </div>
+                  </div>
+                  <span
+                    class="ab-row__badge"
+                    [style.border-color]="getWellBarColor(well)"
+                    [style.color]="getWellBarColor(well)"
+                    [style.background]="getBadgeBg(getWellBarColor(well))"
+                    >{{ well.percent }}%</span
+                  >
+                  <span
+                    *ngIf="hasManualActivity(well)"
+                    class="ab-activity-source ab-activity-source--assignment"
+                    >Maps</span
+                  >
+                </div>
+                <ng-container *ngIf="well.expanded">
+                  <div
+                    *ngFor="let activity of visibleActivities(well)"
+                    class="ab-row ab-row--activity"
+                  >
+                    <span class="ab-row__indent"></span>
+                    <span
+                      class="ab-row__status-dot"
+                      [style.background]="statusDotColor(activity.status)"
+                    ></span>
+                    <div class="ab-row__info">
+                      <span class="ab-row__name ab-row__name--sm">{{ activity.name }}</span>
+                      <span
+                        class="ab-row__activity-detail"
+                        [title]="
+                          activity.bar.label + ' | Well ' + (activity.bar.wellId || 'Not specified')
+                        "
+                      >
+                        {{ activity.bar.label }} | Well {{ activity.bar.wellId || 'Not specified' }}
+                      </span>
+                      <span
+                        *ngIf="hasMissingCrewId(activity.bar)"
+                        class="ab-row__missing-crew"
+                        title="Actual work has no recorded crew ID"
+                        >Missing crew ID</span
+                      >
+                      <span
+                        *ngIf="activity.bar.source === 'assignment'"
+                        class="ab-activity-source ab-activity-source--assignment"
+                        >Maps</span
+                      >
+                    </div>
+                  </div>
+                </ng-container>
+              </ng-container>
+            </ng-container>
+          </div>
+        </div>
+
+        <!-- Right Panel: timeline -->
+        <div class="ab-gantt__right">
+          <div
+            class="ab-timeline-content"
+            [style.min-width.px]="totalDays * (timeUnit === 'week' ? 72 : 28)"
+          >
+            <time
+              *ngIf="timeUnit === 'day'"
+              class="ab-timeline__day-heading"
+              [class.ab-timeline__day-heading--today]="
+                timelineStart.toDateString() === today.toDateString()
+              "
+              [attr.datetime]="timelineStart | date: 'yyyy-MM-dd'"
+            >
+              <span class="ab-timeline__day-heading-weekday">{{
+                timelineStart | date: 'EEEE'
+              }}</span>
+              <span class="ab-timeline__day-heading-date">{{
+                timelineStart | date: 'd MMMM yyyy'
+              }}</span>
+            </time>
+            <!-- Week headers -->
+            <div *ngIf="timeUnit !== 'day'" class="ab-timeline__weeks">
+              <div
+                *ngFor="let week of weeks"
+                class="ab-timeline__week-cell"
+                [style.flex]="week.days.length + ' 0 0px'"
+                [title]="week.label"
+              >
+                {{ week.label }}
+              </div>
+            </div>
+            <!-- Day headers -->
+            <div
+              *ngIf="timeUnit !== 'day'"
+              class="ab-timeline__days"
+              [class.ab-timeline__days--week]="timeUnit === 'week'"
+            >
+              <time
+                *ngFor="let day of days"
+                class="ab-timeline__day-cell"
+                [class.ab-timeline__day-cell--weekend]="day.isWeekend && !day.isToday"
+                [class.ab-timeline__day-cell--today]="day.isToday"
+                [attr.datetime]="day.calendarDate | date: 'yyyy-MM-dd'"
+                [attr.aria-label]="day.calendarDate | date: 'EEEE, d MMMM yyyy'"
+                [attr.aria-current]="day.isToday ? 'date' : null"
+                [title]="day.calendarDate | date: 'EEEE, d MMMM yyyy'"
+              >
+                <span class="ab-timeline__dow">{{
+                  timeUnit === 'week' ? (day.calendarDate | date: 'EEE') : day.dayOfWeek
+                }}</span>
+                <span class="ab-timeline__date">{{
+                  timeUnit === 'week' ? (day.calendarDate | date: 'd MMM') : day.date
+                }}</span>
+              </time>
+            </div>
+
+            <!-- Bar rows -->
+            <div #barAreaWrap class="ab-bar-area-wrap" (scroll)="syncLeftScroll($event)">
+              <ng-container *ngIf="groupBy === 'crew-group'">
+                <ng-container *ngFor="let cluster of ganttClusters; trackBy: trackHierarchyRow">
+                  <div
+                    class="ab-bar-row ab-bar-row--cluster"
+                    [attr.data-hierarchy-key]="cluster.id"
+                  ></div>
+                  <ng-container *ngIf="cluster.expanded">
+                    <ng-container *ngFor="let group of cluster.groups; trackBy: trackHierarchyRow">
+                      <!-- Group bar row -->
+                      <div
+                        class="ab-bar-row ab-bar-row--group"
+                        [attr.data-hierarchy-key]="group.hierarchyKey"
+                      >
+                        <div class="ab-bar-track">
+                          <ng-container *ngIf="!group.expanded">
+                            <ng-container
+                              *ngFor="let bar of visibleBars(group); trackBy: trackSummaryBar"
+                            >
+                              <div
+                                *ngIf="showPlannedBar(bar)"
+                                class="ab-bar ab-bar--planned"
+                                [ngStyle]="barStyle(bar)"
+                                [attr.title]="bar.label"
+                                (mouseenter)="showTooltip($event, bar)"
+                                (mouseleave)="hideTooltip()"
+                              >
+                                <span *ngIf="barLabel(bar)" class="ab-bar__label">{{
+                                  barLabel(bar)
+                                }}</span>
+                              </div>
+                              <div
+                                *ngIf="showActualBar(bar)"
+                                [class]="'ab-bar ab-bar--actual ab-bar--' + bar.type"
+                                [ngStyle]="actualBarStyle(bar)"
+                                (mouseenter)="showTooltip($event, bar)"
+                                (mouseleave)="hideTooltip()"
+                              >
+                                <span *ngIf="barLabel(bar)" class="ab-bar__label">{{
+                                  barLabel(bar)
+                                }}</span>
+                              </div>
+                            </ng-container>
+                          </ng-container>
+                        </div>
+                      </div>
+                      <!-- Well bar rows -->
+                      <ng-container *ngIf="group.expanded">
+                        <ng-container
+                          *ngFor="let well of visibleCrews(group); trackBy: trackHierarchyRow"
+                        >
+                          <div
+                            class="ab-bar-row"
+                            [attr.data-hierarchy-key]="well.hierarchyKey"
+                            [class.ab-bar-row--crew-planning]="crewPlanning"
+                            [style.height.px]="crewPlanning ? well.rowHeight : null"
+                            [class.ab-bar-row--no-activity]="well.noActivities"
+                          >
+                            <div
+                              class="ab-bar-track"
+                              [class.ab-bar-track--crew-planning]="crewPlanning"
+                            >
+                              <ng-container *ngIf="!well.noActivities">
+                                <div
+                                  *ngFor="
+                                    let bar of visibleCrewBars(well);
+                                    trackBy: trackSummaryBar
+                                  "
+                                  class="ab-bar-track-inner"
+                                >
+                                  <div
+                                    *ngIf="showPlannedBar(bar)"
+                                    class="ab-bar ab-bar--planned"
+                                    [class.ab-bar--preview]="bar.proposed"
+                                    [class.ab-bar--reserved]="bar.reserved"
+                                    [attr.title]="
+                                      bar.reserved
+                                        ? bar.plannedStart + ' to ' + bar.plannedEnd
+                                        : null
+                                    "
+                                    [ngStyle]="barStyle(bar)"
+                                    (mouseenter)="showTooltip($event, bar)"
+                                    (mouseleave)="hideTooltip()"
+                                    [attr.tabindex]="
+                                      bar.source === 'assignment' && !bar.summary && !bar.proposed
+                                        ? 0
+                                        : null
+                                    "
+                                    [attr.aria-haspopup]="
+                                      bar.source === 'assignment' && !bar.summary && !bar.proposed
+                                        ? 'menu'
+                                        : null
+                                    "
+                                    (contextmenu)="openAssignmentMenu($event, bar)"
+                                    (keydown.shift.f10)="openAssignmentMenu($event, bar)"
+                                    (keydown.contextmenu)="openAssignmentMenu($event, bar)"
+                                  >
+                                    <span *ngIf="barLabel(bar)" class="ab-bar__label">{{
+                                      (bar.proposed ? 'Preview: ' : '') + barLabel(bar)
+                                    }}</span>
+                                  </div>
+                                  <div
+                                    *ngIf="showActualBar(bar)"
+                                    [class]="'ab-bar ab-bar--actual ab-bar--' + bar.type"
+                                    [ngStyle]="actualBarStyle(bar)"
+                                    (mouseenter)="showTooltip($event, bar)"
+                                    (mouseleave)="hideTooltip()"
+                                  >
+                                    <span *ngIf="barLabel(bar)" class="ab-bar__label">{{
+                                      barLabel(bar)
+                                    }}</span>
+                                  </div>
+                                </div>
+                              </ng-container>
+                              <ng-container
+                                *ngIf="
+                                  scheduleFilter === 'actual'
+                                    ? !visibleActivities(well).length
+                                    : well.noActivities
+                                "
+                              >
+                                <div class="ab-no-activity">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 14 14"
+                                    fill="none"
+                                  >
+                                    <path
+                                      d="M12.25 5.83329H1.75M9.33333 1.16663V3.49996M4.66667 1.16663V3.49996M4.55 12.8333H9.45C10.4301 12.8333 10.9201 12.8333 11.2945 12.6425C11.6238 12.4748 11.8915 12.2071 12.0592 11.8778C12.25 11.5034 12.25 11.0134 12.25 10.0333V5.13329C12.25 4.1532 12.25 3.66315 12.0592 3.28881C11.8915 2.95952 11.6238 2.69181 11.2945 2.52403C10.9201 2.33329 10.4301 2.33329 9.45 2.33329H4.55C3.56991 2.33329 3.07986 2.33329 2.70552 2.52403C2.37623 2.69181 2.10852 2.95952 1.94074 3.28881C1.75 3.66315 1.75 4.1532 1.75 5.13329V10.0333C1.75 11.0134 1.75 11.5034 1.94074 11.8778C2.10852 12.2071 2.37623 12.4748 2.70552 12.6425C3.07986 12.8333 3.56991 12.8333 4.55 12.8333Z"
+                                      stroke="#21409A"
+                                      stroke-width="1.4"
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round"
+                                    />
+                                  </svg>
+                                  <span>{{
+                                    scheduleFilter === 'actual'
+                                      ? 'No actual activities'
+                                      : 'No planned activities'
+                                  }}</span>
+                                  <button
+                                    class="ab-add-btn"
+                                    *ngIf="well.unassigned && scheduleFilter !== 'actual'"
+                                    (click)="
+                                      openAssign(
+                                        group.name,
+                                        group.subtitle,
+                                        well.id,
+                                        well.crewTypeCode ?? null
+                                      );
+                                      $event.stopPropagation()
+                                    "
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="16"
+                                      height="16"
+                                      viewBox="0 0 16 16"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M8.00065 3.33337V12.6667M3.33398 8.00004H12.6673"
+                                        stroke="#21409A"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                      />
+                                    </svg>
+                                    Add Activity
+                                  </button>
+                                </div>
+                              </ng-container>
+                            </div>
+                          </div>
+                        </ng-container>
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </ng-container>
+              </ng-container>
+
+              <!-- Flat well bar rows (Show: Wells) -->
+              <ng-container *ngIf="groupBy === 'well'">
+                <ng-container *ngFor="let well of filteredWellRows">
+                  <div class="ab-bar-row">
+                    <div class="ab-bar-track">
+                      <ng-container *ngIf="!well.expanded">
+                        <ng-container
+                          *ngFor="let bar of visibleBars(well); trackBy: trackSummaryBar"
+                        >
+                          <div
+                            *ngIf="showPlannedBar(bar)"
+                            class="ab-bar ab-bar--planned"
+                            [ngStyle]="barStyle(bar)"
+                            (mouseenter)="showTooltip($event, bar)"
+                            (mouseleave)="hideTooltip()"
+                          >
+                            <span *ngIf="bar.wellId" class="ab-bar__label">{{
+                              barLabel(bar)
+                            }}</span>
+                          </div>
+                          <div
+                            *ngIf="showActualBar(bar)"
+                            [class]="'ab-bar ab-bar--actual ab-bar--' + bar.type"
+                            [ngStyle]="actualBarStyle(bar)"
+                            (mouseenter)="showTooltip($event, bar)"
+                            (mouseleave)="hideTooltip()"
+                          ></div>
+                        </ng-container>
+                      </ng-container>
+                    </div>
+                  </div>
+                  <ng-container *ngIf="well.expanded">
+                    <div *ngFor="let activity of visibleActivities(well)" class="ab-bar-row">
+                      <div class="ab-bar-track">
+                        <div
+                          *ngIf="showPlannedBar(activity.bar)"
+                          class="ab-bar ab-bar--planned ab-bar--activity"
+                          [ngStyle]="barStyle(activity.bar)"
+                          (mouseenter)="showTooltip($event, activity.bar)"
+                          (mouseleave)="hideTooltip()"
+                          [attr.tabindex]="activity.bar.source === 'assignment' ? 0 : null"
+                          [attr.aria-haspopup]="
+                            activity.bar.source === 'assignment' ? 'menu' : null
+                          "
+                          (contextmenu)="openAssignmentMenu($event, activity.bar)"
+                          (keydown.shift.f10)="openAssignmentMenu($event, activity.bar)"
+                          (keydown.contextmenu)="openAssignmentMenu($event, activity.bar)"
+                        >
+                          <span *ngIf="activity.bar.source === 'assignment'" class="ab-bar__source">
+                            Maps
+                          </span>
+                          <span *ngIf="activity.bar.wellId" class="ab-bar__label">{{
+                            barLabel(activity.bar)
+                          }}</span>
+                          <span
+                            *ngIf="showMilestone(activity.bar)"
+                            class="ab-legend__milestone"
+                            title="Milestone"
+                            >◆</span
+                          >
+                        </div>
+                        <div
+                          *ngIf="showActualBar(activity.bar)"
+                          [class]="
+                            'ab-bar ab-bar--actual ab-bar--activity ab-bar--' + activity.bar.type
+                          "
+                          [ngStyle]="actualBarStyle(activity.bar)"
+                          (mouseenter)="showTooltip($event, activity.bar)"
+                          (mouseleave)="hideTooltip()"
+                        >
+                          <span *ngIf="activity.bar.source === 'assignment'" class="ab-bar__source">
+                            Maps
+                          </span>
+                          <span *ngIf="barLabel(activity.bar)" class="ab-bar__label">{{
+                            barLabel(activity.bar)
+                          }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </ng-container>
+                </ng-container>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+        <!-- /right panel -->
+      </div>
+      <!-- /ab-gantt -->
+    </div>
+  </div>
+
+  <div
+    *ngIf="assignmentMenu as menu"
+    #assignmentMenuElement
+    class="ab-assignment-menu"
+    role="menu"
+    aria-label="Assignment actions"
+    [style.left.px]="menu.left"
+    [style.top.px]="menu.top"
+    (click)="$event.stopPropagation()"
+    (keydown.tab)="closeAssignmentMenu()"
+  >
+    <button type="button" role="menuitem" (click)="requestAssignmentDeletion()">
+      Delete assignment
+    </button>
+  </div>
+
+  <app-confirmation-dialog
+    *ngIf="assignmentDeletion as deletion"
+    #assignmentDeleteDialog
+    [isOpen]="true"
+    title="Delete assignment?"
+    [details]="
+      deletion.activity.activityCode +
+      ' | Crew ' +
+      (deletion.activity.crewId || 'Not recorded') +
+      ' | Well ' +
+      (deletion.activity.wellId || 'Not recorded') +
+      ' | ' +
+      deletion.activity.plannedStart +
+      ' to ' +
+      deletion.activity.plannedEnd
+    "
+    message="This removes only the saved crew assignment. The underlying activity will not be deleted."
+    [confirmLabel]="deletion.saving ? 'Deleting...' : 'Delete assignment'"
+    [busy]="deletion.saving"
+    [error]="deletion.error"
+    variant="danger"
+    (confirmed)="confirmAssignmentDeletion()"
+    (cancelled)="cancelAssignmentDeletion()"
+    (keydown.tab)="trapAssignmentDeleteFocus($event)"
+  ></app-confirmation-dialog>
+
+  <div
+    *ngIf="tooltipText"
+    #barTooltip
+    class="ab-tooltip"
+    role="tooltip"
+    [style.left.px]="tooltipX"
+    [style.top.px]="tooltipY"
+    (mouseenter)="keepTooltipOpen()"
+    (mouseleave)="hideTooltip()"
+  >
+    <div *ngFor="let activity of tooltipActivities" class="ab-tooltip__activity">
+      <div class="ab-tooltip__well">Well ID: {{ activity.wellId || 'Not recorded' }}</div>
+      <div class="ab-tooltip__row">Activity: {{ activity.activityCode }}</div>
+      <div *ngIf="activity.proposed" class="ab-tooltip__row ab-tooltip__preview">
+        Proposed allocation (not saved)
+      </div>
+      <div *ngIf="activity.crewId" class="ab-tooltip__row">Crew: {{ activity.crewId }}</div>
+      <div
+        *ngIf="
+          scheduleFilter === 'actual' &&
+          activity.crewId === null &&
+          (activity.actualStart || activity.actualEnd)
+        "
+        class="ab-tooltip__row ab-tooltip__missing-crew"
+      >
+        Missing crew ID
+      </div>
+      <div *ngIf="activity.source === 'assignment'" class="ab-tooltip__row">Source: Maps</div>
+      <div
+        *ngIf="activity.activityName && activity.activityName !== activity.activityCode"
+        class="ab-tooltip__row"
+      >
+        {{ activity.activityName }}
+      </div>
+      <div *ngIf="scheduleFilter !== 'actual'" class="ab-tooltip__row">
+        Planned: {{ activity.plannedStart || 'Not recorded' }} →
+        {{ activity.plannedEnd || 'Not recorded' }}
+      </div>
+      <div *ngIf="scheduleFilter === 'actual'" class="ab-tooltip__row">
+        Actual: {{ actualDatesLabel(activity) }}
+      </div>
+      <div *ngIf="scheduleFilter !== 'actual'" class="ab-tooltip__row">
+        Norms (current):
+        {{
+          currentNorms(activity) == null
+            ? 'Not available'
+            : (currentNorms(activity) | number: '1.0-2')
+        }}
+      </div>
+      <div *ngIf="scheduleFilter === 'actual'" class="ab-tooltip__row">
+        Norms (actual):
+        {{
+          actualNorms(activity) == null
+            ? 'Not available'
+            : (actualNorms(activity) | number: '1.0-2')
+        }}
+      </div>
+      <div *ngIf="scheduleFilter === 'actual'" class="ab-tooltip__row ab-tooltip__progress">
+        Progress: {{ activity.progress | number: '1.0-2' }}%
+      </div>
+    </div>
+  </div>
+</div>
+
+<app-crew-utilization-report
+  *ngIf="utilizationReport as report"
+  [report]="report"
+  [plannedReport]="utilizationPlannedReport"
+  [actualReport]="utilizationActualReport"
+  [scopeLabel]="utilizationScopeLabel"
+  [selectionLabel]="utilizationSelectionLabel"
+  [exportCluster]="utilizationExportCluster"
+  [exportView]="utilizationExportView"
+  [view]="scheduleFilter === 'actual' ? 'actual' : 'planned'"
+  (viewChanged)="setUtilizationReportView($event)"
+  [scopedActivities]="utilizationScopedActivities"
+  [breadcrumbs]="breadcrumbs"
+  [filtersTemplate]="calendarFilters"
+  [loading]="loading"
+  [loadError]="loadError"
+  (closed)="closeUtilizationReport()"
+>
+</app-crew-utilization-report>

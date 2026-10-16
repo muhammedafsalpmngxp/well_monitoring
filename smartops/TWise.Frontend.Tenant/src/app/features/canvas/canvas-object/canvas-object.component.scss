@@ -1,0 +1,330 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+// AG Grid draws its cells outside this component's view.
+:host ::ng-deep {
+  .preview__blank { color: var(--color-text-muted); }
+
+  .canvas-object__cell--good { background: var(--color-good-bg); color: var(--color-good); font-weight: 600; }
+  .canvas-object__cell--warn { background: var(--color-warn-bg); color: var(--color-warn); font-weight: 600; }
+  .canvas-object__cell--bad { background: var(--color-bad-bg); color: var(--color-bad); font-weight: 600; }
+
+  .canvas-object__row--total { font-weight: 700; background: var(--color-primary-50); }
+  // A table's grand total, pinned under its rows.
+  .ag-row-pinned { font-weight: 700; background: var(--color-primary-50); }
+  .canvas-object__row--subtotal { font-weight: 600; background: var(--color-bg-app); }
+}
+
+.canvas-object {
+  &__chart { display: block; flex: 1; width: 100%; min-height: 0; }
+  &__grid { display: block; flex: 1; min-height: 160px; }
+
+  &__text {
+    flex: 1;
+    margin: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    overflow: auto;
+    color: var(--color-text-primary);
+    font-size: var(--canvas-body-size, 14px);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  // Fit text to the box: the size is set from code, so the box never scrolls.
+  &__text--fit { overflow: hidden; }
+
+  // Rich text keeps its own line breaks as HTML, and lays out top, middle or bottom in the box.
+  &__rich { white-space: normal; }
+  &__text--middle { display: flex; flex-direction: column; justify-content: center; }
+  &__text--bottom { display: flex; flex-direction: column; justify-content: flex-end; }
+  &__rich ::ng-deep {
+    p, div, h1, h2, h3, ul, ol, blockquote { margin: 0 0 0.35em; }
+    a { color: var(--color-primary); }
+    // Sizes relative to the box's font size, so Fit text scales them with the rest (14px base: 10, 12, 14, 16, 20, 26, 34).
+    font[size='1'] { font-size: 0.72em; }
+    font[size='2'] { font-size: 0.86em; }
+    font[size='3'] { font-size: 1em; }
+    font[size='4'] { font-size: 1.15em; }
+    font[size='5'] { font-size: 1.43em; }
+    font[size='6'] { font-size: 1.86em; font-weight: 700; }
+    font[size='7'] { font-size: 2.43em; font-weight: 800; letter-spacing: -0.01em; }
+  }
+
+  &__image { display: block; flex: 1; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+  &__image-link { display: flex; flex: 1; min-height: 0; }
+
+  &__loading { display: block; flex: 1; min-height: 0; padding: var(--spacing-sm); }
+
+  // ── KPI card (P10-7) ───────────────────────────────────────────────────────
+  // Every size in a card is relative to its font size, which is fitted to the card from code.
+  &__tile {
+    display: flex;
+    align-items: center;
+    gap: 0.9em;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.5em 0.9em;
+    font-size: 14px;
+  }
+
+  &__tile-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: var(--radius-full);
+    background: var(--color-primary-50);
+    color: var(--color-primary);
+  }
+
+  &__tile--good &__tile-icon { background: var(--color-good-bg); color: var(--color-good); }
+  &__tile--warn &__tile-icon { background: var(--color-warn-bg); color: var(--color-warn); }
+  &__tile--bad &__tile-icon { background: var(--color-bad-bg); color: var(--color-bad); }
+
+  &__tile-text { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+
+  &__tile-label { font-size: 0.86em; font-weight: 500; color: var(--color-text-label); }
+
+  &__tile-value {
+    font-size: 2em;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+  }
+
+  &__delta {
+    align-self: flex-start;
+    padding: 0.1em 0.6em;
+    border-radius: var(--radius-full);
+    font-size: 0.79em;
+    font-weight: 600;
+
+    &--good { background: var(--color-good-bg); color: var(--color-good); }
+    &--bad { background: var(--color-bad-bg); color: var(--color-bad); }
+  }
+
+  &__delta-label { font-weight: 500; color: var(--color-text-secondary); }
+
+  &__target { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+
+  &__bar { display: block; height: 6px; overflow: hidden; border-radius: var(--radius-full); background: var(--color-bg-app); }
+
+  &__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-primary);
+    transition: width 0.4s ease;
+  }
+
+  &__tile--good &__bar-fill { background: var(--color-good); }
+  &__tile--warn &__bar-fill { background: var(--color-warn); }
+  &__tile--bad &__bar-fill { background: var(--color-bad); }
+
+  &__target-text { font-size: 0.79em; color: var(--color-text-secondary); }
+
+  // ── Slicer (P10-1) ─────────────────────────────────────────────────────────
+  &__slicer { display: flex; flex: 1; flex-direction: column; gap: var(--spacing-xs); min-height: 0; padding: var(--spacing-xs) var(--spacing-sm); }
+
+  &__slicer-list { flex: 1; min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; scrollbar-width: thin; }
+
+  &__slicer-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 26px;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--color-text-primary);
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); }
+    input { accent-color: var(--color-primary); }
+  }
+
+  &__slicer-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: var(--spacing-xs); }
+  &__slicer-range--one { grid-template-columns: auto 1fr; align-items: center; }
+
+  // Two range thumbs on one track: the tracks sit on top of each other and only the thumbs take the pointer.
+  &__slider {
+    position: relative;
+    height: 24px;
+
+    input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      margin: 0;
+      background: none;
+      pointer-events: none;
+      appearance: none;
+      accent-color: var(--color-primary);
+
+      &::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--color-border); }
+      &::-moz-range-track { height: 4px; border-radius: 2px; background: var(--color-border); }
+      &::-webkit-slider-thumb {
+        width: 16px; height: 16px; margin-top: -6px; border: 2px solid var(--color-bg-card); border-radius: 50%;
+        background: var(--color-primary); box-shadow: 0 1px 3px rgb(0 0 0 / 25%); pointer-events: auto; appearance: none; cursor: pointer;
+      }
+      &::-moz-range-thumb {
+        width: 14px; height: 14px; border: 2px solid var(--color-bg-card); border-radius: 50%;
+        background: var(--color-primary); pointer-events: auto; cursor: pointer;
+      }
+      & + input::-webkit-slider-runnable-track { background: transparent; }
+      &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+    }
+  }
+
+  &__slicer-relative {
+    display: grid;
+    grid-template-columns: auto 72px 1fr;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 13px;
+    color: var(--color-text-primary);
+  }
+
+  // Tiles: one button per value, wrapped; a chosen value is filled.
+  &__tiles { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; min-height: 0; overflow-y: auto; }
+
+  &__tile-button {
+    padding: 4px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-bg-card);
+    font: inherit;
+    font-size: 12px;
+    color: var(--color-text-primary);
+    cursor: pointer;
+
+    &:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+    &--on, &--on:hover { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-text-inverse, #fff); }
+  }
+
+  &__dropdown { position: relative; }
+
+  &__dropdown-button {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    font-size: 13px;
+    cursor: pointer;
+
+    &::-webkit-details-marker { display: none; }
+    &::after { content: ''; width: 6px; height: 6px; margin-left: auto; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); }
+  }
+
+  &__dropdown-panel {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 4px);
+    right: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 220px;
+    padding: var(--spacing-xs);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    box-shadow: 0 8px 24px rgb(15 23 42 / 16%);
+  }
+
+  &__slicer-clear {
+    align-self: flex-end;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    color: var(--color-primary);
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  &__hint { margin: 0; padding: var(--spacing-sm); font-size: 12px; color: var(--color-text-secondary); }
+
+  &__error {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    color: var(--color-text-primary);
+
+    strong { color: var(--color-danger); }
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    padding: 0 var(--spacing-sm) var(--spacing-xs);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+  }
+
+  &__refresh {
+    display: inline-flex;
+    padding: 2px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+
+    &:hover { color: var(--color-primary); background: var(--color-primary-50); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__bar-fill { transition: none; }
+  }
+}
+
+// Drill up, drill mode and where the chart is in its hierarchy.
+.canvas-object__drill {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 0 4px;
+  font-size: 11px;
+  color: var(--color-text-label);
+}
+
+.canvas-object__drill-button {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+
+  &:disabled { opacity: 0.45; cursor: default; }
+  &--on { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-text-inverse); }
+}
+
+.canvas-object__drill-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

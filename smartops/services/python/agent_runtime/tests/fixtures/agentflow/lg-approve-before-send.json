@@ -1,0 +1,99 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "approve-before-send",
+    "description": "Pause for approval before acting",
+    "created_at": "2026-09-22T11:08:33.272Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": false,
+    "state_channels": [],
+    "routers": [],
+    "interrupts": [
+      {
+        "node": "sender",
+        "kind": "static",
+        "message": "Approve this step?",
+        "resume_key": "approval"
+      }
+    ],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "drafter",
+        "role": "an email drafter",
+        "goal": "Draft a professional email from the user's request",
+        "backstory": "",
+        "tools": [],
+        "verbose": true,
+        "allow_delegation": false,
+        "output_key": "draft"
+      },
+      {
+        "name": "sender",
+        "role": "a sender",
+        "goal": "Send the approved email",
+        "backstory": "",
+        "tools": [
+          "send_email"
+        ],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [],
+    "tools": [
+      {
+        "name": "send_email",
+        "description": "Send an email to a recipient.",
+        "parameters": [
+          {
+            "name": "to",
+            "type": "str",
+            "description": "Recipient address"
+          },
+          {
+            "name": "subject",
+            "type": "str",
+            "description": "Subject line"
+          },
+          {
+            "name": "body",
+            "type": "str",
+            "description": "Email body"
+          }
+        ],
+        "return_type": "str",
+        "implementation": "# Stub — the point of this template is the pause, not the delivery.\nreturn f\"Sent to {to}: {subject}\""
+      }
+    ],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

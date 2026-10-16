@@ -1,0 +1,239 @@
+<div id="page-incentive" class="page active">
+        <!-- <div class="breadcrumb"><a>{{ 'SIDEBAR.INSIGHT' | translate }}</a><span>›</span><a>{{ 'SIDEBAR.PRODUCTION_INTEL' | translate }}</a><span>›</span><span class="current">{{ 'INCENTIVE.BREADCRUMB' | translate }}</span></div> -->
+        <div class="page-title-row">
+          <div class="pi-title-content">
+            <div class="page-title">{{ 'INCENTIVE.PAGE_TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'INCENTIVE.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+          <div class="pi-title-actions">
+            <select class="dq-sla-select" id="piPeriod">
+              <option>Apr 1–20, 2026</option><option>Mar 2026</option><option>Feb 2026</option>
+            </select>
+            <button class="dq-btn dq-btn-blue" onclick="piRunScan()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              {{ 'INCENTIVE.RUN_INFLATION_SCAN' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- POC banner -->
+        <!-- Hero -->
+        <!-- <div class="pi-hero">
+          <div class="pi-hero-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div style="flex:1;position:relative">
+            <div class="pi-hero-title">{{ 'INCENTIVE.HERO_TITLE' | translate }}</div>
+            <div class="pi-hero-sub">{{ 'INCENTIVE.HERO_SUB' | translate }}</div>
+            <div class="pi-hero-stats">
+              <div class="pi-hero-stat"><div class="v gold">OMR 284.0K</div><div class="l">{{ 'INCENTIVE.INCENTIVE_PAID_20D' | translate }}</div></div>
+              <div class="pi-hero-stat"><div class="v red">7</div><div class="l">{{ 'INCENTIVE.FLAGGED_ANOMALIES' | translate }}</div></div>
+              <div class="pi-hero-stat"><div class="v warn">OMR 47.0K</div><div class="l">{{ 'INCENTIVE.EST_OVER_CLAIMED' | translate }}</div></div>
+              <div class="pi-hero-stat"><div class="v green">0.38</div><div class="l">{{ 'INCENTIVE.INCENTIVE_COMPLETION_R2' | translate }}</div></div>
+            </div>
+          </div>
+        </div> -->
+
+        <!-- KPI strip -->
+        <div class="pi-strip">
+
+          <div class="pi-kpi gold">
+            <div class="pi-kpi-head">
+              <span class="pi-kpi-label">{{ 'INCENTIVE.TOTAL_INCENTIVE_PAID' | translate }}</span>
+              <span class="pi-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </span>
+            </div>
+            <div class="pi-kpi-val gold">OMR 284.0K</div>
+            <div class="pi-kpi-sub">{{ 'INCENTIVE.KPI_PAID_SUB' | translate }}</div>
+            <div class="pi-kpi-delta up">▲ OMR 18.0K {{ 'INCENTIVE.VS_BUDGET' | translate }}</div>
+          </div>
+
+          <div class="pi-kpi red">
+            <div class="pi-kpi-head">
+              <span class="pi-kpi-label">{{ 'INCENTIVE.FLAGGED_ENTRIES' | translate }}</span>
+              <span class="pi-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+            </div>
+            <div class="pi-kpi-val red">7</div>
+            <div class="pi-kpi-sub">{{ 'INCENTIVE.OUT_OF_TOTAL_ENTRIES' | translate }}</div>
+          </div>
+
+          <div class="pi-kpi amber">
+            <div class="pi-kpi-head">
+              <span class="pi-kpi-label">{{ 'INCENTIVE.EST_OVER_CLAIMED' | translate }}</span>
+              <span class="pi-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+              </span>
+            </div>
+            <div class="pi-kpi-val amber">OMR 47.0K</div>
+            <div class="pi-kpi-sub">{{ 'INCENTIVE.PCT_OF_TOTAL_PAID' | translate }}</div>
+          </div>
+
+          <div class="pi-kpi red">
+            <div class="pi-kpi-head">
+              <span class="pi-kpi-label">{{ 'INCENTIVE.INFLATION_INDEX' | translate }}</span>
+              <span class="pi-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </span>
+            </div>
+            <div class="pi-kpi-val red">1.34×</div>
+            <div class="pi-kpi-sub">{{ 'INCENTIVE.AVG_ABOVE_NORM_RATIO' | translate }}</div>
+          </div>
+
+          <div class="pi-kpi blue">
+            <div class="pi-kpi-head">
+              <span class="pi-kpi-label">{{ 'INCENTIVE.INCENTIVE_COMPLETION_R2' | translate }}</span>
+              <span class="pi-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              </span>
+            </div>
+            <div class="pi-kpi-val blue">0.38</div>
+            <div class="pi-kpi-sub">{{ 'INCENTIVE.WEAK_CORRELATION' | translate }}</div>
+          </div>
+
+          <div class="pi-kpi purple">
+            <div class="pi-kpi-head">
+              <span class="pi-kpi-label">{{ 'INCENTIVE.ANOMALY_CREWS' | translate }}</span>
+              <span class="pi-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </span>
+            </div>
+            <div class="pi-kpi-val purple">3</div>
+            <div class="pi-kpi-sub">CW-002 · CW-003 · CW-005</div>
+          </div>
+
+        </div>
+
+        <!-- Alert strip -->
+        <!-- <div class="pi-alert-strip">
+          <div class="pi-alert critical">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="pi-alert-body"><strong>CW-003 (Bravo Welding)</strong> — {{ 'INCENTIVE.ALERT_CW003_BODY' | translate }} <span class="pi-alert-est">~OMR 3,200</span> {{ 'INCENTIVE.ON_THAT_ENTRY_ALONE' | translate }}</div>
+            <span class="pi-alert-flag critical">{{ 'INCENTIVE.IMPOSSIBLE_RATE' | translate }}</span>
+          </div>
+          <div class="pi-alert critical">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="pi-alert-body"><strong>CW-002 (Delta Welding)</strong> — {{ 'INCENTIVE.ALERT_CW002_BODY' | translate }} <span class="pi-alert-est">~OMR 8,400</span>.</div>
+            <span class="pi-alert-flag critical">{{ 'INCENTIVE.SEQUENTIAL_INFLATION' | translate }}</span>
+          </div>
+          <div class="pi-alert warning">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="pi-alert-body"><strong>CW-007 (Echo Civil)</strong> — {{ 'INCENTIVE.ALERT_CW007_BODY' | translate }}</div>
+            <span class="pi-alert-flag warning">{{ 'INCENTIVE.PATTERN_ANOMALY' | translate }}</span>
+          </div>
+        </div> -->
+
+        <!-- Tabs -->
+        <div class="ai-tabs">
+          <div class="ai-tab active" onclick="switchPiTab('anomaly',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPiTab('anomaly',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>
+            {{ 'INCENTIVE.TAB_ANOMALY_DETECTION' | translate }}
+            <span class="ai-tab-badge">7</span>
+          </div>
+          <div class="ai-tab" onclick="switchPiTab('tracker',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPiTab('tracker',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            {{ 'INCENTIVE.TAB_INCENTIVE_TRACKER' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPiTab('correlation',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPiTab('correlation',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+            {{ 'INCENTIVE.TAB_INCENTIVE_VS_COMPLETION' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPiTab('log',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPiTab('log',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            {{ 'INCENTIVE.TAB_PROGRESS_LOG' | translate }}
+          </div>
+        </div>
+
+        <!-- Tab: Anomaly Detection -->
+        <div id="pitab-anomaly" class="ai-tab-content active">
+          <div class="pi-charts-grid">
+            <div class="card">
+              <div class="card-title">{{ 'INCENTIVE.ACHIEVEMENT_DISTRIBUTION' | translate }}</div>
+              <div class="card-sub">{{ 'INCENTIVE.ACHIEVEMENT_DISTRIBUTION_SUB' | translate }}</div>
+              <canvas id="piAchievChart"></canvas>
+            </div>
+            <div class="card">
+              <div class="card-title">{{ 'INCENTIVE.ANOMALY_TYPE_BREAKDOWN' | translate }}</div>
+              <div class="card-sub">{{ 'INCENTIVE.ANOMALY_TYPE_BREAKDOWN_SUB' | translate }}</div>
+              <canvas id="piAnomTypeChart"></canvas>
+            </div>
+          </div>
+          <div id="piAnomalyGrid" class="ag-theme-alpine-dark pi-ag-grid"></div>
+        </div>
+
+        <!-- Tab: Incentive Tracker -->
+        <div id="pitab-tracker" class="ai-tab-content">
+          <div class="pi-tracker-grid">
+            <div class="card">
+              <div class="card-title">{{ 'INCENTIVE.COST_BY_CREW' | translate }}</div>
+              <div class="card-sub">{{ 'INCENTIVE.COST_BY_CREW_SUB' | translate }}</div>
+              <canvas id="piCrewChart"></canvas>
+              <div id="piCrewGrid" class="ag-theme-alpine-dark pi-ag-grid"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">{{ 'INCENTIVE.COST_BY_WELL' | translate }}</div>
+              <div class="card-sub">{{ 'INCENTIVE.COST_BY_WELL_SUB' | translate }}</div>
+              <canvas id="piWellChart"></canvas>
+              <div id="piWellGrid" class="ag-theme-alpine-dark pi-ag-grid"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">{{ 'INCENTIVE.DAILY_SPEND_TREND' | translate }}</div>
+            <div class="card-sub">{{ 'INCENTIVE.DAILY_SPEND_TREND_SUB' | translate }}</div>
+            <canvas id="piDailyTrendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Tab: Incentive vs Completion -->
+        <div id="pitab-correlation" class="ai-tab-content">
+          <div class="pi-insight-box">
+            <div class="pi-insight-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {{ 'INCENTIVE.AI_INSIGHT_TITLE' | translate }}
+            </div>
+            <div class="pi-insight-body">
+              {{ 'INCENTIVE.INSIGHT_HEALTHY_SYSTEM' | translate }} <span class="positive">r² &gt; 0.75</span> — {{ 'INCENTIVE.INSIGHT_HEALTHY_MEANING' | translate }}
+              {{ 'INCENTIVE.INSIGHT_CURRENT_R2' | translate }} <span class="highlight">0.38</span> {{ 'INCENTIVE.INSIGHT_WEAKLY_LINKED' | translate }}
+              <strong>37797</strong> {{ 'INCENTIVE.INSIGHT_37797' | translate }} <span class="highlight">{{ 'INCENTIVE.SLOWEST_COMPLETION_RATE' | translate }}</span> — {{ 'INCENTIVE.INSIGHT_INFLATED_SIGNAL' | translate }}
+              <strong>34565</strong> {{ 'INCENTIVE.INSIGHT_34565' | translate }}
+            </div>
+          </div>
+          <div class="pi-correlation-grid">
+            <div class="card">
+              <div class="card-title">{{ 'INCENTIVE.COST_UNIT_VS_COMPLETION' | translate }}</div>
+              <div class="card-sub">{{ 'INCENTIVE.COST_UNIT_VS_COMPLETION_SUB' | translate }}</div>
+              <canvas id="piScatterChart"></canvas>
+            </div>
+            <div class="card">
+              <div class="card-title">{{ 'INCENTIVE.SPEND_VS_PROGRESS' | translate }}</div>
+              <div class="card-sub">{{ 'INCENTIVE.SPEND_VS_PROGRESS_SUB' | translate }}</div>
+              <canvas id="piDualChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">{{ 'INCENTIVE.PER_CREW_EFFICIENCY' | translate }}</div>
+            <div class="card-sub">{{ 'INCENTIVE.PER_CREW_EFFICIENCY_SUB' | translate }}</div>
+            <div id="piEfficiencyBars"></div>
+          </div>
+        </div>
+
+        <!-- Tab: 20-Day Progress Log -->
+        <div id="pitab-log" class="ai-tab-content">
+          <div class="pi-log-filters">
+            <div class="am-search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="piLogSearch" [placeholder]="'INCENTIVE.SEARCH_PLACEHOLDER' | translate" oninput="piFilterLog()"/>
+            </div>
+            <select class="dq-filter-sel" id="piLogCrew" onchange="piFilterLog()">
+              <option>{{ 'INCENTIVE.ALL_CREWS' | translate }}</option><option>CW-001</option><option>CW-002</option><option>CW-003</option><option>CW-004</option><option>CW-005</option><option>CW-007</option>
+            </select>
+            <select class="dq-filter-sel" id="piLogFlag" onchange="piFilterLog()">
+              <option>{{ 'INCENTIVE.ALL_ENTRIES' | translate }}</option><option>{{ 'INCENTIVE.FLAGGED_ONLY' | translate }}</option><option>{{ 'INCENTIVE.CLEAN_ONLY' | translate }}</option>
+            </select>
+            <span id="piLogCount">120 {{ 'INCENTIVE.ENTRIES' | translate }}</span>
+          </div>
+          <div id="piLogGrid" class="ag-theme-alpine-dark pi-ag-grid"></div>
+        </div>
+      </div><!-- /page-incentive -->

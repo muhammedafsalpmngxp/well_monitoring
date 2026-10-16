@@ -1,0 +1,1895 @@
+// ─────────────────────────────────────────────────────────────
+// Header actions
+// ─────────────────────────────────────────────────────────────
+.na-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Page wrapper
+// ─────────────────────────────────────────────────────────────
+.na-page {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-family: var(--font-family-base);
+}
+
+// Agent name row
+// Agent name beside the page title (header title-suffix slot).
+.na-title-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 1px solid var(--color-border);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.na-agent-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #101828;
+}
+
+.na-agent-name__edit {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    color: #667085;
+
+    &:hover {
+        background: #F5F7FA;
+    }
+}
+
+.na-agent-name__input {
+    font-size: 15px;
+    font-weight: 600;
+    color: #101828;
+    border: 1px solid #C7D7FE;
+    border-radius: 4px;
+    padding: 4px 10px;
+    outline: none;
+    min-width: 200px;
+
+    &:focus {
+        border-color: #21409A;
+        box-shadow: 0 0 0 3px rgba(33, 64, 154, .08);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3-column grid layout  (columns driven by [style.gridTemplateColumns])
+// ─────────────────────────────────────────────────────────────
+.na-layout {
+    display: grid;
+    grid-template-columns: 264px 12px 1fr 12px 380px;
+    gap: 0;
+    align-items: stretch;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Column resize divider
+// ─────────────────────────────────────────────────────────────
+.na-col-divider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    align-self: stretch;
+    cursor: col-resize;
+    user-select: none;
+    padding: 0 4px;
+    border-radius: 4px;
+    transition: background 0.15s;
+
+    span {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #D0D5DD;
+        transition: background 0.15s;
+        display: block;
+    }
+
+    &:hover {
+        background: #F0F4FF;
+        span { background: #21409A; }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sidebar
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Sidebar
+// ─────────────────────────────────────────────────────────────
+.na-sidebar {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 10px;
+    padding: 10px;
+    min-height: calc(100vh - 180px);
+}
+
+.na-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #E7ECF3;
+    background: #fff;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+
+
+    // &:hover {
+    //     border-color: #C7D7FE;
+    //     box-shadow: 0 2px 8px rgba(33, 64, 154, 0.08);
+    // }
+
+    &--active {
+        background: #EEF4FF;
+        border-color: #C8D1F3;
+
+        // .na-nav-icon-box {
+        //     background: #21409A;
+        //     color: #fff;
+        // }
+
+        .na-nav-label {
+            color: #21409A;
+            font-weight: 600;
+        }
+    }
+}
+
+.na-nav-icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #EEF2F6;
+    color: #606A7E;
+    flex-shrink: 0;
+    transition: background .15s, color .15s;
+}
+
+.na-nav-content {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.na-nav-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #101828;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.na-nav-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    &__text {
+        font-size: 12px;
+        color: #667085;
+
+
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Section cards
+// ─────────────────────────────────────────────────────────────
+.na-main {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.na-card {
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+    overflow: hidden;
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 16px;
+        position: relative;
+
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 17px;
+            right: 14px;
+            height: 1px;
+            background: #E7ECF3;
+        }
+    }
+
+    &__num {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        background: #42A5F5;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 4px;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #101828;
+        flex-shrink: 0;
+    }
+
+    &__desc {
+        flex: 1;
+        font-size: 12px;
+        color: #667085;
+        text-align: right;
+    }
+
+    &__chevron {
+        display: flex;
+        align-items: center;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 2px;
+        color: #667085;
+        flex-shrink: 0;
+        border-radius: 4px;
+
+        &:hover {
+            background: #F0F4FF;
+        }
+    }
+
+    &__body {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+
+        &--tools {
+            padding-bottom: 12px;
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Form primitives
+// ─────────────────────────────────────────────────────────────
+.na-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.na-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.na-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #667085;
+
+    &--muted {
+        font-weight: 400;
+        color: #667085;
+    }
+}
+
+.na-input {
+    height: 32px;
+    padding: 0 11px;
+    border: 1px solid #DCE3ED;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #101828;
+    background: #fff;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+
+    &::placeholder {
+        color: #98A2B3;
+    }
+
+    &:focus {
+        border-color: #21409A;
+    }
+}
+
+.na-textarea {
+    padding: 9px 11px;
+    border: 1px solid #DCE3ED;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #101828;
+    background: #fff;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+    resize:none;
+
+    &::placeholder {
+        color: #98A2B3;
+    }
+
+    &:focus {
+        border-color: #21409A;
+    }
+
+    &--test {
+        resize: none;
+    }
+}
+
+// Custom select
+.na-select-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.na-select {
+    height: 36px;
+    padding: 0 28px 0 11px;
+    border: 1px solid #D0D5DD;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #344054;
+    background: #fff;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+    appearance: none;
+    transition: border-color .15s;
+
+    &:focus {
+        border-color: #21409A;
+        box-shadow: 0 0 0 3px rgba(33, 64, 154, .07);
+    }
+}
+
+.na-select-arrow {
+    position: absolute;
+    right: 8px;
+    pointer-events: none;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Instruction list
+// ─────────────────────────────────────────────────────────────
+.na-instr-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.na-instr-row {
+    display: flex;
+    align-items: center;
+}
+
+.na-instr-card {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    background: #fff;
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+    min-width: 0;
+
+    &:focus-within {
+        border-color: #21409A;
+    }
+    
+}
+
+.na-drag-handle {
+    display: flex;
+    align-items: center;
+    cursor: grab;
+    flex-shrink: 0;
+    color: #98A2B3;
+}
+
+.na-file-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    background: #EEF2F6;
+    border-radius: 20px;
+    padding: 4px;
+}
+
+.na-instr-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: #EEF2F6;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #667085;
+    flex-shrink: 0;
+}
+
+.na-instr-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    color: #101828;
+    font-family: inherit;
+    min-width: 0;
+
+    &::placeholder { color: #C0C8D4; }
+}
+
+.na-btn-trash {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+
+    &:hover { background: #FEF2F2; }
+}
+
+// ─────────────────────────────────────────────────────────────
+// List footer (Add / Clear)
+// ─────────────────────────────────────────────────────────────
+.na-list-footer {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-top: 2px;
+
+    &--left { justify-content: flex-start; }
+}
+
+.na-btn-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 13px;
+    background: #EEF4FF;
+    border: 1px solid #C8D1F3;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #21409A;
+    cursor: pointer;
+    &:hover {
+        border-color: #21409A;
+        color: #21409A;
+    }
+}
+
+.na-btn-clearall {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 10px;
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: #21409A;
+    cursor: pointer;
+    border-radius: 6px;
+
+    &:hover {
+        background: #F5F7FA;
+        color: #344054;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tools empty state
+// ─────────────────────────────────────────────────────────────
+.na-empty-tools {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 0 16px;
+
+    &__text {
+        font-size: 14px;
+        font-weight: 500;
+        color: #667085;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// IO blocks
+// ─────────────────────────────────────────────────────────────
+.na-io-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    &__top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    &__label {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #101828;
+    }
+
+    &__sub {
+        font-weight: 400;
+        font-size: 13px;
+        color: #667085;
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    // Blue outlined Add Input button inside IO blocks
+    .na-btn-add {
+        border-color: #21409A;
+        color: #21409A;
+        background: #EEF4FF;
+
+        &:hover {
+            background: #dde8ff;
+        }
+    }
+
+    // Plain text Clear all link
+    .na-btn-clearall {
+        color: #344054;
+        font-weight: 500;
+    }
+}
+
+.na-io-table {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+    overflow: hidden;
+
+    &__head {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 40px;
+        gap: 0;
+        padding: 10px 12px;
+        background: #F9FAFC;
+        border-bottom: 1px solid #E7ECF3;
+
+        span {
+            font-size: 13px;
+            font-weight: 500;
+            color: #667085;
+        }
+    }
+
+    &__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 18px;
+        gap: 0;
+        align-items: center;
+        padding: 10px 12px;
+        background: #fff;
+        border-bottom: 1px solid #F2F4F7;
+        column-gap: 8px;
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        // Inputs inside the table get gray bg
+        .na-input {
+            background: transparent;
+            border-color: #DCE3ED;
+            height: 32px;
+
+            &:focus {
+                background: #fff;
+                border-color: #21409A;
+            }
+        }
+
+        // Selects inside the table get gray bg
+        .na-select {
+            background: transparent;
+            border-color: #DCE3ED;
+            height: 32px;
+
+            &:focus {
+                background: #fff;
+                border-color: #21409A;
+            }
+        }
+
+        .na-select-wrap {
+            width: 100%;
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Test panel (right column)
+// ─────────────────────────────────────────────────────────────
+.na-test-panel {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-card, #fff);
+    border: 1px solid #E7ECF3;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(16, 24, 40, 0.04);
+    min-height: calc(100vh - 180px);
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #E7ECF3;
+        background: #fff;
+    }
+
+    &__play-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        color: #667085;
+    }
+
+    &__head-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    &__title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #101828;
+        line-height: 1.3;
+    }
+
+    &__subtitle {
+        font-size: 13px;
+        color: #667085;
+        line-height: 1.4;
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 16px;
+    }
+}
+
+.na-test-run-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 32px;
+    background: #21409A;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+
+    &:hover {
+        background: #1a3480;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Method chips (POST / GET / PATCH / PUT / DELETE)
+// ─────────────────────────────────────────────────────────────
+.na-method-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    border:none;
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-width: 50px;
+
+    &--post   { background: #EAF6FF; color: #29B6F6; }
+    &--get    { background: #EEF8EE; color: #1B7A3A; }
+    &--patch  { background: #FFF4E8; color: #B54708;  }
+    &--put    { background: #F4F3FF; color: #5925DC; }
+    &--delete { background: #FEF3F2; color: #B42318; }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tool groups in card body (after tools are added)
+// ─────────────────────────────────────────────────────────────
+.na-tool-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.na-tool-group {
+    border: 1px solid #E7ECF3;
+    border-radius: 8px;
+    overflow: hidden;
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: #fff;
+        border-bottom: 1px solid #E7ECF3;
+    }
+
+    &__chevron {
+        flex-shrink: 0;
+        color: #98A2B3;
+    }
+
+    &__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border: 1px solid #E9EEF5;
+        border-radius: 8px;
+        background: #fff;
+        box-sizing: border-box;
+        overflow: hidden;
+        padding: 4px;
+
+        svg { width: 20px; height: 20px; display: block; }
+    }
+
+    &__name {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+    }
+
+    &__badge {
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        border: none;
+        flex-shrink: 0;
+
+        &--type   {  color: #667085; background: #EEF2F6; }
+        &--status { background: #EEF8EE; color: #1B7A3A; }
+    }
+}
+
+.na-tool-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #fff;
+    border-bottom: 1px solid #F2F4F7;
+
+    &:last-child { border-bottom: none; }
+
+    &__info {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    &__name {
+        font-size: 14px;
+        font-weight: 400;
+        color: #101828;
+        white-space: nowrap;
+    }
+
+    &__path {
+        font-size: 14px;
+        color: #667085;
+        white-space: nowrap;
+    }
+
+    &__btn {
+        display: inline-flex;
+        align-items: center;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 6px;
+        color: #667085;
+        flex-shrink: 0;
+
+        &:hover { background: #F0F4FF; color: #21409A; }
+
+        &--delete {
+            color: #D92D20;
+            &:hover { background: #FEF2F2; }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Add Tool Modal
+// ─────────────────────────────────────────────────────────────
+.na-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 1000;
+}
+
+.na-modal {
+    width: 100%;
+    max-width: 780px;
+    max-height: 90vh;
+    background: var(--color-bg-card, #fff);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 8px 32px rgba(16, 24, 40, 0.18);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    // ── full-width top (header + subtitle) ────────────────
+    &__top {
+        padding: 20px 20px 16px;
+        flex-shrink: 0;
+        border-bottom: 1px solid #E7ECF3;
+    }
+
+    // ── two-column inner area ──────────────────────────────
+    &__inner {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    &__left {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 0 20px 20px;
+        border-right: 1px solid #E7ECF3;
+        overflow-y: auto;
+    }
+
+    &__right {
+        width: 350px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 0 20px 20px;
+        overflow-y: auto;
+        background: #fff;
+    }
+
+    // ── header ────────────────────────────────────────────
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+
+    &__title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__plus-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #EEF4FF;
+        color: #21409A;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #101828;
+        margin: 0;
+    }
+
+    &__close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 50%;
+        color: #667085;
+        flex-shrink: 0;
+
+        &:hover { color: #21409A; }
+    }
+
+    &__subtitle {
+        font-size: 13px;
+        font-weight: 500;
+        color: #667085;
+        margin: 0 0 14px;
+        line-height: 1.5;
+    }
+
+    // ── tabs ──────────────────────────────────────────────
+    &__tabs {
+        padding-top: 14px;
+        display: flex;
+        border-bottom: 1px solid #E7ECF3;
+        margin-bottom: 12px;
+    }
+
+    &__tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #344054;
+        cursor: pointer;
+        font-family: var(--font-family-base, inherit);
+        transition: color 0.15s, border-color 0.15s;
+
+        &:hover { color: #21409A; }
+
+        &--active {
+            color: #21409A;
+            font-weight: 700;
+            border-bottom-color: #21409A;
+        }
+    }
+
+    // ── search ────────────────────────────────────────────
+    &__search-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    &__search-icon {
+        position: absolute;
+        left: 10px;
+        pointer-events: none;
+        color: #667085;
+    }
+
+    &__search {
+        width: 100%;
+        height: 32px;
+        padding: 0 12px 0 32px;
+        border: 1px solid #DCE3ED;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: var(--font-family-base, inherit);
+        color: #101828;
+        background: #fff;
+        outline: none;
+        box-sizing: border-box;
+
+        &::placeholder { color: #98A2B3; }
+        &:focus { border-color: #21409A; }
+    }
+
+    // ── connection list ────────────────────────────────────
+    &__connections {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    &__connection {
+        border: 1px solid #E7ECF3;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    &__conn-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: #fff;
+        cursor: pointer;
+        user-select: none;
+
+        &:hover { background: #F5F8FF; }
+    }
+
+    &__conn-chevron {
+        flex-shrink: 0;
+        transform: rotate(-90deg);
+        transition: transform 0.2s;
+        color: #98A2B3;
+
+        &--open { transform: rotate(0deg); }
+    }
+
+    &__conn-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        background: #fff;
+        border-radius: 8px;
+        border: 1px solid #E9EEF5;
+        box-sizing: border-box;
+        overflow: hidden;
+        padding: 5px;
+    }
+
+    &__conn-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    &__conn-info-top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: nowrap;
+    }
+
+    &__conn-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+        white-space: nowrap;
+    }
+
+    &__conn-subtitle {
+        font-size: 12px;
+        color: #667085;
+        white-space: nowrap;
+    }
+
+    &__conn-type-badge {
+        padding: 2px 8px;
+        border-radius: 20px;
+        border: none;
+        font-size: 12px;
+        font-weight: 500;
+        color: #667085;
+        background: #EEF2F6;
+        flex-shrink: 0;
+    }
+
+    &__conn-status-badge {
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        background: #EEF8EE;
+        color: #427944;
+        border: none;
+        flex-shrink: 0;
+    }
+
+    &__conn-actions {
+        border-top: 1px solid #E7ECF3;
+        background: #fff;
+    }
+
+    &__action-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        cursor: pointer;
+
+        &:not(:last-child) { border-bottom: 1px solid #F2F4F7; }
+        &:hover { background: #F5F8FF; }
+    }
+
+    &__action-check {
+        flex-shrink: 0;
+        accent-color: #21409A;
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    &__action-name {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 400;
+        color: #101828;
+        min-width: 0;
+    }
+
+    &__action-path {
+        font-size: 14px;
+        color: #667085;
+        flex-shrink: 0;
+    }
+
+    // ── selection summary (right panel) ───────────────────
+    &__summary-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 22px;
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #E7ECF3;
+    }
+
+    &__summary-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #101828;
+    }
+
+    &__summary-clear {
+        background: none;
+        border: none;
+        font-size: 13px;
+        font-weight: 500;
+        color: #21409A;
+        cursor: pointer;
+        padding: 0;
+        font-family: var(--font-family-base, inherit);
+
+        &:hover { text-decoration: underline; }
+    }
+
+    &__summary-body {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    &__summary-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    &__summary-conn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 0;
+    }
+
+    &__summary-conn-icon {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        justify-content: center;
+        background: #fff;
+        border:1px solid #E9EEF5;
+        border-radius: 8px;
+        padding:6px;
+        width:30px;
+        height:30px;
+    }
+
+    &__summary-conn-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__summary-conn-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        background: #E4E7EC;
+        color: #344054;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    &__summary-action {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 8px 10px;
+        background: #fff;
+        border: 1px solid #E7ECF3;
+        border-radius: 10px;
+    }
+
+    &__summary-action-top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    &__summary-action-name {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 500;
+        color: #101828;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__summary-action-path {
+        font-size: 12px;
+        color: #667085;
+        padding-left: 2px;
+    }
+
+    &__summary-remove {
+        display: flex;
+        align-items: center;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        color: #D92D20;
+
+        &:hover { background: #FEF2F2; }
+    }
+
+    // ── footer ────────────────────────────────────────────
+    &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 14px 20px;
+        border-top: 1px solid #E7ECF3;
+        background: #fff;
+        flex-shrink: 0;
+    }
+}
+
+// ─── Responsive breakpoints ────────────────────────────────────────────────
+
+
+@media (max-width: 1100px) {
+  .na-layout {
+    grid-template-columns: 220px 10px 1fr 10px 300px !important;
+  }
+}
+
+
+@media (max-width: 900px) {
+  .na-layout {
+    grid-template-columns: 200px 10px 1fr !important;
+  }
+
+  .na-test-panel {
+    display: none !important;
+  }
+
+  .na-header-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .na-page {
+    gap: 10px;
+  }
+
+
+  .na-layout {
+    display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  
+  .na-col-divider {
+    display: none !important;
+  }
+
+  .na-test-panel {
+    display: none !important;
+  }
+
+
+  .na-sidebar {
+    position: static;
+    width: 100%;
+    min-height: unset;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  .na-nav-item {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 140px;
+    padding: 8px 10px;
+  }
+
+  .na-nav-label {
+    font-size: 13px;
+  }
+
+  .na-main {
+    width: 100%;
+    min-width: 0;
+  }
+
+  
+  .na-card {
+    &__desc {
+      display: none;
+    }
+
+    &__head {
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 11px 12px;
+    }
+
+    &__body {
+      padding: 12px;
+      gap: 12px;
+    }
+  }
+
+ 
+  .na-row-2col {
+    grid-template-columns: 1fr;
+  }
+
+ 
+  .na-io-block {
+    &__top {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    &__actions {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+  }
+
+
+  .na-io-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    &__head {
+      min-width: 420px;
+    }
+
+    &__row {
+      min-width: 420px;
+    }
+  }
+
+
+  .na-list-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+
+  .na-agent-name__input {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+
+@media (max-width: 480px) {
+  .na-header-actions {
+    flex-wrap: wrap;
+    gap: 4px;
+
+    ::ng-deep .btn {
+      font-size: 12px;
+      padding: 5px 8px;
+    }
+  }
+
+  .na-sidebar {
+    gap: 4px;
+    padding: 8px;
+  }
+
+ 
+  .na-nav-item {
+    flex: 1 1 100%;
+    padding: 8px 10px;
+  }
+
+  .na-card {
+    &__body {
+      padding: 10px;
+      gap: 10px;
+    }
+
+    &__num {
+      width: 18px;
+      height: 18px;
+      font-size: 11px;
+    }
+
+    &__title {
+      font-size: 13px;
+    }
+  }
+
+  .na-agent-name {
+    font-size: 13px;
+  }
+
+  .na-io-table {
+    &__head,
+    &__row {
+      min-width: 380px;
+      padding: 8px 10px;
+      column-gap: 6px;
+    }
+  }
+
+  .na-btn-add,
+  .na-btn-clearall {
+    font-size: 12px;
+    height: 30px;
+  }
+}
+
+// ─── Add Tool modal responsive ─────────────────────────────────────────────
+
+@media (max-width: 768px) {
+  .na-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .na-modal {
+    max-width: 100%;
+    max-height: 92vh;
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+
+    &__top {
+      padding: 16px 16px 12px;
+    }
+
+    &__title { font-size: 16px; }
+
+    &__subtitle {
+      font-size: 12px;
+      margin-bottom: 0;
+    }
+
+    // Stack left and right panels vertically
+    &__inner {
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    &__left {
+      border-right: none;
+      border-bottom: 1px solid #E7ECF3;
+      padding: 0 14px 14px;
+      overflow-y: visible;
+      flex: none;
+    }
+
+    &__right {
+      width: 100%;
+      flex-shrink: unset;
+      padding: 0 14px 14px;
+      overflow-y: visible;
+    }
+
+    &__tabs {
+      padding-top: 10px;
+      gap: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    &__tab {
+      flex-shrink: 0;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    &__summary-head {
+      padding-top: 12px;
+    }
+
+    &__footer {
+      padding: 12px 14px;
+      gap: 8px;
+
+      // Make footer buttons equal width
+      > * {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+
+    &__conn-head {
+      padding: 10px;
+      gap: 8px;
+    }
+
+    &__conn-name { font-size: 13px; }
+    &__conn-subtitle { display: none; }
+
+    &__action-row {
+      padding: 8px 12px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    &__action-path {
+      width: 100%;
+      padding-left: 22px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .na-modal {
+    max-height: 96vh;
+
+    &__top {
+      padding: 12px 12px 10px;
+    }
+
+    &__plus-icon {
+      width: 28px;
+      height: 28px;
+    }
+
+    &__title { font-size: 15px; }
+
+    &__left,
+    &__right {
+      padding: 0 10px 10px;
+    }
+
+    &__footer {
+      padding: 10px 12px;
+    }
+  }
+}
+// ── Save / tools messages, Coming soon, Test panel output ─────────────────
+.na-msg {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 10%, transparent);
+
+    &--bad {
+        color: var(--color-danger);
+        background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    }
+}
+
+.na-soon {
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.na-test-hint {
+    margin: 0 0 12px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.na-test-run-btn[disabled] {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.na-test-out {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--color-text-primary);
+
+    p { margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+}
+
+.na-test-stage { color: var(--color-text-secondary); font-style: italic; }
+
+.na-test-answer {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+}
+
+.na-test-step {
+    border: 1px solid var(--color-border-subtle, var(--color-border));
+    border-radius: 8px;
+    padding: 8px 10px;
+
+    summary { cursor: pointer; display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary); }
+
+    &__dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--color-text-muted);
+
+        &--ok { background: var(--color-success); }
+        &--bad { background: var(--color-danger); }
+    }
+
+    &__q { font-weight: 600; }
+
+    &__sql {
+        margin: 6px 0 0;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        white-space: pre-wrap;
+        overflow-x: auto;
+        color: var(--color-text-primary);
+        background: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
+    }
+}
+
+// ── Ask Data result in the Test panel: verdict chip and result table ─────
+.na-chip {
+    display: inline-block;
+    margin: 4px 0;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    color: var(--color-danger);
+    border: 1px solid currentColor;
+
+    &--ok { color: var(--color-success); }
+}
+
+.na-test-table {
+    margin-top: 6px;
+    overflow-x: auto;
+
+    table { border-collapse: collapse; font-size: 11px; width: 100%; }
+    th, td { padding: 4px 6px; border-bottom: 1px solid var(--color-border); text-align: left; white-space: nowrap; }
+    th { color: var(--color-text-secondary); font-weight: 600; }
+}
+
+// ── Form / Canvas switch ────────────────────────────────────────────────
+.na-view-toggle {
+    display: inline-flex;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+
+    button {
+        padding: 6px 14px;
+        border: 0;
+        background: transparent;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        font: inherit;
+    }
+
+    &--on { background: var(--color-primary) !important; color: #fff !important; }
+}
+
+// ── JSON view (agentflow.json) ─────────────────────────────────────────
+.na-json {
+    padding: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg-card);
+
+    &__bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+    &__title { margin-right: auto; font-weight: 600; color: var(--color-text-primary); small { font-weight: 400; color: var(--color-text-muted); } }
+    &__import { cursor: pointer; }
+    &__warnings { margin: 0 0 12px; padding-left: 18px; font-size: 12px; color: var(--color-text-secondary); }
+
+    &__code {
+        margin: 0;
+        max-height: max(420px, calc(100vh - 320px));
+        overflow: auto;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre;
+        color: var(--color-text-primary);
+        background: color-mix(in srgb, var(--color-text-muted) 8%, transparent);
+    }
+}
+
+// ── Collapsible side panels ──────────────────────────────────────────────
+.na-test-panel--collapsed { padding: 0 !important; min-width: 0; }
+
+.na-panel-collapse {
+    margin-left: auto;
+    align-self: flex-start;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.na-panel-strip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: 18px;
+    cursor: pointer;
+
+    &__label { writing-mode: vertical-rl; font-size: 13px; font-weight: 600; }
+}
+
+.na-instr-tag {
+    flex: none;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-warning, #b54708) 12%, transparent);
+    color: var(--color-text-primary);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.na-test-export { display: flex; gap: 8px; margin: 6px 0; }

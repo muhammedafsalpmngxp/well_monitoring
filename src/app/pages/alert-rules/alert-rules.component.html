@@ -1,0 +1,263 @@
+<div id="page-alert-rules" class="page active">
+
+  <div class="breadcrumb ar-bc">
+    <a (click)="back()">Smart Alerts</a>
+    <span class="ar-bc-sep">›</span>
+    <a class="current">Alert Rule Configuration</a>
+  </div>
+
+  <div class="page-title-row">
+    <div class="ar-title-wrap">
+      <div class="page-title">Alert Rule Configuration</div>
+      <div class="page-subtitle">Compose alert rules from predefined conditions and assign them to roles, users, clusters, sites or wells.</div>
+    </div>
+    <div class="ar-actions">
+      <button class="ar-btn ar-btn--primary" (click)="newRule()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Create new rule
+      </button>
+    </div>
+  </div>
+
+  <div class="ar-note">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    As platform admin you configure the rules here — a rule is any combination of predefined conditions. Enabled rules generate the alerts on the Smart Alerts page for the assigned roles / users / clusters / sites / wells. Click a row to view a rule.
+  </div>
+
+  <div class="ar-grid-wrap">
+    <div id="arGrid"></div>
+  </div>
+
+  <!-- ── Detail popup ── -->
+  <div class="ar-modal-backdrop" [class.open]="detailRule" (click)="closeDetail()"></div>
+  <div class="ar-modal ar-modal--detail" [class.open]="detailRule" *ngIf="detailRule">
+    <div class="ar-modal-head">
+      <div class="ar-modal-title">
+        <span [class]="sevClass(detailRule.severity)">{{ detailRule.severity }}</span>
+        <span>{{ detailRule.name }}</span>
+        <span class="ar-gbuiltin" *ngIf="detailRule.builtIn">Built-in</span>
+      </div>
+      <button class="ar-x" (click)="closeDetail()" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="ar-modal-body">
+      <div class="ar-d-row"><span class="ar-d-lbl">Status</span>
+        <label class="ar-switch ar-switch--sm" [class.on]="detailRule.enabled" (click)="toggleDetail()">
+          <span class="ar-track"><span class="ar-knob"></span></span>
+        </label>
+        <span class="ar-d-val">{{ detailRule.enabled ? 'Enabled' : 'Disabled' }}</span>
+      </div>
+      <div class="ar-d-row"><span class="ar-d-lbl">Created</span><span class="ar-d-val">{{ detailRule.createdAt ? (detailRule.createdAt | date:'dd-MMM-yyyy HH:mm') : '—' }}</span></div>
+      <div class="ar-d-row"><span class="ar-d-lbl">Match</span><span class="ar-d-val">{{ detailRule.match === 'ALL' ? 'Match ALL conditions (AND)' : 'Match ANY condition (OR)' }}</span></div>
+      <div class="ar-d-row"><span class="ar-d-lbl">SLA</span><span class="ar-d-val">{{ detailRule.slaHours ? (detailRule.slaHours + ' hours to close') : 'No SLA' }}</span></div>
+
+      <div class="ar-d-sec">Conditions</div>
+      <div class="ar-d-cond" *ngFor="let c of detailRule.conditions">
+        <div class="ar-d-cond-name">{{ condLabel(c.key) }}</div>
+        <div class="ar-d-cond-sum">{{ condSummary(c.key) }}</div>
+        <div class="ar-d-cond-params" *ngIf="detailConditionParams(c).length">
+          <span class="ar-d-tag" *ngFor="let p of detailConditionParams(c)">{{ p.label }}: <b>{{ p.value }} {{ p.unit }}</b></span>
+        </div>
+      </div>
+
+      <div class="ar-d-sec">Assigned to</div>
+      <div class="ar-d-row"><span class="ar-d-lbl">Method</span><span class="ar-d-val">{{ methodLabel(detailRule.assignMethod) }}</span></div>
+
+      <!-- Scope method → per-dimension chips -->
+      <ng-container *ngIf="(detailRule.assignMethod || 'scope') === 'scope'">
+        <div class="ar-d-scope" *ngFor="let dim of scopeDims">
+          <div class="ar-d-scope-lbl">{{ dim.label }}</div>
+          <div class="ar-d-chips" *ngIf="detailScope(dim).length; else anyTpl">
+            <span class="ar-d-chip" *ngFor="let v of detailScope(dim)">{{ v }}</span>
+          </div>
+          <ng-template #anyTpl><span class="ar-d-any">Any</span></ng-template>
+        </div>
+      </ng-container>
+
+      <!-- Any other method → readable resolved summary -->
+      <div class="ar-d-assign" *ngIf="(detailRule.assignMethod || 'scope') !== 'scope'">
+        {{ assignText(detailRule) }}
+      </div>
+    </div>
+    <div class="ar-modal-foot">
+      <button class="ar-btn ar-btn--danger" *ngIf="!detailRule.builtIn" (click)="deleteFromDetail()">Delete</button>
+      <span class="ar-foot-sp"></span>
+      <button class="ar-btn" (click)="closeDetail()">Close</button>
+      <button class="ar-btn ar-btn--primary" *ngIf="!detailRule.builtIn" (click)="editFromDetail()">Edit rule</button>
+    </div>
+  </div>
+
+  <!-- ── Create / Edit modal ── -->
+  <div class="ar-modal-backdrop" [class.open]="editorOpen" (click)="closeEditor()"></div>
+  <div class="ar-modal ar-modal--editor" [class.open]="editorOpen" *ngIf="editorOpen">
+    <div class="ar-modal-head">
+      <div class="ar-modal-title"><span>{{ editing ? 'Edit rule' : 'Create new rule' }}</span></div>
+      <button class="ar-x" (click)="closeEditor()" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="ar-modal-body">
+      <div class="ar-form-grid">
+        <label class="ar-field">
+          <span>Rule name</span>
+          <input type="text" [(ngModel)]="editorModel.name" placeholder="e.g. Rig-on approaching &amp; behind plan">
+        </label>
+        <label class="ar-field">
+          <span>Severity</span>
+          <select [(ngModel)]="editorModel.severity">
+            <option *ngFor="let s of sevOptions" [value]="s">{{ s }}</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="ar-field">
+        <span>SLA <em class="ar-hint">assigned users must close the alert within</em></span>
+        <span class="ar-param-in"><input type="number" min="0" [(ngModel)]="editorModel.slaHours"><em>hours</em></span>
+      </label>
+
+      <!-- Conditions builder -->
+      <div class="ar-field">
+        <span>Conditions
+          <em class="ar-hint">a rule fires when</em>
+          <select class="ar-match" [(ngModel)]="editorModel.match">
+            <option value="ALL">ALL match (AND)</option>
+            <option value="ANY">ANY match (OR)</option>
+          </select>
+        </span>
+      </div>
+
+      <div class="ar-cond-list">
+        <div class="ar-cond" *ngFor="let c of editorModel.conditions; let i = index">
+          <div class="ar-cond-head">
+            <span class="ar-cond-name">{{ condLabel(c.key) }}</span>
+            <button class="ar-cond-x" (click)="removeCondition(i)" title="Remove condition">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="ar-cond-sum">{{ condSummary(c.key) }}</div>
+          <div class="ar-cond-params" *ngIf="condParams(c.key).length">
+            <label class="ar-param" *ngFor="let p of condParams(c.key)">
+              <span class="ar-param-lbl">{{ p.label }}</span>
+              <span class="ar-param-in"><input type="number" [(ngModel)]="c.params[p.key]"><em>{{ p.unit }}</em></span>
+            </label>
+          </div>
+        </div>
+        <div class="ar-cond-empty" *ngIf="!editorModel.conditions.length">No conditions yet — add one or more predefined conditions below.</div>
+      </div>
+
+      <div class="ar-addcond">
+        <select [(ngModel)]="addConditionKey">
+          <option value="">+ Add a predefined condition…</option>
+          <option *ngFor="let cd of conditionCatalogue" [value]="cd.key">{{ cd.label }}</option>
+        </select>
+        <button class="ar-btn ar-btn--sm" (click)="addCondition()" [disabled]="!addConditionKey">Add</button>
+      </div>
+
+      <!-- Reusable generic multi-select (groups / on-call / owners / escalation / attr values) -->
+      <ng-template #msblock let-arr="arr" let-options="options" let-key="key" let-noun="noun" let-label="label">
+        <div class="ar-ms">
+          <div class="ar-ms-lbl" *ngIf="label">{{ label }}</div>
+          <button type="button" class="ar-ms-btn" [class.on]="openDd === key" (click)="toggleDd(key, $event)">
+            <span class="ar-ms-text" [class.muted]="!arr.length">{{ arrLabel(arr, noun) }}</span>
+            <svg class="ar-ms-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="ar-ms-panel" *ngIf="openDd === key" (click)="$event.stopPropagation()">
+            <label class="ar-ms-opt" *ngFor="let o of options" (click)="toggleIn(arr, o, $event)">
+              <span class="ar-ms-check" [class.checked]="arr.includes(o)">
+                <svg *ngIf="arr.includes(o)" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span>{{ o }}</span>
+            </label>
+          </div>
+        </div>
+      </ng-template>
+
+      <!-- Assignment -->
+      <div class="ar-field ar-field--sec"><span>Assign to <em class="ar-hint">choose how this rule targets people</em></span></div>
+
+      <!-- Method picker -->
+      <div class="ar-methods">
+        <button type="button" class="ar-method" *ngFor="let am of assignMethods" [class.on]="isMethod(am.key)" (click)="setMethod(am.key)">
+          <span class="ar-method-radio" [class.checked]="isMethod(am.key)"></span>
+          <span class="ar-method-txt">
+            <span class="ar-method-name">{{ am.label }}</span>
+            <span class="ar-method-desc">{{ am.desc }}</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- 1 · Attribute-based (dynamic audience) -->
+      <div class="ar-method-cfg" *ngIf="isMethod('attribute')">
+        <div class="ar-field"><span>Audience rule
+          <em class="ar-hint">recipients resolved live</em>
+          <select class="ar-match" [(ngModel)]="editorModel.attribute!.match">
+            <option value="ALL">ALL match (AND)</option>
+            <option value="ANY">ANY match (OR)</option>
+          </select>
+        </span></div>
+        <div class="ar-attr" *ngFor="let cl of editorModel.attribute!.clauses; let i = index">
+          <select class="ar-attr-field" [(ngModel)]="cl.field" (ngModelChange)="onAttrFieldChange(i)">
+            <option *ngFor="let f of attrFields" [value]="f.key">{{ f.label }}</option>
+          </select>
+          <span class="ar-attr-in">in</span>
+          <ng-container *ngTemplateOutlet="msblock; context: { arr: cl.values, options: attrOptions(cl.field), key: 'attr-' + i, noun: 'values' }"></ng-container>
+          <button class="ar-cond-x" (click)="removeAttrClause(i)" title="Remove condition">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <button class="ar-btn ar-btn--sm ar-attr-add" (click)="addAttrClause()">+ Add attribute condition</button>
+        <div class="ar-method-note">Resolves to a live audience — new joiners / movers matching the rule are included automatically; leavers drop off.</div>
+      </div>
+
+      <!-- 2 · Scope-first -->
+      <div class="ar-method-cfg" *ngIf="isMethod('scope')">
+        <div class="ar-form-grid ar-form-grid--2">
+          <div class="ar-ms" *ngFor="let dim of scopeDims">
+            <div class="ar-ms-lbl">{{ dim.label }}</div>
+            <button type="button" class="ar-ms-btn" [class.on]="openDd === dim.key" (click)="toggleDd(dim.key, $event)">
+              <span class="ar-ms-text" [class.muted]="!editorModel.scope[dim.key].length">{{ ddLabel(dim) }}</span>
+              <svg class="ar-ms-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="ar-ms-panel" *ngIf="openDd === dim.key" (click)="$event.stopPropagation()">
+              <label class="ar-ms-opt" *ngFor="let o of dim.options" (click)="toggleScope(dim.key, o, $event)">
+                <span class="ar-ms-check" [class.checked]="inScope(dim.key, o)">
+                  <svg *ngIf="inScope(dim.key, o)" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span>{{ o }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="ar-method-note">Leave a dimension as “Any” to not restrict on it. Use Users only for individual exceptions.</div>
+      </div>
+
+      <!-- 3 · Responsibility / ownership -->
+      <div class="ar-method-cfg" *ngIf="isMethod('ownership')">
+        <div class="ar-form-grid ar-form-grid--2">
+          <ng-container *ngTemplateOutlet="msblock; context: { arr: editorModel.ownership!.targets, options: ownerTargets, key: 'owners', noun: 'owners', label: 'Notify owner(s)' }"></ng-container>
+          <ng-container *ngTemplateOutlet="msblock; context: { arr: editorModel.ownership!.escalation, options: escalationTiers, key: 'escal', noun: 'tiers', label: 'Escalation chain (if unacknowledged)' }"></ng-container>
+        </div>
+        <div class="ar-method-note">The recipient is derived from the affected well / site / crew at alert time, then escalates along the chain within the SLA.</div>
+      </div>
+
+      <!-- 4 · Groups / distribution lists -->
+      <div class="ar-method-cfg" *ngIf="isMethod('groups')">
+        <ng-container *ngTemplateOutlet="msblock; context: { arr: editorModel.groups!.groups, options: groupOptions, key: 'groups', noun: 'groups', label: 'Groups / distribution lists' }"></ng-container>
+        <div class="ar-method-note">Membership syncs from HR / AD / IdP — you assign the group, not individuals, so the list never goes stale.</div>
+      </div>
+
+      <!-- 5 · On-call schedule / rotation -->
+      <div class="ar-method-cfg" *ngIf="isMethod('oncall')">
+        <ng-container *ngTemplateOutlet="msblock; context: { arr: editorModel.oncall!.schedules, options: oncallOptions, key: 'oncall', noun: 'schedules', label: 'On-call schedule(s)' }"></ng-container>
+        <div class="ar-method-note">Only whoever is on shift in the selected rotation is notified — not the entire role.</div>
+      </div>
+
+      <label class="ar-check"><input type="checkbox" [(ngModel)]="editorModel.enabled"> Enabled</label>
+    </div>
+    <div class="ar-modal-foot">
+      <button class="ar-btn" (click)="closeEditor()">Cancel</button>
+      <button class="ar-btn ar-btn--primary" (click)="saveEditor()">Save rule</button>
+    </div>
+  </div>
+</div>

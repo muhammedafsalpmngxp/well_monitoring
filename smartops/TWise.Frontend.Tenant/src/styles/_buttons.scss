@@ -1,0 +1,106 @@
+// ============================================================
+// Buttons
+// ============================================================
+@use 'sass:color';
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius-md;
+  font-size: $font-size-base;
+  font-weight: $font-weight-medium;
+  font-family: $font-family-base;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  @include transition(all);
+
+  &:focus-visible { @include focus-ring; }
+  &:disabled, &[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  &.btn-full { width: 100%; justify-content: center; }
+
+  // Sizes
+  &.btn-sm  { padding: 4px $spacing-sm;  font-size: $font-size-sm; height: 30px; }
+  &.btn-md  { padding: $spacing-sm $spacing-md; height: 36px; }
+  &.btn-lg  { padding: 12px $spacing-xl; font-size: $font-size-md; height: 44px; }
+
+  // Variants
+  &.btn-primary {
+    background: $color-primary;
+    color: $color-text-inverse;
+    border-color:$color-primary;
+    &:hover:not(:disabled) { background: $color-primary-dark; border-color: $color-primary-dark; }
+  }
+
+  &.btn-secondary {
+    background: $color-bg-card;
+    color:  $color-primary;
+    border-color: $color-primary;
+    &:hover:not(:disabled) { background: $color-bg-app; border-color: color.adjust($color-border, $lightness: -10%); }
+  }
+
+  &.btn-danger {
+    background: #1D2939;
+    color: $color-text-inverse;
+    border-color: #1D2939;
+    &:hover:not(:disabled) { background: #101828; border-color: #101828; }
+  }
+
+  &.btn-warning {
+    background: $color-primary;
+    color: $color-text-inverse;
+    border-color: $color-primary;
+    &:hover:not(:disabled) { background: $color-primary-dark; border-color: $color-primary-dark; }
+  }
+
+  &.btn-info {
+    background: #1D2939;
+    color: $color-text-inverse;
+    border-color: #1D2939;
+    &:hover:not(:disabled) { background: #101828; border-color: #101828; }
+  }
+
+  &.btn-ghost {
+    background: transparent;
+    color: $color-primary;
+    border-color: transparent;
+    &:hover:not(:disabled) { background: $color-primary-50; }
+  }
+
+  &.btn-link {
+    background: transparent;
+    color: $color-primary;
+    border: none;
+    padding: 0;
+    text-decoration: underline;
+    &:hover { text-decoration: none; }
+  }
+
+  // Loading state
+  &.btn-loading {
+    position: relative;
+    color: transparent;
+    .spinner {
+      position: absolute;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

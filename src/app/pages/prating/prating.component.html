@@ -1,0 +1,213 @@
+<div id="page-prating" class="page active">
+<!-- 
+        <div class="breadcrumb">
+          <a>{{ 'SIDEBAR.CREW_ACTIVITIES' | translate }}</a><span>›</span>
+          <span class="current">{{ 'SIDEBAR.P_RATING' | translate }}</span>
+        </div> -->
+
+        <div class="page-title-row">
+          <div class="pr-title-row-left">
+            <div class="page-title">{{ 'PRATING.TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'PRATING.SUBTITLE_FULL' | translate }}</div>
+          </div>
+          <!-- Scale mode toggle -->
+          <div class="pr-toggle-col">
+            <div class="pr-scale-toggle" id="prScaleToggle">
+              <button class="pr-scale-toggle-btn active" data-mode="p8">
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7"><polygon points="6 1 7.5 4.5 11 4.5 8.5 7 9.5 11 6 9 2.5 11 3.5 7 1 4.5 4.5 4.5"/></svg>
+                {{ 'PRATING.SCALE_P8' | translate }}
+              </button>
+              <button class="pr-scale-toggle-btn" data-mode="continuous">
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="1" y1="6" x2="11" y2="6"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="8" cy="6" r="1.5" fill="currentColor"/></svg>
+                {{ 'PRATING.SCALE_CONTINUOUS' | translate }}
+              </button>
+            </div>
+            <div class="pr-future-note" id="prFutureNote" style="display:none">{{ 'PRATING.FUTURE_MODE_NOTE' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- 4 stat cards -->
+        <div class="pr-stat-row">
+          <div class="pr-stat c-green">
+            <div class="pr-stat-head">
+              <span class="pr-stat-label">{{ 'PRATING.BASELINE_STANDARD' | translate }}</span>
+              <span class="pr-stat-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </span>
+            </div>
+            <div class="pr-stat-val">P8</div>
+            <div class="pr-stat-sub">{{ 'PRATING.BASELINE_STANDARD_SUB' | translate }}</div>
+          </div>
+          <div class="pr-stat c-blue">
+            <div class="pr-stat-head">
+              <span class="pr-stat-label">{{ 'PRATING.AUTO_SCORE_CEILING' | translate }}</span>
+              <span class="pr-stat-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </span>
+            </div>
+            <div class="pr-stat-val">P6</div>
+            <div class="pr-stat-sub">{{ 'PRATING.AUTO_SCORE_CEILING_SUB' | translate }}</div>
+          </div>
+          <div class="pr-stat c-amber">
+            <div class="pr-stat-head">
+              <span class="pr-stat-label">{{ 'PRATING.APPROVAL_REQUIRED' | translate }}</span>
+              <span class="pr-stat-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </span>
+            </div>
+            <div class="pr-stat-val">P7 &amp; P8</div>
+            <div class="pr-stat-sub">{{ 'PRATING.APPROVAL_REQUIRED_SUB' | translate }}</div>
+          </div>
+          <div class="pr-stat c-red">
+            <div class="pr-stat-head">
+              <span class="pr-stat-label">{{ 'PRATING.ZERO_OUTPUT' | translate }}</span>
+              <span class="pr-stat-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              </span>
+            </div>
+            <div class="pr-stat-val">P0</div>
+            <div class="pr-stat-sub">{{ 'PRATING.ZERO_OUTPUT_SUB' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- P0–P8 view (default) -->
+        <div id="prViewP8">
+          <!-- Visual scale bar -->
+          <div class="card pr-card-spaced">
+            <div class="card-head">
+              <div><div class="card-title">{{ 'PRATING.PRODUCTIVITY_SCALE' | translate }}</div><div class="card-sub">{{ 'PRATING.PRODUCTIVITY_SCALE_SUB' | translate }}</div></div>
+            </div>
+            <div class="pr-scale-wrap">
+              <div class="pr-scale-bar" id="prScaleBar"></div>
+              <div class="pr-scale-labels" id="prScaleLabels"></div>
+            </div>
+            <div class="pr-scale-legend">
+              <span class="pr-legend-item"><span class="pr-legend-swatch pr-legend-swatch--approval"></span>{{ 'PRATING.REQUIRES_WORKFLOW_APPROVAL' | translate }}</span>
+              <span class="pr-legend-item"><span class="pr-legend-swatch pr-legend-swatch--estimate"></span>{{ 'PRATING.THRESHOLDS_ESTIMATES' | translate }}</span>
+            </div>
+          </div>
+
+          <!-- Main reference table (ag-grid) -->
+          <div id="prRatingGrid" class="ag-theme-alpine-dark"></div>
+
+          <!-- Approval workflow section -->
+          <div class="card pr-card-spaced">
+            <div class="card-head">
+              <div><div class="card-title">{{ 'PRATING.APPROVAL_WORKFLOW_TITLE' | translate }}</div><div class="card-sub">{{ 'PRATING.APPROVAL_WORKFLOW_SUB' | translate }}</div></div>
+            </div>
+            <div class="pr-wf-for pr-wf-for--spaced">
+              <div class="pr-wf-level">
+                <div class="pr-wf-level-badge pr-wf-level-badge--p7">P7</div>
+                <div class="pr-wf-level-title">{{ 'PRATING.P7_TITLE' | translate }}</div>
+                <div class="pr-wf-level-desc">{{ 'PRATING.P7_DESC' | translate }}</div>
+              </div>
+              <div class="pr-wf-level pr-wf-level--p8">
+                <div class="pr-wf-level-badge pr-wf-level-badge--p8">P8</div>
+                <div class="pr-wf-level-title">{{ 'PRATING.P8_TITLE' | translate }}</div>
+                <div class="pr-wf-level-desc">{{ 'PRATING.P8_DESC' | translate }}</div>
+              </div>
+            </div>
+            <div class="pr-approval-wrap">
+              <div class="pr-approval-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                {{ 'PRATING.APPROVAL_CHAIN' | translate }}
+              </div>
+              <div class="pr-workflow">
+                <div class="pr-wf-step"><div class="pr-wf-step-role">{{ 'PRATING.STEP_1' | translate }}</div><div class="pr-wf-step-name">{{ 'PRATING.SITE_CLUSTER_MANAGER' | translate }}</div></div>
+                <div class="pr-wf-arrow">›</div>
+                <div class="pr-wf-step"><div class="pr-wf-step-role">{{ 'PRATING.STEP_2' | translate }}</div><div class="pr-wf-step-name">{{ 'PRATING.CONSTRUCTION_HEAD' | translate }}</div></div>
+                <div class="pr-wf-arrow">›</div>
+                <div class="pr-wf-step"><div class="pr-wf-step-role">{{ 'PRATING.STEP_3' | translate }}</div><div class="pr-wf-step-name">{{ 'PRATING.DIVISION_HEAD' | translate }}</div></div>
+                <div class="pr-wf-arrow">›</div>
+                <div class="pr-wf-step finance"><div class="pr-wf-step-role">{{ 'PRATING.STEP_4_P8_ONLY' | translate }}</div><div class="pr-wf-step-name">{{ 'PRATING.FINANCE_MANAGER' | translate }}</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Example calculation -->
+          <div class="card pr-card-spaced">
+            <div class="card-head">
+              <div><div class="card-title">{{ 'PRATING.EXAMPLE_CALCULATION' | translate }}</div><div class="card-sub">{{ 'PRATING.EXAMPLE_CALCULATION_SUB' | translate }}</div></div>
+            </div>
+            <div class="pr-example-wrap pr-example-wrap--flush">
+              <div class="pr-calc-row">
+                <div class="pr-calc-label">{{ 'PRATING.ACTIVITY_NORM' | translate }}</div>
+                <div class="pr-calc-val">0.375 Km/hr</div>
+                <div class="pr-calc-result"><span class="cc-pill cc-pill-blue">{{ 'PRATING.FROM_ACTIVITY_MASTER' | translate }}</span></div>
+              </div>
+              <div class="pr-calc-row">
+                <div class="pr-calc-label">{{ 'PRATING.CREW_ACTUAL_OUTPUT' | translate }}</div>
+                <div class="pr-calc-val">0.375 Km/hr</div>
+                <div class="pr-calc-result"><div class="pr-badge pr-calc-badge--p8">P8</div><span class="pr-calc-result-text pr-calc-result-text--green">{{ 'PRATING.STANDARD_NORMS' | translate }}</span></div>
+              </div>
+              <div class="pr-calc-row">
+                <div class="pr-calc-label">{{ 'PRATING.CREW_ACTUAL_OUTPUT' | translate }}</div>
+                <div class="pr-calc-val">0.300 Km/hr</div>
+                <div class="pr-calc-result"><div class="pr-badge pr-calc-badge--p5">P5</div><span class="pr-calc-result-text pr-calc-result-text--muted">{{ 'PRATING.NEAR_NORMS' | translate }}</span></div>
+              </div>
+              <div class="pr-calc-row">
+                <div class="pr-calc-label">{{ 'PRATING.CREW_ACTUAL_OUTPUT' | translate }}</div>
+                <div class="pr-calc-val">0.056 Km/hr</div>
+                <div class="pr-calc-result"><div class="pr-badge pr-calc-badge--p0">P0</div><span class="pr-calc-result-text pr-calc-result-text--red">{{ 'PRATING.NO_OUTPUT_AUTO_TRIGGERED' | translate }}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Continuous 0–100 view (hidden by default) -->
+        <div id="prViewContinuous" style="display:none">
+          <div class="card pr-card-spaced">
+            <div class="card-head">
+              <div>
+                <div class="card-title">{{ 'PRATING.CONTINUOUS_SCALE_TITLE' | translate }}</div>
+                <div class="card-sub">{{ 'PRATING.CONTINUOUS_SCALE_SUB' | translate }}</div>
+              </div>
+              <span class="pr-future-badge">{{ 'PRATING.FUTURE_DIRECTION' | translate }}</span>
+            </div>
+            <div class="pr-continuous-wrap">
+              <div class="pr-continuous-bar"></div>
+              <div class="pr-continuous-markers">
+                <span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100</span>
+              </div>
+            </div>
+            <div class="pr-migration-panel">
+              <div class="pr-migration-title">{{ 'PRATING.MIGRATION_NOTES' | translate }}</div>
+              <div class="pr-migration-list">
+                <div>{{ 'PRATING.MIGRATION_NOTE_1' | translate }}</div>
+                <div>{{ 'PRATING.MIGRATION_NOTE_2' | translate }}</div>
+                <div>{{ 'PRATING.MIGRATION_NOTE_3' | translate }}</div>
+                <div>{{ 'PRATING.MIGRATION_NOTE_4' | translate }}</div>
+                <div>{{ 'PRATING.MIGRATION_NOTE_5' | translate }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Config Panel (shown in both modes) -->
+        <div class="pr-config-wrap">
+          <div class="pr-config-header" onclick="togglePrConfig()">
+            <div class="pr-config-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+            </div>
+            <div class="pr-config-header-body">
+              <div class="pr-config-title">{{ 'PRATING.ADMIN_CONFIG_TITLE' | translate }}</div>
+              <div class="pr-config-sub">{{ 'PRATING.ADMIN_CONFIG_SUB' | translate }}</div>
+            </div>
+            <span class="pr-config-badge">{{ 'PRATING.CONFIGURABLE' | translate }}</span>
+            <div class="pr-config-arrow" id="prConfigArrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </div>
+          <div class="pr-config-body" id="prConfigBody">
+            <div class="pr-config-note">
+              {{ 'PRATING.DEMO_TALKING_POINT' | translate }}
+            </div>
+            <div class="pr-config-grid" id="prConfigGrid"></div>
+            <div class="pr-cfg-actions">
+              <button class="pr-btn pr-btn-outline" onclick="resetPrThresholds()">{{ 'PRATING.RESET_DEFAULTS' | translate }}</button>
+              <button class="pr-btn pr-btn-primary" id="prSaveBtn" onclick="savePrThresholds()">{{ 'PRATING.SAVE_APPLY' | translate }}</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /page-prating -->

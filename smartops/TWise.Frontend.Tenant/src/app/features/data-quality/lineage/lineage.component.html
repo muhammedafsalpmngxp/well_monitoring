@@ -1,0 +1,72 @@
+<app-page-header title="Data Lineage"
+  [breadcrumbs]="[{label:'Home'},{label:'Data Quality'},{label:'Data Lineage'}]">
+</app-page-header>
+
+<div class="page-content lg-page">
+  <div class="lg-toolbar">
+    <input type="search" class="lg-search" placeholder="Find a source, dataset, chart or dashboard"
+      [(ngModel)]="search" (ngModelChange)="select(null)" />
+    <div class="lg-legend">
+      <span class="lg-legend__item" *ngFor="let k of ['source','db','import','view','table','chart','dashboard','report']">
+        <i class="lg-dot lg-dot--{{ k }}"></i>{{ k }}
+      </span>
+    </div>
+    <button type="button" class="lg-clear" *ngIf="selected" (click)="select(null)">Clear selection</button>
+  </div>
+
+  <div class="lg-error" *ngIf="error">{{ error }}</div>
+  <div class="lg-empty" *ngIf="loading">Loading…</div>
+  <div class="lg-empty" *ngIf="!loading && !error && !nodes.length">
+    Nothing to trace yet. Connect a source, build a view or chart, and it appears here.
+  </div>
+
+  <div class="lg-body" *ngIf="nodes.length">
+    <div class="lg-canvas">
+      <svg [attr.width]="width" [attr.height]="height" [attr.viewBox]="'0 0 ' + width + ' ' + height">
+        <defs>
+          <marker id="lg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#98a2b3" />
+          </marker>
+          <marker id="lg-arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#21409a" />
+          </marker>
+        </defs>
+
+        <text *ngFor="let title of layerTitles; let i = index" class="lg-layer-title"
+          [attr.x]="layerX(i)" [attr.y]="30">{{ title }}</text>
+
+        <path *ngFor="let e of edges" class="lg-edge" [class.lg-edge--active]="isEdgeActive(e)"
+          [class.lg-edge--dim]="selected && !isEdgeActive(e)" [attr.d]="e.path"
+          [attr.marker-end]="isEdgeActive(e) ? 'url(#lg-arrow-active)' : 'url(#lg-arrow)'" />
+
+        <g *ngFor="let n of nodes" class="lg-node lg-node--{{ n.kind }}"
+          [class.lg-node--dim]="isDimmed(n)" [class.lg-node--selected]="selected?.id === n.id"
+          [attr.transform]="'translate(' + n.x + ',' + n.y + ')'" (click)="select(n)">
+          <rect [attr.width]="nodeW" [attr.height]="nodeH" rx="8" />
+          <rect class="lg-node__stripe" width="4" [attr.height]="nodeH" rx="2" />
+          <text class="lg-node__label" x="14" [attr.y]="n.sub ? 19 : 28">{{ n.label.length > 26 ? (n.label | slice:0:25) + '…' : n.label }}</text>
+          <text class="lg-node__sub" x="14" y="35" *ngIf="n.sub">{{ n.sub }}</text>
+          <title>{{ n.label }}{{ n.sub ? ' · ' + n.sub : '' }}</title>
+        </g>
+      </svg>
+    </div>
+
+    <aside class="lg-panel" *ngIf="selected">
+      <span class="lg-panel__kind"><i class="lg-dot lg-dot--{{ selected.kind }}"></i>{{ selected.kind }}</span>
+      <h3>{{ selected.label }}</h3>
+      <p class="lg-panel__sub" *ngIf="selected.sub">{{ selected.sub }}</p>
+
+      <h4>Upstream <span>{{ upstream.length }}</span></h4>
+      <p class="lg-panel__none" *ngIf="!upstream.length">No upstream sources recorded.</p>
+      <button type="button" class="lg-panel__row" *ngFor="let n of upstream" (click)="select(n)">
+        <i class="lg-dot lg-dot--{{ n.kind }}"></i>{{ n.label }}
+      </button>
+
+      <h4>Downstream <span>{{ downstream.length }}</span></h4>
+      <p class="lg-panel__none" *ngIf="!downstream.length">Nothing uses this yet.</p>
+      <button type="button" class="lg-panel__row" *ngFor="let n of downstream" (click)="select(n)">
+        <i class="lg-dot lg-dot--{{ n.kind }}"></i>{{ n.label }}
+      </button>
+    </aside>
+  </div>
+</div>

@@ -1,0 +1,209 @@
+/* ═══ Drilled Wells Page — mirrors odcwells styling ═══ */
+
+#page-drilledwells {
+  position: relative;
+
+  .drw-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9pt;
+    color: var(--txt-2, #64748b);
+    cursor: pointer;
+    font-weight: 500;
+    margin-bottom: 6px;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: var(--primary, #29378d);
+    }
+
+    .drw-back-icon {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  .aw-page-loader {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg, #0b1538);
+    border-radius: 4px;
+  }
+
+  .aw-page-loader-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .aw-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(59, 130, 246, 0.18);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: aw-spin-dwc 0.7s linear infinite;
+  }
+
+  @keyframes aw-spin-dwc {
+    to { transform: rotate(360deg); }
+  }
+
+  .aw-loading-text {
+    font-size: 10pt;
+    font-weight: 600;
+    color: var(--txt-muted, #94a3b8);
+    letter-spacing: 0.3px;
+  }
+
+  .aw-title-left {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .aw-title-right {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .aw-dashboard-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--txt-1);
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+
+    svg { width: 16px; height: 16px; }
+
+    &:hover {
+      background: rgba(41,55,141, 0.08);
+      border-color: rgba(41,55,141, 0.4);
+      color: #29378d;
+    }
+  }
+
+  .aw-kpi.active .aw-kpi-bar-track {
+    background: rgba(41,55,141, 0.15);
+    border-radius: 999px;
+    height: 6px;
+    overflow: hidden;
+    margin: 6px 0;
+  }
+  .aw-kpi.active .aw-kpi-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.5s cubic-bezier(.4,0,.2,1);
+  }
+  .aw-kpi.active .aw-bar-fill-blue { background: var(--blue, #29378d); }
+
+  .aw-kpi.complete .aw-kpi-bar { background: rgba(0, 176, 80, 0.3); width: 26%; }
+  .aw-kpi.complete .aw-kpi-pct { color: var(--green); }
+
+  .aw-kpi.progress .aw-kpi-bar { background: rgba(0, 176, 240, 0.3); width: 24%; }
+  .aw-kpi.progress .aw-kpi-pct { color: var(--teal); }
+
+  .aw-kpi.planned .aw-kpi-bar { background: rgba(127, 127, 127, 0.3); width: 20%; }
+  .aw-kpi.planned .aw-kpi-pct { color: #7F7F7F; }
+
+  .aw-kpi.early .aw-kpi-bar { background: rgba(255, 192, 0, 0.3); width: 16%; }
+  .aw-kpi.early .aw-kpi-pct { color: #FFC000; }
+
+  .aw-filter-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .aw-export-btn {
+    font-size: 9pt;
+    padding: 6px 12px;
+
+    svg { width: 9pt; height: 9pt; }
+  }
+
+  .aw-grid-container {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .aw-grid-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+
+  .aw-grid-toolbar-icon {
+    width: 12px;
+    height: 12px;
+    color: var(--txt-muted);
+  }
+
+  .aw-grid-toolbar-title {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--txt-1);
+  }
+
+  .aw-grid-toolbar-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .aw-view-all-link {
+    font-size: 9pt;
+    color: var(--accent);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* AG Grid must have an explicit height */
+  #awWellsGrid {
+    width: 100%;
+    height: 580px;
+  }
+
+  /* Hide card view by default; awSetView() toggles visibility */
+  #awCardView {
+    display: none;
+    padding: 14px;
+  }
+}
+
+/* ── Dark-mode overrides ── */
+html:not(.navbar-light) #page-drilledwells {
+  .aw-grid-container {
+    background: var(--surface);
+    border-color: var(--border);
+  }
+
+  .aw-grid-toolbar {
+    background: var(--surface-2);
+    border-bottom-color: var(--border);
+  }
+}
+

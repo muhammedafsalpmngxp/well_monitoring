@@ -1,0 +1,453 @@
+    <header class="topbar">
+      <!-- Mobile hamburger — off-canvas sidebar toggle, shown only <=1199px -->
+      <button type="button" class="nb-menu-btn" (click)="toggleMobileSidebar()" aria-label="Open menu" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+
+      <!-- Mobile search toggle — shown <=540px, where .nb-search collapses to icon-only -->
+      <button type="button" class="nb-search-toggle" *ngIf="showWellSearch && !mobileSearchOpen" (click)="toggleMobileSearch()" aria-label="Open search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <line x1="20" y1="20" x2="16.65" y2="16.65"/>
+        </svg>
+      </button>
+
+      <!-- Global autocomplete search (left) — only on dashboard & wells pages -->
+      <div class="nb-search" *ngIf="showWellSearch" [class.is-open]="searchOpen" [class.mobile-open]="mobileSearchOpen">
+        <svg class="nb-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <line x1="20" y1="20" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          type="text"
+          class="nb-search-input"
+          placeholder="Search Well ID…"
+          autocomplete="off"
+          [(ngModel)]="searchQuery"
+          (focus)="onSearchFocus()"
+          (input)="onSearchInput()"
+          (keydown.enter)="onSearchEnter()"
+          (keydown.escape)="mobileSearchOpen ? toggleMobileSearch() : closeSearch()"
+          [ngModelOptions]="{standalone: true}"
+        />
+        <button type="button" class="nb-search-clear" *ngIf="searchQuery || mobileSearchOpen"
+                (click)="searchQuery ? clearSearch() : toggleMobileSearch()" aria-label="Clear or close search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <div class="nb-search-results" *ngIf="searchOpen && filteredSuggestions.length">
+          <button type="button" class="nb-search-result"
+                  *ngFor="let wellId of filteredSuggestions; let i = index"
+                  [class.is-active]="i === searchActiveIndex"
+                  (mousedown)="$event.preventDefault(); selectSuggestion(wellId)"
+                  (mouseenter)="searchActiveIndex = i">
+            <span class="nb-search-result-icon nb-search-result-icon--well">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M5 8h14"/><path d="M5 14h14"/></svg>
+            </span>
+            <span class="nb-search-result-text">
+              <span class="nb-search-result-lbl">{{ wellId }}</span>
+              <span class="nb-search-result-cat">Well ID</span>
+            </span>
+          </button>
+        </div>
+        <div class="nb-search-empty" *ngIf="searchOpen && searchQuery && !filteredSuggestions.length">
+          No wells found for "{{ searchQuery }}"
+        </div>
+      </div>
+
+      <!-- Spacer pushes right-side items -->
+  
+
+      <!-- Date Display -->
+      <!-- <div class="nb-date-display">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="nbCurrentDate"></span>
+      </div> -->
+
+      <!-- Last DB sync timestamp (source DB) -->
+      <div class="nb-sync" title="Last database sync with the source DB">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <span class="nb-sync-txt"><span class="nb-sync-lbl">Last sync</span><span class="nb-sync-time">{{ lastSync }}</span></span>
+      </div>
+
+      <!-- Marina AI Button -->
+      <div class="marina-nav-btn-wrap">
+        <button class="marina-nav-btn" onclick="marinaToggle()" aria-label="Open Marina AI Assistant">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </button>
+        <span class="marina-nav-tooltip">Jenny AI</span>
+      </div>
+
+      <!-- Voice Button (hidden) -->
+      <!-- <div class="marina-nav-btn-wrap">
+        <button class="marina-voice-nav-btn" onclick="speechTranslatorOpen()" aria-label="Speech to English Translator">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <span class="marina-nav-tooltip">Speech Translator</span>
+      </div> -->
+
+      <!-- Separator -->
+      <div class="nb-sep"></div>
+
+      <!-- Action icons (filter · sort · bell) — aligned as a group on the right -->
+      <div class="nb-actions">
+    
+       
+        <div class="nb-bell-wrap">
+          <div class="nb-bell" title="Notifications" (click)="toggleNotif($event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="nb-bell-badge" *ngIf="notifCount">{{ notifCount > 99 ? '99+' : notifCount }}</span>
+          </div>
+          <div class="nb-notif" *ngIf="notifOpen" (click)="$event.stopPropagation()">
+            <div class="nb-notif-head">Smart Alerts <span>{{ notifCount }}</span></div>
+            <div class="nb-notif-list">
+              <div class="nb-notif-empty" *ngIf="!notifs.length">No alerts assigned to you.</div>
+              <div class="nb-notif-item" *ngFor="let n of notifs.slice(0, 8)" (click)="goToAlerts()">
+                <span [class]="sevDot(n.sev)"></span>
+                <div class="nb-notif-body">
+                  <div class="nb-notif-title">{{ n.title }}</div>
+                  <div class="nb-notif-meta">{{ n.cat }} · Due {{ n.due }}<span *ngIf="n.slaText"> · {{ n.slaText }}</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="nb-notif-foot"><button type="button" (click)="goToAlerts()">View all alerts</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Language -->
+      <select class="nb-lang" (change)="switchLanguage($event.target.value)">
+        <option value="en" [selected]="currentLang === 'en'">🌐  US English</option>
+        <option value="ar" [selected]="currentLang === 'ar'">🌐  العربية</option>
+      </select>
+
+      <!-- Theme dropdown -->
+      <div class="nb-theme-wrap" id="nbThemeWrap">
+        <button class="nb-theme-btn" id="nbThemeToggle" onclick="toggleThemeMenu()" title="Switch theme">
+          <svg id="nbThemeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <span id="nbThemeLabel">Light</span>
+          <svg class="nb-theme-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="nb-theme-menu" id="nbThemeMenu">
+          <button class="nb-theme-opt" data-theme="dark" onclick="setTheme('dark')">
+            <svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            {{ 'TOPBAR.THEME_DARK' | translate }}
+          </button>
+          <button class="nb-theme-opt active" data-theme="light" onclick="setTheme('light')">
+            <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            {{ 'TOPBAR.THEME_LIGHT' | translate }}
+          </button>
+          <button class="nb-theme-opt" data-theme="contrast" onclick="setTheme('contrast')">
+            <svg class="ico-contrast" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor"/></svg>
+            {{ 'TOPBAR.THEME_CONTRAST' | translate }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Font size control -->
+      <div class="nb-font-wrap" [class.open]="fontOpen">
+        <button type="button" class="nb-font-btn" (click)="toggleFontMenu($event)" title="Font size" aria-label="Font size">
+          <span class="nb-font-aa"><small>A</small>A</span>
+          <svg class="nb-font-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="nb-font-menu" *ngIf="fontOpen" (click)="$event.stopPropagation()">
+          <div class="nb-font-title">Font Size</div>
+          <div class="nb-font-slider-row">
+            <span class="nb-font-a-sm">A</span>
+            <input type="range" class="nb-font-slider" [min]="FONT_MIN" [max]="FONT_MAX" step="0.05"
+                   [value]="fontScale" (input)="onFontSlider($any($event.target).value)" aria-label="Font size slider"/>
+            <span class="nb-font-a-lg">A</span>
+          </div>
+          <div class="nb-font-presets">
+            <button type="button" class="nb-font-preset" [class.active]="fontPreset==='small'" (click)="setFontPreset('small')">
+              <span class="nb-font-preset-a" style="font-size:13px">A</span>
+              <span class="nb-font-preset-lbl">Small</span>
+            </button>
+            <button type="button" class="nb-font-preset" [class.active]="fontPreset==='medium'" (click)="setFontPreset('medium')">
+              <span class="nb-font-preset-a" style="font-size:17px">A</span>
+              <span class="nb-font-preset-lbl">Medium</span>
+            </button>
+            <button type="button" class="nb-font-preset" [class.active]="fontPreset==='large'" (click)="setFontPreset('large')">
+              <span class="nb-font-preset-a" style="font-size:22px">A</span>
+              <span class="nb-font-preset-lbl">Large</span>
+            </button>
+          </div>
+          <button type="button" class="nb-font-reset" (click)="resetFont()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            Reset to Default
+          </button>
+        </div>
+      </div>
+
+      <!-- Role Selector -->
+      <div class="nb-role-wrap" id="nbRoleWrap">
+        <button class="nb-role-btn borderNoSlect" onclick="toggleRoleMenu()">
+          <div class="nb-role-avatar">A</div>
+          <div class="nb-role-info">
+            <span class="nb-role-name" id="nbRoleName">{{ 'TOPBAR.ROLE_ADMIN' | translate }}</span>
+            <span class="nb-role-access" id="nbRoleAccess">{{ 'TOPBAR.FULL_ACCESS' | translate }}</span>
+          </div>
+          <svg class="nb-role-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="nb-role-panel" id="nbRolePanel">
+          <div class="nb-role-panel-head">
+            <div class="nb-role-panel-org">{{ 'TOPBAR.ROLE_ORG' | translate }}</div>
+            <div class="nb-role-panel-title">Signed in</div>
+            <div class="nb-role-panel-sub">Your role and access</div>
+          </div>
+          <button class="nb-role-option active" data-role="admin" onclick="setRole('admin',this)">
+            <div class="nb-role-opt-icon admin" style="background:#f1f5f9;color:#334155">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="nb-role-opt-body">
+              <div class="nb-role-opt-name">{{ 'TOPBAR.ROLE_ADMIN' | translate }}</div>
+              <div class="nb-role-opt-desc">{{ 'TOPBAR.ROLE_ADMIN_DESC' | translate }}</div>
+              <span class="nb-role-opt-badge">{{ 'TOPBAR.ROLE_ADMIN_BADGE' | translate }}</span>
+            </div>
+            <div class="nb-role-opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          </button>
+          <button class="nb-role-option" data-role="md" onclick="setRole('md',this)">
+            <div class="nb-role-opt-icon md" style="background:#f1f5f9;color:#334155">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <div class="nb-role-opt-body">
+              <div class="nb-role-opt-name">{{ 'TOPBAR.ROLE_MD' | translate }}</div>
+              <div class="nb-role-opt-desc">{{ 'TOPBAR.ROLE_MD_DESC' | translate }}</div>
+              <span class="nb-role-opt-badge">{{ 'TOPBAR.ROLE_MD_BADGE' | translate }}</span>
+            </div>
+            <div class="nb-role-opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          </button>
+          <button class="nb-role-option" data-role="supervisor" onclick="setRole('supervisor',this)">
+            <div class="nb-role-opt-icon super" style="background:#f1f5f9;color:#334155">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="nb-role-opt-body">
+              <div class="nb-role-opt-name">{{ 'TOPBAR.ROLE_SUPER' | translate }}</div>
+              <div class="nb-role-opt-desc">{{ 'TOPBAR.ROLE_SUPER_DESC' | translate }}</div>
+              <span class="nb-role-opt-badge">{{ 'TOPBAR.ROLE_SUPER_BADGE' | translate }}</span>
+            </div>
+            <div class="nb-role-opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          </button>
+
+          <div class="nb-role-panel-foot">
+            <button class="nb-logout-btn" onclick="appLogout()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════
+         MARINA AI CHAT PANEL
+         Fixed overlay, toggled by the ⚡ button
+         ═══════════════════════════════════════════ -->
+    <div class="marina-panel" id="marinaPanel" role="dialog" aria-label="Jenny AI Assistant" aria-modal="true">
+      <div class="marina-panel-header">
+        <div class="marina-panel-header-icon">
+          <svg viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+        </div>
+        <div class="marina-panel-header-text">
+          <div class="marina-panel-title">AI Assistant</div>
+          <div class="marina-panel-subtitle">Your friendly bot to the workflow and beyond</div>
+        </div>
+        <button class="marina-close-btn" onclick="marinaToggle()" aria-label="Close Jenny AI">
+          <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="marina-messages" id="marinaMessages">
+        <!-- Populated by marinaInit() in app-globals.js -->
+      </div>
+      <div class="marina-input-bar" id="marinaInputBar">
+        <input type="text" class="marina-input" id="marinaInput" placeholder="Ask Jenny"
+               onkeydown="if(event.key==='Enter')marinaSend()"
+               aria-label="Type your message to Jenny AI"/>
+        <button class="marina-input-mic" onclick="marinaVoiceStart()" aria-label="Voice input">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        </button>
+        <button class="marina-input-send" onclick="marinaSend()" aria-label="Send message">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+
+      <!-- Inline voice recording bar (shown instead of input bar while recording) -->
+      <div class="marina-voice-bar" id="marinaVoiceBar">
+        <button class="marina-voice-bar-btn cancel" onclick="marinaVoiceCancel()" aria-label="Cancel recording">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="marina-voice-dots" id="marinaVoiceDots">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <span class="marina-voice-timer" id="marinaVoiceTimer">0:00</span>
+        <button class="marina-voice-bar-btn confirm" onclick="marinaVoiceConfirm()" aria-label="Send voice message">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SPEECH → ENGLISH TRANSLATOR MODAL
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="stt-backdrop" id="sttBackdrop" onclick="speechTranslatorClose()" aria-hidden="true"></div>
+    <div class="stt-modal" id="sttModal" role="dialog" aria-label="Speech to English Translator" aria-modal="true">
+      <!-- Header -->
+      <div class="stt-header">
+        <div class="stt-header-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        </div>
+        <div class="stt-header-text">
+          <div class="stt-header-title">Speech &rarr; English Translator</div>
+          <div class="stt-header-sub">Speak in any language &mdash; get instant English transcription.</div>
+        </div>
+        <button class="stt-close-btn" onclick="speechTranslatorClose()" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Language selector row -->
+      <div class="stt-lang-select-row">
+        <label class="stt-lang-select-label" for="sttLangSelect">Speak in:</label>
+        <select class="stt-lang-select" id="sttLangSelect" onchange="sttOnLangChange()">
+          <option value="" selected>🌐 Auto Detect</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="ar-SA">Arabic (Saudi)</option>
+          <option value="ar-AE">Arabic (UAE)</option>
+          <option value="fr-FR">French</option>
+          <option value="de-DE">German</option>
+          <option value="es-ES">Spanish</option>
+          <option value="hi-IN">Hindi</option>
+          <option value="ml-IN">Malayalam</option>
+          <option value="ta-IN">Tamil</option>
+          <option value="te-IN">Telugu</option>
+          <option value="kn-IN">Kannada</option>
+          <option value="bn-IN">Bengali</option>
+          <option value="mr-IN">Marathi</option>
+          <option value="gu-IN">Gujarati</option>
+          <option value="pa-IN">Punjabi</option>
+          <option value="ur-PK">Urdu</option>
+          <option value="zh-CN">Chinese (Simplified)</option>
+          <option value="zh-TW">Chinese (Traditional)</option>
+          <option value="pt-BR">Portuguese (Brazil)</option>
+          <option value="ru-RU">Russian</option>
+          <option value="ja-JP">Japanese</option>
+          <option value="ko-KR">Korean</option>
+          <option value="tr-TR">Turkish</option>
+          <option value="it-IT">Italian</option>
+          <option value="nl-NL">Dutch</option>
+          <option value="pl-PL">Polish</option>
+          <option value="id-ID">Indonesian</option>
+          <option value="ms-MY">Malay</option>
+          <option value="th-TH">Thai</option>
+          <option value="vi-VN">Vietnamese</option>
+          <option value="uk-UA">Ukrainian</option>
+          <option value="ro-RO">Romanian</option>
+          <option value="sv-SE">Swedish</option>
+        </select>
+      </div>
+
+      <!-- Controls row -->
+      <div class="stt-controls">
+        <button class="stt-record-btn" id="sttRecordBtn" onclick="sttToggleRecording()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+          <span id="sttRecordLabel">Start Recording</span>
+        </button>
+        <div class="stt-waveform">
+          <canvas id="sttWaveCanvas" width="340" height="36"></canvas>
+        </div>
+        <span class="stt-status-badge" id="sttStatusBadge">Idle</span>
+      </div>
+
+      <!-- Language detect row -->
+      <div class="stt-lang-row">
+        <span class="stt-detected-badge">DETECTED</span>
+        <span class="stt-detected-lang" id="sttDetectedLang">UNKNOWN</span>
+        <button class="stt-clear-btn" onclick="sttClear()">Clear</button>
+      </div>
+
+      <!-- Transcript area -->
+      <div class="stt-transcript-area">
+        <div class="stt-transcript-placeholder" id="sttPlaceholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          <div class="stt-placeholder-title">Your transcription will appear here</div>
+          <div class="stt-placeholder-sub">Click Start Recording and speak clearly</div>
+        </div>
+        <div class="stt-transcript-text" id="sttTranscriptText" style="display:none"></div>
+      </div>
+
+      <!-- Footer actions -->
+      <div class="stt-footer">
+        <button class="stt-action-btn" onclick="sttCopyToChat()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Send to Jenny
+        </button>
+        <button class="stt-action-btn stt-copy-btn" onclick="sttCopyClipboard()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         ADVANCED FILTER — off-canvas (slides in from the right)
+         ═══════════════════════════════════════════ -->
+    <div class="afilt-backdrop" [class.is-open]="filterPanelOpen" (click)="closeFilterPanel()"></div>
+    <aside class="afilt-panel" [class.is-open]="filterPanelOpen" role="dialog" aria-label="Advanced filter">
+      <!-- Header -->
+      <header class="afilt-head">
+        <div class="afilt-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#29378d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+          <span>Advanced Filter</span>
+        </div>
+        <button type="button" class="afilt-close" (click)="closeFilterPanel()" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        
+      </header>
+
+      <!-- Body — scrollable filter sections -->
+      <div class="afilt-body">
+
+        <!-- Multi-select groups -->
+        <div class="afilt-group" *ngFor="let g of filterGroups">
+          <div class="afilt-group-head">
+            <span class="afilt-lbl">{{ g.label }}</span>
+            <button type="button" class="afilt-group-clear" (click)="clearGroup(g)" aria-label="Clear">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="afilt-select" (click)="toggleGroupDropdown(g)">
+            <div class="afilt-chips">
+              <span class="afilt-chip" *ngFor="let v of g.selected">
+                {{ v }}
+                <button type="button" class="afilt-chip-x" (click)="$event.stopPropagation(); removeChip(g, v)" aria-label="Remove">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </span>
+            </div>
+            <svg class="afilt-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="afilt-dropdown" *ngIf="g.dropdownOpen">
+            <button type="button" class="afilt-opt"
+                    *ngFor="let opt of g.options"
+                    [class.selected]="g.selected.includes(opt)"
+                    (click)="$event.stopPropagation(); toggleOption(g, opt)">
+              <span class="afilt-opt-check" [class.checked]="g.selected.includes(opt)">
+                <svg *ngIf="g.selected.includes(opt)" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span>{{ opt }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="afilt-foot">
+        <button type="button" class="afilt-btn afilt-btn--ghost" (click)="resetFilters()">Reset</button>
+        <button type="button" class="afilt-btn afilt-btn--primary" (click)="applyFilters()">Apply</button>
+      </footer>
+    </aside>

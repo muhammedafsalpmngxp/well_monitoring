@@ -1,0 +1,105 @@
+<div id="page-scoped-roles" class="page active">
+
+  <div class="breadcrumb"><a>Scoped Role Assignment — Demo</a></div>
+
+  <div class="page-title-row">
+    <div class="sr-title-wrap">
+      <div class="page-title">Scoped Role Assignment</div>
+      <div class="page-subtitle">
+        Option A — a role is one template; scope lives on the assignment.
+        Pick a user, then click a node in the hierarchy to see effective access.
+        <span class="sr-demo-tag">Demo · mock data · no backend</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sr-grid">
+
+    <!-- ── Col 1: Users ── -->
+    <div class="sr-col">
+      <div class="sr-col-head">Users</div>
+      <div class="sr-user" *ngFor="let u of users"
+           [class.active]="u.id === selectedUserId"
+           [class.dim]="!coversActive(u)"
+           (click)="selectUser(u)">
+        <div class="sr-user-top">
+          <span class="sr-user-name">{{ u.name }}</span>
+          <span class="sr-user-badge" *ngIf="coversActive(u)" title="Has a grant covering the active scope">●</span>
+        </div>
+        <div class="sr-user-email">{{ u.email }}</div>
+        <div class="sr-chips">
+          <span class="sr-chip" *ngFor="let c of assignmentChips(u)" [style.borderColor]="c.color" [style.color]="c.color">
+            {{ c.role }} <span class="sr-chip-at">&#64;</span> {{ c.scope }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Col 2: Scope tree ── -->
+    <div class="sr-col">
+      <div class="sr-col-head">Scope — Cluster › Site › Plant/Well</div>
+      <div class="sr-tree">
+        <ng-container [ngTemplateOutlet]="scopeTpl" [ngTemplateOutletContext]="{ $implicit: hierarchy, depth: 0 }"></ng-container>
+      </div>
+    </div>
+
+    <!-- ── Col 3: Effective permissions ── -->
+    <div class="sr-col">
+      <div class="sr-col-head">
+        Effective access for <b>{{ selectedUser?.name }}</b>
+        <div class="sr-active-scope">at {{ activeScopePath }}</div>
+      </div>
+
+      <div class="sr-noaccess" *ngIf="!resolved.hasAny">
+        No access — {{ selectedUser?.name }} has no grant covering this scope.
+      </div>
+
+      <table class="sr-perm-table" *ngIf="resolved.hasAny">
+        <thead>
+          <tr>
+            <th>Module</th>
+            <th *ngFor="let t of permTypes">{{ t | titlecase }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of modules">
+            <td class="sr-mod">{{ m.name }}</td>
+            <td *ngFor="let t of permTypes" class="sr-cell" [class.on]="perm(m.id, t)">
+              <span *ngIf="perm(m.id, t)">✓</span>
+              <span *ngIf="!perm(m.id, t)" class="sr-off">–</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="sr-contrib" *ngIf="resolved.hasAny">
+        <div class="sr-contrib-head">Applied grants</div>
+        <div class="sr-contrib-item" *ngFor="let c of resolved.contributors">
+          <span class="sr-chip" [style.borderColor]="c.roleColor" [style.color]="c.roleColor">{{ c.roleName }}</span>
+          granted at <b>{{ c.scopeLabel }}</b>
+          <span class="sr-contrib-note">covers this scope ↓</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Recursive scope-tree node -->
+<ng-template #scopeTpl let-node let-depth="depth">
+  <div class="sr-node" [class.active]="isActiveScope(node)"
+       [style.paddingLeft.px]="10 + depth * 16"
+       (click)="setScope(node)">
+    <button class="sr-node-toggle" *ngIf="hasChildren(node)" (click)="toggleExpand(node, $event)">
+      <svg viewBox="0 0 24 24" [class.collapsed]="!isExpanded(node)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <span class="sr-node-toggle sr-node-toggle--leaf" *ngIf="!hasChildren(node)"></span>
+    <span class="sr-node-level sr-level-{{ node.level }}">{{ node.level === 'ALL' ? 'ALL' : node.level }}</span>
+    <span class="sr-node-label">{{ node.label }}</span>
+  </div>
+  <ng-container *ngIf="hasChildren(node) && isExpanded(node)">
+    <ng-container *ngFor="let child of node.children">
+      <ng-container [ngTemplateOutlet]="scopeTpl" [ngTemplateOutletContext]="{ $implicit: child, depth: depth + 1 }"></ng-container>
+    </ng-container>
+  </ng-container>
+</ng-template>

@@ -1,0 +1,8 @@
+<div class="empty-state">
+  <img *ngIf="image" class="empty-state__image" [src]="image" [alt]="title" />
+  <span *ngIf="!image && appIcon" class="empty-state__tile" aria-hidden="true"><app-icon [name]="appIcon"></app-icon></span>
+  <span *ngIf="!image && !appIcon" class="empty-state__icon material-icons">{{ icon }}</span>
+  <h4 class="empty-state__title">{{ title }}</h4>
+  <p *ngIf="description" class="empty-state__description">{{ description }}</p>
+  <ng-content></ng-content>
+</div>

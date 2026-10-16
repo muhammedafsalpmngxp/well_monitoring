@@ -1,0 +1,113 @@
+<div id="page-rootcause" class="page active rca-body">
+
+    <!-- <div class="rca-breadcrumb">
+      <span>{{ 'ROOTCAUSE.OVERVIEW' | translate }}</span><span class="rca-sep">&nbsp;›&nbsp;</span>
+      <span>{{ 'ROOTCAUSE.AI_INTELLIGENCE' | translate }}</span><span class="rca-sep">&nbsp;›&nbsp;</span>
+      <span class="rca-bc-cur">{{ 'ROOTCAUSE.ROOT_CAUSE_ANALYSIS' | translate }}</span><span class="rca-sep">&nbsp;›&nbsp;</span>
+      <span>NL0010 &ndash; Nimr Field &ndash;</span>
+      <span class="rca-bc-badge">{{ 'ROOTCAUSE.ACTIVE' | translate }}</span>
+    </div> -->
+
+    <div class="rca-toolbar">
+      <div class="rca-period-group">
+        <button class="rca-period-btn rca-active" data-p="monthly">{{ 'ROOTCAUSE.MONTHLY' | translate }}</button>
+        <button class="rca-period-btn" data-p="weekly">{{ 'ROOTCAUSE.WEEKLY' | translate }}</button>
+        <button class="rca-period-btn" data-p="daily">{{ 'ROOTCAUSE.DAILY' | translate }}</button>
+      </div>
+      <div class="rca-toolbar-right">
+        <span class="rca-month-badge">Feb 2026</span>
+        <button class="rca-csv-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> {{ 'ROOTCAUSE.EXPORT_CSV' | translate }}</button>
+        <button class="rca-sync-btn">{{ 'ROOTCAUSE.SYNC_NOW' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="rca-header">
+      <div class="rca-header-left">
+        <div class="rca-header-title">
+          <h2>{{ 'ROOTCAUSE.PROJECT_DELAY_ROOT_CAUSE_ANALYSIS' | translate }}</h2>
+     
+        </div>
+        <div class="rca-header-sub">{{ 'ROOTCAUSE.SHAP_ATTRIBUTION_DESC' | translate }}</div>
+      </div>
+      <div class="rca-header-actions">
+        <select class="rca-select"><option>{{ 'ROOTCAUSE.TOTAL_DELAY' | translate }}</option><option>{{ 'ROOTCAUSE.ENGINEERING' | translate }}</option><option>{{ 'ROOTCAUSE.CONSTRUCTION' | translate }}</option><option>{{ 'ROOTCAUSE.RIG_DRILLING' | translate }}</option></select>
+        <button class="rca-btn-analyse">{{ 'ROOTCAUSE.ANALYSE_ROOT_CAUSES' | translate }}</button>
+        <button class="rca-btn-refresh">{{ 'ROOTCAUSE.REFRESH' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="rca-kpi-grid">
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#4e8ef7"></div>
+        <div class="atg-kpi-label">{{ 'ROOTCAUSE.WELLS_ANALYSED' | translate }}</div>
+        <div class="atg-kpi-val" style="color:var(--txt-1)">20</div>
+        <div class="atg-kpi-unit">{{ 'ROOTCAUSE.WELLS' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22c55e"></div>
+        <div class="atg-kpi-label">{{ 'ROOTCAUSE.AVG_ENG_DELAY' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22c55e">27</div>
+        <div class="atg-kpi-unit">{{ 'ROOTCAUSE.DAYS' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'ROOTCAUSE.AVG_CONST_DELAY' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">44</div>
+        <div class="atg-kpi-unit">{{ 'ROOTCAUSE.DAYS' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#4e8ef7"></div>
+        <div class="atg-kpi-label">{{ 'ROOTCAUSE.AVG_RIG_DELAY' | translate }}</div>
+        <div class="atg-kpi-val" style="color:var(--txt-1)">7</div>
+        <div class="atg-kpi-unit">{{ 'ROOTCAUSE.DAYS' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#22c55e"></div>
+        <div class="atg-kpi-label">{{ 'ROOTCAUSE.TOP_ROOT_CAUSE' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#22c55e;font-size:16px">{{ 'ROOTCAUSE.RIG_DRILLING' | translate }}</div>
+        <div class="atg-kpi-unit">{{ 'ROOTCAUSE.STAGE' | translate }}</div>
+      </div>
+      <div class="atg-kpi">
+        <div class="atg-kpi-accent" style="background:#ef4444"></div>
+        <div class="atg-kpi-label">{{ 'ROOTCAUSE.PROGRAM_DELAY' | translate }}</div>
+        <div class="atg-kpi-val" style="color:#ef4444">951</div>
+        <div class="atg-kpi-unit">{{ 'ROOTCAUSE.DAYS' | translate }}</div>
+      </div>
+    </div>
+
+    <div class="rca-charts-row">
+      <div class="rca-chart-card">
+        <div class="rca-chart-title">{{ 'ROOTCAUSE.DELAY_ATTRIBUTION_BY_STAGE' | translate }}</div>
+        <div class="rca-chart-wrap"><canvas id="rca-chart-attribution"></canvas></div>
+      </div>
+      <div class="rca-chart-card">
+        <div class="rca-chart-title">{{ 'ROOTCAUSE.ROOT_CAUSE_PARETO' | translate }}</div>
+        <div class="rca-chart-wrap"><canvas id="rca-chart-pareto"></canvas></div>
+      </div>
+    </div>
+
+    <div class="rca-section-title">{{ 'ROOTCAUSE.PER_WELL_ROOT_CAUSE_BREAKDOWN' | translate }}</div>
+    <div class="rca-well-grid" id="rca-well-grid"></div>
+
+    <div class="rca-section-title">{{ 'ROOTCAUSE.ROOT_CAUSE_DETAIL_TABLE' | translate }}</div>
+    <div class="rca-table-card">
+      <table class="rca-table">
+        <thead>
+          <tr>
+            <th>{{ 'ROOTCAUSE.TH_WELL' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_ENG_DELAY' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_PROC_DELAY' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_CONST_DELAY' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_RIG_DELAY' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_COMM_DELAY' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_TOTAL_DELAY' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_ROOT_CAUSE_STAGE' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_CONTRIBUTION_PCT' | translate }}</th>
+            <th>{{ 'ROOTCAUSE.TH_INTERVENTION_OWNER' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody id="rca-detail-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /page-rootcause -->

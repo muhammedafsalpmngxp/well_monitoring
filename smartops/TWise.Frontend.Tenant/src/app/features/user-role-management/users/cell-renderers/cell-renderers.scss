@@ -1,0 +1,114 @@
+// Shared styles for the Users grid's custom cell renderers
+.users-table {
+  &__employee {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+
+    &--blue   { background: linear-gradient(135deg, #60A5FA, #2563EB); }
+    &--green  { background: #15803D; }  // WCAG AA: white text needs 4.5:1
+    &--orange { background: #C2410C; }
+    &--purple { background: #7C3AED; }
+    &--teal   { background: #0F766E; }
+    &--pink   { background: #DB2777; }
+    &--violet { background: #9333EA; }
+  }
+
+  &__name {
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+  }
+
+  &__roles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-height: calc(var(--ag-row-height, 42px) - 1px);
+    padding: 6px 0;
+    box-sizing: border-box;
+    line-height: normal;
+
+    .users-table__role-pill {
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__role-pill {
+   
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid #C8D1F3;
+    white-space: nowrap;
+
+    &--blue   { background: var(--color-primary-50); color: var(--color-primary); }
+    &--teal   { background: #E6FBFB; color: #0F766E; }
+    &--green  { background: #E9F8EF; color: #15803D; }
+    &--purple { background: #F3EEFE; color: #7C3AED; }
+  }
+
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    gap: 6px;
+     border: 1px solid #C8D1F3;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    height: 24px;
+    background:#EEF8EE;
+
+    &--active { color: #1B7A3A; }
+    &--inactive { color: var(--color-text-muted); }
+  }
+
+  &__status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: 1px solid #DCE3ED;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+
+    &:hover { background: var(--color-bg-app); color: var(--color-primary); }
+  }
+}

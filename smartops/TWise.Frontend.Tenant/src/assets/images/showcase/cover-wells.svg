@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Well sites at dusk">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#061a40"/>
+      <stop offset="0.65" stop-color="#0b3d91"/>
+      <stop offset="1" stop-color="#1d6fb8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.3" r="0.45">
+      <stop offset="0" stop-color="#57c4e5" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#57c4e5" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#ffffff" fill-opacity="0.12"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <rect width="1280" height="720" fill="url(#glow)"/>
+  <rect x="700" y="0" width="580" height="720" fill="url(#dots)"/>
+  <path d="M0 610 C240 560 470 600 700 570 C900 545 1100 575 1280 540 V720 H0Z" fill="#ffffff" fill-opacity="0.07"/>
+  <path d="M0 660 C260 625 520 660 780 630 C980 610 1140 630 1280 610 V720 H0Z" fill="#000000" fill-opacity="0.18"/>
+  <g transform="translate(70 0)"><g fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M880 598 L915 470 L950 598"/>
+    <path d="M840 470 L1000 440"/>
+    <path d="M846 468 q-26 14 -14 58"/>
+    <line x1="832" y1="526" x2="832" y2="600"/>
+    <path d="M1060 612 L1080 540 L1100 612"/>
+    <path d="M1036 540 L1130 522"/>
+    <path d="M950 605 H1250" stroke="#f58220" stroke-width="7"/>
+  </g>
+  <circle cx="1010" cy="605" r="9" fill="#061a40" stroke="#f58220" stroke-width="5"/>
+  <circle cx="1170" cy="605" r="9" fill="#061a40" stroke="#f58220" stroke-width="5"/></g>
+</svg>

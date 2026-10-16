@@ -1,0 +1,223 @@
+<div class="inspector">
+  <div class="inspector__head">
+    <h2 class="inspector__pane-title">Properties</h2>
+    <button type="button" class="inspector__collapse" aria-label="Collapse the Properties pane" title="Collapse" (click)="collapse.emit()">
+      <app-icon name="chevron_right" aria-hidden="true"></app-icon>
+    </button>
+  </div>
+
+  <!-- A table -->
+  <section *ngIf="selectedSource as source" class="inspector__section" aria-labelledby="table-title">
+    <p class="inspector__kind">Table <span *ngIf="source.connectionId" class="inspector__db" title="Read from another database on this model's server">{{ source.databaseName }}</span></p>
+    <h3 id="table-title" class="inspector__title">{{ source.caption || source.alias }}</h3>
+    <form class="inspector__form" (ngSubmit)="submitSourceDetails(source)">
+      <div class="form-group">
+        <label for="table-caption">Name</label>
+        <input id="table-caption" class="form-control" name="caption" maxlength="80" [(ngModel)]="sourceCaption" [disabled]="readonly" />
+        <p class="form-hint">Shown wherever the table is listed. In formulas it stays {{ source.alias }}.</p>
+      </div>
+      <div class="form-group">
+        <label for="table-description">Description</label>
+        <textarea id="table-description" class="form-control" name="description" rows="2" maxlength="500" [(ngModel)]="sourceDescription"
+          [disabled]="readonly" placeholder="What this table holds"></textarea>
+      </div>
+      <div class="inspector__actions">
+        <app-button variant="primary" size="sm" type="submit" [disabled]="readonly || !sourceDetailsChanged(source)">Save</app-button>
+      </div>
+    </form>
+    <dl class="inspector__facts">
+      <div *ngFor="let row of origin(source).rows"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div>
+      <div><dt>Kind</dt><dd>{{ source.kind === 'script' ? 'Saved view (runs as written)' : source.kind === 'view' ? 'Saved view' : 'Database table' }}</dd></div>
+      <ng-container *ngIf="tableFacts(source) as facts">
+        <div><dt>Columns</dt><dd>{{ facts.columns }}<span *ngIf="facts.calculated"> + {{ facts.calculated }} calculated</span></dd></div>
+        <div><dt>Measures</dt><dd>{{ facts.measures }}</dd></div>
+        <div><dt>Relationships</dt><dd>{{ facts.links }}</dd></div>
+        <div><dt>Transforms</dt><dd>{{ facts.transforms }}</dd></div>
+      </ng-container>
+    </dl>
+    <div *ngIf="viewSourceChanged" class="inspector__notice" role="status">
+      <p>This view changed after it was added. Reports still use the version that was approved.</p>
+      <app-button *ngIf="canUpdateView" variant="secondary" size="sm" (clicked)="refreshViewSource.emit(source)">Update from view</app-button>
+    </div>
+    <ng-container *ngIf="source.kind === 'script'">
+      <div class="inspector__group">
+        <p class="inspector__label">SQL, run as written</p>
+        <pre class="inspector__sql" tabindex="0" aria-label="The SQL of the saved view">{{ source.sql }}</pre>
+      </div>
+      <form class="inspector__group" (ngSubmit)="submitParameters(source)">
+        <p class="inspector__label">Parameters</p>
+        <p *ngIf="!source.parameters?.length" class="inspector__muted">The view declares no variables.</p>
+        <div *ngFor="let parameter of source.parameters" class="form-group">
+          <label [for]="'parameter-' + parameter.name">{{ parameter.name }} <span class="inspector__muted">{{ parameter.type }}</span></label>
+          <select [id]="'parameter-' + parameter.name" class="form-control" [name]="'parameter-' + parameter.name"
+            [(ngModel)]="paramFields[parameter.name]" [disabled]="readonly || parameter.bindable === false">
+            <option value="">Not bound: {{ parameter.default ?? "the view's own value" }}</option>
+            <optgroup *ngFor="let group of fieldGroups" [label]="group.table">
+              <ng-container *ngFor="let field of group.fields">
+                <option [value]="field">{{ field }}</option>
+                <ng-container *ngIf="parameter.type.includes('date')">
+                  <option [value]="field + ':from'">{{ field }}, start of a range</option>
+                  <option [value]="field + ':to'">{{ field }}, end of a range</option>
+                </ng-container>
+              </ng-container>
+            </optgroup>
+          </select>
+          <p *ngIf="parameter.bindable === false" class="form-hint">The view's SQL sets {{ parameter.name }} again after declaring it, so a field cannot set it.</p>
+        </div>
+        <p *ngIf="source.parameters?.length" class="form-hint">
+          A slicer or filter with one value on a bound field sets the variable. A date variable bound to the start or end
+          of a range takes that end of a range slicer on the field. Without one, the view's own value applies.
+        </p>
+        <div *ngIf="source.parameters?.length" class="inspector__actions">
+          <app-button variant="primary" size="sm" type="submit" [disabled]="readonly || !parametersChanged(source)">Save parameters</app-button>
+        </div>
+      </form>
+    </ng-container>
+    <app-button variant="secondary" size="sm" [disabled]="readonly" (clicked)="openTransforms.emit({ source: source, column: null })">
+      <app-icon name="transform" aria-hidden="true"></app-icon>Transform data
+    </app-button>
+
+    <form class="inspector__group" (ngSubmit)="submitRls()">
+      <fieldset class="inspector__choice">
+        <legend>Who sees which rows?</legend>
+        <label><input type="radio" name="rlsMode" value="plant" [(ngModel)]="rlsMode" /> Each user sees only the rows of their plants</label>
+        <label><input type="radio" name="rlsMode" value="none" [(ngModel)]="rlsMode" /> Everyone sees all rows</label>
+      </fieldset>
+      <div *ngIf="rlsMode === 'plant'" class="form-group">
+        <label for="rls-column">Column that holds the plant code</label>
+        <select id="rls-column" class="form-control" name="rlsColumn" required [(ngModel)]="rlsColumn">
+          <option value="" disabled>Choose a column</option>
+          <option *ngFor="let column of columnsOf(source)" [value]="column.columnName">{{ column.columnName }}</option>
+        </select>
+      </div>
+      <div class="inspector__actions">
+        <button type="button" class="btn btn-sm remove-action" [disabled]="readonly" (click)="removeSource.emit(source)">Remove table</button>
+        <app-button variant="primary" size="sm" type="submit" [disabled]="readonly || (rlsMode === 'plant' && !rlsColumn)">Save row filter</app-button>
+      </div>
+    </form>
+  </section>
+
+  <!-- A column -->
+  <section *ngIf="selectedColumn as column" class="inspector__section" aria-labelledby="column-title">
+    <p class="inspector__kind">{{ column.calculated ? 'Calculated column' : 'Column' }}</p>
+    <h3 id="column-title" class="inspector__title">{{ column.name }}</h3>
+    <dl class="inspector__facts">
+      <div>
+        <dt>Table</dt>
+        <dd><button type="button" class="inspector__link" (click)="selectionChange.emit({ kind: 'source', id: column.source.id })">{{ (column.source.caption || column.source.alias) }}</button></dd>
+      </div>
+      <div><dt>Data type</dt><dd>{{ column.dataType || 'Unknown' }} <span class="inspector__muted">({{ column.kind }})</span></dd></div>
+      <div *ngIf="column.stored?.isPrimaryKey"><dt>Key</dt><dd><app-icon name="key" aria-hidden="true"></app-icon>Primary key</dd></div>
+      <div *ngIf="column.stored?.isForeignKey">
+        <dt>Refers to</dt><dd>{{ column.stored?.foreignKeyTable }}.{{ column.stored?.foreignKeyColumn }}</dd>
+      </div>
+      <div *ngIf="column.stored?.isNullable !== undefined"><dt>Blanks</dt><dd>{{ column.stored?.isNullable ? 'Allowed' : 'Not allowed' }}</dd></div>
+      <div *ngFor="let link of column.links"><dt>Relationship</dt><dd>{{ link }}</dd></div>
+    </dl>
+    <div *ngIf="column.calculated as calculated" class="inspector__group">
+      <p class="inspector__label">Formula</p>
+      <code class="inspector__code">{{ formulaText(calculated.expression) }}</code>
+      <p class="inspector__muted">{{ describe(calculated.expression) }}</p>
+      <app-button variant="secondary" size="sm" [disabled]="readonly" (clicked)="editColumn.emit({ source: column.source, column: calculated })">Edit formula</app-button>
+    </div>
+    <div class="inspector__group">
+      <p class="inspector__label">Transforms</p>
+      <ol *ngIf="column.transforms.length; else noTransforms" class="inspector__list">
+        <li *ngFor="let transform of column.transforms">{{ transformText(transform) }}</li>
+      </ol>
+      <ng-template #noTransforms><p class="inspector__muted">Read as stored.</p></ng-template>
+      <app-button *ngIf="!column.calculated" variant="secondary" size="sm" [disabled]="readonly"
+        (clicked)="openTransforms.emit({ source: column.source, column: column.name })">
+        <app-icon name="transform" aria-hidden="true"></app-icon>Transform this column
+      </app-button>
+    </div>
+  </section>
+
+  <!-- A measure -->
+  <section *ngIf="selectedMeasure as measure" class="inspector__section" aria-labelledby="measure-title">
+    <p class="inspector__kind">Measure</p>
+    <h3 id="measure-title" class="inspector__title">{{ measure.name }}</h3>
+    <dl class="inspector__facts">
+      <div><dt>Listed under</dt><dd>{{ measure.homeSourceId ? aliasOf(measure.homeSourceId) : 'Measures (the data model)' }}</dd></div>
+      <div><dt>Folder</dt><dd>{{ measure.folder || 'None' }}</dd></div>
+    </dl>
+    <div class="inspector__group">
+      <p class="inspector__label">Formula</p>
+      <code class="inspector__code">{{ formulaText(measure.expression) }}</code>
+      <p class="inspector__muted">{{ describe(measure.expression) }}</p>
+      <app-button variant="secondary" size="sm" [disabled]="readonly" (clicked)="editMeasure.emit(measure)">Edit formula</app-button>
+    </div>
+  </section>
+
+  <!-- A relationship -->
+  <section *ngIf="selectedRelationship as relationship" class="inspector__section" aria-labelledby="relationship-title">
+    <p class="inspector__kind">Relationship</p>
+    <h3 id="relationship-title" class="inspector__title">
+      {{ aliasOf(relationship.fromSourceId) }} to {{ aliasOf(relationship.toSourceId) }}
+    </h3>
+    <p class="inspector__meta">
+      {{ aliasOf(relationship.fromSourceId) }}.{{ relationship.fromColumn }} to {{ aliasOf(relationship.toSourceId) }}.{{ relationship.toColumn }}
+    </p>
+    <form (ngSubmit)="submitCardinality()">
+      <div class="form-group">
+        <label for="cardinality">How rows match</label>
+        <select id="cardinality" class="form-control" name="cardinality" [(ngModel)]="cardinality">
+          <option value="many_to_one">Many {{ aliasOf(relationship.fromSourceId) }} rows to one {{ aliasOf(relationship.toSourceId) }} row</option>
+          <option value="one_to_one">One row to one row</option>
+        </select>
+      </div>
+      <div class="inspector__actions">
+        <button type="button" class="btn btn-sm remove-action" [disabled]="readonly" (click)="removeRelationship.emit(relationship.id)">Remove relationship</button>
+        <app-button variant="secondary" size="sm" [disabled]="readonly" (clicked)="editRelationship.emit(relationship)">Edit relationship</app-button>
+        <app-button variant="primary" size="sm" type="submit" [disabled]="readonly">Save</app-button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Nothing: the dataset -->
+  <section *ngIf="!selection && dataset as model" class="inspector__section" aria-labelledby="dataset-title">
+    <p class="inspector__kind">Data model</p>
+    <h3 id="dataset-title" class="inspector__title">{{ model.name }}</h3>
+    <form class="inspector__group" (ngSubmit)="submitDetails()">
+      <div class="form-group">
+        <label for="dataset-name">Name</label>
+        <input id="dataset-name" class="form-control" name="name" maxlength="128" required [disabled]="readonly" [(ngModel)]="name" />
+      </div>
+      <div class="form-group">
+        <label for="dataset-description">Description</label>
+        <textarea id="dataset-description" class="form-control" name="description" maxlength="500" rows="3" [disabled]="readonly"
+          [(ngModel)]="description"></textarea>
+      </div>
+      <app-button variant="secondary" size="sm" type="submit" [disabled]="readonly || !detailsChanged">Save name and description</app-button>
+    </form>
+    <dl class="inspector__facts">
+      <div><dt>Status</dt><dd>{{ model.publishedAt ? 'Published' : 'Draft' }}<span *ngIf="model.publishedAt && model.hasDraftChanges"> with unpublished changes</span></dd></div>
+      <div *ngIf="model.publishedAt"><dt>Published</dt><dd>{{ model.publishedAt | date: 'd MMM y, HH:mm' }}</dd></div>
+      <div><dt>Tables</dt><dd>{{ model.sources.length }}</dd></div>
+      <div><dt>Relationships</dt><dd>{{ model.relationships.length }}</dd></div>
+      <div><dt>Measures</dt><dd>{{ model.measures.length }}</dd></div>
+      <div><dt>Calculated columns</dt><dd>{{ model.calculatedColumns.length }}</dd></div>
+    </dl>
+    <div *ngIf="model.sources.length" class="inspector__group">
+      <p class="inspector__label">Tables by database</p>
+      <section *ngFor="let group of tablesByDatabase" class="inspector__origin" [attr.aria-label]="'Tables of ' + group.database">
+        <p class="inspector__origin-db">
+          <app-icon name="database_view" aria-hidden="true"></app-icon>
+          <span class="inspector__origin-name" [title]="group.connection ? 'Connection ' + group.connection : group.database">{{ group.database }}</span>
+          <span class="inspector__db">{{ group.other ? 'Other database' : 'This model' }}</span>
+        </p>
+        <ul class="inspector__origin-list">
+          <li *ngFor="let entry of group.tables">
+            <button type="button" class="inspector__link" (click)="selectionChange.emit({ kind: 'source', id: entry.source.id })">
+              {{ entry.source.caption || entry.source.alias }}
+            </button>
+            <span class="inspector__path" [title]="entry.origin.path">
+              {{ entry.source.kind === 'view' ? 'View ' + entry.origin.path + ', id ' + entry.source.sourceName : entry.origin.path }}
+            </span>
+          </li>
+        </ul>
+      </section>
+    </div>
+    <p class="inspector__hint">Select a table, a column, a measure or a relationship to see its properties.</p>
+  </section>
+</div>

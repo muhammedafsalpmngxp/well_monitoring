@@ -1,0 +1,179 @@
+<app-page-header [title]="viewName" [subtitle]="description"
+  [breadcrumbs]="[{label:'Home'}, {label:'Settings', route:'/settings'}, {label:'Database', route:'/settings/database-view'}, {label: viewName}]">
+  <span page-header-icon class="dbv-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path
+        d="M17.5 4.16675C17.5 5.54746 14.1422 6.66675 10 6.66675C5.85787 6.66675 2.5 5.54746 2.5 4.16675M17.5 4.16675C17.5 2.78604 14.1422 1.66675 10 1.66675C5.85787 1.66675 2.5 2.78604 2.5 4.16675M17.5 4.16675V15.8341C17.5 17.2174 14.1667 18.3341 10 18.3341C5.83333 18.3341 2.5 17.2174 2.5 15.8341V4.16675M17.5 10.0007C17.5 11.3841 14.1667 12.5007 10 12.5007C5.83333 12.5007 2.5 11.3841 2.5 10.0007"
+        stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </span>
+  <div class="dbv-header-actions">
+    <button class="icon-only-btn" title="Export">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path
+          d="M5.83333 9.16667C5.05836 9.16667 4.67087 9.16667 4.35295 9.25183C3.49022 9.483 2.81635 10.1569 2.58518 11.0196C2.5 11.3375 2.5 11.725 2.5 12.5V13.5C2.5 14.9002 2.5 15.6002 2.77248 16.135C3.01217 16.6054 3.39462 16.9878 3.86503 17.2275C4.3998 17.5 5.09987 17.5 6.5 17.5H13.5C14.9002 17.5 15.6002 17.5 16.135 17.2275C16.6054 16.9878 16.9878 16.6054 17.2275 16.135C17.5 15.6002 17.5 14.9002 17.5 13.5V12.5C17.5 11.725 17.5 11.3375 17.4148 11.0196C17.1837 10.1569 16.5098 9.483 15.6471 9.25183C15.3292 9.16667 14.9417 9.16667 14.1667 9.16667M6.66667 5.83333L10 2.5L13.3333 5.83333M10 2.5V12.5"
+          stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+    <app-button *ngIf="canModify" variant="secondary" (clicked)="editView()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d="M1.9172 12.0771C1.94782 11.8014 1.96314 11.6636 2.00484 11.5348C2.04184 11.4205 2.09412 11.3118 2.16026 11.2114C2.2348 11.0984 2.33287 11.0004 2.52899 10.8042L11.3332 2.00004C12.0696 1.26366 13.2635 1.26366 13.9999 2.00004C14.7363 2.73642 14.7363 3.93033 13.9999 4.66671L5.19566 13.4709C4.99953 13.667 4.90147 13.765 4.78843 13.8396C4.68814 13.9058 4.57936 13.958 4.46507 13.995C4.33624 14.0367 4.19841 14.052 3.92275 14.0827L1.6665 14.3334L1.9172 12.0771Z"
+          stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Edit
+    </app-button>
+  </div>
+</app-page-header>
+
+<app-loader *ngIf="loading" size="lg"></app-loader>
+<div class="page-content dbv-page" *ngIf="!loading && viewDetail">
+
+  <!-- Summary badges -->
+  <div class="dbv-badges">
+    <span class="dbv-badge dbv-badge--source" [class.dbv-badge--builtin]="sourceType === 'built-in'">
+      <span class="dbv-badge__dot"></span>
+      {{ sourceType === 'built-in' ? 'Built-in' : 'Custom' }}
+    </span>
+    <span class="dbv-badge">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M8.0005 6V10M8.0005 6H14.0005M8.0005 6H2.00041M8.0005 10H14.0005M8.0005 10H2M8.0005 10V14M8.0005 14H10.8005C11.9206 14 12.4807 14 12.9085 13.782C13.2848 13.5903 13.5908 13.2843 13.7825 12.908C14.0005 12.4802 14.0005 11.9201 14.0005 10.8V10M2.00041 6L2 10L2.0005 10.8C2.0005 11.9201 2.0005 12.4802 2.21848 12.908C2.41023 13.2843 2.71619 13.5903 3.09252 13.782C3.52034 14 4.08039 14 5.2005 14H8.0005M14.0005 10V6M14.0005 6V5.2C14.0005 4.0799 14.0005 3.51984 13.7825 3.09202C13.5908 2.71569 13.2848 2.40973 12.9085 2.21799C12.4807 2 11.9206 2 10.8005 2H5.2005C4.08039 2 3.52034 2 3.09252 2.21799C2.71619 2.40973 2.41023 2.71569 2.21848 3.09202C2.0005 3.51984 2.0005 4.0799 2.0005 5.2L2.00041 6"
+          stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      {{ tableCount }} table
+    </span>
+    <span class="dbv-badge">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M4.53333 2H4.13333C3.3866 2 3.01323 2 2.72801 2.14533C2.47713 2.27315 2.27315 2.47713 2.14533 2.72801C2 3.01323 2 3.38659 2 4.13333V11.8667C2 12.6134 2 12.9868 2.14533 13.272C2.27315 13.5229 2.47713 13.7269 2.72801 13.8547C3.01323 14 3.3866 14 4.13333 14H4.53333C5.28007 14 5.65344 14 5.93865 13.8547C6.18954 13.7269 6.39351 13.5229 6.52134 13.272C6.66667 12.9868 6.66667 12.6134 6.66667 11.8667V4.13333C6.66667 3.3866 6.66667 3.01323 6.52134 2.72801C6.39351 2.47713 6.18954 2.27315 5.93865 2.14533C5.65344 2 5.28007 2 4.53333 2Z"
+          stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        <path
+          d="M11.8666 2H11.4666C10.7199 2 10.3465 2 10.0613 2.14533C9.81039 2.27315 9.60639 2.47713 9.47859 2.72801C9.33325 3.01323 9.33325 3.3866 9.33325 4.13333V11.8667C9.33325 12.6134 9.33325 12.9868 9.47859 13.272C9.60639 13.5229 9.81039 13.7269 10.0613 13.8547C10.3465 14 10.7199 14 11.4666 14H11.8666C12.6133 14 12.9867 14 13.2719 13.8547C13.5228 13.7269 13.7268 13.5229 13.8546 13.272C13.9999 12.9868 13.9999 12.6134 13.9999 11.8667V4.13333C13.9999 3.3866 13.9999 3.01323 13.8546 2.72801C13.7268 2.47713 13.5228 2.27315 13.2719 2.14533C12.9867 2 12.6133 2 11.8666 2Z"
+          stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      {{ columnCount }} column
+    </span>
+    <span class="dbv-badge">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M11.8667 6.66667C12.6134 6.66667 12.9868 6.66667 13.272 6.52134C13.5229 6.39351 13.7269 6.18954 13.8547 5.93865C14 5.65344 14 5.28007 14 4.53333V4.13333C14 3.3866 14 3.01323 13.8547 2.72801C13.7269 2.47713 13.5229 2.27315 13.272 2.14533C12.9868 2 12.6134 2 11.8667 2H4.13333C3.3866 2 3.01323 2 2.72801 2.14533C2.47713 2.27315 2.27315 2.47713 2.14533 2.72801C2 3.01323 2 3.38659 2 4.13333V4.53333C2 5.28007 2 5.65344 2.14533 5.93865C2.27315 6.18954 2.47713 6.39351 2.72801 6.52134C3.01323 6.66667 3.38659 6.66667 4.13333 6.66667H11.8667Z"
+          stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        <path
+          d="M11.8667 14.0002C12.6134 14.0002 12.9868 14.0002 13.272 13.8548C13.5229 13.727 13.7269 13.523 13.8547 13.2722C14 12.987 14 12.6136 14 11.8668V11.4668C14 10.7201 14 10.3467 13.8547 10.0615C13.7269 9.81063 13.5229 9.60663 13.272 9.47883C12.9868 9.3335 12.6134 9.3335 11.8667 9.3335H4.13333C3.3866 9.3335 3.01323 9.3335 2.72801 9.47883C2.47713 9.60663 2.27315 9.81063 2.14533 10.0615C2 10.3467 2 10.7201 2 11.4668V11.8668C2 12.6136 2 12.987 2.14533 13.2722C2.27315 13.523 2.47713 13.727 2.72801 13.8548C3.01323 14.0002 3.38659 14.0002 4.13333 14.0002H11.8667Z"
+          stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      {{ previewRowCount != null ? previewRowCount : '-' }} rows
+    </span>
+  </div>
+
+  <!-- Two-column body -->
+  <div class="scrollAccordionMain">
+    <div class="dbv-layout" [style.grid-template-columns]="leftColWidth + 'px 16px 1fr'">
+
+      <!-- Left column: source tables + SQL query -->
+      <div class="dbv-left">
+        <app-card>
+          <div class="dbv-card-title">
+
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M10.0006 7.5V12.5M10.0006 7.5H17.5006M10.0006 7.5H2.50052M10.0006 12.5H17.5006M10.0006 12.5H2.5M10.0006 12.5V17.5M10.0006 17.5H13.5006C14.9008 17.5 15.6008 17.5 16.1356 17.2275C16.606 16.9878 16.9885 16.6054 17.2281 16.135C17.5006 15.6002 17.5006 14.9001 17.5006 13.5V12.5M2.50052 7.5L2.5 12.5L2.50062 13.5C2.50062 14.9001 2.50062 15.6002 2.7731 16.135C3.01279 16.6054 3.39524 16.9878 3.86564 17.2275C4.40042 17.5 5.10049 17.5 6.50062 17.5H10.0006M17.5006 12.5V7.5M17.5006 7.5V6.5C17.5006 5.09987 17.5006 4.3998 17.2281 3.86502C16.9885 3.39462 16.606 3.01217 16.1356 2.77248C15.6008 2.5 14.9008 2.5 13.5006 2.5H6.50062C5.10049 2.5 4.40042 2.5 3.86564 2.77248C3.39524 3.01217 3.01279 3.39462 2.7731 3.86502C2.50062 4.3998 2.50062 5.09987 2.50062 6.5L2.50052 7.5"
+                stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+
+            <span class="dbv-card-title__text">Source table</span>
+            <span class="dbv-card-title__count">({{ tableCount }})</span>
+          </div>
+          <div class="dbv-table-row" *ngFor="let table of sourceTables">
+            <span class="dbv-table-row__icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path
+                  d="M9.00056 6.75V11.25M9.00056 6.75H15.7506M9.00056 6.75H2.25047M9.00056 11.25H15.7506M9.00056 11.25H2.25M9.00056 11.25V15.75M9.00056 15.75H12.1506C13.4107 15.75 14.0407 15.75 14.522 15.5048C14.9454 15.289 15.2896 14.9448 15.5053 14.5215C15.7506 14.0402 15.7506 13.4101 15.7506 12.15V11.25M2.25047 6.75L2.25 11.25L2.25056 12.15C2.25056 13.4101 2.25056 14.0402 2.49579 14.5215C2.71151 14.9448 3.05572 15.289 3.47908 15.5048C3.96038 15.75 4.59044 15.75 5.85056 15.75H9.00056M15.7506 11.25V6.75M15.7506 6.75V5.85C15.7506 4.58988 15.7506 3.95982 15.5053 3.47852C15.2896 3.05516 14.9454 2.71095 14.522 2.49524C14.0407 2.25 13.4107 2.25 12.1506 2.25H5.85056C4.59044 2.25 3.96038 2.25 3.47908 2.49524C3.05572 2.71095 2.71151 3.05516 2.49579 3.47852C2.25056 3.95982 2.25056 4.58988 2.25056 5.85L2.25047 6.75"
+                  stroke="#21409A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="dbv-table-row__info">
+              <span class="dbv-table-row__name">{{ table.name }}</span>
+              <span class="dbv-table-row__count">{{ table.columns }} columns</span>
+            </span>
+          </div>
+        </app-card>
+
+        <app-card>
+          <div class="dbv-sql__header">
+            <h3 class="dbv-sql__title">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M2.25 4.5C2.25 5.74264 5.27208 6.75 9 6.75C12.7279 6.75 15.75 5.74264 15.75 4.5M2.25 4.5C2.25 3.25736 5.27208 2.25 9 2.25C12.7279 2.25 15.75 3.25736 15.75 4.5M2.25 4.5V13.5C2.25 14.7426 5.27208 15.75 9 15.75C12.7279 15.75 15.75 14.7426 15.75 13.5V4.5M2.25 9C2.25 10.2426 5.27208 11.25 9 11.25C12.7279 11.25 15.75 10.2426 15.75 9"
+                  stroke="#667085" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              SQL query
+            </h3>
+            <button class="dbv-copy-btn" (click)="copySql()">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M10.6654 5.33203V3.46536C10.6654 2.71863 10.6654 2.34526 10.52 2.06004C10.3922 1.80916 10.1882 1.60518 9.93736 1.47736C9.65216 1.33203 9.27876 1.33203 8.53203 1.33203H3.46536C2.71863 1.33203 2.34526 1.33203 2.06004 1.47736C1.80916 1.60518 1.60518 1.80916 1.47736 2.06004C1.33203 2.34526 1.33203 2.71863 1.33203 3.46536V8.53203C1.33203 9.27876 1.33203 9.65216 1.47736 9.93736C1.60518 10.1882 1.80916 10.3922 2.06004 10.52C2.34526 10.6654 2.71863 10.6654 3.46536 10.6654H5.33203M7.46536 14.6654H12.532C13.2788 14.6654 13.6522 14.6654 13.9374 14.52C14.1882 14.3922 14.3922 14.1882 14.52 13.9374C14.6654 13.6522 14.6654 13.2788 14.6654 12.532V7.46536C14.6654 6.71863 14.6654 6.34526 14.52 6.06004C14.3922 5.80916 14.1882 5.60518 13.9374 5.47736C13.6522 5.33203 13.2788 5.33203 12.532 5.33203H7.46536C6.71863 5.33203 6.34526 5.33203 6.06004 5.47736C5.80916 5.60518 5.60518 5.80916 5.47736 6.06004C5.33203 6.34526 5.33203 6.71863 5.33203 7.46536V12.532C5.33203 13.2788 5.33203 13.6522 5.47736 13.9374C5.60518 14.1882 5.80916 14.3922 6.06004 14.52C6.34526 14.6654 6.71863 14.6654 7.46536 14.6654Z"
+                  stroke="#4D555B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              {{ copied ? 'Copied' : 'Copy' }}
+            </button>
+          </div>
+          <div class="dbv-sql__code">
+            <div class="dbv-sql__line" *ngFor="let line of sqlLineViews; let i = index">
+              <span class="dbv-sql__lineno">{{ i + 1 }}</span>
+              <span class="dbv-sql__line-code">
+                <span *ngIf="line.indent">{{ line.indent }}</span>
+                <span class="dbv-sql__keyword" *ngIf="line.keyword">{{ line.keyword }}</span>
+                <span class="dbv-sql__text" [class.dbv-sql__text--comment]="line.isComment">{{ line.rest }}</span>
+              </span>
+            </div>
+          </div>
+        </app-card>
+      </div>
+
+      <!-- Drag handle to resize the left/right columns -->
+      <div class="dbv-resizer" (mousedown)="onResizeStart($event)" title="Drag to resize">
+        <span class="dbv-resizer__grip">
+          <svg width="10" height="16" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="2.5" cy="2.5" r="1.5" fill="currentColor" />
+            <circle cx="7.5" cy="2.5" r="1.5" fill="currentColor" />
+            <circle cx="2.5" cy="8" r="1.5" fill="currentColor" />
+            <circle cx="7.5" cy="8" r="1.5" fill="currentColor" />
+            <circle cx="2.5" cy="13.5" r="1.5" fill="currentColor" />
+            <circle cx="7.5" cy="13.5" r="1.5" fill="currentColor" />
+          </svg>
+        </span>
+      </div>
+
+      <!-- Right column: data preview -->
+      <div class="dbv-right">
+        <app-card>
+          <div class="dbv-preview__header">
+            <h3 class="dbv-preview__title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M2.01677 10.5942C1.90329 10.4144 1.84654 10.3246 1.81477 10.186C1.79091 10.0819 1.79091 9.91775 1.81477 9.81367C1.84654 9.67509 1.90329 9.58525 2.01677 9.4055C2.95461 7.92054 5.74617 4.1665 10.0003 4.1665C14.2545 4.1665 17.0461 7.92054 17.9839 9.4055C18.0974 9.58525 18.1542 9.67509 18.1859 9.81367C18.2098 9.91775 18.2098 10.0819 18.1859 10.186C18.1542 10.3246 18.0974 10.4144 17.9839 10.5942C17.0461 12.0792 14.2545 15.8332 10.0003 15.8332C5.74617 15.8332 2.95461 12.0792 2.01677 10.5942Z"
+                  stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path
+                  d="M10.0002 12.5C11.381 12.5 12.5002 11.3807 12.5002 10C12.5002 8.61925 11.381 7.5 10.0002 7.5C8.61949 7.5 7.50024 8.61925 7.50024 10C7.50024 11.3807 8.61949 12.5 10.0002 12.5Z"
+                  stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              Data Preview
+            </h3>
+            <span class="dbv-preview__count">{{ previewRowCount != null ? previewRowCount : '-' }} Rows</span>
+          </div>
+          <div *ngIf="snapshotAt" class="dbv-preview__note">
+            Saved data from {{ snapshotAt + 'Z' | date:'medium' }} · {{ previewLoading ? 'refreshing…' : 'live refresh failed' }}
+          </div>
+          <div *ngIf="previewError" class="dbv-preview__error">{{ previewError }}</div>
+          <app-loader *ngIf="previewLoading && !snapshotAt" size="sm"></app-loader>
+          <ag-grid-angular *ngIf="(!previewLoading || snapshotAt) && !previewError" class="dbv-preview-grid"
+            [columnDefs]="previewColumns" [defaultColDef]="defaultColDef" [rowData]="previewRowData" [theme]="gridTheme"
+            [animateRows]="true" domLayout="autoHeight">
+          </ag-grid-angular>
+        </app-card>
+      </div>
+    </div>
+  </div>
+</div>

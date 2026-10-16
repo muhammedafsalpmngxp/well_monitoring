@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A progress gauge over a construction site">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081c15"/>
+      <stop offset="0.65" stop-color="#1b4332"/>
+      <stop offset="1" stop-color="#2d6a4f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.3" r="0.45">
+      <stop offset="0" stop-color="#b7e4c7" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#b7e4c7" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#ffffff" fill-opacity="0.12"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <rect width="1280" height="720" fill="url(#glow)"/>
+  <rect x="700" y="0" width="580" height="720" fill="url(#dots)"/>
+  <path d="M0 610 C240 560 470 600 700 570 C900 545 1100 575 1280 540 V720 H0Z" fill="#ffffff" fill-opacity="0.07"/>
+  <path d="M0 660 C260 625 520 660 780 630 C980 610 1140 630 1280 610 V720 H0Z" fill="#000000" fill-opacity="0.18"/>
+  <g transform="translate(230 125) scale(0.78)"><g fill="none" stroke-linecap="round">
+    <path d="M850 600 A160 160 0 0 1 1170 600" stroke="#ffffff" stroke-opacity="0.18" stroke-width="34"/>
+    <path d="M850 600 A160 160 0 0 1 1110 470" stroke="#f7b538" stroke-width="34"/>
+    <line x1="1010" y1="600" x2="1090" y2="500" stroke="#ffffff" stroke-width="8"/>
+  </g>
+  <circle cx="1010" cy="600" r="16" fill="#ffffff"/>
+  <g stroke="#ffffff" stroke-opacity="0.8" stroke-width="6" stroke-linecap="round">
+    <line x1="1200" y1="610" x2="1200" y2="420"/>
+    <line x1="1150" y1="425" x2="1265" y2="425"/>
+  </g></g>
+</svg>

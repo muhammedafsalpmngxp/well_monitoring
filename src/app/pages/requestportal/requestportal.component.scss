@@ -1,0 +1,228 @@
+﻿#page-requestportal {
+  font-family: 'Inter', 'Calibri', 'Arial', sans-serif;
+  font-size: 10pt;
+
+  --rp-accent: #29378d;
+  --rp-accent-soft: rgba(41,55,141, 0.10);
+  --rp-accent-border: rgba(41,55,141, 0.25);
+  --rp-clear-hover-bg: rgba(0, 0, 0, 0.06);
+
+  /* Hero (Google-style search) */
+  .rp-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 16px 28px;
+    margin-bottom: 10px;
+  }
+  .rp-hero-title {
+    font-size: 16pt;
+    font-weight: 700;
+    color: var(--txt-1);
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+  .rp-hero-subtitle {
+    font-size: 10pt;
+    color: var(--txt-muted);
+    margin-bottom: 22px;
+  }
+  .rp-search-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 620px;
+    display: flex;
+    align-items: center;
+  }
+  .rp-search-icon {
+    position: absolute;
+    left: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--txt-muted);
+    pointer-events: none;
+  }
+  .rp-search-input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 10pt;
+    color: var(--txt-1);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 13px 48px 13px 48px;
+    transition: border-color 0.15s, background 0.15s;
+    outline: none;
+  }
+  .rp-search-input:hover {
+    border-color: var(--border);
+  }
+  .rp-search-input:focus {
+    border-color: var(--rp-accent);
+    background: var(--surface);
+  }
+  .rp-search-input::-webkit-search-cancel-button { display: none; }
+  .rp-search-clear {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--txt-muted);
+    transition: background 0.12s, color 0.12s;
+  }
+  .rp-search-clear:hover {
+    background: var(--rp-clear-hover-bg);
+    color: var(--txt-1);
+  }
+  .rp-search-clear svg { width: 14px; height: 14px; }
+
+  /* Section header above grid */
+  .rp-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding: 0 2px;
+  }
+  .rp-section-title {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--txt-1);
+    letter-spacing: 0.2px;
+  }
+  .rp-section-count {
+    font-size: 9pt;
+    color: var(--txt-muted);
+    font-family: var(--font-family-mono);
+  }
+
+  .rp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .rp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.12s, transform 0.12s;
+  }
+  .rp-card:hover {
+    border-color: var(--rp-accent);
+    transform: translateY(-2px);
+  }
+
+  .rp-card-icon {
+    width: 40px; height: 40px;
+    border-radius: 9px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--rp-accent-soft);
+    color: var(--rp-accent);
+  }
+  .rp-card-icon svg { width: 18px; height: 18px; }
+  .rp-card-icon[data-icon="site"]     { background: rgba(0,176,80,0.10);    color: #00B050; }
+  .rp-card-icon[data-icon="crew"]     { background: var(--rp-accent-soft);  color: var(--rp-accent); }
+  .rp-card-icon[data-icon="incident"] { background: rgba(255,0,0,0.10);     color: #FF0000; }
+  .rp-card-icon[data-icon="material"] { background: rgba(255,192,0,0.10);   color: #FFC000; }
+  .rp-card-icon[data-icon="ppe"]      { background: rgba(0,176,80,0.10);    color: #00B050; }
+  .rp-card-icon[data-icon="permit"]   { background: rgba(255,0,0,0.10);     color: #FF0000; }
+  .rp-card-icon[data-icon="lifting"]  { background: rgba(255,192,0,0.10);   color: #FFC000; }
+  .rp-card-icon[data-icon="toolbox"]  { background: rgba(0,176,240,0.10);   color: #00B0F0; }
+  .rp-card-icon[data-icon="moc"]      { background: rgba(31,56,100,0.10);   color: #1F3864; }
+  .rp-card-icon[data-icon="travel"]   { background: var(--rp-accent-soft);  color: var(--rp-accent); }
+
+  .rp-card-body { flex: 1; min-width: 0; }
+  .rp-card-title {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--txt-1);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rp-card-desc {
+    font-size: 9pt;
+    color: var(--txt-muted);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 8px;
+    min-height: 32px;
+  }
+  .rp-card-meta { display: flex; gap: 6px; }
+  .rp-pill {
+    background: var(--rp-accent-soft);
+    color: var(--rp-accent);
+    border: 1px solid var(--rp-accent-border);
+    font-size: 9pt;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 8px;
+    font-family: var(--font-family-mono);
+  }
+
+  .rp-card-cta {
+    align-self: flex-start;
+    background: var(--rp-accent);
+    color: #fff;
+    border: 0;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 9pt;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: filter 0.12s;
+  }
+  .rp-card:hover .rp-card-cta { filter: brightness(1.05); }
+
+  .rp-empty-state {
+    padding: 36px 18px;
+    text-align: center;
+  }
+  .rp-empty-icon {
+    color: var(--txt-muted);
+    opacity: 0.5;
+    margin-bottom: 10px;
+  }
+  .rp-empty-title {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--txt-1);
+  }
+  .rp-empty-sub {
+    font-size: 9pt;
+    color: var(--txt-muted);
+    margin-top: 4px;
+  }
+}
+
+/* Dark mode overrides */
+html:not(.navbar-light) #page-requestportal {
+  --rp-accent: #00B0F0;
+  --rp-accent-soft: rgba(0, 176, 240, 0.10);
+  --rp-accent-border: rgba(0, 176, 240, 0.25);
+  --rp-clear-hover-bg: rgba(255, 255, 255, 0.08);
+
+  .rp-card-icon[data-icon="moc"] { background: rgba(214,228,240,0.10); color: #D6E4F0; }
+}

@@ -1,0 +1,113 @@
+<app-page-header title="Data Dictionary"
+  [breadcrumbs]="[{label:'Home'},{label:'Data Quality'},{label:'Data Dictionary'}]">
+</app-page-header>
+
+<div class="page-content dd-page">
+  <div class="dd-stats">
+    <div class="stat-card">
+      <span class="stat-card__value">{{ datasets.length }}</span>
+      <span class="stat-card__label">Datasets</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__value">{{ totalColumns }}</span>
+      <span class="stat-card__label">Columns</span>
+    </div>
+    <div class="stat-card stat-card--green">
+      <span class="stat-card__value">{{ documentedColumns }}</span>
+      <span class="stat-card__label">Documented</span>
+    </div>
+    <div class="stat-card stat-card--amber">
+      <span class="stat-card__value">{{ piiColumns }}</span>
+      <span class="stat-card__label">PII columns</span>
+    </div>
+  </div>
+
+  <div class="dd-error" *ngIf="error">{{ error }}</div>
+
+  <div class="dd-body">
+    <!-- Dataset list -->
+    <aside class="dd-list">
+      <input type="search" class="dd-search" placeholder="Search datasets" [(ngModel)]="search" />
+      <div class="dd-list__empty" *ngIf="loading">Loading…</div>
+      <div class="dd-list__empty" *ngIf="!loading && !filteredDatasets.length">
+        No datasets yet. Import a file or build a database view first.
+      </div>
+      <button type="button" class="dd-item" *ngFor="let d of filteredDatasets"
+        [class.dd-item--active]="isSelected(d)" (click)="select(d)">
+        <span class="dd-item__kind dd-item__kind--{{ d.kind }}">{{ d.kind === 'import' ? 'Import' : 'View' }}</span>
+        <span class="dd-item__name">{{ d.name }}</span>
+        <span class="dd-item__meta">
+          {{ d.documentedCount }}/{{ d.columnCount }} documented
+          <span class="dd-item__pii" *ngIf="d.piiCount">· {{ d.piiCount }} PII</span>
+        </span>
+        <span class="dd-item__bar"><span [style.width.%]="coverage(d)"></span></span>
+      </button>
+    </aside>
+
+    <!-- Selected dataset -->
+    <section class="dd-detail" *ngIf="selected; else pick">
+      <div class="dd-detail__head">
+        <div>
+          <h2>{{ selected.name }}</h2>
+          <span class="dd-detail__kind">{{ selected.kind === 'import' ? 'Imported dataset' : 'Database view' }} · {{ columns.length }} columns</span>
+        </div>
+        <div class="dd-detail__actions">
+          <span class="dd-saved" *ngIf="saved">Saved</span>
+          <button type="button" class="dd-btn dd-btn--primary" (click)="save()" [disabled]="saving || loadingDetail">
+            {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="dd-dataset-fields">
+        <label class="dd-field dd-field--grow">
+          <span>Description</span>
+          <input type="text" [(ngModel)]="description" placeholder="What this dataset contains and when to use it" />
+        </label>
+        <label class="dd-field">
+          <span>Owner</span>
+          <input type="text" [(ngModel)]="owner" placeholder="Team or person" />
+        </label>
+        <label class="dd-field">
+          <span>Find column</span>
+          <input type="search" [(ngModel)]="columnSearch" placeholder="Name" />
+        </label>
+      </div>
+
+      <div class="dd-table-wrap">
+        <table class="dd-table">
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th>Business name</th>
+              <th>Description</th>
+              <th>Owner</th>
+              <th>Sensitivity</th>
+              <th>Tags</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loadingDetail"><td colspan="7" class="dd-table__empty">Loading…</td></tr>
+            <tr *ngFor="let c of filteredColumns" [class.dd-row--pii]="c.sensitivity === 'pii'">
+              <td class="dd-col-name">{{ c.columnName }}</td>
+              <td><span class="dd-type" *ngIf="c.dataType">{{ c.dataType }}</span></td>
+              <td><input type="text" [(ngModel)]="c.businessName" placeholder="—" /></td>
+              <td><input type="text" [(ngModel)]="c.description" placeholder="Add a description" /></td>
+              <td><input type="text" [(ngModel)]="c.owner" placeholder="—" /></td>
+              <td>
+                <select [(ngModel)]="c.sensitivity">
+                  <option *ngFor="let s of sensitivities" [value]="s">{{ s | titlecase }}</option>
+                </select>
+              </td>
+              <td><input type="text" [(ngModel)]="c.tags" placeholder="comma, separated" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <ng-template #pick>
+      <section class="dd-detail dd-detail--empty" *ngIf="!loading">Select a dataset to document its columns.</section>
+    </ng-template>
+  </div>
+</div>

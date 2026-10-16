@@ -1,0 +1,766 @@
+// The routed host is the flex child of plan 7b's full-bleed .paddingContent.
+:host {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--color-bg-app);
+}
+
+// The browser's full screen shows the page element on black unless it has its own background.
+:host:fullscreen {
+  overflow: auto;
+  background: var(--color-bg-app);
+}
+
+.canvas-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+
+  // ── Ribbon toolbar (the dashboard builder's .builder-toolbar) ──────────────
+  &__toolbar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    min-height: 48px;
+    padding: 0 var(--spacing-md);
+    background: var(--color-bg-card);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  &__title { display: flex; align-items: center; gap: var(--spacing-xs); min-width: 0; }
+
+  &__crumb {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-label);
+    text-decoration: none;
+
+    &:hover { color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  &__crumb-sep { color: var(--color-text-muted); }
+
+  &__name {
+    margin: 0;
+    overflow: hidden;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__ribbon { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+
+  // Groups are divided by a 1px line; an empty group (no button shown) takes no room.
+  &__group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 var(--spacing-sm);
+
+    &:empty { display: none; }
+    & + & { border-left: 1px solid var(--color-border); }
+    &:last-child { padding-right: 0; }
+  }
+
+  &__toast {
+    position: absolute;
+    top: 56px;
+    right: var(--spacing-md);
+    z-index: 5;
+    max-width: min(420px, calc(100% - 32px));
+    margin: 0;
+    box-shadow: var(--shadow-md);
+  }
+
+  &__loading { padding: var(--spacing-md); }
+  &__error { margin: var(--spacing-md); }
+
+  &__notice {
+    flex-shrink: 0;
+    margin: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-warning);
+    background: var(--color-bg-card);
+    font-size: 13px;
+    color: var(--color-text-primary);
+  }
+
+  // ── Body: the sheet, then Visualizations, then Data, as in Power BI Desktop ─
+  &__body {
+    --canvas-visuals-width: 300px;
+    --canvas-data-width: 260px;
+    --canvas-filters-width: 250px;
+    display: grid;
+    flex: 1;
+    grid-template-columns: minmax(0, 1fr) var(--canvas-filters-width) var(--canvas-visuals-width) var(--canvas-data-width);
+    min-height: 0;
+    transition: grid-template-columns 0.2s ease;
+
+    &--visuals-folded { --canvas-visuals-width: 40px; }
+    &--data-folded { --canvas-data-width: 40px; }
+    &--filters-folded { --canvas-filters-width: 40px; }
+  }
+
+  // Read-only and presenting canvases have no side panes, so the sheet takes the whole width.
+  &--presenting &__body,
+  &__body--view { grid-template-columns: minmax(0, 1fr); }
+
+  // A folded pane: its name down the strip; a click opens it again.
+  &__strip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-sm) 0;
+    border: 0;
+    border-left: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+    color: var(--color-text-subtle);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    span { writing-mode: vertical-rl; letter-spacing: 0.04em; }
+    &:hover { background: var(--color-primary-50); color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+    ::ng-deep svg { width: 14px; height: 14px; }
+  }
+
+  &__pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+  // The large text dialog.
+  &__overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-md);
+    background: rgb(15 23 42 / 45%);
+  }
+
+  &__text-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    width: min(880px, 100%);
+    max-height: calc(100dvh - 32px);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-card);
+    box-shadow: 0 24px 60px rgb(15 23 42 / 30%);
+  }
+
+  &__dialog-header { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); }
+  &__dialog-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+  &__dialog-actions { display: flex; justify-content: flex-end; gap: var(--spacing-sm); }
+
+  &__main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+  // A 16px dot grid on the app background: a pattern, not a colour gradient. A wallpaper or the page setting turns it off.
+  &__stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    background: radial-gradient(var(--color-border) 1px, transparent 1px) 0 0 / 16px 16px, var(--color-bg-app);
+
+    &--plain { background: var(--color-bg-app); }
+  }
+
+  &__empty {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  // Gridster scrolls inside the stage; it paints its own grey background unless told otherwise.
+  &__grid { display: block; width: 100%; height: 100%; background: transparent; }
+
+  &__page,
+  &__page-inner { width: 100%; height: 100%; }
+
+  // Floating text and images sit over the grid, in page pixels.
+  &__page-inner { position: relative; }
+
+  &__float {
+    position: absolute;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+
+    &--editing { cursor: move; outline: 1px dashed transparent; user-select: none; }
+    &--editing:hover { outline-color: var(--color-border); }
+    &--selected { outline: 2px solid var(--color-primary) !important; }
+  }
+
+  &__float &__object { flex: 1; min-height: 0; }
+  &__float:hover &__item-action,
+  &__float--selected &__item-action { opacity: 1; }
+
+  &__float-more { position: absolute; top: 2px; right: 2px; z-index: 1; background: var(--color-bg-card); }
+
+  &__float-resize {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px 0 var(--radius-lg) 0;
+    background: var(--color-primary);
+    cursor: nwse-resize;
+  }
+
+  // A fixed page size (item 18): the page sits in the middle of the stage, scaled to fit, and looks like a page.
+  // Zoomed past the stage, the page scrolls; safe centring keeps its left and top edges reachable.
+  &__stage--paged { display: flex; align-items: safe center; justify-content: safe center; overflow: auto; }
+  &__page--fixed { position: relative; flex: none; }
+  &__page--fixed &__page-inner { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  &__page--fixed &__grid { background: var(--color-bg-card); box-shadow: 0 6px 24px rgb(15 23 42 / 14%); }
+
+  &__export { position: relative; }
+
+  &__zoom {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    padding: 2px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-bg-card);
+  }
+
+  &__zoom-step,
+  &__zoom-level {
+    height: 24px;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    color: var(--color-text-primary);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--color-primary-50); color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+    &:disabled { color: var(--color-text-muted); cursor: default; }
+  }
+
+  &__zoom-step { width: 24px; font-size: 15px; line-height: 1; }
+  &__zoom-level { min-width: 64px; padding: 0 8px; font-variant-numeric: tabular-nums; }
+  &__zoom-level--fit { color: var(--color-text-subtle); }
+
+  // An object's three-dot menu, drawn above everything at the pointer.
+  &__item-menu {
+    position: fixed;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    width: 210px;
+    padding: var(--spacing-xs) 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    box-shadow: 0 8px 24px rgb(15 23 42 / 16%);
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 7px var(--spacing-md);
+      border: 0;
+      background: none;
+      font: inherit;
+      font-size: 13px;
+      text-align: left;
+      color: var(--color-text-primary);
+      cursor: pointer;
+
+      &:hover, &:focus-visible { background: var(--color-primary-50); color: var(--color-primary); outline: none; }
+      ::ng-deep svg { width: 15px; height: 15px; }
+    }
+  }
+
+  &__item-menu-key { margin-left: auto; font-size: 11px; color: var(--color-text-subtle); }
+  &__item-menu-danger:hover { color: var(--color-danger) !important; }
+
+  &__item-menu-note {
+    margin: 4px 0 0;
+    padding: 6px var(--spacing-md) 2px;
+    border-top: 1px solid var(--color-border-subtle);
+    font-size: 11px;
+    color: var(--color-text-subtle);
+  }
+
+  &__export-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    padding: var(--spacing-xs) 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    box-shadow: 0 8px 24px rgb(15 23 42 / 16%);
+
+    button {
+      padding: 8px var(--spacing-md);
+      border: 0;
+      background: none;
+      font: inherit;
+      font-size: 13px;
+      text-align: left;
+      color: var(--color-text-primary);
+      cursor: pointer;
+
+      &:hover, &:focus-visible { background: var(--color-primary-50); color: var(--color-primary); outline: none; }
+    }
+
+    p { margin: 4px 0 0; padding: 6px var(--spacing-md) 2px; border-top: 1px solid var(--color-border-subtle); font-size: 11px; color: var(--color-text-subtle); }
+  }
+
+  &__brand-logo { flex-shrink: 0; width: auto; max-width: 96px; height: 26px; object-fit: contain; }
+
+  &__item {
+    // Gridster writes display: block on each item; the header and the object must stay a column, or the object keeps
+    // the item's full height under the header and its bottom is cut off.
+    display: flex !important;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+    &:hover { box-shadow: var(--shadow-md); }
+    &--selected { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+  }
+
+  // An open dropdown slicer shows its list over the objects around it instead of being cut off by its own box.
+  &__item:has(.canvas-object--dropdown-open),
+  &__float:has(.canvas-object--dropdown-open) { overflow: visible; z-index: 30 !important; }
+
+  // With the title hidden, the header stays while editing as a thin drag handle.
+  &__item-header--ghost {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    min-height: 22px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  &__item:hover &__item-header--ghost,
+  &__item--selected &__item-header--ghost { opacity: 1; }
+
+  // The strip lets clicks through to the object under it (a slicer's search, a table); only the grip, which moves the
+  // object, and the menu button take the pointer.
+  // The base header rule comes later in this file, so the strip states its layout firmly.
+  &__item-header--ghost { justify-content: center !important; min-height: 14px; pointer-events: none; }
+  &__item-header--ghost &__item-action { position: absolute; top: 2px; right: 2px; }
+  &__item-header--ghost &__item-titles { flex: 0 0 auto; }
+  &__item-header--ghost &__item-title,
+  &__item-header--ghost &__item-action {
+    pointer-events: auto;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-card);
+    box-shadow: var(--shadow-sm);
+  }
+  &__item-header--ghost &__item-title {
+    width: 32px !important;
+    height: 12px;
+    cursor: move;
+    // A six-dot grip drawn with a background pattern.
+    background-image: radial-gradient(var(--color-text-label) 1.2px, transparent 1.3px);
+    background-size: 5px 5px;
+    background-position: 1px 1px;
+    background-repeat: repeat;
+  }
+
+  // Without a title the object keeps a small gap from its frame.
+  &__item--untitled &__object { padding: var(--canvas-object-padding, 6px); }
+  // While editing, the grip and the menu sit in a strip above the content instead of on it.
+  &__body:not(&__body--view) &__item--untitled &__object { padding-top: 16px; }
+
+  // Titles and subtitles take the brand kit's sizes (CSS variables on the stage) unless the object sets its own.
+  &__item-titles { display: flex; flex: 1; flex-direction: column; min-width: 0; font-size: var(--canvas-title-size, 13px); }
+
+  &__item-subtitle {
+    overflow: hidden;
+    color: var(--color-text-label);
+    font-size: var(--canvas-subtitle-size, 11px);
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__item-header {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-height: 36px;
+    padding: 4px 6px 4px 10px;
+    cursor: move;
+  }
+
+  &--presenting &__item-header { cursor: default; }
+
+  &__item-title {
+    min-width: 0;
+    padding: 2px 0;
+    overflow: hidden;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:disabled { cursor: default; }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  // Revealed on hover, focus or selection, as the dashboard builder's slot actions are.
+  &__item-action {
+    display: inline-flex;
+    flex-shrink: 0;
+    padding: 3px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-label);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+
+    &:hover { color: var(--color-danger); background: var(--color-bg-app); }
+    &--clone:hover { color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); opacity: 1; }
+  }
+
+  &__item:hover &__item-action,
+  &__item--selected &__item-action { opacity: 1; }
+
+  &__object { flex: 1; min-height: 0; padding: var(--canvas-object-padding, 0); }
+
+  &__item-titles &__item-title { width: 100%; font-size: inherit; color: inherit; text-align: inherit; font-weight: inherit; }
+
+  // ── Sheet tabs under the sheet (the board builder's .builder-tabs) ────────
+  &__sheets {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-height: 44px;
+    padding: 0 var(--spacing-sm);
+    background: var(--color-bg-card);
+    border-top: 1px solid var(--color-border);
+  }
+
+  &__tabs { display: flex; align-items: center; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+
+  &__tab {
+    flex-shrink: 0;
+    height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-label);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+
+    &:hover { color: var(--color-text-primary); }
+    &--active { border-bottom-color: var(--color-primary); color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+  }
+
+  &__rename { width: 160px; height: 32px; margin: 0 6px; }
+
+  &__tab-add {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: 4px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--color-text-label);
+    cursor: pointer;
+
+    &:hover { background: var(--color-primary-50); color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  &__sheet-actions { display: flex; flex-shrink: 0; align-items: center; gap: 2px; }
+
+  // The active cross-filter, in the chip tint of the field wells.
+  &__filter {
+    display: inline-flex;
+    flex-shrink: 1;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 320px;
+    padding: 3px 6px 3px 10px;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-legend);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-primary);
+    cursor: pointer;
+    animation: canvas-filter-in 0.2s ease-out;
+
+    &:hover { filter: brightness(0.96); }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  &__filter-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  &__sheet-action {
+    padding: 4px 8px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    color: var(--color-text-label);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--color-primary-50); color: var(--color-primary); }
+    &:disabled { color: var(--color-text-muted); cursor: default; }
+    &:focus-visible { outline: 2px solid var(--color-primary); }
+  }
+
+  @media (max-width: 1200px) {
+    &__body { grid-template-columns: minmax(0, 1fr) 260px; grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr); }
+    &__body--view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+    &__main { grid-row: 1 / 4; }
+    &__body--view &__main { grid-row: auto; }
+    // The Data pane moves under the Visualizations pane; a folded pane is a short bar there.
+    &__pane { border-top: 1px solid var(--color-border); }
+    &__strip { flex-direction: row; justify-content: center; border-top: 1px solid var(--color-border); span { writing-mode: horizontal-tb; } }
+  }
+
+  // Plan 7b lets the page scroll again here; the panes stack under the sheet.
+  @media (max-width: 992px) {
+    &__body { display: flex; flex-direction: column; }
+    // The sheet keeps to its own box and scrolls, so it never lies over the panes under it.
+    &__stage { flex: none; height: calc(60dvh / var(--app-zoom-factor, 1)); overflow: auto; }
+    &__main { flex: none; }
+    &__pane { flex: none; max-height: calc(70dvh / var(--app-zoom-factor, 1)); }
+    &__ribbon { justify-content: flex-start; }
+    &__toolbar { flex-wrap: wrap; padding: var(--spacing-xs) var(--spacing-sm); }
+  }
+
+  @media (max-width: 480px) {
+    &__sheets { flex-wrap: wrap; }
+    &__rename { width: 120px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__item,
+    &__item-action,
+    &__tab { transition: none; }
+  }
+}
+
+// Gridster draws these inside its own view, so they are styled through the host (P8-22).
+:host ::ng-deep {
+  .canvas-editor__grid .gridster-column { border-left-color: var(--color-border); border-right-color: var(--color-border); }
+  .canvas-editor__grid .gridster-row { border-top-color: var(--color-border); border-bottom-color: var(--color-border); }
+
+  // Where the dragged object will land.
+  .canvas-editor__grid gridster-preview {
+    border: 2px dashed var(--color-primary);
+    border-radius: var(--radius-lg);
+    background: var(--color-primary-50);
+  }
+
+  // Corner handles on the selected object only: white squares ringed in primary.
+  .canvas-editor__item .gridster-item-resizable-handler.handle-se,
+  .canvas-editor__item .gridster-item-resizable-handler.handle-sw,
+  .canvas-editor__item .gridster-item-resizable-handler.handle-ne,
+  .canvas-editor__item .gridster-item-resizable-handler.handle-nw { opacity: 0; }
+
+  .canvas-editor__item--selected .gridster-item-resizable-handler.handle-se,
+  .canvas-editor__item--selected .gridster-item-resizable-handler.handle-sw,
+  .canvas-editor__item--selected .gridster-item-resizable-handler.handle-ne,
+  .canvas-editor__item--selected .gridster-item-resizable-handler.handle-nw {
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--color-primary);
+    border-radius: 2px;
+    background: var(--color-bg-card);
+    opacity: 1;
+  }
+}
+
+@keyframes canvas-filter-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-editor__filter { animation: none; }
+}
+
+.canvas-editor__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-card);
+  color: var(--color-text-label);
+  cursor: pointer;
+
+  &:hover { border-color: #fda29b; background: #fef3f2; color: #d92d20; }
+  &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  app-icon ::ng-deep svg { width: 16px; height: 16px; }
+}
+
+// New measure stands apart from the ghost buttons: it changes the model every canvas on the dataset reads.
+.canvas-editor__new-measure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-md, 8px);
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.35);
+
+  &:hover { filter: brightness(1.05); }
+  &:focus-visible { outline: 2px solid #ea580c; outline-offset: 2px; }
+  app-icon ::ng-deep svg { width: 16px; height: 16px; }
+}
+
+// The New column list opens under its button, from the left.
+.canvas-editor__export-menu--left { right: auto; left: 0; }
+
+// The Export dialog: three groups of choices, one under the other.
+.canvas-editor__export-dialog { width: min(460px, 100%); overflow: auto; }
+
+.canvas-editor__export-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+  color: var(--color-text-primary);
+
+  legend { margin-bottom: 6px; padding: 0; font-size: 12px; font-weight: 600; color: var(--color-text-label); }
+  label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+}
+
+.canvas-editor__export-sheets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  margin-left: 24px;
+  overflow: auto;
+}
+
+// Show records: a scrolling table of the rows behind an object.
+.canvas-editor__records { width: min(1100px, 100%); }
+.canvas-editor__records-error { margin: 0; color: var(--color-danger, #b91c1c); }
+
+.canvas-editor__records-table {
+  overflow: auto;
+  max-height: calc(100dvh - 220px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 5px 10px; border-bottom: 1px solid var(--color-border-subtle); text-align: left; white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--color-bg-app); font-weight: 600; color: var(--color-text-label); }
+}
+
+// Bookmarks: one row per saved view, with its sheet under its name.
+.canvas-editor__bookmarks { width: 280px; }
+.canvas-editor__bookmark { display: flex; align-items: center; }
+.canvas-editor__bookmark > button:first-child { display: flex; flex: 1; flex-direction: column; align-items: flex-start; }
+.canvas-editor__bookmark small { font-size: 11px; color: var(--color-text-label); }
+.canvas-editor__bookmark-remove { flex: 0 0 auto !important; width: 28px; padding: 4px !important; }
+.canvas-editor__bookmark-add { display: flex; gap: 6px; padding: 6px 12px; }
+
+// Comments: a panel on the right, the threads above and a new comment below.
+.canvas-editor__comments {
+  position: fixed;
+  top: 64px;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  width: min(360px, 100vw);
+  padding: var(--spacing-md);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  box-shadow: -8px 0 24px rgb(15 23 42 / 12%);
+}
+
+.canvas-editor__comment-list { display: flex; flex: 1; flex-direction: column; gap: var(--spacing-sm); overflow: auto; }
+.canvas-editor__comment { padding: 8px 10px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); }
+.canvas-editor__comment--reply { margin: 6px 0 0 12px; background: var(--color-bg-app); }
+.canvas-editor__comment-meta { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 11px; color: var(--color-text-label); }
+.canvas-editor__comment-meta strong { font-size: 12px; color: var(--color-text-primary); }
+.canvas-editor__comment-body { margin: 4px 0 0; font-size: 13px; white-space: pre-wrap; color: var(--color-text-primary); }
+.canvas-editor__comment-action { margin-left: auto; padding: 0; border: 0; background: none; color: var(--color-primary); font-size: 11px; cursor: pointer; }
+.canvas-editor__comment-form { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-top: 6px; }

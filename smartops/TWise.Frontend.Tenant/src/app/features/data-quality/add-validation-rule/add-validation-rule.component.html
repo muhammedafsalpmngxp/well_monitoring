@@ -1,0 +1,505 @@
+<ng-container *ngIf="!isModal">
+    <app-page-header title="Add Validation Rule"
+        [breadcrumbs]="[{label:'Home', route:'/'},{label:'Data Quality'},{label:'Error Log & Rules', route:'/data-quality/error-log-rules'},{label:'Add Validation Rule'}]">
+        <div class="avr-header-actions">
+            <app-button variant="secondary" (clicked)="discard()">Discard</app-button>
+            <app-button variant="primary" (clicked)="saveRule()">
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M14.25 15.75H3.75C3.33579 15.75 3 15.4142 3 15V3C3 2.58579 3.33579 2.25 3.75 2.25H12L15.75 6V15C15.75 15.4142 15.4142 15.75 15 15.75H14.25Z"
+                        stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M12 15.75V10.5H6V15.75M6 2.25V5.25H11.25" stroke="white" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Save Rule
+            </app-button>
+        </div>
+    </app-page-header>
+</ng-container>
+
+<div class="page-content avr-page" [class.avr-page--view-mode]="viewMode">
+
+    <!-- ─── Section 1: Rule Details ─────────────────────────────────────────── -->
+    <div class="avr-section avr-section--blue">
+        <div class="avr-section__header">
+            <span class="avr-section__number">1</span>
+            <h2 class="avr-section__title">Report Details</h2>
+            <span role="img" class="avr-section__info" data-tooltip="Rule details&#10;summary" aria-label="Rule details summary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                    <path
+                        d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                        fill="#EAF1FF" stroke="#C8D7FF" />
+                    <path
+                        d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z"
+                        fill="#21409A" />
+                    <path
+                        d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                        fill="#21409A" />
+                </svg>
+            </span>
+        </div>
+        <div class="avr-section__body">
+            <div class="avr-form-row">
+                <div class="avr-form-field avr-form-field--grow">
+                    <label class="avr-form-field__label">Rule Name <span class="avr-required">*</span>
+                        <span role="img" class="avr-label-info" data-tooltip="A short, unique&#10;name for this rule" aria-label="A short, unique name for this rule">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                                <path
+                                    d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                                    fill="#EAF1FF" stroke="#C8D7FF" />
+                                <path
+                                    d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z"
+                                    fill="#21409A" />
+                                <path
+                                    d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                                    fill="#21409A" />
+                            </svg>
+                        </span>
+
+                    </label>
+                    <input type="text" class="avr-input" [(ngModel)]="ruleName"
+                        placeholder="e.g. planned td must be after spud date" />
+                </div>
+                <div class="avr-form-field avr-form-field--grow">
+                    <label class="avr-form-field__label">Category <span class="avr-required">*</span>
+                        <span role="img" class="avr-label-info" data-tooltip="Select the category&#10;for this rule" aria-label="Select the category for this rule">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                                <path
+                                    d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                                    fill="#EAF1FF" stroke="#C8D7FF" />
+                                <path
+                                    d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z"
+                                    fill="#21409A" />
+                                <path
+                                    d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                                    fill="#21409A" />
+                            </svg>
+                        </span>
+                    </label>
+                    <div class="avr-select-wrap">
+                        <select class="avr-select" [ngModel]="category" (ngModelChange)="onCategoryChanged($event)">
+                            <option value="" disabled selected hidden>Select Category</option>
+                            <option *ngFor="let c of categoryOptions" [value]="c">{{ c }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="avr-form-field avr-form-field--grow">
+                    <label class="avr-form-field__label">Severity <span class="avr-required">*</span>
+                        <span role="img" class="avr-label-info" data-tooltip="Set the impact&#10;level of this rule" aria-label="Set the impact level of this rule">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                                <path
+                                    d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                                    fill="#EAF1FF" stroke="#C8D7FF" />
+                                <path
+                                    d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z"
+                                    fill="#21409A" />
+                                <path
+                                    d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                                    fill="#21409A" />
+                            </svg>
+                        </span>
+                    </label>
+                    <div class="avr-select-wrap avr-select-wrap--severity">
+                        <svg class="avr-select-wrap__flag" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path
+                                d="M2.33301 8.75V12.25M2.33301 8.75V1.75L9.33301 3.5L7.58301 5.25L9.33301 7L2.33301 8.75Z"
+                                fill="#EF5350" stroke="#EF5350" stroke-width="1.2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <select class="avr-select avr-select--with-icon" [(ngModel)]="severity">
+                            <option *ngFor="let s of severityOptions" [value]="s">{{ s }}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="avr-form-row">
+                <div class="avr-form-field avr-form-field--textarea avr-form-field--full-width">
+                    <label class="avr-form-field__label">Rule Description <span class="avr-required">*</span></label>
+                    <textarea class="avr-textarea" rows="4" [(ngModel)]="description" required
+                        [placeholder]="descriptionHint"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Section 2: Source Fields ────────────────────────────────────────── -->
+    <div class="avr-section avr-section--orange">
+        <div class="avr-section__header">
+            <span class="avr-section__number avr-section__number--orange">2</span>
+            <h2 class="avr-section__title">Source fields</h2>
+            <span role="img" class="avr-section__info" data-tooltip="Source fields&#10;overview" aria-label="Source fields overview">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                    <path
+                        d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                        fill="#EAF1FF" stroke="#C8D7FF" />
+                    <path
+                        d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z"
+                        fill="#21409A" />
+                    <path
+                        d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                        fill="#21409A" />
+                </svg>
+            </span>
+        </div>
+        <div class="avr-section__body">
+
+            <!-- Source type toggle -->
+            <div class="avr-source-type-toggle" *ngIf="!viewMode">
+                <label class="avr-form-field__label">Source Type <span class="avr-required">*</span></label>
+                <div class="avr-toggle-group">
+                    <button class="avr-toggle-btn" [class.avr-toggle-btn--active]="sourceType === 'table'"
+                        (click)="switchSourceType('table')">Table</button>
+                    <button class="avr-toggle-btn" [class.avr-toggle-btn--active]="sourceType === 'view'"
+                        (click)="switchSourceType('view')">View</button>
+                </div>
+            </div>
+
+            <!-- Table mode: Add source fields card -->
+            <div class="avr-source-card" *ngIf="sourceType === 'table' && !viewMode">
+                <div class="avr-source-card__title-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <path
+                            d="M15.75 3.75C15.75 4.99264 12.728 6 9 6C5.27208 6 2.25 4.99264 2.25 3.75M15.75 3.75C15.75 2.50736 12.728 1.5 9 1.5C5.27208 1.5 2.25 2.50736 2.25 3.75M15.75 3.75V14.25C15.75 15.495 12.75 16.5 9 16.5C5.25 16.5 2.25 15.495 2.25 14.25V3.75M15.75 9C15.75 10.245 12.75 11.25 9 11.25C5.25 11.25 2.25 10.245 2.25 9"
+                            stroke="#F58220" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span class="avr-source-card__title">Add Source fields</span>
+                </div>
+                <div class="avr-source-card__controls">
+                    <div class="avr-form-field avr-form-field--grow">
+                        <label class="avr-form-field__label" for="avr-source-table">Source table <span
+                                class="avr-required">*</span>
+                            <span role="img" class="avr-label-info" data-tooltip="Choose the source&#10;table for this rule" aria-label="Choose the source table for this rule">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                                    <path
+                                        d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                                        fill="#EAF1FF" stroke="#C8D7FF" />
+                                    <path
+                                        d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z"
+                                        fill="#21409A" />
+                                    <path
+                                        d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                                        fill="#21409A" />
+                                </svg>
+                            </span>
+
+
+                        </label>
+                        <div class="avr-select-wrap avr-combo">
+                            <input type="text" class="avr-select" id="avr-source-table"
+                                placeholder="Search a table" autocomplete="off"
+                                [(ngModel)]="sourceTableSearch" (ngModelChange)="onSourceTableSearchChange($event)"
+                                (focus)="openSourceTableDropdown()" (blur)="closeSourceTableDropdown()" />
+                            <div class="avr-combo__panel" *ngIf="sourceTableDropdownOpen">
+                                <ng-container *ngIf="filteredSourceTableOptions.length; else avrNoTableMatch">
+                                    <div appKeyClick class="avr-combo__option" *ngFor="let t of filteredSourceTableOptions"
+                                        [class.avr-combo__option--active]="t === sourceTable"
+                                        (mousedown)="$event.preventDefault()" (click)="selectSourceTable(t)">{{ t }}</div>
+                                </ng-container>
+                                <ng-template #avrNoTableMatch>
+                                    <div class="avr-combo__empty">No matching tables</div>
+                                </ng-template>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="avr-form-field avr-form-field--grow">
+                        <label class="avr-form-field__label" for="avr-table-columns">Columns <span class="avr-required">*</span>
+                            <span role="img" class="avr-label-info" data-tooltip="Select the matching&#10;columns to validate" aria-label="Select the matching columns to validate">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                                    <path
+                                        d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                                        fill="#EAF1FF" stroke="#C8D7FF" />
+                                    <path
+                                        d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z"
+                                        fill="#21409A" />
+                                    <path
+                                        d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                                        fill="#21409A" />
+                                </svg>
+                            </span>
+                        </label>
+                        <div class="avr-select-wrap avr-combo">
+                            <input type="text" class="avr-select" id="avr-table-columns"
+                                placeholder="Search a column" autocomplete="off"
+                                [disabled]="!columnOptions.length" [(ngModel)]="tableColumnSearch"
+                                (ngModelChange)="onTableColumnSearchChange($event)"
+                                (focus)="openColumnDropdown()" (blur)="closeColumnDropdown()" />
+                            <div class="avr-combo__panel" *ngIf="columnDropdownOpen">
+                                <ng-container *ngIf="filteredColumnOptions.length; else avrNoColumnMatch">
+                                    <div appKeyClick class="avr-combo__option" *ngFor="let col of filteredColumnOptions"
+                                        [class.avr-combo__option--active]="col === tableColumnSearch"
+                                        (mousedown)="$event.preventDefault()" (click)="selectTableColumn(col)">{{ col }}</div>
+                                </ng-container>
+                                <ng-template #avrNoColumnMatch>
+                                    <div class="avr-combo__empty">No matching columns</div>
+                                </ng-template>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="avr-add-field-btn" (click)="addSelectedField()">
+
+                        Add Selected Field
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <path d="M3 9H15M10.5 13.5L15 9L10.5 4.5" stroke="white" stroke-width="1.4"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+                <p class="avr-source-card__hint">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <g clip-path="url(#clip0_5511_26427)">
+                            <path
+                                d="M7.5 13.2439V15C7.5 15.8284 8.17155 16.5 9 16.5C9.82845 16.5 10.5 15.8284 10.5 15V13.2439M9 1.5V2.25M2.25 9H1.5M4.125 4.125L3.67492 3.67492M13.875 4.125L14.3252 3.67492M16.5 9H15.75M13.5 9C13.5 11.4853 11.4853 13.5 9 13.5C6.51472 13.5 4.5 11.4853 4.5 9C4.5 6.51472 6.51472 4.5 9 4.5C11.4853 4.5 13.5 6.51472 13.5 9Z"
+                                stroke="#F58220" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </g>
+                        <defs>
+                            <clipPath id="clip0_5511_26427">
+                                <rect width="18" height="18" fill="white" />
+                            </clipPath>
+                        </defs>
+                    </svg>
+                    Start here — the rest of the builder fills in once a model is chosen.
+                </p>
+            </div>
+
+            <!-- View mode: select a saved view -->
+            <div class="avr-source-card" *ngIf="sourceType === 'view' && !viewMode">
+                <div class="avr-source-card__title-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <path
+                            d="M15.75 3.75C15.75 4.99264 12.728 6 9 6C5.27208 6 2.25 4.99264 2.25 3.75M15.75 3.75C15.75 2.50736 12.728 1.5 9 1.5C5.27208 1.5 2.25 2.50736 2.25 3.75M15.75 3.75V14.25C15.75 15.495 12.75 16.5 9 16.5C5.25 16.5 2.25 15.495 2.25 14.25V3.75M15.75 9C15.75 10.245 12.75 11.25 9 11.25C5.25 11.25 2.25 10.245 2.25 9"
+                            stroke="#F58220" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span class="avr-source-card__title">Select a Saved View</span>
+                </div>
+                <div class="avr-source-card__controls">
+                    <div class="avr-form-field avr-form-field--grow">
+                        <label class="avr-form-field__label" for="avr-saved-view">Saved View <span
+                                class="avr-required">*</span></label>
+                        <div class="avr-select-wrap avr-combo">
+                            <input type="text" class="avr-select" id="avr-saved-view"
+                                placeholder="Search a view" autocomplete="off"
+                                [(ngModel)]="viewSearch" (ngModelChange)="onViewSearchChange($event)"
+                                (focus)="openViewDropdown()" (blur)="closeViewDropdown()" />
+                            <div class="avr-combo__panel" *ngIf="viewDropdownOpen">
+                                <ng-container *ngIf="filteredViewOptions.length; else avrNoViewMatch">
+                                    <div appKeyClick class="avr-combo__option" *ngFor="let v of filteredViewOptions"
+                                        [class.avr-combo__option--active]="v.id === selectedViewId"
+                                        (mousedown)="$event.preventDefault()" (click)="chooseView(v)">{{ v.viewName }}</div>
+                                </ng-container>
+                                <ng-template #avrNoViewMatch>
+                                    <div class="avr-combo__empty">No matching views</div>
+                                </ng-template>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="avr-form-field avr-form-field--grow">
+                        <label class="avr-form-field__label" for="avr-view-columns">Columns <span
+                                class="avr-required">*</span></label>
+                        <div class="avr-select-wrap avr-combo">
+                            <input type="text" class="avr-select" id="avr-view-columns"
+                                placeholder="Search a column" autocomplete="off"
+                                [disabled]="!viewColumns.length" [(ngModel)]="columnSearch"
+                                (ngModelChange)="onColumnSearchChange($event)"
+                                (focus)="openViewColumnDropdown()" (blur)="closeViewColumnDropdown()" />
+                            <div class="avr-combo__panel" *ngIf="viewColumnDropdownOpen">
+                                <ng-container *ngIf="filteredViewColumnOptions.length; else avrNoViewColumnMatch">
+                                    <div appKeyClick class="avr-combo__option" *ngFor="let col of filteredViewColumnOptions"
+                                        [class.avr-combo__option--active]="col.value === columnSearch"
+                                        (mousedown)="$event.preventDefault()" (click)="selectViewColumn(col)">{{ col.label }}</div>
+                                </ng-container>
+                                <ng-template #avrNoViewColumnMatch>
+                                    <div class="avr-combo__empty">No matching columns</div>
+                                </ng-template>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="avr-add-field-btn" (click)="addSelectedViewField()">
+                        Add Selected Field
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <path d="M3 9H15M10.5 13.5L15 9L10.5 4.5" stroke="white" stroke-width="1.4"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+                <div *ngIf="viewLoading" class="avr-source-card__hint">Loading view data...</div>
+                <p class="avr-source-card__hint" *ngIf="!viewLoading && !viewColumns.length">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <g clip-path="url(#clip0_5511_26427v)">
+                            <path
+                                d="M7.5 13.2439V15C7.5 15.8284 8.17155 16.5 9 16.5C9.82845 16.5 10.5 15.8284 10.5 15V13.2439M9 1.5V2.25M2.25 9H1.5M4.125 4.125L3.67492 3.67492M13.875 4.125L14.3252 3.67492M16.5 9H15.75M13.5 9C13.5 11.4853 11.4853 13.5 9 13.5C6.51472 13.5 4.5 11.4853 4.5 9C4.5 6.51472 6.51472 4.5 9 4.5C11.4853 4.5 13.5 6.51472 13.5 9Z"
+                                stroke="#F58220" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </g>
+                        <defs>
+                            <clipPath id="clip0_5511_26427v">
+                                <rect width="18" height="18" fill="white" />
+                            </clipPath>
+                        </defs>
+                    </svg>
+                    Select a view to load its columns.
+                </p>
+            </div>
+
+            <!-- Added field groups — AG Grid -->
+            <div class="avr-field-groups">
+                <div class="avr-field-groups__header">
+                    <h3 class="avr-field-groups__title">Added field groups</h3>
+                    <span class="avr-field-groups__hint">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <g clip-path="url(#clip0_5511_26435)">
+                                <path
+                                    d="M7.5 13.2439V15C7.5 15.8284 8.17155 16.5 9 16.5C9.82845 16.5 10.5 15.8284 10.5 15V13.2439M9 1.5V2.25M2.25 9H1.5M4.125 4.125L3.67492 3.67492M13.875 4.125L14.3252 3.67492M16.5 9H15.75M13.5 9C13.5 11.4853 11.4853 13.5 9 13.5C6.51472 13.5 4.5 11.4853 4.5 9C4.5 6.51472 6.51472 4.5 9 4.5C11.4853 4.5 13.5 6.51472 13.5 9Z"
+                                    stroke="#F58220" stroke-width="1.4" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </g>
+                            <defs>
+                                <clipPath id="clip0_5511_26435">
+                                    <rect width="18" height="18" fill="white" />
+                                </clipPath>
+                            </defs>
+                        </svg>
+                        You can keep adding more field groups above. Use Edit to update one added row.
+                    </span>
+                </div>
+                <div class="avr-grid-wrapper">
+                    <ag-grid-angular class="avr-grid" [columnDefs]="columnDefs" [defaultColDef]="defaultColDef"
+                        [rowData]="fieldGroups" [theme]="gridTheme" [context]="gridContext" [animateRows]="true"
+                        domLayout="autoHeight">
+                    </ag-grid-angular>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Section 3: Validation Settings ──────────────────────────────────── -->
+    <div class="avr-section avr-section--teal">
+        <div class="avr-section__header">
+            <span class="avr-section__number avr-section__number--teal">3</span>
+            <h2 class="avr-section__title">Validation Settings</h2>
+            <span role="img" class="avr-section__info" data-tooltip="Configure validation&#10;settings" aria-label="Configure validation settings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z" fill="#EAF1FF" stroke="#C8D7FF"/><path d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z" fill="#21409A"/><path d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z" fill="#21409A"/></svg>
+            </span>
+        </div>
+        <div class="avr-section__body">
+            <div class="avr-form-row">
+                <!-- Hidden for now: not yet wired into generated query logic -->
+                <div class="avr-form-field avr-form-field--grow" *ngIf="false">
+                    <label class="avr-form-field__label">Validation Period
+                      <span role="img" class="avr-label-info" data-tooltip="Choose how often&#10;this rule applies" aria-label="Choose how often this rule applies">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z" fill="#EAF1FF" stroke="#C8D7FF"/><path d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z" fill="#21409A"/><path d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z" fill="#21409A"/></svg>
+                      </span>
+                    </label>
+                    <div class="avr-select-wrap">
+                        <select class="avr-select" [(ngModel)]="validationPeriod">
+                            <option value="" disabled selected hidden>Select</option>
+                            <option *ngFor="let p of validationPeriodOptions" [value]="p">{{ p }}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom date range row -->
+            <div class="avr-form-row" *ngIf="validationPeriod === 'Custom Date'">
+                <div class="avr-form-field avr-form-field--grow">
+                    <label class="avr-form-field__label">Start Date <span class="avr-required">*</span></label>
+                    <input type="date" class="avr-input" [(ngModel)]="customStartDate" />
+                </div>
+                <div class="avr-form-field avr-form-field--grow">
+                    <label class="avr-form-field__label">End Date <span class="avr-required">*</span></label>
+                    <input type="date" class="avr-input" [(ngModel)]="customEndDate" />
+                </div>
+            </div>
+
+            <div class="avr-form-row avr-form-row--stretch">
+                <div class="avr-form-field avr-form-field--grow">
+                    <label class="avr-form-field__label">Maximum Records
+                      <span role="img" class="avr-label-info" data-tooltip="Limit the records&#10;checked per run" aria-label="Limit the records checked per run">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z" fill="#EAF1FF" stroke="#C8D7FF"/><path d="M9.12043 10.5498C9.07643 10.5374 9.02609 10.5479 8.99226 10.5771C8.05176 11.4119 7.77759 11.5146 7.70326 11.5199C7.69393 11.5206 7.67326 11.5119 7.64593 11.4848C7.61159 11.4513 7.59309 11.4073 7.58893 11.3503C7.56026 10.9531 7.83009 9.72677 8.39093 7.70527C8.86193 6.01477 8.90576 5.67194 8.89776 5.56144C8.88593 5.39644 8.80393 5.26827 8.65443 5.18027C8.51209 5.09677 8.31693 5.06344 8.07493 5.08094C7.66693 5.11044 7.18126 5.28194 6.63143 5.59094C6.47426 5.67944 6.31043 5.78527 6.14476 5.90527C5.70776 6.22194 5.46809 6.7036 5.50343 7.19344C5.50626 7.2336 5.53776 7.26777 5.58309 7.28044C5.62859 7.29294 5.67943 7.28127 5.71193 7.25094C6.14559 6.84777 6.43443 6.6006 6.57076 6.5161C6.71626 6.4261 6.84593 6.3766 6.95659 6.36861C6.99743 6.3656 7.01793 6.3641 7.02276 6.43194C7.02926 6.5221 7.01493 6.62994 6.98026 6.75177C6.15909 9.58361 5.78526 11.3089 5.83693 12.0263C5.85459 12.2701 5.94893 12.4596 6.11759 12.5899C6.28826 12.7221 6.51143 12.7794 6.78026 12.7599C7.07309 12.7388 7.42459 12.6096 7.85459 12.3651C8.06143 12.2474 8.32943 12.0573 8.65126 11.7999C9.03076 11.4963 9.23043 11.0723 9.19909 10.6366C9.19609 10.5968 9.16543 10.5628 9.12043 10.5498Z" fill="#21409A"/><path d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z" fill="#21409A"/></svg>
+                      </span>
+                    </label>
+                    <div class="avr-select-wrap">
+                        <select class="avr-select" [ngModel]="maximumRecords" (ngModelChange)="onMaximumRecordsChanged($event)">
+                            <option value="" disabled [hidden]="maximumRecords">Select</option>
+                            <option value="" [hidden]="!maximumRecords">Clear selection</option>
+                            <option *ngFor="let m of maximumRecordsOptions" [value]="m">{{ m }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="avr-form-field avr-form-field--textarea">
+                    <label class="avr-form-field__label">Rule Condition</label>
+                    <textarea class="avr-textarea avr-textarea--compact" rows="2" [ngModel]="additionalCondition" (ngModelChange)="onAdditionalConditionChanged($event)"
+                        placeholder="e.g. progress >= 1"></textarea>
+                </div>
+            </div>
+
+            <div class="avr-form-row avr-form-row--stretch">
+                <div class="avr-form-field avr-form-field--textarea avr-form-field--full">
+                    <div class="avr-query-label-row">
+                        <label class="avr-form-field__label">Generated Query</label>
+                        <button type="button" class="avr-copy-btn" (click)="copyGeneratedQuery()"
+                            [disabled]="!queryTextValue" title="Copy query" aria-label="Copy generated query">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            {{ queryCopied ? 'Copied' : 'Copy' }}
+                        </button>
+                    </div>
+                    <div class="avr-textarea-wrap">
+                        <textarea class="avr-textarea" rows="3" [ngModel]="queryTextValue"
+                            (ngModelChange)="onQueryTextChanged($event)"
+                            placeholder="Auto-generated based on category and fields — edit to write your own query."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rule is active toggle -->
+            <div class="avr-toggle-row">
+                <label class="avr-toggle">
+                    <input type="checkbox" [(ngModel)]="ruleIsActive" />
+                    <span class="avr-toggle__track"></span>
+                </label>
+                <div class="avr-toggle-row__text">
+                    <span class="avr-toggle-row__label">Rule is active</span>
+                    <span class="avr-toggle-row__sub">This validation rule is currently active and will be applied</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- end page-content -->
+
+<!-- Bottom toast messages -->
+<div class="avr-toast avr-toast--success avr-toast--bottom" *ngIf="notify.successMessage">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+    <span>{{ notify.successMessage }}</span>
+</div>
+<div class="avr-toast avr-toast--error avr-toast--bottom" *ngIf="notify.error">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+    </svg>
+    <span>{{ notify.error }}</span>
+</div>
+
+<!-- Modal footer buttons -->
+<div class="avr-modal-footer" *ngIf="isModal && !viewMode">
+    <button class="avr-modal-footer__btn avr-modal-footer__btn--secondary" (click)="discard()">Discard</button>
+    <button class="avr-modal-footer__btn avr-modal-footer__btn--primary" (click)="saveRule()" [disabled]="saving">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8l3.5 3.5L13 4" stroke="white" stroke-width="1.6" stroke-linecap="round"
+                stroke-linejoin="round" />
+        </svg>
+        {{ saving ? 'Saving...' : (isEditMode ? 'Update Validation Rule' : 'Add Validation Rule') }}
+    </button>
+</div>
+<div class="avr-modal-footer" *ngIf="isModal && viewMode">
+    <button class="avr-modal-footer__btn avr-modal-footer__btn--secondary" (click)="discard()">Close</button>
+</div>

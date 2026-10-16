@@ -1,0 +1,216 @@
+<div id="page-allwells" class="page active">
+        <!-- Skeleton loader — mimics page layout while data loads -->
+        <div class="aw-skeleton" *ngIf="isLoading">
+          <!-- Skeleton KPI strip -->
+          <div class="aw-skel-kpi-strip">
+            <div class="aw-skel-kpi" *ngFor="let i of [1,2,3,4,5,6]">
+              <div class="aw-skel-line aw-skel-label"></div>
+              <div class="aw-skel-line aw-skel-value"></div>
+              <div class="aw-skel-line aw-skel-bar"></div>
+            </div>
+          </div>
+          <!-- Skeleton filter pills -->
+          <div class="aw-skel-pills">
+            <div class="aw-skel-pill" *ngFor="let i of [1,2,3,4,5,6,7]"></div>
+          </div>
+          <!-- Skeleton grid -->
+          <div class="aw-skel-grid">
+            <div class="aw-skel-grid-header">
+              <div class="aw-skel-col" *ngFor="let i of [1,2,3,4,5,6,7,8,9]"></div>
+            </div>
+            <div class="aw-skel-grid-row" *ngFor="let i of [1,2,3,4,5,6,7,8]">
+              <div class="aw-skel-cell" *ngFor="let j of [1,2,3,4,5,6,7,8,9]"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- <div class="breadcrumb">
+          <a>Overview</a><span>›</span><a>All Wells</a><span>›</span>
+          <span class="current">NL0010 Nimr Location</span></div> -->
+
+        <ng-container *ngIf="!isLoading">
+        <!-- Title row -->
+        <div class="page-title-row">
+          <div class="aw-title-left">
+            <button type="button" class="aw-back-btn" title="Go Back" (click)="goBack()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <div class="page-title">
+              {{ 'ALLWELLS.TITLE' | translate }}
+              <!-- <span class="aw-well-count-badge">20 / 50</span> -->
+            </div>
+          </div>
+          <div class="aw-title-right">
+            <button type="button" class="aw-dashboard-btn"
+                    title="Open Well Execution Dashboard"
+                    [routerLink]="['/wellexecution']">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="9" rx="1"/>
+                <rect x="14" y="3" width="7" height="5" rx="1"/>
+                <rect x="14" y="12" width="7" height="9" rx="1"/>
+                <rect x="3" y="16" width="7" height="5" rx="1"/>
+              </svg>
+            </button>
+            <div class="aw-view-toggle">
+              <button class="aw-view-btn active" id="awGridBtn" onclick="awSetView('grid',this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span class="aw-view-btn-label">{{ 'COMMON.GRID_VIEW' | translate }}</span>
+              </button>
+              <button class="aw-view-btn" id="awCardBtn" onclick="awSetView('card',this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span class="aw-view-btn-label">{{ 'COMMON.CARD_VIEW' | translate }}</span>
+              </button>
+            </div>
+            <button class="dq-btn dq-btn-ghost aw-export-btn" (click)="exportCsv()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {{ 'COMMON.EXPORT_CSV' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Wells Summary section -->
+        <!-- <div class="aw-section-label">{{ 'ALLWELLS.WELLS_SUMMARY' | translate }}</div> -->
+        <div class="aw-summary-strip">
+
+        
+          <div class="kpi k-blue aw-kpi active">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'ALLWELLS.ACTIVE_WELLS' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val blue">
+              <span class="aw-active-val">0</span><span class="aw-kpi-val-small"> / <span class="aw-total-val">0</span></span>
+            </div>
+            <div class="aw-kpi-bar-track">
+              <div class="aw-kpi-bar-fill aw-bar-fill-blue" style="width:0%"></div>
+            </div>
+            <div class="kpi-unit aw-active-breakdown">0 in progress · 0 on hold</div>
+          </div>
+
+     
+          <div class="kpi k-red aw-kpi critical">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'COMMON.CRITICAL' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val red">5</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">10%</div>
+            <div class="kpi-unit">{{ 'ALLWELLS.OF_TOTAL' | translate }}</div>
+          </div>
+
+   
+          <div class="kpi k-teal aw-kpi progress">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'COMMON.IN_PROGRESS' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val teal">12</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">24%</div>
+            <div class="kpi-unit">{{ 'ALLWELLS.OF_TOTAL' | translate }}</div>
+          </div>
+
+        
+          <div class="kpi k-green aw-kpi complete">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'COMMON.COMPLETED' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val green">13</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">26%</div>
+            <div class="kpi-unit">{{ 'ALLWELLS.OF_TOTAL' | translate }}</div>
+          </div>
+
+          <!-- Early Stage -->
+          <div class="kpi k-blue aw-kpi early">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'ALLWELLS.EARLY_STAGE' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val blue">8</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">16%</div>
+            <div class="kpi-unit">{{ 'ALLWELLS.OF_TOTAL' | translate }}</div>
+          </div>
+
+          <!-- Planned / Hold -->
+          <div class="kpi k-grey aw-kpi planned">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'ALLWELLS.PLANNED_HOLD' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val grey">12</div>
+            <div class="aw-kpi-bar"></div>
+            <div class="aw-kpi-pct">24%</div>
+            <div class="kpi-unit">{{ 'ALLWELLS.OF_TOTAL' | translate }}</div>
+          </div>
+
+        </div>
+
+        <!-- Filter + search row. Pills scroll horizontally on their own so the
+             Export button never gets pushed off-screen behind them. -->
+        <div class="aw-filter-row">
+          <div class="aw-pills-scroll">
+            <button class="aw-status-pill all active" id="awf-all"         onclick="awFilter('all',this)">{{ 'ALLWELLS.FILTER_ALL' | translate }} <span id="awf-all-count"></span></button>
+            <button class="aw-status-pill inprogress"  id="awf-inprogress" onclick="awFilter('inprogress',this)">Active <span id="awf-inprogress-count"></span></button>
+            <button class="aw-status-pill onhold"      id="awf-onhold"     onclick="awFilter('onhold',this)">Inactive <span id="awf-onhold-count"></span></button>
+            <button class="aw-status-pill highperf"    id="awf-highperf"   onclick="awFilter('highperf',this)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg>{{ 'ALLWELLS.HIGH_PERFORMERS' | translate }} <span id="awf-highperf-count"></span></button>
+            <button class="aw-status-pill critical"    id="awf-critical"   onclick="awFilter('critical',this)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>{{ 'ALLWELLS.FILTER_CRITICAL' | translate }} <span id="awf-critical-count"></span></button>
+            <button class="aw-status-pill atrisk"      id="awf-atrisk"     onclick="awFilter('atrisk',this)">{{ 'ALLWELLS.FILTER_ATRISK' | translate }} <span id="awf-atrisk-count"></span></button>
+            <button class="aw-status-pill completed"   id="awf-completed"  onclick="awFilter('completed',this)">{{ 'ALLWELLS.FILTER_COMPLETED' | translate }} <span id="awf-completed-count"></span></button>
+            <button class="aw-status-pill early"       id="awf-early"      onclick="awFilter('early',this)">{{ 'ALLWELLS.FILTER_EARLY' | translate }} <span id="awf-early-count"></span></button>
+            <button class="aw-status-pill planned"     id="awf-planned"    onclick="awFilter('planned',this)">{{ 'ALLWELLS.FILTER_PLANNED' | translate }} <span id="awf-planned-count"></span></button>
+            <button class="aw-status-pill bonuspotential" id="awf-bonuspotential" onclick="awFilter('bonuspotential',this)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>{{ 'ALLWELLS.FILTER_BONUSPOTENTIAL' | translate }} <span id="awf-bonuspotential-count"></span></button>
+            <button class="aw-status-pill odc-cat" id="awf-odccat" onclick="awFilter('odccat',this)" style="display:none;"><span id="awf-odccat-label"></span> <span id="awf-odccat-count"></span></button>
+          </div>
+          <div class="aw-filter-actions">
+            <button class="dq-btn dq-btn-ghost aw-export-btn" (click)="exportCsv()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span class="aw-export-btn-label">{{ 'COMMON.EXPORT_CSV' | translate }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Grid header -->
+        <div class="aw-grid-header">
+          <span class="aw-grid-title">{{ 'ALLWELLS.WELLS_DATA_GRID' | translate }}</span>
+        </div>
+        <div class="aw-grid-container">
+          <div class="aw-grid-toolbar">
+            <svg class="aw-grid-toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <span class="aw-grid-toolbar-title">{{ 'COMMON.WELLS_SUMMARY_GRID' | translate }}</span>
+            <span class="aw-records-badge" id="awRecordsBadge">20 {{ 'COMMON.RECORDS' | translate }}</span>
+            <span class="aw-grid-hint">{{ 'COMMON.SORT_FILTER' | translate }}</span>
+            <span class="aw-grid-toolbar-actions">
+              <!-- <span style="background:rgba(22,163,74,0.12);color:#16a34a;border:1px solid rgba(22,163,74,0.35);font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;letter-spacing:0.4px">
+                <span style="width:6px;height:6px;border-radius:50%;background:#16a34a;display:inline-block"></span>LIVE
+              </span> -->
+              <a class="aw-view-all-link">{{ 'COMMON.VIEW_ALL' | translate }}</a>
+            </span>
+          </div>
+          <!-- Grid view — AG Grid -->
+          <div id="awGridView">
+            <div id="awWellsGrid" class="ag-theme-alpine-dark"></div>
+          </div>
+          <!-- Card view (hidden by default) -->
+          <div id="awCardView">
+            <div class="aw-card-grid" id="awCardBody"></div>
+          </div>
+        </div>
+
+        </ng-container>
+      </div><!-- /page-allwells -->

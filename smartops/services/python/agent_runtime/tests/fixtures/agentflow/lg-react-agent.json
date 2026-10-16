@@ -1,0 +1,72 @@
+{
+  "schema_version": "1",
+  "framework": "langgraph",
+  "provider": "openai",
+  "with_tracing": false,
+  "meta": {
+    "name": "react-agent",
+    "description": "ReAct loop with ToolNode",
+    "created_at": "2026-09-22T11:08:33.271Z",
+    "generator_version": null
+  },
+  "config": {
+    "framework": "langgraph",
+    "llm_provider": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "base_url": "",
+      "api_key_env": "OPENAI_API_KEY",
+      "extra_headers": {},
+      "extra_body": {}
+    },
+    "process": "sequential",
+    "max_iterations": 10,
+    "loop_condition": "",
+    "checkpointer": "memory",
+    "recursion_limit": 25,
+    "stream_mode": "updates",
+    "tool_loop": true,
+    "state_channels": [],
+    "routers": [],
+    "interrupts": [],
+    "subgraphs": [],
+    "agents": [
+      {
+        "name": "assistant",
+        "role": "a research assistant",
+        "goal": "Answer questions, using the search tool whenever you need current facts",
+        "backstory": "",
+        "tools": [
+          "web_search"
+        ],
+        "verbose": true,
+        "allow_delegation": false
+      }
+    ],
+    "tasks": [],
+    "tools": [
+      {
+        "name": "web_search",
+        "description": "Search the web for current information about a topic.",
+        "parameters": [
+          {
+            "name": "query",
+            "type": "str",
+            "description": "What to search for"
+          }
+        ],
+        "return_type": "str",
+        "implementation": "return f\"Top results for {query}: (stub — swap in a real search API here)\""
+      }
+    ],
+    "output_schemas": [],
+    "conditionals": [],
+    "vector_stores": [],
+    "retrievers": [],
+    "document_loaders": [],
+    "text_splitters": [],
+    "embedders": [],
+    "nodes": [],
+    "edges": []
+  }
+}

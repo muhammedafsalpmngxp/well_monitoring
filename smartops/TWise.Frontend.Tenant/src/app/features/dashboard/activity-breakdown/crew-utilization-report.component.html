@@ -1,0 +1,164 @@
+<section class="page-content cu-report" aria-labelledby="crew-utilization-title">
+  <app-page-header
+    #reportHeading
+    title="Crew Utilization"
+    [subtitle]="periodLabel"
+    [breadcrumbs]="breadcrumbs"
+  >
+    <button
+      page-header-icon
+      type="button"
+      class="btn btn-secondary btn-sm cu-report__icon-button"
+      title="Back to Crew Calendar"
+      aria-label="Back to Crew Calendar"
+      (click)="closed.emit()"
+    >
+      <span appCrewReportIcon="ArrowLeft"></span>
+    </button>
+    <span page-header-icon class="cu-report__page-icon" aria-hidden="true"
+      ><span appCrewReportIcon="FileSpreadsheet"></span
+    ></span>
+    <div class="cu-report__header-actions">
+      <button
+        *ngIf="filtersTemplate"
+        type="button"
+        class="btn btn-secondary btn-sm"
+        [attr.aria-expanded]="showFilters"
+        (click)="showFilters = !showFilters"
+      >
+        <span appCrewReportIcon="ChevronDown"></span
+        >{{ showFilters ? 'Hide Filter' : 'Show Filter' }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary btn-md cu-report__export"
+        (click)="exportExcel()"
+        [disabled]="exporting || loading || !!loadError || !hasExportableCrews"
+        [attr.aria-busy]="exporting"
+      >
+        <span appCrewReportIcon="Download"></span>{{ exporting ? 'Exporting...' : 'Export Excel' }}
+      </button>
+    </div>
+  </app-page-header>
+  <ng-container *ngIf="showFilters" [ngTemplateOutlet]="filtersTemplate"></ng-container>
+  <div class="cu-report__toolbar">
+    <div *ngIf="!loading && !loadError" class="cu-report__scope">
+      <span>{{ scopeLabel }}</span>
+    </div>
+    <fieldset
+      class="cu-report__view"
+      aria-label="Report view"
+      [disabled]="loading || exporting || !!loadError"
+    >
+      <button
+        type="button"
+        [class.active]="view === 'planned'"
+        [attr.aria-pressed]="view === 'planned'"
+        (click)="viewChanged.emit('planned')"
+      >
+        Planned
+      </button>
+      <button
+        type="button"
+        [class.active]="view === 'actual'"
+        [attr.aria-pressed]="view === 'actual'"
+        (click)="viewChanged.emit('actual')"
+      >
+        Actual
+      </button>
+    </fieldset>
+  </div>
+  <output *ngIf="loading" class="cu-report__loading" aria-live="polite" aria-busy="true">
+    <app-loader size="lg" message="Generating report..."></app-loader>
+  </output>
+  <p *ngIf="loadError && !loading" class="cu-report__error" role="alert">{{ loadError }}</p>
+  <ng-container *ngIf="!loading && !loadError">
+    <dl
+      class="cu-report__metrics"
+      [class.cu-report__metrics--planned]="view === 'planned'"
+      aria-label="Crew utilization summary"
+    >
+      <div>
+        <dt>
+          <span class="cu-report__metric-icon" aria-hidden="true"
+            ><span appCrewReportIcon="Network"></span></span
+          >Crew Groups
+        </dt>
+        <dd>{{ report.summary.crewGroups | number }}</dd>
+      </div>
+      <div *ngIf="view === 'actual'" title="Distinct crew IDs included in this report">
+        <dt>
+          <span class="cu-report__metric-icon" aria-hidden="true"
+            ><span appCrewReportIcon="Users"></span></span
+          >Actual Crews
+        </dt>
+        <dd>{{ report.summary.actualCrews | number }}</dd>
+      </div>
+      <div
+        *ngIf="view === 'planned'"
+        title="Average planned utilization for crews with known capacity, including reservations and preview allocations"
+      >
+        <dt>
+          <span class="cu-report__metric-icon" aria-hidden="true"
+            ><span appCrewReportIcon="CalendarDays"></span></span
+          >Avg. Planned Utilization
+        </dt>
+        <dd>
+          {{
+            report.summary.averagePlannedUtilization === null
+              ? 'N/A'
+              : (report.summary.averagePlannedUtilization | number: '1.0-1') + '%'
+          }}
+        </dd>
+      </div>
+      <div
+        *ngIf="view === 'actual'"
+        title="Average of individual crew actual utilization rates with known capacity"
+      >
+        <dt>
+          <span class="cu-report__metric-icon" aria-hidden="true"
+            ><span appCrewReportIcon="Gauge"></span></span
+          >Avg. Actual Utilization
+        </dt>
+        <dd>
+          {{
+            report.summary.averageUtilization === null
+              ? 'N/A'
+              : (report.summary.averageUtilization | number: '1.0-1') + '%'
+          }}
+        </dd>
+      </div>
+    </dl>
+    <p *ngIf="exportError" class="cu-report__error" role="alert">{{ exportError }}</p>
+    <ag-grid-angular
+      class="cu-report__grid"
+      aria-label="Crew utilization table"
+      [class.cu-report__grid--auto-height]="autoHeight"
+      [domLayout]="autoHeight ? 'autoHeight' : 'normal'"
+      [theme]="gridTheme"
+      [modules]="gridModules"
+      [gridOptions]="gridOptions"
+      [rowData]="rows"
+      [columnDefs]="columns"
+      [defaultColDef]="defaultColDef"
+      [autoGroupColumnDef]="autoGroupColumnDef"
+      [treeData]="true"
+      [getDataPath]="getDataPath"
+      [getRowId]="getRowId"
+      [getRowClass]="getRowClass"
+      [groupDefaultExpanded]="0"
+      [pinnedBottomRowData]="totals"
+      [rowHeight]="42"
+      [headerHeight]="40"
+      [floatingFiltersHeight]="40"
+      [animateRows]="false"
+      [enableCellTextSelection]="true"
+      [ensureDomOrder]="true"
+      overlayNoRowsTemplate="No crews match the selected filters."
+      (gridReady)="onGridReady($event)"
+      (rowGroupOpened)="onRowGroupOpened($event)"
+      (modelUpdated)="onModelUpdated($event)"
+    >
+    </ag-grid-angular>
+  </ng-container>
+</section>

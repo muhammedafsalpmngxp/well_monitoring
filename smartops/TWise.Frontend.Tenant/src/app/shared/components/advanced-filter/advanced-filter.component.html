@@ -1,0 +1,171 @@
+<!-- Advanced Filter trigger (fixed) -->
+<!-- <button class="advanced-filter-fab" [class.advanced-filter-fab--pulsing]="!showPanel" (click)="open()"
+  title="Advanced Filter">
+
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M2.5 4.16667H7.5M7.5 4.16667C7.5 5.08714 8.24617 5.83333 9.16667 5.83333C10.0872 5.83333 10.8333 5.08714 10.8333 4.16667C10.8333 3.24619 10.0872 2.5 9.16667 2.5C8.24617 2.5 7.5 3.24619 7.5 4.16667ZM14.1667 4.16667H17.5M2.5 10H7.5M14.1667 10H17.5M14.1667 10C14.1667 9.0795 13.4205 8.33333 12.5 8.33333C11.5795 8.33333 10.8333 9.0795 10.8333 10C10.8333 10.9205 11.5795 11.6667 12.5 11.6667C13.4205 11.6667 14.1667 10.9205 14.1667 10ZM2.5 15.8333H5.83333M5.83333 15.8333C5.83333 16.7538 6.5795 17.5 7.5 17.5C8.4205 17.5 9.16667 16.7538 9.16667 15.8333C9.16667 14.9128 8.4205 14.1667 7.5 14.1667C6.5795 14.1667 5.83333 14.9128 5.83333 15.8333ZM12.5 15.8333H17.5"
+      stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+
+</button> -->
+
+<!-- Advanced Filter offcanvas -->
+<div class="advanced-filter-backdrop" *ngIf="showPanel" (click)="close()"></div>
+<div class="advanced-filter-panel" [class.advanced-filter-panel--open]="showPanel">
+  <div class="advanced-filter-panel__header">
+    <span class="advanced-filter-panel__header-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M5 10H15M2.5 5H17.5M7.5 15H12.5" stroke="#21409A" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" />
+      </svg>
+    </span>
+    <h3 class="advanced-filter-panel__title">Advanced Filter</h3>
+    <button class="advanced-filter-panel__close" aria-label="Close advanced filter" (click)="close()">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path
+          d="M13.8 7.8L7.8 13.8M7.8 7.8L13.8 13.8M20.8 10.8C20.8 16.3 16.3 20.8 10.8 20.8C5.3 20.8 0.8 16.3 0.8 10.8C0.8 5.3 5.3 0.8 10.8 0.8C16.3 0.8 20.8 5.3 20.8 10.8Z"
+          stroke="#4D555B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- <div class="advanced-filter-panel__search">
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"
+      stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="9" r="6.5"></circle>
+      <line x1="17" y1="17" x2="13.5" y2="13.5"></line>
+    </svg>
+    <input type="text" placeholder="Search" [(ngModel)]="searchTerm" />
+  </div> -->
+
+  <div class="advanced-filter-panel__body">
+    <!-- Identification -->
+    <!-- <div class="filter-section">
+      <button type="button" class="filter-section__header" [attr.aria-expanded]="identificationExpanded" (click)="toggleIdentificationSection()">
+        <span class="filter-section__icon filter-section__icon--amber">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <g clip-path="url(#clip0_4507_17896)">
+              <path
+                d="M4.66797 4.66675H4.6738M1.16797 3.03341V5.64355C1.16797 5.92891 1.16797 6.07159 1.2002 6.20587C1.22878 6.32487 1.27592 6.43868 1.33989 6.5431C1.41204 6.66081 1.51292 6.76173 1.7147 6.96351L6.18808 11.4369C6.88108 12.1299 7.22764 12.4764 7.62716 12.6062C7.97868 12.7204 8.35726 12.7204 8.70872 12.6062C9.1083 12.4764 9.45486 12.1299 10.1479 11.4369L11.4381 10.1466C12.1311 9.45364 12.4776 9.10708 12.6074 8.7075C12.7216 8.35604 12.7216 7.97746 12.6074 7.62594C12.4776 7.22641 12.1311 6.87986 11.4381 6.18686L6.96473 1.71348C6.76295 1.5117 6.66204 1.41081 6.54432 1.33867C6.4399 1.2747 6.32609 1.22756 6.20709 1.19898C6.07281 1.16675 5.93013 1.16675 5.64477 1.16675H3.03464C2.38124 1.16675 2.05454 1.16675 1.80498 1.29391C1.58546 1.40576 1.40698 1.58423 1.29513 1.80376C1.16797 2.05332 1.16797 2.38002 1.16797 3.03341ZM4.95964 4.66675C4.95964 4.82783 4.82905 4.95841 4.66797 4.95841C4.50689 4.95841 4.3763 4.82783 4.3763 4.66675C4.3763 4.50567 4.50689 4.37508 4.66797 4.37508C4.82905 4.37508 4.95964 4.50567 4.95964 4.66675Z"
+                stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+            </g>
+            <defs>
+              <clipPath id="clip0_4507_17896">
+                <rect width="14" height="14" fill="white" />
+              </clipPath>
+            </defs>
+          </svg>
+        </span>
+        <span class="filter-section__label">Identification</span>
+        <span class="filter-section__badge" *ngIf="identificationActiveCount">{{ identificationActiveCount }}
+          Active</span>
+        <span appKeyClick class="filter-section__clear"
+          (click)="$event.stopPropagation(); clearIdentificationFilters()">Clear</span>
+        <svg class="filter-section__chevron" [class.filter-section__chevron--collapsed]="!identificationExpanded"
+          xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <path d="M11.25 9.375L7.5 5.625L3.75 9.375" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+
+      </button>
+
+      <div class="filter-section__body" *ngIf="identificationExpanded">
+        <div class="filter-field">
+          <label class="filter-field__label">Well ID</label>
+          <input class="filter-field__input" type="text" placeholder="Enter Well ID" [(ngModel)]="wellId" />
+        </div>
+      </div>
+    </div> -->
+
+    <!-- Hierarchy -->
+    <div class="filter-section">
+      <div class="filter-section__header-row">
+        <button type="button" class="filter-section__header" [attr.aria-expanded]="hierarchyExpanded" (click)="toggleHierarchySection()">
+          <span class="filter-section__icon filter-section__icon--purple">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path
+                d="M2.33203 9.91667V9.8C2.33203 8.81988 2.33203 8.32988 2.52278 7.9555C2.69055 7.62621 2.95824 7.35852 3.28753 7.19075C3.66191 7 4.15191 7 5.13203 7H8.86536C9.84546 7 10.3355 7 10.7098 7.19075C11.0391 7.35852 11.3068 7.62621 11.4746 7.9555C11.6654 8.32988 11.6654 8.81988 11.6654 9.8V9.91667M2.33203 9.91667C1.68768 9.91667 1.16536 10.439 1.16536 11.0833C1.16536 11.7277 1.68768 12.25 2.33203 12.25C2.97638 12.25 3.4987 11.7277 3.4987 11.0833C3.4987 10.439 2.97638 9.91667 2.33203 9.91667ZM11.6654 9.91667C11.021 9.91667 10.4987 10.439 10.4987 11.0833C10.4987 11.7277 11.021 12.25 11.6654 12.25C12.3097 12.25 12.832 11.7277 12.832 11.0833C12.832 10.439 12.3097 9.91667 11.6654 9.91667ZM6.9987 4.08333V9.91667M6.9987 4.08333C6.35435 4.08333 5.83203 3.561 5.83203 2.91667C5.83203 2.27233 6.35435 1.75 6.9987 1.75C7.64305 1.75 8.16536 2.27233 8.16536 2.91667C8.16536 3.561 7.64305 4.08333 6.9987 4.08333ZM6.9987 9.91667C6.35435 9.91667 5.83203 10.439 5.83203 11.0833C5.83203 11.7277 6.35435 12.25 6.9987 12.25C7.64305 12.25 8.16536 11.7277 8.16536 11.0833C8.16536 10.439 7.64305 9.91667 6.9987 9.91667Z"
+                stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="filter-section__label">Hierarchy</span>
+          <span class="filter-section__badge" *ngIf="hierarchyActiveCount">{{ hierarchyActiveCount }} Active</span>
+          <svg class="filter-section__chevron" [class.filter-section__chevron--collapsed]="!hierarchyExpanded"
+            xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M11.25 9.375L7.5 5.625L3.75 9.375" stroke="#667085" stroke-width="1.6" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+  
+        </button>
+        <!-- Its own button, not inside the header button: nested controls are unusable for screen readers. -->
+        <button type="button" class="filter-section__clear" (click)="clearHierarchyFilters()">Clear</button>
+      </div>
+
+      <div class="filter-section__body" *ngIf="hierarchyExpanded">
+        <div class="filter-field" *ngFor="let field of hierarchyFields" [hidden]="field.hidden">
+          <label class="filter-field__label">{{ field.label }}</label>
+
+          <div class="filter-multiselect" (click)="$event.stopPropagation()">
+            <div class="filter-multiselect__chips">
+              <span class="filter-chip" *ngFor="let value of field.selected">
+                {{ hierarchyOptionLabel(field, value) }}
+                <button type="button" class="filter-chip__remove" [attr.aria-label]="'Remove ' + value" (click)="removeHierarchyChip(field, value)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                    <path d="M11.25 3.75L3.75 11.25M3.75 3.75L11.25 11.25" stroke="#667085" stroke-width="1.6"
+                      stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </span>
+              <span class="filter-multiselect__placeholder" *ngIf="!field.selected.length">None selected</span>
+            </div>
+
+            <div class="filter-multiselect__controls">
+              <button class="filter-multiselect__clear" *ngIf="field.selected.length > 1"
+                [attr.aria-label]="'Clear ' + field.label" (click)="clearHierarchyField(field)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                  <path d="M11.25 3.75L3.75 11.25M3.75 3.75L11.25 11.25" stroke="#667085" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <button class="filter-multiselect__toggle" [attr.aria-label]="'Toggle ' + field.label + ' options'" [attr.aria-expanded]="field.dropdownOpen" (click)="toggleHierarchyFieldDropdown(field)">
+                <svg class="filter-multiselect__toggle-icon"
+                  [class.filter-multiselect__toggle-icon--open]="field.dropdownOpen" xmlns="http://www.w3.org/2000/svg"
+                  width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M4.5 6.75L9 11.25L13.5 6.75" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="filter-multiselect__dropdown" *ngIf="field.dropdownOpen">
+              <button class="filter-multiselect__option" *ngFor="let option of availableHierarchyOptions(field)"
+                (click)="selectHierarchyOption(field, option)">
+                {{ option.label }}
+              </button>
+              <p class="filter-multiselect__empty" *ngIf="!availableHierarchyOptions(field).length">No more options</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="advanced-filter-panel__footer">
+    <button class="advanced-filter-panel__reset-btn" (click)="reset()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path
+          d="M1.5 7.5C1.5 7.5 3.00374 5.45116 4.22538 4.22868C5.44702 3.0062 7.1352 2.25 9 2.25C12.728 2.25 15.75 5.27208 15.75 9C15.75 12.728 12.728 15.75 9 15.75C5.92268 15.75 3.32633 13.6907 2.51383 10.875M6 7.5H1.5V3"
+          stroke="#4D555B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Reset
+    </button>
+    <button class="advanced-filter-panel__apply-btn" (click)="apply()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M15 4.5L6.75 12.75L3 9" stroke="white" stroke-width="1.6" stroke-linecap="round"
+          stroke-linejoin="round" />
+      </svg>
+      Apply
+    </button>
+  </div>
+</div>

@@ -1,0 +1,158 @@
+<div id="page-allprojects" class="page active">
+
+  <div class="page-title-row ap-header-row">
+    <div>
+      <div class="page-title">All Projects</div>
+      <div class="page-sub">Portfolio of active, on-hold and completed projects</div>
+    </div>
+
+    <!-- Toolbar: project search (autocomplete) + filter -->
+    <div class="ap-toolbar">
+      <div class="ap-search" (click)="$event.stopPropagation()">
+        <svg class="ap-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" class="ap-search-inp" placeholder="Search project…"
+               [(ngModel)]="searchQuery" (input)="onSearchInput()" (focus)="onSearchInput()" autocomplete="off" />
+        <button *ngIf="searchQuery" type="button" class="ap-search-clear" (click)="clearSearch()" aria-label="Clear">&times;</button>
+
+        <!-- Autocomplete dropdown -->
+        <div class="ap-suggest" *ngIf="showSuggestions && suggestions.length">
+          <button type="button" class="ap-suggest-item" *ngFor="let s of suggestions" (click)="selectSuggestion(s)">
+            <span class="ap-suggest-code">{{ s.code }}</span>
+            <span class="ap-suggest-name">{{ s.name }}</span>
+            <span class="ap-tag">{{ s.region }}</span>
+          </button>
+        </div>
+        <div class="ap-suggest ap-suggest--empty" *ngIf="showSuggestions && searchQuery && !suggestions.length">
+          No matching projects
+        </div>
+      </div>
+
+      <div class="ap-filter-wrap" (click)="$event.stopPropagation()">
+        <button type="button" class="ap-filter-btn" [class.active]="filterOpen || activeFilterCount" (click)="toggleFilter()" title="Filter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          <span class="ap-filter-badge" *ngIf="activeFilterCount">{{ activeFilterCount }}</span>
+        </button>
+
+        <!-- Filter popup -->
+        <div class="ap-filter-pop" *ngIf="filterOpen">
+          <div class="ap-filter-pop-head">Filter projects</div>
+
+          <label class="ap-filter-field">
+            <span class="ap-filter-field-lbl">Cluster</span>
+            <select class="ap-filter-sel" [(ngModel)]="filter.cluster" (ngModelChange)="onClusterChange()">
+              <option value="">All clusters</option>
+              <option *ngFor="let c of clusters" [value]="c">{{ c }}</option>
+            </select>
+          </label>
+
+          <label class="ap-filter-field">
+            <span class="ap-filter-field-lbl">Site</span>
+            <select class="ap-filter-sel" [(ngModel)]="filter.site" (ngModelChange)="onSiteChange()" [disabled]="!filter.cluster">
+              <option value="">{{ filter.cluster ? 'All sites' : 'Select cluster first' }}</option>
+              <option *ngFor="let s of sites" [value]="s">{{ s }}</option>
+            </select>
+          </label>
+
+          <label class="ap-filter-field">
+            <span class="ap-filter-field-lbl">Well Type</span>
+            <select class="ap-filter-sel" [(ngModel)]="filter.wellType">
+              <option value="">All well types</option>
+              <option *ngFor="let w of wellTypes" [value]="w">{{ w }}</option>
+            </select>
+          </label>
+
+          <label class="ap-filter-field">
+            <span class="ap-filter-field-lbl">Project</span>
+            <select class="ap-filter-sel" [(ngModel)]="filter.project" (ngModelChange)="onProjectChange()">
+              <option value="">All projects</option>
+              <option *ngFor="let p of projectNames" [value]="p">{{ p }}</option>
+            </select>
+          </label>
+
+          <label class="ap-filter-field">
+            <span class="ap-filter-field-lbl">Well ID</span>
+            <select class="ap-filter-sel" [(ngModel)]="filter.wellId" [disabled]="!filter.cluster">
+              <option value="">{{ filter.cluster ? 'All wells' : 'Select cluster first' }}</option>
+              <option *ngFor="let w of wellIds" [value]="w">{{ w }}</option>
+            </select>
+          </label>
+
+          <div class="ap-filter-actions">
+            <button type="button" class="ap-btn ap-btn--ghost" (click)="clearFilter()">Clear</button>
+            <button type="button" class="ap-btn" (click)="applyFilter()">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accordion groups -->
+  <div class="ap-groups">
+    <ng-container *ngFor="let g of groups">
+      <ng-container *ngIf="visibleItems(g) as items">
+        <div class="ap-accordion" *ngIf="items.length || !hasQuery" [class.open]="g.open || hasQuery">
+          <!-- Accordion header -->
+          <button type="button" class="ap-acc-head" (click)="toggleGroup(g)">
+            <span class="ap-acc-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            </span>
+            <span class="ap-acc-title">{{ g.name }}</span>
+            <span class="ap-acc-count">{{ items.length }} projects</span>
+            <span class="ap-acc-chevron" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </button>
+
+          <!-- Accordion body: project KPI-style cards -->
+          <div class="ap-acc-body" *ngIf="g.open || hasQuery">
+            <div class="ap-grid">
+              <div class="ap-proj-card" *ngFor="let it of items" (click)="openProject(it)">
+                <!-- Header: icon + title/code + region -->
+                <div class="ap-card-top">
+                  <span class="ap-proj-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2 L3 7 V17 L12 22 L21 17 V7 Z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </span>
+                  <div class="ap-card-titles">
+                    <div class="ap-proj-name">{{ it.name }}</div>
+                    <div class="ap-proj-code">{{ it.code }}</div>
+                  </div>
+                  <span class="ap-tag">{{ it.region }}</span>
+                </div>
+
+                <!-- Stats: Wells / Done / In Progress -->
+                <div class="ap-stats">
+                  <div class="ap-stat">
+                    <div class="ap-stat-val ap-stat-val--blue">{{ it.wells }}</div>
+                    <div class="ap-stat-lbl">Wells</div>
+                  </div>
+                  <div class="ap-stat">
+                    <div class="ap-stat-val ap-stat-val--green">{{ it.done }}</div>
+                    <div class="ap-stat-lbl">Done</div>
+                  </div>
+                  <div class="ap-stat">
+                    <div class="ap-stat-val ap-stat-val--amber">{{ it.inProgress }}</div>
+                    <div class="ap-stat-lbl">In Progress</div>
+                  </div>
+                </div>
+
+      
+
+                <!-- Footer: well type -->
+                <div class="ap-card-foot">
+                  <span class="ap-proj-pill">{{ it.wellType }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </ng-container>
+  </div>
+
+</div>

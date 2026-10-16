@@ -1,0 +1,504 @@
+<div class="jp2">
+   <div class="jp2__header page-title-row">
+    <div class="jp2__header-left">
+      <h2 class="jp2__title">Well Execution Dashboard</h2>
+      <p class="jp2__sub">Key Performance Indicators and Progress Tracking for Well Execution</p>
+    </div>
+
+  </div> 
+
+  
+  <div class="jp2__kpi-row">
+
+
+
+
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Total Jobs</span>
+        <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weTotalJobs')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weTotalJobs')">{{ widgetRelPct('weTotalJobs') }}%</button>
+        <span class="jp2__kpi-icon jp2__kpi-icon--blue" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+        </span>
+      </div>
+      <!-- Row 1 — big total + breakdown; skeleton shown while loading -->
+      <ng-container *ngIf="!kpiLoading">
+        <div class="jp2__kpi-totalrow">
+          <div class="jp2__kpi-val jp2__kpi-val--blue">{{ totalJobs }}</div>
+          <div class="jp2__kpi-breakdown">
+            <span class="jp2__kpi-stat">
+              <span class="jp2__kpi-stat-dot" style="background:#00B050"></span>
+              <span class="jp2__kpi-stat-label">Complete</span>
+              <span class="jp2__kpi-stat-sep">-</span>
+              <span class="jp2__kpi-stat-val">{{ activeJobs }}</span>
+            </span>
+            <span class="jp2__kpi-stat">
+              <span class="jp2__kpi-stat-dot" style="background:#3B82F6"></span>
+              <span class="jp2__kpi-stat-label">In Progress</span>
+              <span class="jp2__kpi-stat-sep">-</span>
+              <span class="jp2__kpi-stat-val">{{ inProgressJobs }}</span>
+            </span>
+            <span class="jp2__kpi-stat">
+              <span class="jp2__kpi-stat-dot" style="background:#FF0000"></span>
+              <span class="jp2__kpi-stat-label">Not Started</span>
+              <span class="jp2__kpi-stat-sep">-</span>
+              <span class="jp2__kpi-stat-val">{{ holdJobs }}</span>
+            </span>
+          </div>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="kpiLoading">
+        <div class="kpi-skel kpi-skel--val"></div>
+        <div class="kpi-skel kpi-skel--sub"></div>
+        <div class="kpi-skel kpi-skel--sub" style="margin-top:4px"></div>
+      </ng-container>
+    </div>
+
+        <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Overall Progress </span>
+        <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weOverallProgress')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weOverallProgress')">{{ widgetRelPct('weOverallProgress') }}%</button>
+        <span class="jp2__kpi-icon jp2__kpi-icon--blue" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </span>
+      </div>
+      <ng-container *ngIf="!kpiLoading">
+        <div class="jp2__kpi-val jp2__kpi-val--blue">{{ overallProgress }}%</div>
+        <div class="jp2__kpi-sub jp2__kpi-sub--red">vs Plan {{ overallVsPlan }}%</div>
+      </ng-container>
+      <ng-container *ngIf="kpiLoading">
+        <div class="kpi-skel kpi-skel--val"></div>
+        <div class="kpi-skel kpi-skel--sub"></div>
+      </ng-container>
+    </div>
+
+   
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Delayed Jobs</span>
+        <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weDelayedJobs')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weDelayedJobs')">{{ widgetRelPct('weDelayedJobs') }}%</button>
+        <span class="jp2__kpi-icon jp2__kpi-icon--red" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
+      </div>
+      <ng-container *ngIf="!kpiLoading">
+        <div class="jp2__kpi-val jp2__kpi-val--red">{{ delayedJobs }}</div>
+        <div class="jp2__kpi-sub">{{ delayedJobsPct }}% of Total</div>
+      </ng-container>
+      <ng-container *ngIf="kpiLoading">
+        <div class="kpi-skel kpi-skel--val"></div>
+        <div class="kpi-skel kpi-skel--sub"></div>
+      </ng-container>
+    </div>
+
+  
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Revenue Achievement</span>
+        <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weRevenue')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weRevenue')">{{ widgetRelPct('weRevenue') }}%</button>
+        <span class="jp2__kpi-icon jp2__kpi-icon--purple" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </span>
+      </div>
+      <ng-container *ngIf="!kpiLoading">
+        <div class="jp2__kpi-val jp2__kpi-val--purple">{{ revenueAchieved }}</div>
+        <div class="jp2__kpi-sub">of {{ revenuePlanned }} ({{ revenuePct }}%)</div>
+      </ng-container>
+      <ng-container *ngIf="kpiLoading">
+        <div class="kpi-skel kpi-skel--val"></div>
+        <div class="kpi-skel kpi-skel--sub"></div>
+      </ng-container>
+    </div>
+
+
+    <div class="jp2__kpi-card">
+      <div class="jp2__kpi-head">
+        <span class="jp2__kpi-title">Upcoming Target Ends</span>
+        <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weUpcomingEnds')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weUpcomingEnds')">{{ widgetRelPct('weUpcomingEnds') }}%</button>
+        <span class="jp2__kpi-icon jp2__kpi-icon--green" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+      </div>
+      <ng-container *ngIf="!kpiLoading">
+        <div class="jp2__kpi-val jp2__kpi-val--green">{{ upcomingEnds }}</div>
+        <div class="jp2__kpi-sub">Next 30 Days</div>
+      </ng-container>
+      <ng-container *ngIf="kpiLoading">
+        <div class="kpi-skel kpi-skel--val"></div>
+        <div class="kpi-skel kpi-skel--sub"></div>
+      </ng-container>
+    </div>
+
+  </div>
+
+   <div class="wexec-par-card jp2__card">
+    <div class="jp2__card-head">
+      <div>
+        <h3 class="card-title" style="display:inline-flex;align-items:center;gap:6px"> Planned vs Actual Job Progress & Revenue
+          <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weProgressRevenue')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weProgressRevenue')">{{ widgetRelPct('weProgressRevenue') }}%</button>
+        </h3>
+        <div class="jp2__title-sub">Cumulative Progress (%) and Revenue</div>
+      </div>
+      <div class="wexec-par-toggle" role="tablist" aria-label="Period">
+        <button type="button"
+                class="wexec-par-toggle-btn"
+                [class.is-active]="parPeriod === 'day'"
+                (click)="setParPeriod('day')">Day</button>
+        <button type="button"
+                class="wexec-par-toggle-btn"
+                [class.is-active]="parPeriod === 'week'"
+                (click)="setParPeriod('week')">Week</button>
+        <button type="button"
+                class="wexec-par-toggle-btn"
+                [class.is-active]="parPeriod === 'month'"
+                (click)="setParPeriod('month')">Month</button>
+      </div>
+    </div>
+    <div class="wexec-par-wrap jp2__chart-wrap jp2__chart-wrap--tall">
+      <div *ngIf="kpiLoading" class="chart-loader">
+        <div class="chart-loader__spinner"></div>
+        <span>Loading chart data…</span>
+      </div>
+      <div #wexecParChart id="wexecParChart" class="wexec-par-chart hc-chart"></div>
+    </div>
+  </div>
+
+    <div class="jp2__card">
+    <div class="jp2__card-head">
+      <div>
+        <h3 class="card-title" style="display:inline-flex;align-items:center;gap:6px">Activity Gantt
+          <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weActivityGantt')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weActivityGantt')">{{ widgetRelPct('weActivityGantt') }}%</button>
+        </h3>
+        <div class="jp2__title-sub">Activity / WBS schedule — plan vs actual progress</div>
+      </div>
+    </div>
+
+    <div class="actgantt-wrap" style="position:relative">
+      <div *ngIf="ganttLoading" class="chart-loader" style="background:var(--surface,#fff)">
+        <div class="chart-loader__spinner"></div>
+        <span>Loading activity schedule…</span>
+      </div>
+    <div class="actgantt">
+      <!-- Left: WBS table -->
+      <div class="actgantt__wbs">
+        <div class="actgantt__wbs-head">
+          <span class="actgantt__wbs-title">Activity / WBS</span>
+          <div class="actgantt__wbs-actions">
+            <div class="actgantt__wbs-toggle" role="tablist" aria-label="View mode">
+              <button type="button"
+                      class="actgantt__wbs-toggle-btn"
+                      [class.is-active]="wbsViewMode === 'tree'"
+                      (click)="setWbsViewMode('tree')"
+                      aria-label="Tree view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="4" y1="6" x2="20" y2="6"/>
+                  <line x1="9" y1="12" x2="20" y2="12"/>
+                  <line x1="14" y1="18" x2="20" y2="18"/>
+                </svg>
+                <span>Tree</span>
+              </button>
+              <button type="button"
+                      class="actgantt__wbs-toggle-btn"
+                      [class.is-active]="wbsViewMode === 'list'"
+                      (click)="setWbsViewMode('list')"
+                      aria-label="List view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="4" y1="6" x2="20" y2="6"/>
+                  <line x1="4" y1="12" x2="20" y2="12"/>
+                  <line x1="4" y1="18" x2="20" y2="18"/>
+                </svg>
+                <span>List</span>
+              </button>
+            </div>
+            <button type="button" class="actgantt__wbs-action" aria-label="Filter">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+            </button>
+            <button type="button" class="actgantt__wbs-action" aria-label="Sort">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="actgantt__wbs-subhead">
+          <span class="actgantt__wbs-col actgantt__wbs-col--name"></span>
+          <span class="actgantt__wbs-col actgantt__wbs-col--plan">Plan</span>
+          <span class="actgantt__wbs-col actgantt__wbs-col--actual">Actual</span>
+        </div>
+        <div class="actgantt__wbs-body">
+          <div class="actgantt__wbs-row"
+               *ngFor="let r of visibleWbs; trackBy: trackWbsRow"
+               [class.actgantt__wbs-row--child]="r.level > 0 && !r.isMilestone"
+               [class.actgantt__wbs-row--sub]="r.level >= 2"
+               [class.actgantt__wbs-row--milestone]="r.isMilestone"
+               [class.actgantt__wbs-row--parent]="r.hasChildren"
+               (click)="toggleWbsRow(r)">
+            <span class="actgantt__wbs-col actgantt__wbs-col--name">
+              <svg *ngIf="r.hasChildren" class="actgantt__wbs-chevron"
+                   [class.is-open]="r.expanded"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+              <span *ngIf="!r.hasChildren" class="actgantt__wbs-spacer"></span>
+              <span class="actgantt__wbs-name"
+                    [style.color]="r.level > 0 ? r.color : null">
+                <ng-container *ngIf="r.isWell">{{ r.name }}</ng-container>
+                <ng-container *ngIf="!r.isWell">{{ r.id }}. {{ r.name }}</ng-container>
+              </span>
+              <span *ngIf="!r.isWell" class="actgantt__wbs-dot" [style.background]="r.color"></span>
+            </span>
+            <span class="actgantt__wbs-col actgantt__wbs-col--plan">{{ r.plan }}</span>
+            <span class="actgantt__wbs-col actgantt__wbs-col--actual">{{ r.actual }}</span>
+          </div>
+          <button type="button"
+                  *ngIf="hasMoreWells"
+                  class="actgantt__wbs-more"
+                  (click)="toggleWellsExpanded()">
+            <span *ngIf="!wellsExpanded">Show more ({{ totalWells - 10 }} more wells)</span>
+            <span *ngIf="wellsExpanded">Show less</span>
+            <svg class="actgantt__wbs-more-chevron"
+                 [class.is-open]="wellsExpanded"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Highcharts gantt -->
+      <div class="actgantt__chart">
+        <div #activityGanttChart class="hc-chart"></div>
+      </div>
+    </div>
+    </div><!-- /actgantt-wrap -->
+
+    <div class="jp2__activity-legend">
+      <span class="jp2__activity-leg"><span class="jp2__activity-leg-dot" style="background:#00B050"></span>Completed</span>
+      <span class="jp2__activity-leg"><span class="jp2__activity-leg-dot" style="background:#29378d"></span>In Progress</span>
+      <span class="jp2__activity-leg"><span class="jp2__activity-leg-dot" style="background:#F59E0B"></span>Delayed</span>
+      <span class="jp2__activity-leg"><span class="jp2__activity-leg-dot" style="background:#9CA3AF"></span>Not Started</span>
+    </div>
+  </div>
+
+  <div class="jp2__row jp2__row--2col">
+
+
+
+    <div class="jp2__card">
+      <div class="jp2__card-head">
+        <h3 class="card-title">Cumulative Progress (S-Curve)</h3>
+      </div>
+      <div class="jp2__chart-wrap">
+        <div #sCurveChart class="hc-chart"></div>
+      </div>
+    </div>
+        <div class="jp2__card">
+      <div class="jp2__card-head">
+        <h3 class="card-title">Progress by Category (Cumulative)</h3>
+      </div>
+      <div class="jp2__chart-wrap">
+        <div #categoryBarChart class="hc-chart"></div>
+      </div>
+    </div>
+
+  </div>
+
+
+
+ 
+  <div class="jp2__card card" data-wfb-widget="daily-output">
+    <div class="jp2__card-head">
+      <div>
+        <h3 class="card-title" style="display:inline-flex;align-items:center;gap:6px">Daily Output Rate Trend
+          <button type="button" class="dq-score-badge" title="Data reliability score · click for details" [style.color]="dailyOutputDqScoreColor()" (click)="openDailyOutputInfo()">{{dailyOutputDqScore()}}%</button>
+        </h3>
+        <div class="jp2__title-sub card-sub" id="ccTrendSub">Actual vs Asking Rate</div>
+      </div>
+      <span class="wfb-wrap" data-wfb-id="daily-output"><button class="wfb-btn" title="Filter widget" onclick="wfbToggle(event,'daily-output')"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button></span>
+    </div>
+    <div class="wexec-daily-output-wrap">
+      <canvas id="ccTrend"></canvas>
+    </div>
+  </div>
+
+  <div class="jp2__card">
+    <div class="jp2__card-head">
+      <div>
+        <h3 class="card-title">Critical Dates Timeline</h3>
+        <div class="jp2__title-sub">Milestones across all wells · planned vs actual / forecast · status &amp; predecessors</div>
+      </div>
+      <div class="cdt-search-wrap">
+        <input type="text" id="dashCdtSearch" placeholder="Search well, milestone, owner..."
+          oninput="dashCdtQuickFilter(this.value)" />
+        <span id="dashCdtCount"></span>
+      </div>
+    </div>
+    <div id="dashCdtGrid"></div>
+  </div>
+
+  <div class="jp2__card">
+    <div class="jp2__card-head">
+      <h3 class="card-title">Top Delayed 10 Jobs </h3>
+    </div>
+    <div id="jp2DelayedGrid" class="ag-theme-alpine jp2__grid"></div>
+  </div>
+
+ 
+  <div class="jp2__card">
+    <div class="jp2__card-head">
+      <h3 class="card-title" style="display:inline-flex;align-items:center;gap:6px">Target Finish Timeline
+        <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weTargetFinish')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weTargetFinish')">{{ widgetRelPct('weTargetFinish') }}%</button>
+      </h3>
+    </div>
+    <div class="jp2__gantt-wrap">
+
+   
+      <div class="jp2__gantt-left">
+        <div class="jp2__gantt-col-head">
+          <span class="jp2__gcol jp2__gcol--well">Well ID</span>
+          <span class="jp2__gcol jp2__gcol--cat">Category</span>
+          <span class="jp2__gcol jp2__gcol--prog">Progress %</span>
+        </div>
+        <div class="jp2__gantt-rows-left">
+          <div class="jp2__gantt-row-left" *ngFor="let r of ganttRows">
+            <span class="jp2__gcol jp2__gcol--well">{{ r.wellId }}</span>
+            <span class="jp2__gcol jp2__gcol--cat">{{ r.category }}</span>
+            <span class="jp2__gcol jp2__gcol--prog">{{ r.progress }}</span>
+          </div>
+        </div>
+      </div>
+
+ 
+      <div class="jp2__gantt-right jp2__gantt-right--hc">
+        <div #targetFinishChart class="hc-chart"></div>
+      </div>
+    </div>
+
+
+    <div class="jp2__gantt-legend">
+      <span class="jp2__gantt-leg"><span class="jp2__gantt-leg-dot jp2__gantt-leg-dot--overdue"></span>Overdue</span>
+      <span class="jp2__gantt-leg"><span class="jp2__gantt-leg-dot jp2__gantt-leg-dot--within30"></span>Due within 30 days</span>
+      <span class="jp2__gantt-leg"><span class="jp2__gantt-leg-dot jp2__gantt-leg-dot--within60"></span>Due in 31–60 days</span>
+      <span class="jp2__gantt-leg"><span class="jp2__gantt-leg-dot jp2__gantt-leg-dot--after60"></span>Due after 60 days</span>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       Crew PI Rating Heatmap — bottom-of-page section
+       ════════════════════════════════════════════════════════════════════ -->
+  <div class="cpi-section">
+    <!-- Section header -->
+    <div class="cpi-section-head page-title-row">
+      <div class="cpi-section-titlewrap">
+        <h3 class="cpi-section-title" style="display:inline-flex;align-items:center;gap:6px">
+          Crew PI Rating Heatmap
+          <button type="button" class="we-info-btn we-rel-badge" [ngClass]="widgetRelClass('weCrewPi')" title="Data reliability — click for DB integration details" aria-label="Data reliability — click for DB integration details" (click)="openWidgetInfo('weCrewPi')">{{ widgetRelPct('weCrewPi') }}%</button>
+        </h3>
+        <div class="cpi-section-sub">Track P Rating (P0 – P8) performance over time</div>
+      </div>
+      <!-- Day / Week / Month tabs — left side per request -->
+      <div class="cpi-period-toggle" role="tablist" aria-label="Period">
+        <button type="button" class="cpi-period-btn" [class.is-active]="crewPiPeriod === 'day'"   (click)="setCrewPiPeriod('day')">Day</button>
+        <button type="button" class="cpi-period-btn" [class.is-active]="crewPiPeriod === 'week'"  (click)="setCrewPiPeriod('week')">Week</button>
+        <button type="button" class="cpi-period-btn" [class.is-active]="crewPiPeriod === 'month'" (click)="setCrewPiPeriod('month')">Month</button>
+      </div>
+    </div>
+
+    <!-- KPI strip — 5 tiles using the same jp2__kpi-card pattern as Total Jobs / Overall Progress -->
+    <div class="jp2__kpi-row">
+      <div class="jp2__kpi-card">
+        <div class="jp2__kpi-head">
+          <span class="jp2__kpi-title">Total Crews</span>
+          <span class="jp2__kpi-icon jp2__kpi-icon--purple" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+        </div>
+        <div class="jp2__kpi-val">{{ crewPiKpis.totalCrews }}</div>
+        <div class="jp2__kpi-sub">Active crews</div>
+      </div>
+
+      <div class="jp2__kpi-card">
+        <div class="jp2__kpi-head">
+          <span class="jp2__kpi-title">Avg PI Rating (All Crews)</span>
+          <span class="jp2__kpi-icon jp2__kpi-icon--green" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </span>
+        </div>
+        <div class="jp2__kpi-val">P{{ crewPiKpis.avgRating }}</div>
+        <div class="jp2__kpi-sub jp2__kpi-sub--up">↑ {{ crewPiKpis.avgDelta }} vs Previous Period</div>
+      </div>
+
+      <div class="jp2__kpi-card">
+        <div class="jp2__kpi-head">
+          <span class="jp2__kpi-title">Top Performing Crew</span>
+          <span class="jp2__kpi-icon jp2__kpi-icon--blue" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </span>
+        </div>
+        <div class="jp2__kpi-val">{{ crewPiKpis.topCrew }}</div>
+        <div class="jp2__kpi-sub jp2__kpi-sub--up">Avg PI: P{{ crewPiKpis.topRating }}</div>
+      </div>
+
+      <div class="jp2__kpi-card">
+        <div class="jp2__kpi-head">
+          <span class="jp2__kpi-title">Lowest Performing Crew</span>
+          <span class="jp2__kpi-icon jp2__kpi-icon--amber" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+          </span>
+        </div>
+        <div class="jp2__kpi-val">{{ crewPiKpis.lowCrew }}</div>
+        <div class="jp2__kpi-sub jp2__kpi-sub--down">Avg PI: P{{ crewPiKpis.lowRating }}</div>
+      </div>
+
+      <div class="jp2__kpi-card">
+        <div class="jp2__kpi-head">
+          <span class="jp2__kpi-title">Crews Below P3</span>
+          <span class="jp2__kpi-icon jp2__kpi-icon--red" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </span>
+        </div>
+        <div class="jp2__kpi-val">{{ crewPiKpis.belowP3 }}</div>
+        <div class="jp2__kpi-sub jp2__kpi-sub--down">{{ crewPiKpis.belowP3Pct }}% of Total Crews</div>
+      </div>
+    </div>
+
+    <!-- Heatmap card -->
+    <div class="cpi-card">
+      <div class="cpi-card-head ">
+        <div>
+          <h4 class="cpi-card-title">
+            PI Rating Heatmap (P0 – P8)
+           
+          </h4>
+          <div class="cpi-card-sub">{{ crewPiPeriod | titlecase }}ly PI Rating for each crew</div>
+        </div>
+    
+      </div>
+      <!-- Highcharts heatmap container -->
+      <div #crewPiChart id="crewPiChart" class="cpi-chart hc-chart"></div>
+    </div>
+
+    <!-- Insights + Distribution row -->
+    <div class="cpi-bottom-row">
+      <div class="cpi-card cpi-insights">
+        <div class="cpi-insights-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6"/><path d="M12 17v4"/><path d="M12 3a7 7 0 0 0-4 12.78c.4.32.7.78.7 1.28V17h6.6v.06c0-.5.3-.96.7-1.28A7 7 0 0 0 12 3z"/></svg>
+          <span>Insights</span>
+        </div>
+        <ul class="cpi-insights-list">
+          <li *ngFor="let line of crewPiInsights">{{ line }}</li>
+        </ul>
+      </div>
+      <div class="cpi-card cpi-distribution">
+        <div class="cpi-distribution-head">PI Rating Distribution (Selected Period)</div>
+        <div class="cpi-distribution-bars">
+          <div class="cpi-dist-cell" *ngFor="let d of crewPiDistribution">
+            <div class="cpi-dist-pct">{{ d.pct }}%</div>
+            <div class="cpi-dist-bar" [style.background]="d.color">{{ d.range }}</div>
+            <div class="cpi-dist-count">{{ d.count }} Crews</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+

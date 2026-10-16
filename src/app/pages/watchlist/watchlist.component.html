@@ -1,0 +1,119 @@
+<div id="page-watchlist" class="page active">
+        <div class="breadcrumb"><a>Insight</a><span>›</span>
+          <span class="current">Watchlist</span></div>
+        <!-- <div class="wl-header">
+          <div class="wl-breadcrumb">
+            <span style="color:var(--txt-1)">Watchlist</span><span>›</span>
+            <span class="wl-live">★ Live</span>
+          </div>
+        </div> -->
+        <div style="background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 14px;
+  border-radius: 10px;display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+          <div class="wl-title">
+           
+            {{ 'WATCHLIST.TITLE' | translate }}
+          </div>
+          <div class="wl-top-right">
+            <select class="wl-select"><option>{{ 'WATCHLIST.ALL_PROJECTS' | translate }}</option></select>
+            <span class="wl-synced">{{ 'WATCHLIST.LAST_SYNCED' | translate }}</span>
+            <div class="wl-refresh" onclick="this.style.transform='rotate(360deg)';this.style.transition='transform 0.5s';setTimeout(function(){this.style.transform='';this.style.transition=''},600)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </div>
+            <button class="aw-btn export" style="gap:6px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {{ 'COMMON.EXPORT_CSV' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="atg-kpi-grid" style="grid-template-columns:repeat(6,1fr)">
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:var(--blue)"></div><div class="atg-kpi-label">{{ 'WATCHLIST.WATCHED_WELLS' | translate }}</div><div class="atg-kpi-val" style="color:var(--blue)">6</div><div class="atg-kpi-unit" style="margin-top:6px">{{ 'WATCHLIST.YOUR_ACTIVE_LIST' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:#f87171"></div><div class="atg-kpi-label">{{ 'COMMON.CRITICAL' | translate }}</div><div class="atg-kpi-val" style="color:#f87171">1</div><div class="atg-kpi-unit" style="margin-top:6px">{{ 'WATCHLIST.IMMEDIATE_ACTION' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:var(--txt-muted)"></div><div class="atg-kpi-label">{{ 'WATCHLIST.AI_RISKS' | translate }}</div><div class="atg-kpi-val" style="color:var(--txt-muted)">—</div><div class="atg-kpi-unit" style="margin-top:6px">{{ 'WATCHLIST.NOT_CONFIGURED' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:#fb923c"></div><div class="atg-kpi-label">{{ 'WATCHLIST.HIGH_RISK_WELLS' | translate }}</div><div class="atg-kpi-val" style="color:#fb923c">4</div><div class="atg-kpi-unit" style="margin-top:6px">{{ 'WATCHLIST.RISK_SCORE_GE_50' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:var(--teal)"></div><div class="atg-kpi-label">{{ 'WATCHLIST.AVG_PROGRESS' | translate }}</div><div class="atg-kpi-val" style="color:var(--teal)">63<span>%</span></div><div class="atg-kpi-unit" style="margin-top:6px">{{ 'WATCHLIST.WATCHED_AVG' | translate }}</div></div>
+          <div class="atg-kpi"><div class="atg-kpi-accent" style="background:#f87171"></div><div class="atg-kpi-label">{{ 'WATCHLIST.AVG_RIG_DELAY' | translate }}</div><div class="atg-kpi-val" style="color:#f87171">+22d</div><div class="atg-kpi-unit" style="margin-top:6px">{{ 'WATCHLIST.DAYS_BEHIND_PLAN' | translate }}</div></div>
+        </div>
+
+        <!-- Progress Snapshot + AI Risk Scores -->
+        <div class="wl-two-col">
+          <div class="wl-snap-card">
+            <div class="wl-snap-title">{{ 'WATCHLIST.PROGRESS_SNAPSHOT' | translate }}</div>
+            <div class="wl-snap-tabs"><div class="wl-snap-tab active">{{ 'WATCHLIST.LATEST_PROGRESS_PER_WELL' | translate }}</div></div>
+            <div class="wl-snap-scroll">
+              <div class="wl-snap-item"><div class="wl-snap-item-header"><div class="wl-snap-well"><div class="wl-snap-dot" style="background:#f87171"></div>AMIN_OP31</div><div><span class="wl-snap-pct" style="color:#f87171">16%</span> <span class="wl-snap-delta" style="color:#f87171">↓ -4%</span></div></div><div class="wl-snap-bar" style="background:#f87171;width:16%"></div><div class="wl-snap-desc">{{ 'WATCHLIST.SNAP_AMIN_OP31' | translate }}</div></div>
+              <div class="wl-snap-item"><div class="wl-snap-item-header"><div class="wl-snap-well"><div class="wl-snap-dot" style="background:var(--amber)"></div>34357</div><div><span class="wl-snap-pct" style="color:var(--amber)">76%</span> <span class="wl-snap-delta" style="color:var(--green)">↑ +4%</span></div></div><div class="wl-snap-bar" style="background:var(--amber);width:76%"></div><div class="wl-snap-desc">{{ 'WATCHLIST.SNAP_34357' | translate }}</div></div>
+              <div class="wl-snap-item"><div class="wl-snap-item-header"><div class="wl-snap-well"><div class="wl-snap-dot" style="background:var(--amber)"></div>NMR_WSW_3</div><div><span class="wl-snap-pct" style="color:var(--amber)">73%</span> <span class="wl-snap-delta" style="color:var(--green)">↑ +2%</span></div></div><div class="wl-snap-bar" style="background:var(--blue);width:73%"></div><div class="wl-snap-desc">{{ 'WATCHLIST.SNAP_NMR_WSW_3' | translate }}</div></div>
+              <div class="wl-snap-item"><div class="wl-snap-item-header"><div class="wl-snap-well"><div class="wl-snap-dot" style="background:var(--amber)"></div>NMR_WSW_4</div><div><span class="wl-snap-pct" style="color:var(--amber)">65%</span> <span class="wl-snap-delta" style="color:var(--green)">↑ +1%</span></div></div><div class="wl-snap-bar" style="background:var(--amber);width:65%"></div><div class="wl-snap-desc">{{ 'WATCHLIST.SNAP_NMR_WSW_4' | translate }}</div></div>
+              <div class="wl-snap-item"><div class="wl-snap-item-header"><div class="wl-snap-well"><div class="wl-snap-dot" style="background:var(--green)"></div>34422</div><div><span class="wl-snap-pct" style="color:var(--green)">71%</span> <span class="wl-snap-delta" style="color:var(--green)">↑ +4%</span></div></div><div class="wl-snap-bar" style="background:var(--green);width:71%"></div><div class="wl-snap-desc">{{ 'WATCHLIST.SNAP_34422' | translate }}</div></div>
+              <div class="wl-snap-item"><div class="wl-snap-item-header"><div class="wl-snap-well"><div class="wl-snap-dot" style="background:var(--green)"></div>36078</div><div><span class="wl-snap-pct" style="color:var(--green)">76%</span> <span class="wl-snap-delta" style="color:var(--green)">↑ +2%</span></div></div><div class="wl-snap-bar" style="background:var(--green);width:76%"></div><div class="wl-snap-desc">{{ 'WATCHLIST.SNAP_36078' | translate }}</div></div>
+            </div>
+            <div class="wl-snap-more">▼</div>
+          </div>
+          <div class="atg-chart-card">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><div class="atg-card-title">{{ 'WATCHLIST.AI_RISK_SCORES' | translate }}</div></div>
+            <div class="atg-card-sub">{{ 'WATCHLIST.AI_SCORE_FROM_LATEST' | translate }}</div>
+            <div style="position:relative;width:100%;height:300px"><canvas id="wlRiskChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Rig Delay vs TD Delay Chart -->
+        <div class="atg-chart-card wl-full-row">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+            <div style="display:flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><div class="atg-card-title">{{ 'WATCHLIST.RIG_DELAY_VS_TD' | translate }}</div></div>
+            <div style="display:flex;align-items:center;gap:14px"><span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt-muted)"><span style="width:8px;height:8px;border-radius:50%;background:#f87171;display:inline-block"></span> {{ 'WATCHLIST.RIG_DELAY' | translate }}</span><span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt-muted)"><span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block"></span> {{ 'WATCHLIST.TD_DELAY' | translate }}</span></div>
+          </div>
+          <div class="atg-card-sub">{{ 'WATCHLIST.RIG_TIMELINE_WATCHED' | translate }}</div>
+          <div style="position:relative;width:100%;height:280px"><canvas id="wlDelayChart"></canvas></div>
+        </div>
+
+        <!-- Activity Log + Open Errors -->
+        <div class="wl-act-err-row">
+          <div class="wl-act-card">
+            <div class="wl-act-header"><div><div class="wl-act-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>{{ 'WATCHLIST.ACTIVITY_LOG' | translate }}</div><div class="wl-act-sub">{{ 'WATCHLIST.RECENT_CHANGES_WATCHED' | translate }}</div></div><div class="wl-act-count">{{ 'WATCHLIST.EVENTS_COUNT' | translate: {count: 7} }}</div></div>
+            <div class="wl-act-scroll">
+              <div class="wl-act-item"><div class="wl-act-icon crit">⚠</div><div class="wl-act-body"><div><span class="wl-act-well">AMIN_OP31</span><span class="wl-act-time">2h ago</span></div><div class="wl-act-desc">{{ 'WATCHLIST.ACT_AMIN_CRITICAL' | translate }}</div></div></div>
+              <div class="wl-act-item"><div class="wl-act-icon warn">⚠</div><div class="wl-act-body"><div><span class="wl-act-well">36078</span><span class="wl-act-time">1d ago</span></div><div class="wl-act-desc">{{ 'WATCHLIST.ACT_36078_REGRESSED' | translate }}</div></div></div>
+              <div class="wl-act-item"><div class="wl-act-icon warn">⚠</div><div class="wl-act-body"><div><span class="wl-act-well">34357</span><span class="wl-act-time">2d ago</span></div><div class="wl-act-desc">{{ 'WATCHLIST.ACT_34357_STALLED' | translate }}</div></div></div>
+              <div class="wl-act-item"><div class="wl-act-icon warn">⚠</div><div class="wl-act-body"><div><span class="wl-act-well">NMR_WSW_4</span><span class="wl-act-time">3d ago</span></div><div class="wl-act-desc">{{ 'WATCHLIST.ACT_NMR_WSW_4_ORPHAN' | translate }}</div></div></div>
+              <div class="wl-act-item"><div class="wl-act-icon info">●</div><div class="wl-act-body"><div><span class="wl-act-well">34422</span><span class="wl-act-time">3d ago</span></div><div class="wl-act-desc">{{ 'WATCHLIST.ACT_34422_ADVANCED' | translate }}</div></div></div>
+              <div class="wl-act-item"><div class="wl-act-icon warn">⚠</div><div class="wl-act-body"><div><span class="wl-act-well">NMR_WSW_3</span><span class="wl-act-time">4d ago</span></div><div class="wl-act-desc">{{ 'WATCHLIST.ACT_NMR_WSW_3_TIED' | translate }}</div></div></div>
+              <div class="wl-act-item"><div class="wl-act-icon info">●</div><div class="wl-act-body"><div><span class="wl-act-well">36078</span><span class="wl-act-time">5d ago</span></div><div class="wl-act-desc">{{ 'WATCHLIST.ACT_36078_ADDED' | translate }}</div></div></div>
+            </div>
+            <div class="wl-snap-more">▼</div>
+          </div>
+          <div class="wl-err-card">
+            <div class="wl-err-header"><div><div class="wl-err-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>{{ 'WATCHLIST.OPEN_ERRORS_WATCHED' | translate }}</div><div class="wl-err-sub">{{ 'WATCHLIST.UNRESOLVED_ERRORS_WATCHED' | translate }}</div></div><div class="wl-err-badge">{{ 'WATCHLIST.CRITICAL_COUNT' | translate: {count: 4} }}</div></div>
+            <table class="wl-err-tbl"><thead><tr><th>{{ 'WATCHLIST.TH_SEVERITY' | translate }}</th><th>{{ 'WATCHLIST.TH_WELL_ERROR_CODE' | translate }}</th><th style="text-align:right">{{ 'COMMON.STATUS' | translate }}</th></tr></thead><tbody>
+              <tr><td><span class="wl-err-sev critical">{{ 'COMMON.CRITICAL' | translate | uppercase }}</span></td><td><div class="wl-err-well">AMIN_OP31</div><div class="wl-err-code">R05 — planned_id vs planned_spud</div></td><td style="text-align:right"><span class="wl-err-status overdue">⚠ {{ 'WATCHLIST.OVERDUE' | translate }}</span></td></tr>
+              <tr><td><span class="wl-err-sev critical">{{ 'COMMON.CRITICAL' | translate | uppercase }}</span></td><td><div class="wl-err-well">NMR_WSW_4</div><div class="wl-err-code">R11 — project_id</div></td><td style="text-align:right"><span class="wl-err-status pct-med">9 {{ 'WATCHLIST.LEFT' | translate }}</span></td></tr>
+              <tr><td><span class="wl-err-sev warning">{{ 'WATCHLIST.WARNING' | translate }}</span></td><td><div class="wl-err-well">34357</div><div class="wl-err-code">R05 — internal_prog</div></td><td style="text-align:right"><span class="wl-err-status overdue">⚠ {{ 'WATCHLIST.OVERDUE' | translate }}</span></td></tr>
+              <tr><td><span class="wl-err-sev critical">{{ 'COMMON.CRITICAL' | translate | uppercase }}</span></td><td><div class="wl-err-well">AMIN_OP31</div><div class="wl-err-code">R07 — int_dups</div></td><td style="text-align:right"><span class="wl-err-status pct-low">34% {{ 'WATCHLIST.LEFT' | translate }}</span></td></tr>
+              <tr><td><span class="wl-err-sev warning">{{ 'WATCHLIST.WARNING' | translate }}</span></td><td><div class="wl-err-well">34357</div><div class="wl-err-code">R11 — with_type</div></td><td style="text-align:right"><span class="wl-err-status pct">61% {{ 'WATCHLIST.LEFT' | translate }}</span></td></tr>
+              <tr><td><span class="wl-err-sev warning">{{ 'WATCHLIST.WARNING' | translate }}</span></td><td><div class="wl-err-well">34422</div><div class="wl-err-code">R14 — planned_spud</div></td><td style="text-align:right"><span class="wl-err-status pct">80% {{ 'WATCHLIST.LEFT' | translate }}</span></td></tr>
+              <tr><td><span class="wl-err-sev critical">{{ 'COMMON.CRITICAL' | translate | uppercase }}</span></td><td><div class="wl-err-well">36078</div><div class="wl-err-code">R09 — wells_auction</div></td><td style="text-align:right"><span class="wl-err-status overdue">⚠ {{ 'WATCHLIST.OVERDUE' | translate }}</span></td></tr>
+              <tr><td><span class="wl-err-sev warning">{{ 'WATCHLIST.WARNING' | translate }}</span></td><td><div class="wl-err-well">NMR_WSW_4</div><div class="wl-err-code">R05 — overall_prog</div></td><td style="text-align:right"><span class="wl-err-status pct">52% {{ 'WATCHLIST.LEFT' | translate }}</span></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+
+        <!-- Watched Wells Full Detail Table -->
+        <div class="wl-detail-card">
+          <div class="wl-detail-header"><div><div class="wl-detail-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>{{ 'WATCHLIST.WATCHED_WELLS_FULL_DETAIL' | translate }}</div><div class="wl-detail-sub">{{ 'WATCHLIST.DETAIL_SUB' | translate }}</div></div>
+            <div class="wl-detail-sorts"><span class="wl-sort-label">{{ 'WATCHLIST.SORT' | translate }}:</span><button class="wl-sort-btn active">{{ 'WATCHLIST.SORT_RISK' | translate }} ↓</button><button class="wl-sort-btn">{{ 'WATCHLIST.SORT_DELAY' | translate }} ↓</button><button class="wl-sort-btn">{{ 'COMMON.PROGRESS' | translate }} ↑</button><button class="wl-sort-btn">{{ 'WATCHLIST.RESET' | translate }}</button></div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="wl-detail-tbl"><thead><tr><th></th><th>{{ 'WATCHLIST.TH_WELL_ID' | translate }}</th><th>{{ 'WATCHLIST.TH_WELL_NAME' | translate }}</th><th>{{ 'WATCHLIST.TH_TYPE' | translate }}</th><th>{{ 'WATCHLIST.TH_PROJECT' | translate }}</th><th>{{ 'COMMON.PROGRESS' | translate }}</th><th>{{ 'COMMON.STATUS' | translate }}</th><th>{{ 'WATCHLIST.TH_RIG_DELAY' | translate }}</th><th>{{ 'WATCHLIST.TH_RISK_SCORE' | translate }}</th><th>{{ 'WATCHLIST.TH_ERRORS' | translate }}</th><th>{{ 'WATCHLIST.TH_ACTIVE_STAGE' | translate }}</th></tr></thead><tbody>
+              <tr><td><span class="wl-detail-star">★</span></td><td><span class="wl-detail-id">PDO-38106</span></td><td><span class="wl-detail-name">AMIN_OP31</span></td><td><span class="wl-detail-type">PRODUCER</span></td><td><span class="wl-proj-tag" style="background:rgba(13,148,136,0.15);color:var(--teal);border:1px solid rgba(13,148,136,0.3)">NL0010</span></td><td><span class="wl-detail-pct">16%</span> <span class="wl-detail-wa" style="color:var(--green)">↑ +3%</span></td><td><span class="wl-status-badge critical">{{ 'COMMON.CRITICAL' | translate | uppercase }}</span></td><td><span class="wl-delay">+38d</span></td><td><span class="wl-risk cri">84 CRI</span></td><td><span class="wl-errors">3</span></td><td><span class="wl-stage">{{ 'WATCHLIST.SURFACE_CASING' | translate }}</span></td></tr>
+              <tr><td><span class="wl-detail-star">★</span></td><td><span class="wl-detail-id">PDO-31243</span></td><td><span class="wl-detail-name">34357</span></td><td><span class="wl-detail-type">PRODUCER</span></td><td><span class="wl-proj-tag" style="background:rgba(13,148,136,0.15);color:var(--teal);border:1px solid rgba(13,148,136,0.3)">NL0010</span></td><td><span class="wl-detail-pct">76%</span> <span class="wl-detail-wa" style="color:var(--green)">↑ +3%</span></td><td><span class="wl-status-badge watch">{{ 'WATCHLIST.WATCH' | translate }}</span></td><td><span class="wl-delay">+29d</span></td><td><span class="wl-risk hig">76 HIG</span></td><td><span class="wl-errors">3</span></td><td><span class="wl-stage">{{ 'WATCHLIST.INTERMEDIATE_CASING' | translate }}</span></td></tr>
+              <tr><td><span class="wl-detail-star">★</span></td><td><span class="wl-detail-id">PDO-36429</span></td><td><span class="wl-detail-name">NMR_WSW_3</span></td><td><span class="wl-detail-type">PRODUCER-I</span></td><td><span class="wl-proj-tag" style="background:rgba(13,148,136,0.15);color:var(--teal);border:1px solid rgba(13,148,136,0.3)">NL0010</span></td><td><span class="wl-detail-pct">73%</span> <span class="wl-detail-wa" style="color:var(--green)">↑ +2%</span></td><td><span class="wl-status-badge watch">{{ 'WATCHLIST.WATCH' | translate }}</span></td><td><span class="wl-delay">+23d</span></td><td><span class="wl-risk hig">72 HIG</span></td><td><span class="wl-errors">1</span></td><td><span class="wl-stage">{{ 'WATCHLIST.INTERMEDIATE_CASING' | translate }}</span></td></tr>
+              <tr><td><span class="wl-detail-star">★</span></td><td><span class="wl-detail-id">PDO-36064</span></td><td><span class="wl-detail-name">NMR_WSW_4</span></td><td><span class="wl-detail-type">PRODUCER</span></td><td><span class="wl-proj-tag" style="background:rgba(13,148,136,0.15);color:var(--teal);border:1px solid rgba(13,148,136,0.3)">NL0010</span></td><td><span class="wl-detail-pct">65%</span> <span class="wl-detail-wa" style="color:var(--green)">↑ +7%</span></td><td><span class="wl-status-badge watch">{{ 'WATCHLIST.WATCH' | translate }}</span></td><td><span class="wl-delay">+18d</span></td><td><span class="wl-risk med">58 MED</span></td><td><span class="wl-errors">3</span></td><td><span class="wl-stage">{{ 'WATCHLIST.INTERMEDIATE_CASING' | translate }}</span></td></tr>
+              <tr><td><span class="wl-detail-star">★</span></td><td><span class="wl-detail-id">PDO-37663</span></td><td><span class="wl-detail-name">34422</span></td><td><span class="wl-detail-type">PRODUCER</span></td><td><span class="wl-proj-tag" style="background:rgba(13,148,136,0.15);color:var(--teal);border:1px solid rgba(13,148,136,0.3)">NL0010</span></td><td><span class="wl-detail-pct">71%</span> <span class="wl-detail-wa" style="color:var(--green)">↑ +4%</span></td><td><span class="wl-status-badge watch">{{ 'WATCHLIST.WATCH' | translate }}</span></td><td><span class="wl-delay">+11d</span></td><td><span class="wl-risk med">48 MED</span></td><td><span class="wl-errors">1</span></td><td><span class="wl-stage">{{ 'WATCHLIST.PRODUCTION_CASING' | translate }}</span></td></tr>
+              <tr><td><span class="wl-detail-star">★</span></td><td><span class="wl-detail-id">PDO-31338</span></td><td><span class="wl-detail-name">36078</span></td><td><span class="wl-detail-type">PRODUCER</span></td><td><span class="wl-proj-tag" style="background:rgba(13,148,136,0.15);color:var(--teal);border:1px solid rgba(13,148,136,0.3)">NL0010</span></td><td><span class="wl-detail-pct">76%</span> <span class="wl-detail-wa" style="color:var(--green)">↑ +2%</span></td><td><span class="wl-status-badge watch">{{ 'WATCHLIST.WATCH' | translate }}</span></td><td><span class="wl-delay">+14d</span></td><td><span class="wl-risk low">44 LOW</span></td><td><span class="wl-errors">1</span></td><td><span class="wl-stage">{{ 'WATCHLIST.INTERMEDIATE_CASING' | translate }}</span></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div><!-- /page-watchlist -->

@@ -1,0 +1,182 @@
+// The report list card (reports/my-reports), shared by the dataset and canvas lists.
+:host { display: block; min-width: 0; }
+
+.item-card {
+  --accent: #21409a;
+  --accent-soft: #eef2ff;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 14px;
+  background: var(--color-bg-card);
+  border: 1px solid #e6ebf2;
+  border-top: 4px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px 0 rgba(16, 24, 40, 0.08);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+  &:hover { box-shadow: var(--shadow-sm); border-color: var(--accent); }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  &--purple { --accent: #7c3aed; --accent-soft: #f3eefe; }
+  &--blue { --accent: #18aeb5; --accent-soft: #e8f8f9; }
+  &--green { --accent: #45b85a; --accent-soft: #ecf8ee; }
+  &--orange { --accent: #f5a000; --accent-soft: #fff6e0; }
+
+  &__top { display: flex; align-items: center; gap: 10px; }
+
+  &__type {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: #fff;
+
+    app-icon ::ng-deep svg { width: 20px; height: 20px; }
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    margin-left: auto;
+    padding: 0 10px;
+    border: 1px solid #abefc6;
+    border-radius: 20px;
+    background: #ecfdf3;
+    color: #027a48;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+
+    &--draft { border-color: #d1d5db; background: #f3f4f6; color: #6b7280; }
+  }
+
+  &__status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  &__menu { position: relative; }
+
+  &__menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+
+    &:hover { background: var(--color-bg-app); color: var(--color-text-primary); }
+    &:focus-visible { outline: 2px solid var(--accent); }
+  }
+
+  &__menu-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 190px;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+
+    &[hidden] { display: none; }
+
+    ::ng-deep [item-card-action] {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: #21409a;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+
+      &:hover { background: #f3f4f6; border-color: #e5e7eb; }
+      &.item-card-danger { color: #d92d20; }
+    }
+  }
+
+  &__title {
+    margin: 4px 0 0;
+    overflow: hidden;
+    color: var(--color-text-primary);
+    font-size: 16px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__description {
+    display: -webkit-box;
+    min-height: 34px;
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-text-label);
+    font-size: 12px;
+    line-height: 17px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  &__preview {
+    width: 100%;
+    height: 96px;
+    margin: 4px 0;
+    object-fit: contain;
+    background: var(--accent-soft);
+    border-radius: 8px;
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: auto;
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+
+  &__category { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &__modified { white-space: nowrap; }
+
+  &__publish {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 4px 10px;
+    border: 1px solid #21409a;
+    border-radius: 6px;
+    background: #fff;
+    color: #21409a;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: #21409a; color: #fff; }
+    &:disabled { opacity: 0.6; cursor: wait; }
+    app-icon ::ng-deep svg { width: 14px; height: 14px; }
+  }
+}

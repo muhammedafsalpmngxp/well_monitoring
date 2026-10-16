@@ -1,0 +1,292 @@
+<div id="page-crewgantt-updated" class="page active">
+
+  <div class="breadcrumb">
+    <a data-page="cmdoverview">{{ 'SIDEBAR.CREW_ACTIVITIES' | translate }}</a>
+    <span>›</span>
+    <a *ngIf="drillWell" class="cg-crumb-link" (click)="backToMain()">{{ 'SIDEBAR.CREW_GANTT_UPDATED' | translate }}</a>
+    <span class="current" *ngIf="!drillWell">{{ 'SIDEBAR.CREW_GANTT_UPDATED' | translate }}</span>
+    <ng-container *ngIf="drillWell"><span>›</span><span class="current">Well {{ drillWell }}</span></ng-container>
+  </div>
+
+  <!-- ── Title row ───────────────────────────────────────── -->
+  <div class="cg-head">
+    <div class="cg-head-left">
+      <button class="cg-back" *ngIf="drillWell" (click)="backToMain()" aria-label="Back to crew groups">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <div>
+        <div class="cg-title">{{ drillWell ? ('Well ' + drillWell + ' — Activity Breakdown') : ('SIDEBAR.CREW_GANTT_UPDATED' | translate) }}</div>
+        <div class="cg-sub">{{ drillWell
+          ? 'All activities for this well, grouped by category · use Back to return to crew groups'
+          : 'View well assignments across crew groups and crew IDs · click a well bar to drill in' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Toolbar ─────────────────────────────────────────── -->
+  <div class="cg-toolbar">
+    <div class="cg-tb-left">
+      <div class="cg-field">
+        <label>Date Range</label>
+        <div class="cg-range-pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>{{ rangeLabel }}</span>
+        </div>
+      </div>
+      <div class="cg-field">
+        <label>View</label>
+        <div class="cg-nav">
+          <button class="cg-btn" (click)="goToday()">Today</button>
+          <button class="cg-icon-btn" (click)="shift(-1)" aria-label="Previous">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="cg-icon-btn" (click)="shift(1)" aria-label="Next">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="cg-field" *ngIf="!drillWell">
+        <label>Show</label>
+        <div class="cg-segment" *ngIf="treeMode==='crew'">
+          <button class="cg-seg" [class.active]="timelineBy==='wells'"      (click)="setTimelineBy('wells')">Wells</button>
+          <button class="cg-seg" [class.active]="timelineBy==='activities'" (click)="setTimelineBy('activities')">Activities</button>
+        </div>
+        <div class="cg-segment" *ngIf="treeMode==='well'">
+          <button class="cg-seg" [class.active]="timelineBy==='activities'" (click)="setTimelineBy('activities')">Activities</button>
+          <button class="cg-seg" [class.active]="timelineBy==='crew'"       (click)="setTimelineBy('crew')">Crew</button>
+        </div>
+      </div>
+
+      <div class="cg-field">
+        <label>Bars</label>
+        <div class="cg-segment">
+          <button class="cg-seg" [class.active]="compareMode==='both'"    (click)="setCompare('both')">Planned + Actual</button>
+          <button class="cg-seg" [class.active]="compareMode==='planned'" (click)="setCompare('planned')">Planned</button>
+          <button class="cg-seg" [class.active]="compareMode==='actual'"  (click)="setCompare('actual')">Actual</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cg-tb-right">
+      <div class="cg-segment">
+        <button class="cg-seg" [class.active]="view==='day'"   (click)="setView('day')">Day</button>
+        <button class="cg-seg" [class.active]="view==='week'"  (click)="setView('week')">Week</button>
+        <button class="cg-seg" [class.active]="view==='month'" (click)="setView('month')">Month</button>
+      </div>
+
+      <button class="cg-btn cg-btn-ghost" (click)="expandAll(true)">Expand all</button>
+      <button class="cg-btn cg-btn-ghost" (click)="expandAll(false)">Collapse all</button>
+
+      <div class="cg-filter-wrap">
+        <button class="cg-btn cg-btn-ghost" [class.cg-btn-on]="activeFilterCount>0" (click)="toggleFilterPanel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Filters
+          <span class="cg-filter-count" *ngIf="activeFilterCount>0">{{ activeFilterCount }}</span>
+        </button>
+
+        <div class="cg-filter-backdrop" *ngIf="filterOpen" (click)="filterOpen=false"></div>
+        <div class="cg-filter-panel" *ngIf="filterOpen">
+          <div class="cg-filter-panel-head">
+            <span>Filter Crew Groups</span>
+            <button class="cg-link" (click)="clearFilters()" [disabled]="activeFilterCount===0">Clear all</button>
+          </div>
+          <div class="cg-filter-sec">
+            <div class="cg-filter-title">{{ treeMode==='well' ? 'Well' : 'Crew Group' }}</div>
+            <label class="cg-check" *ngFor="let g of groupOptions">
+              <input type="checkbox" [checked]="isGroupFilterOn(g)" (change)="toggleGroupFilter(g)" /><span>{{ g }}</span>
+            </label>
+          </div>
+          <div class="cg-filter-sec" *ngIf="timelineBy==='wells'">
+            <div class="cg-filter-title">Well</div>
+            <label class="cg-check" *ngFor="let w of wellOptions">
+              <input type="checkbox" [checked]="isWellFilterOn(w)" (change)="toggleWellFilter(w)" /><span>{{ w }}</span>
+            </label>
+          </div>
+          <div class="cg-filter-sec">
+            <div class="cg-filter-title">Status</div>
+            <label class="cg-check" *ngFor="let s of statusOptions">
+              <input type="checkbox" [checked]="isStatusFilterOn(s.key)" (change)="toggleStatusFilter(s.key)" /><span>{{ s.label }}</span>
+            </label>
+          </div>
+          <div class="cg-filter-sec">
+            <div class="cg-filter-title">Activity Category</div>
+            <label class="cg-check" *ngFor="let c of categoryOptions">
+              <input type="checkbox" [checked]="isCategoryFilterOn(c)" (change)="toggleCategoryFilter(c)" /><span>{{ c }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <button class="cg-btn cg-btn-ghost" (click)="exportChart()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Legend (click to show / hide) ───────────────────── -->
+  <div class="cg-legend">
+    <button type="button" class="cg-legend-item" *ngFor="let l of legend"
+            [class.off]="isLegendOff(l.key)" (click)="toggleLegend(l.key)" title="Click to show / hide">
+      <span class="cg-swatch" [class.cg-swatch-ms]="l.key==='milestone'" [style.background]="l.color"></span>
+      {{ l.label }}
+    </button>
+    <span class="cg-legend-sep"></span>
+    <button type="button" class="cg-legend-item" [class.off]="isLegendOff('planned-bar')" (click)="toggleLegend('planned-bar')" title="Click to show / hide"><span class="cg-swatch cg-swatch-planned"></span>Planned (baseline)</button>
+    <button type="button" class="cg-legend-item" [class.off]="isLegendOff('actual-bar')" (click)="toggleLegend('actual-bar')" title="Click to show / hide"><span class="cg-swatch cg-swatch-actual"></span>Actual</button>
+    <button type="button" class="cg-legend-item" [class.off]="isLegendOff('unassigned')" (click)="toggleLegend('unassigned')" title="Click to show / hide"><span class="cg-swatch cg-swatch-noassign"></span>Crew unassigned</button>
+    <span class="cg-legend-sep"></span>
+    <button type="button" class="cg-legend-item" [class.off]="isLegendOff('today')" (click)="toggleLegend('today')" title="Click to show / hide"><span class="cg-line cg-line-today"></span>Today</button>
+    <button type="button" class="cg-legend-item" [class.off]="isLegendOff('past')" (click)="toggleLegend('past')" title="Click to show / hide"><span class="cg-line cg-line-past"></span>Past</button>
+    <button type="button" class="cg-legend-item" [class.off]="isLegendOff('future')" (click)="toggleLegend('future')" title="Click to show / hide"><span class="cg-line cg-line-future"></span>Future</button>
+  </div>
+
+  <!-- ── Active filter chips ─────────────────────────────── -->
+  <div class="cg-chips" *ngIf="activeFilterCount>0">
+    <span class="cg-chips-lbl">Filters:</span>
+    <span class="cg-chip" *ngFor="let g of filterGroups" (click)="toggleGroupFilter(g)">Group: {{ g }} <span class="cg-chip-x">×</span></span>
+    <span class="cg-chip" *ngFor="let w of filterWell" (click)="toggleWellFilter(w)">Well: {{ w }} <span class="cg-chip-x">×</span></span>
+    <span class="cg-chip" *ngFor="let s of filterStatus" (click)="toggleStatusFilter(s)">Status: {{ statusLabel(s) }} <span class="cg-chip-x">×</span></span>
+    <span class="cg-chip" *ngFor="let c of filterCategory" (click)="toggleCategoryFilter(c)">{{ c }} <span class="cg-chip-x">×</span></span>
+    <button class="cg-link" (click)="clearFilters()">Clear all</button>
+  </div>
+
+  <!-- ── Gantt card ──────────────────────────────────────── -->
+  <div class="cg-card">
+    <div class="cg-board" (click)="closeMenu()">
+
+      <!-- Left: crew tree -->
+      <div class="cg-tree">
+        <div class="cg-tree-head" [style.height.px]="headerH">
+          <div class="cg-tree-titlerow">
+            <div class="cg-tree-title">{{ drillWell ? 'Crew Groups / Crew IDs' : (treeMode==='well' ? 'Wells / Work Groups' : 'Crew Groups / Crew IDs') }}</div>
+            <div class="cg-treemode" *ngIf="!drillWell">
+              <button class="cg-tm" [class.active]="treeMode==='crew'" (click)="setTreeMode('crew')">Crew Group</button>
+              <button class="cg-tm" [class.active]="treeMode==='well'" (click)="setTreeMode('well')">Well</button>
+            </div>
+          </div>
+          <div class="cg-search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" [placeholder]="treeMode==='well' ? 'Search well, work group or activity…' : (drillWell ? 'Search activity or crew code…' : 'Search crew group or crew ID…')" [(ngModel)]="search" (input)="onSearch()" />
+          </div>
+        </div>
+
+        <div class="cg-tree-body">
+          <div *ngFor="let r of displayRows"
+               class="cg-trow"
+               [class.cg-trow-group]="r.type!=='activity'"
+               [class.cg-trow-act]="r.type==='activity'"
+               [class.cg-trow-sel]="r.key===selectedKey"
+               [style.height.px]="rowH"
+               [style.padding-left.px]="10 + r.depth*16"
+               (click)="onRowClick(r)">
+
+            <!-- parent row (crew group / well / work group / crew id) -->
+            <ng-container *ngIf="r.type!=='activity'">
+              <span class="cg-chev" [class.cg-chev-open]="r.open" [style.visibility]="r.expandable ? 'visible' : 'hidden'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </span>
+              <span class="cg-grp-ico">
+                <!-- well -->
+                <svg *ngIf="r.type==='well'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6"/><path d="M9 5h6"/><rect x="8" y="8" width="8" height="13" rx="1"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>
+                <!-- work group (well tree) / drill category -->
+                <svg *ngIf="r.type==='group' && (treeMode==='well' || drillWell)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l2-3h6l2 3"/><rect x="3" y="7" width="18" height="13" rx="2"/><line x1="3" y1="11" x2="21" y2="11"/></svg>
+                <!-- crew group -->
+                <svg *ngIf="r.type==='group' && treeMode==='crew' && !drillWell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 21v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><circle cx="17" cy="6" r="2.5"/><path d="M21 19v-1a3.5 3.5 0 0 0-3.5-3.5"/></svg>
+                <!-- crew id -->
+                <svg *ngIf="r.type==='crew'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/></svg>
+              </span>
+              <div class="cg-grp-main">
+                <div class="cg-grp-top">
+                  <span class="cg-grp-name" [title]="r.name">{{ r.name }}</span>
+                  <span class="cg-grp-pill">{{ r.completion }}%</span>
+                </div>
+                <div class="cg-grp-bottom">
+                  <div class="cg-segbar">
+                    <span *ngFor="let s of r.segments" [style.width.%]="s.pct" [style.background]="s.color"></span>
+                  </div>
+                  <span class="cg-grp-count">{{ r.count }}</span>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- activity (FLCV…) row -->
+            <ng-container *ngIf="r.type==='activity'">
+              <span class="cg-leaf-dot" [class.cg-leaf-ms]="r.isMilestone" [style.background]="r.dotColor"></span>
+              <span class="cg-leaf-ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </span>
+              <span class="cg-leaf-name" [title]="'Activity ID: ' + r.name + (r.actName ? ' — ' + r.actName : '')">{{ r.actName || r.name }}</span>
+              <span class="cg-leaf-code" *ngIf="r.crewCode">{{ r.crewCode }}</span>
+
+              <span class="cg-leaf-right">
+                <!-- well tree: crew group + crew id / unassigned against each activity -->
+                <ng-container *ngIf="treeMode==='well' && !r.isMilestone">
+                  <span class="cg-cg-chip" *ngIf="r.crewGroup" title="Crew group">{{ r.crewGroup }}</span>
+                  <span class="cg-crew-chip cg-crew-assigned" *ngIf="r.crewId" title="Assigned crew">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/></svg>
+                    {{ r.crewId }}
+                  </span>
+                  <span class="cg-crew-chip cg-crew-none" *ngIf="!r.crewId" title="Crew ID not yet assigned — held against the crew group until ~1 day before work starts">Crew unassigned</span>
+                </ng-container>
+                <!-- crew tree: just flag the unassigned ones -->
+                <span class="cg-crew-chip cg-crew-none" *ngIf="treeMode==='crew' && r.crewUnassigned" title="Crew ID not yet assigned">Crew unassigned</span>
+              </span>
+
+              <button class="cg-kebab" (click)="toggleMenu(r.key, $event)" aria-label="Row actions">
+                <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+              </button>
+              <div class="cg-menu" *ngIf="openMenuKey===r.key" (click)="$event.stopPropagation()">
+                <button (click)="menuAction('view', $event)">View timeline</button>
+                <button *ngIf="r.crewUnassigned" (click)="assignFromMenu(r, $event)">Assign crew…</button>
+                <button (click)="menuAction('details', $event)">Details</button>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: timeline -->
+      <div class="cg-timeline">
+        <div #chartHost class="cg-chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Assign-crew dialog ──────────────────────────────── -->
+  <div class="cg-modal-backdrop" *ngIf="assignTarget" (click)="cancelAssign()">
+    <div class="cg-modal" (click)="$event.stopPropagation()">
+      <div class="cg-modal-head">
+        <div>
+          <div class="cg-modal-title">Assign Crew</div>
+          <div class="cg-modal-sub">{{ assignTarget.actName || assignTarget.name }} · {{ assignTarget.name }}</div>
+        </div>
+        <button class="cg-modal-x" (click)="cancelAssign()" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="cg-modal-row">
+        <span class="cg-modal-lbl">Crew Group</span>
+        <span class="cg-modal-cg">{{ assignTarget.crewGroup }}</span>
+      </div>
+
+      <div class="cg-modal-lbl" style="margin:4px 0 6px">Select a Crew ID</div>
+      <div class="cg-crew-options">
+        <button *ngFor="let c of assignPool" class="cg-crew-opt" [class.sel]="assignChoice===c" (click)="chooseCrew(c)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/></svg>
+          {{ c }}
+          <svg *ngIf="assignChoice===c" class="cg-crew-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <div class="cg-crew-empty" *ngIf="assignPool.length===0">No crews available for this group.</div>
+      </div>
+
+      <div class="cg-modal-foot">
+        <button class="cg-btn cg-btn-ghost" (click)="cancelAssign()">Cancel</button>
+        <button class="cg-btn cg-btn-primary" [disabled]="!assignChoice" (click)="confirmAssign()">Assign crew</button>
+      </div>
+    </div>
+  </div>
+
+</div>

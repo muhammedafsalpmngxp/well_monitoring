@@ -1,0 +1,152 @@
+<div id="page-flowedit" class="page active">
+        <div class="breadcrumb">
+          <a>{{ 'FLOWEDIT.BREADCRUMB_PROCESS_AUTOMATION' | translate }}</a><span>›</span>
+          <a onclick="navigate('flowdesigner', document.getElementById('nav-flowdesigner'))">{{ 'FLOWEDIT.BREADCRUMB_FLOW_DESIGNER' | translate }}</a><span>›</span>
+          <span class="current" id="fdEditCrumb">{{ 'FLOWEDIT.NEW_FLOW' | translate }}</span>
+        </div>
+
+        <div class="fd-edit-grid">
+          <!-- LEFT: Builder -->
+          <div>
+            <!-- Header bar -->
+            <div class="fd-edit-header">
+              <div class="fd-flow-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8.5 6h7"/><path d="M6 8.5v3a2 2 0 0 0 2 2h2"/><path d="M18 8.5v3a2 2 0 0 1-2 2h-2"/></svg>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <input type="text" id="fdFlowNameInput" class="fd-flow-name-input" value="MyProcessFlow"/>
+                <span class="fd-status-chip" id="fdStatusChip">{{ 'FLOWEDIT.DRAFT' | translate }}</span>
+              </div>
+              <div class="fd-edit-actions">
+                <button class="fd-btn" onclick="fdRunTest()">
+                  <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  {{ 'FLOWEDIT.RUN_TEST' | translate }}
+                </button>
+                <button class="fd-btn fd-btn-success" onclick="fdPublish(this)">
+                  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  {{ 'FLOWEDIT.PUBLISH' | translate }}
+                </button>
+                <button class="fd-btn" [title]="'FLOWEDIT.MORE_OPTIONS' | translate" style="padding:7px 9px">
+                  <svg viewBox="0 0 24 24" stroke-width="2.4"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Canvas -->
+            <div class="fd-canvas">
+              <div class="fd-section-label">{{ 'FLOWEDIT.INITIATOR' | translate }}</div>
+
+              <!-- Trigger zone — switches between picker and summary -->
+              <div id="fdTriggerZone">
+                <!-- Picker view (default for new flow) -->
+                <div class="fd-trigger-zone" id="fdTriggerPicker">
+                  <div class="fd-trigger-row">
+                    <div class="fd-cancel-btn" onclick="fdCancelTrigger()">
+                      <span class="fd-x-circle"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+                      {{ 'FLOWEDIT.CANCEL_SETUP' | translate }}
+                    </div>
+                    <span class="fd-trigger-label">{{ 'FLOWEDIT.INITIATOR' | translate }}</span>
+                    <div class="fd-dropdown-wrap">
+                      <div class="fd-dropdown-trigger" id="fdDdTrigger" onclick="fdToggleDd()">
+                        <span class="placeholder" id="fdDdLabel">{{ 'FLOWEDIT.SELECT_INITIATOR_TYPE' | translate }}</span>
+                        <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                      </div>
+                      <div class="fd-dropdown-panel" id="fdDdPanel">
+                        <div class="fd-dd-search">
+                          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                          <input type="text" [placeholder]="'FLOWEDIT.SEARCH_INITIATORS' | translate" oninput="fdDdSearch(this.value)"/>
+                        </div>
+                        <div class="fd-dd-body">
+                          <div class="fd-dd-cats" id="fdDdCats">
+                            <div class="fd-dd-cat active" data-cat="record" onclick="fdSelectCat('record')">
+                              <span class="fd-dd-cat-bullet"></span>
+                              <span>{{ 'FLOWEDIT.DATA_RECORD' | translate }}</span>
+                            </div>
+                            <div class="fd-dd-cat" data-cat="schedule" onclick="fdSelectCat('schedule')">
+                              <span class="fd-dd-cat-bullet"></span>
+                              <span>{{ 'FLOWEDIT.TIME_BASED' | translate }}</span>
+                            </div>
+                            <div class="fd-dd-cat" data-cat="module" onclick="fdSelectCat('module')">
+                              <span class="fd-dd-cat-bullet"></span>
+                              <span>{{ 'FLOWEDIT.MODULE_EVENT' | translate }}</span>
+                            </div>
+                          </div>
+                          <div class="fd-dd-opts" id="fdDdOpts"><!-- options injected by JS --></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Summary view (after trigger configured) — hidden initially -->
+                <div class="fd-trig-summary" id="fdTriggerSummary" style="display:none">
+                  <span class="fd-trig-summary-bullet"></span>
+                  <div class="fd-trig-summary-text" id="fdTriggerSummaryText"></div>
+                  <button class="fd-trig-edit-btn" onclick="fdEditTrigger()">{{ 'FLOWEDIT.EDIT' | translate }}</button>
+                </div>
+              </div>
+
+              <!-- Operations (Actions) section -->
+              <div class="fd-section-label">
+                {{ 'FLOWEDIT.OPERATIONS' | translate }}
+                <span class="fd-section-helper" onclick="alert('Multi-select mode would let you bulk move/copy/delete operations.')">{{ 'FLOWEDIT.MULTI_SELECT' | translate }}</span>
+              </div>
+
+              <div class="fd-ops-zone" id="fdOpsZone">
+                <!-- Operation rows + add-chooser injected by JS -->
+              </div>
+
+              <!-- Recovery zone -->
+              <div class="fd-recovery-zone">
+                <div class="fd-recovery-text">
+                  <div class="fd-recovery-title">{{ 'FLOWEDIT.FAILURE_RECOVERY' | translate }}</div>
+                  <div class="fd-recovery-desc">{{ 'FLOWEDIT.FAILURE_RECOVERY_DESC' | translate }}</div>
+                </div>
+                <label class="fd-toggle">
+                  <input type="checkbox" id="fdRecoveryToggle" onchange="fdToggleRecovery(this)"/>
+                  <span class="fd-toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Data panel -->
+          <div class="fd-data-panel">
+            <div class="fd-data-head">
+              <h3>{{ 'FLOWEDIT.DATA' | translate }}</h3>
+              <a onclick="fdToggleAllGroups(true)">{{ 'FLOWEDIT.EXPAND_ALL' | translate }}</a>
+            </div>
+
+            <div class="fd-data-group" id="fdGrpVars">
+              <div class="fd-data-group-head" onclick="fdToggleGroup('fdGrpVars')">
+                <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                {{ 'FLOWEDIT.FLOW_VARIABLES' | translate }}
+              </div>
+              <div class="fd-data-pills">
+                <div class="fd-data-pill"><span>{{ 'FLOWEDIT.RECORD_ID' | translate }}</span><span class="fd-data-pill-type">{{ 'FLOWEDIT.STRING' | translate }}</span></div>
+                <div class="fd-data-pill"><span>{{ 'FLOWEDIT.CURRENT_USER' | translate }}</span><span class="fd-data-pill-type">{{ 'FLOWEDIT.REFERENCE' | translate }}</span></div>
+              </div>
+            </div>
+
+            <div class="fd-data-group" id="fdGrpTrigger">
+              <div class="fd-data-group-head" onclick="fdToggleGroup('fdGrpTrigger')">
+                <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                <span id="fdDataTrigLabel">{{ 'FLOWEDIT.INITIATOR_NONE' | translate }}</span>
+              </div>
+              <div class="fd-data-pills" id="fdDataTrigPills">
+                <div class="fd-data-pill" style="opacity:0.55;cursor:default"><span>{{ 'FLOWEDIT.CONFIGURE_INITIATOR_FIRST' | translate }}</span></div>
+              </div>
+            </div>
+
+            <div class="fd-data-group" id="fdGrpOps">
+              <div class="fd-data-group-head" onclick="fdToggleGroup('fdGrpOps')">
+                <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                {{ 'FLOWEDIT.OPERATION_OUTPUTS' | translate }}
+              </div>
+              <div class="fd-data-pills" id="fdDataOpsPills">
+                <div class="fd-data-pill" style="opacity:0.55;cursor:default"><span>{{ 'FLOWEDIT.ADD_OPERATIONS_TO_SEE_OUTPUTS' | translate }}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /page-flowedit -->

@@ -1,0 +1,5 @@
+.transform-dialog {
+  width: min(560px, calc(100vw - 32px));
+
+  &__lead { margin: 0 0 var(--spacing-md); font-size: 13px; color: var(--color-text-label); }
+}

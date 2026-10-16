@@ -1,0 +1,35 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+*.suo
+*.sln.docstates
+TestResults/
+*.cache
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+
+# Local data
+*.db
+*.sqlite
+*.log
+.logs/
+logs/
+
+# Env
+.env
+.env.local
+# Control-plane DB credentials (template committed as controlplane.env.example)
+infra/sql/controlplane.env

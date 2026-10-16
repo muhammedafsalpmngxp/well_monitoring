@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "SmartOps.Workflow": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:7004",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    }
+  }
+}

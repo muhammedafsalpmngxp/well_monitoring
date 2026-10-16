@@ -1,0 +1,236 @@
+#page-chart-drilldown {
+
+  .cdd-breadcrumb a {
+    cursor: pointer;
+  }
+  .cdd-breadcrumb a.current {
+    cursor: default;
+    color: var(--txt-1);
+    font-weight: 600;
+  }
+  .cdd-bc-sep {
+    margin: 0 6px;
+    color: var(--txt-muted);
+  }
+
+  .cdd-title-wrap { flex: 1; }
+
+  .cdd-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .cdd-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    font-size: 9pt;
+    font-weight: 600;
+    color: var(--txt-1);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.12s, box-shadow 0.12s;
+  }
+  .cdd-btn:hover {
+    border-color: #29378d;
+    box-shadow: 0 4px 12px rgba(41, 55, 141, 0.12);
+  }
+  .cdd-btn svg { width: 14px; height: 14px; }
+
+  .cdd-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px 20px;
+    margin-top: 12px;
+  }
+
+  /* Chart-level filter bar (Plant / Resource / Discipline …) */
+  .cdd-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    align-items: flex-end;
+    padding-bottom: 14px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cdd-panel-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .cdd-panel-hint {
+    font-size: 9pt;
+    color: var(--txt-muted);
+  }
+
+  /* Chart / Data-table view toggle */
+  .cdd-view {
+    display: inline-flex;
+    background: #eef1f6;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .cdd-view button {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    font-size: 9pt;
+    font-weight: 600;
+    color: #64748b;
+    padding: 5px 12px;
+    border-radius: 6px;
+    transition: background .12s, color .12s;
+  }
+  .cdd-view button:hover { color: #29378d; }
+  .cdd-view button.active { background: #fff; color: #16233d; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+  /* Data table */
+  .cdd-swatch {
+    display: inline-block;
+    width: 11px; height: 11px;
+    border-radius: 3px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .cdd-total-row td { font-weight: 700; border-top: 2px solid var(--border); }
+
+  /* Size (resize) control */
+  .cdd-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cdd-size-lbl {
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: var(--txt-muted);
+    margin-right: 4px;
+  }
+  .cdd-size button {
+    width: 28px;
+    height: 26px;
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--txt-1);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: border-color .12s, background .12s, color .12s;
+  }
+  .cdd-size button:hover { border-color: #29378d; }
+  .cdd-size button.active {
+    background: #29378d;
+    border-color: #29378d;
+    color: #fff;
+  }
+
+  .cdd-chart-wrap {
+    position: relative;
+    height: 440px;
+    min-height: 220px;
+    /* Drag the bottom edge to resize the chart. */
+    resize: vertical;
+    overflow: hidden;
+  }
+  .cdd-chart-wrap canvas { cursor: pointer; }
+
+  /* RAG colour legend */
+  .cdd-rag-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .cdd-rag-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 9pt;
+    font-weight: 600;
+    color: var(--txt-1);
+  }
+  .cdd-rag-sw {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* Level-2 in-page grid */
+  .cdd-drill-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .cdd-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 9pt;
+    font-weight: 600;
+    color: #29378d;
+    background: rgba(41, 55, 141, 0.08);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .cdd-back:hover { background: rgba(41, 55, 141, 0.16); }
+  .cdd-back svg { width: 14px; height: 14px; }
+
+  .cdd-drill-seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--txt-1);
+  }
+  .cdd-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .cdd-drill-count {
+    font-size: 8.5pt;
+    font-weight: 500;
+    color: var(--txt-muted);
+  }
+
+  .cdd-tablewrap {
+    overflow-x: auto;
+    max-height: 460px;
+    overflow-y: auto;
+  }
+
+  .cdd-empty-cell {
+    text-align: center;
+    color: var(--txt-muted);
+    padding: 16px;
+  }
+
+  .cdd-missing {
+    text-align: center;
+    color: var(--txt-muted);
+  }
+  .cdd-missing .cdd-btn { margin-top: 10px; }
+}

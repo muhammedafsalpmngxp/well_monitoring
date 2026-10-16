@@ -1,0 +1,67 @@
+<div id="page-crewcalendar" class="page active">
+
+  <div class="breadcrumb">
+    <a data-page="cmdoverview">{{ 'SIDEBAR.CREW_ACTIVITIES' | translate }}</a>
+    <span>›</span>
+    <span class="current">{{ 'SIDEBAR.CREW_CALENDAR' | translate }}</span>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="cca-toolbar">
+    <div class="cca-tb-group">
+      <span class="cca-tb-lbl">{{ 'CREWCALENDAR.WINDOW' | translate }}</span>
+      <div class="cca-pill-group" id="ccaWindowToggle">
+        <button class="cca-pill active" data-window="14"  onclick="ccaSetWindow(14,this)">{{ 'CREWCALENDAR.WINDOW_14D' | translate }}</button>
+        <button class="cca-pill"        data-window="30"  onclick="ccaSetWindow(30,this)">{{ 'CREWCALENDAR.WINDOW_30D' | translate }}</button>
+        <button class="cca-pill"        data-window="60"  onclick="ccaSetWindow(60,this)">{{ 'CREWCALENDAR.WINDOW_60D' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="cca-tb-group">
+      <span class="cca-tb-lbl">{{ 'CREWCALENDAR.GROUP' | translate }}</span>
+      <div class="cca-group-pills" id="ccaGroupPills">
+        <!-- injected by renderer -->
+      </div>
+    </div>
+
+    <div class="cca-search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="ccaSearch" [placeholder]="'CREWCALENDAR.SEARCH_PLACEHOLDER' | translate" oninput="ccaSearch()" />
+    </div>
+  </div>
+
+  <!-- Calendar card -->
+  <div class="cca-card">
+    <div class="cca-card-head">
+      <div class="cca-card-title">{{ 'CREWCALENDAR.DEPLOYMENT_CALENDAR' | translate }}</div>
+      <div class="cca-card-hint">{{ 'CREWCALENDAR.HINT' | translate }}</div>
+    </div>
+
+    <div class="cca-grid-wrap">
+      <table class="cca-grid">
+        <thead>
+          <tr>
+            <th class="cca-col-crew">{{ 'CREWCALENDAR.CREW_ID' | translate }}</th>
+            <th class="cca-col-cal" id="ccaDateHeaderCell">
+              <div class="cca-date-header" id="ccaDateHeader"><!-- date cells injected --></div>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="ccaBody">
+          <!-- group/crew rows injected -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Legend -->
+    <div class="cca-legend">
+      <span class="cca-legend-lbl">{{ 'CREWCALENDAR.LEGEND' | translate }}</span>
+      <span class="cca-legend-item"><span class="cca-legend-swatch cca-leg-past"></span>{{ 'CREWCALENDAR.LEGEND_PAST' | translate }}</span>
+      <span class="cca-legend-item"><span class="cca-legend-swatch cca-leg-future"></span>{{ 'CREWCALENDAR.LEGEND_FUTURE' | translate }}</span>
+      <span class="cca-legend-item"><span class="cca-legend-swatch cca-leg-conflict"></span>{{ 'CREWCALENDAR.LEGEND_CONFLICT' | translate }}</span>
+      <span class="cca-legend-item"><span class="cca-legend-swatch cca-leg-today"></span>{{ 'CREWCALENDAR.LEGEND_TODAY' | translate }}</span>
+      <span class="cca-sim-pill">{{ 'CREWCALENDAR.SIMULATED' | translate }}</span>
+    </div>
+  </div>
+
+</div>

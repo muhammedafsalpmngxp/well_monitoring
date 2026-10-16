@@ -1,0 +1,30 @@
+<div class="dax-compose">
+  <textarea #box [id]="inputId || null" [rows]="rows" [placeholder]="placeholder" [value]="value"
+    [ngClass]="[textareaClass, invalid ? invalidClass : '']" spellcheck="false" autocomplete="off"
+    role="combobox" aria-autocomplete="list" [attr.aria-expanded]="open" [attr.aria-controls]="listId"
+    [attr.aria-activedescendant]="open ? listId + '-' + active : null"
+    [attr.aria-invalid]="invalid" [attr.aria-describedby]="describedBy"
+    (input)="onInput()" (keydown)="onKeydown($event)" (click)="refresh()" (keyup.arrowLeft)="refresh()"
+    (keyup.arrowRight)="refresh()" (blur)="onBlur()"></textarea>
+
+  @if (open) {
+    <ul class="dax-compose__list" role="listbox" [id]="listId" aria-label="Suggestions">
+      @for (item of items; track item.label; let i = $index) {
+        <li class="dax-compose__item" role="option" [id]="listId + '-' + i" [class.active]="i === active"
+          [attr.aria-selected]="i === active" (mousedown)="pick(item, $event)" (mouseenter)="active = i">
+          <span class="dax-compose__label">{{ item.label }}</span>
+          <span class="dax-compose__detail">{{ item.detail }}</span>
+        </li>
+      }
+      @if (items[active]?.hint) {
+        <li class="dax-compose__hint" aria-hidden="true">{{ items[active].hint }}</li>
+      }
+    </ul>
+  }
+
+  @if (signature && !open) {
+    <div class="dax-compose__signature" aria-live="polite">
+      <code>{{ signature.syntax }}</code> {{ signature.description }}
+    </div>
+  }
+</div>

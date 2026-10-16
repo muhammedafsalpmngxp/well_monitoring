@@ -1,0 +1,25 @@
+/* Sticky table header for the Autonomous PM Monitoring table */
+#page-autopm .apm-table-card {
+  max-height: 480px;
+  overflow-y: auto;
+  position: relative;
+}
+
+#page-autopm .apm-table-card::-webkit-scrollbar { width: 8px; height: 8px; }
+#page-autopm .apm-table-card::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+#page-autopm .apm-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+html:not(.navbar-light) #page-autopm .apm-table thead th {
+  background: #1f2031;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}

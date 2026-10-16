@@ -1,0 +1,193 @@
+<app-page-header [title]="section === 'features' ? 'AI Features' : 'AI Providers'"
+  [subtitle]="section === 'features' ? 'Choose which roles may use each AI feature in this tenant.' : 'Register the model providers TWise AI can use, choose the active one, and set a daily call limit.'"
+  [breadcrumbs]="breadcrumbs">
+  <span page-header-icon class="ai-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white"
+      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3l1.8 4.6L18.4 9.4l-4.6 1.8L12 15.8l-1.8-4.6L5.6 9.4l4.6-1.8z" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+    </svg>
+  </span>
+  <button type="button" class="btn btn-primary" *ngIf="section === 'providers'" (click)="openAdd()">+ Add provider</button>
+</app-page-header>
+
+<div class="page-content ai">
+  <p *ngIf="error" class="ai__msg ai__msg--bad" role="alert">{{ error }}</p>
+  <app-loader *ngIf="loading" size="lg"></app-loader>
+
+  <div class="ai__grid" *ngIf="!loading" [class.ai__grid--single]="section === 'features'">
+    <!-- Providers -->
+    <section class="ai__card" *ngIf="section === 'providers'">
+      <div class="ai__card-head">
+        <h3>Providers</h3>
+        <span class="ai__hint" *ngIf="activeProvider">Active: <strong>{{ activeProvider.name }}</strong> · {{ activeProvider.model }}</span>
+        <span class="ai__hint" *ngIf="!activeProvider">No provider yet. Add one to get started.</span>
+      </div>
+
+      <div class="ai__empty" *ngIf="!providers.length">
+        <p>No providers registered.</p>
+        <button type="button" class="btn btn-primary" (click)="openAdd()">+ Add provider</button>
+      </div>
+
+      <div class="ai__provider" *ngFor="let p of providers; trackBy: trackProvider" [class.ai__provider--active]="p.isActive">
+        <label class="ai__radio" [title]="p.isActive ? 'Active provider' : 'Use this provider'">
+          <input type="radio" name="active" [checked]="p.isActive" [disabled]="busyId !== null" (change)="activate(p)" />
+        </label>
+        <div class="ai__provider-body">
+          <div class="ai__provider-title">
+            <strong>{{ p.name }}</strong>
+            <span class="ai__badge" *ngIf="p.isActive">Active</span>
+            <span class="ai__type">{{ typeLabel(p.provider) }}</span>
+          </div>
+          <div class="ai__provider-meta">
+            <span><b>Model</b> {{ p.model }}<ng-container *ngIf="p.fastModel"> · fast {{ p.fastModel }}</ng-container></span>
+            <span class="ai__url"><b>Endpoint</b> {{ p.baseUrl }}</span>
+            <span><b>Key</b> {{ p.hasApiKey ? 'stored' : 'none' }}</span>
+          </div>
+          <p class="ai__msg" *ngIf="testResults.get(p.id) as r" [class.ai__msg--ok]="r.success" [class.ai__msg--bad]="!r.success" role="status">
+            {{ r.message }} <span *ngIf="r.latencyMs">({{ r.latencyMs }} ms)</span>
+          </p>
+        </div>
+        <div class="ai__provider-actions">
+          <button type="button" class="btn btn-secondary" [disabled]="busyId !== null" (click)="test(p)">{{ busyId === p.id ? 'Working…' : 'Test' }}</button>
+          <button type="button" class="btn btn-secondary" [disabled]="busyId !== null" (click)="openEdit(p)">Edit</button>
+          <button type="button" class="btn btn-secondary ai__danger" [disabled]="busyId !== null || p.isActive" (click)="remove(p)"
+            [title]="p.isActive ? 'Make another provider active first' : 'Delete'">Delete</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature access by role -->
+    <section class="ai__card ai__access" *ngIf="section === 'features'">
+      <div class="ai__card-head">
+        <h3>Features by role</h3>
+        <span class="ai__hint">Tick which roles may use each feature. Untick to switch a feature off for that role, including admin.</span>
+      </div>
+      <p class="ai__msg ai__msg--bad" *ngIf="!settings.isEnabled">AI is switched off for this tenant. Grants are kept but nothing is available to users until an admin enables AI under AI Providers.</p>
+      <p class="ai__hint" *ngIf="!featureDefs.length || !roles.length">Loading features and roles…</p>
+      <div class="ai__matrix" *ngIf="featureDefs.length && roles.length">
+        <table>
+          <thead>
+            <tr><th>Feature</th><th *ngFor="let r of roles" [title]="r.roleCode">{{ r.roleName || r.roleCode }}</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of featureDefs">
+              <td><strong>{{ f.name }}</strong><br /><span class="ai__hint">{{ f.description }}</span></td>
+              <td *ngFor="let r of roles" class="ai__cell">
+                <input type="checkbox" [checked]="hasAccess(f.key, r.roleCode)" 
+                  (change)="toggleAccess(f.key, r.roleCode, $any($event.target).checked)" [attr.aria-label]="f.name + ' for ' + (r.roleName || r.roleCode)" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="ai__actions">
+        <button type="button" class="btn btn-primary" [disabled]="savingAccess || !featureDefs.length" (click)="saveAccess()">{{ savingAccess ? 'Saving…' : 'Save access' }}</button>
+        <span class="ai__msg" [class.ai__msg--ok]="accessMessage === 'Saved.'" [class.ai__msg--bad]="accessMessage && accessMessage !== 'Saved.'" *ngIf="accessMessage" role="status">{{ accessMessage }}</span>
+      </div>
+    </section>
+
+    <!-- AI instructions: the wording the AI follows; the query format and data are always added by the system -->
+    <section class="ai__card ai__access" *ngIf="section === 'features' && prompts.length">
+      <div class="ai__card-head">
+        <h3>AI instructions</h3>
+        <span class="ai__hint">Change how the AI words its answers, or add rules for your data. Applies to every user of this tenant. Leave a box empty for the default. Extra rules, answer style, report and alert message can also be set per dataset from Ask AI → Dataset notes.</span>
+      </div>
+      <div class="ai__prompt" *ngFor="let p of prompts">
+        <label class="ai__form">
+          <span>{{ p.name }} <span class="ai__badge" *ngIf="p.isCustom">Custom</span></span>
+          <small class="ai__hint">{{ p.description }}</small>
+          <textarea rows="4" maxlength="4000" [(ngModel)]="drafts[p.key]" [name]="'prompt-' + p.key" [placeholder]="p.defaultText || 'No extra rules'"></textarea>
+        </label>
+        <div class="ai__actions">
+          <button type="button" class="btn btn-primary" [disabled]="savingPrompt !== null || drafts[p.key] === p.text" (click)="savePrompt(p)">{{ savingPrompt === p.key ? 'Saving…' : 'Save' }}</button>
+          <button type="button" class="btn btn-secondary" *ngIf="p.isCustom" [disabled]="savingPrompt !== null" (click)="savePrompt(p, true)">Restore default</button>
+          <span class="ai__msg" *ngIf="promptMessage[p.key] as m" [class.ai__msg--ok]="m === 'Saved.' || m === 'Default restored.'" [class.ai__msg--bad]="m !== 'Saved.' && m !== 'Default restored.'" role="status">{{ m }}</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="ai__side" *ngIf="section === 'providers'">
+      <!-- Tenant switches -->
+      <form class="ai__card ai__form" (ngSubmit)="saveSettings()">
+        <h3>Limits</h3>
+        <label>Daily call limit
+          <input type="number" min="0" [(ngModel)]="settings.dailyQuota" name="dailyQuota" />
+          <small class="ai__hint">Calls per day for the whole tenant, counted from midnight UTC. 0 means unlimited.</small>
+        </label>
+        <label class="ai__inline"><input type="checkbox" [(ngModel)]="settings.isEnabled" name="isEnabled" /> AI features enabled for users</label>
+        <div class="ai__actions">
+          <button type="submit" class="btn btn-primary" [disabled]="savingSettings || settings.dailyQuota < 0">{{ savingSettings ? 'Saving…' : 'Save' }}</button>
+          <span class="ai__msg ai__msg--ok" *ngIf="settingsMessage" role="status">{{ settingsMessage }}</span>
+        </div>
+      </form>
+
+      <!-- Usage -->
+      <section class="ai__card" *ngIf="usage">
+        <h3>Usage</h3>
+        <p class="ai__today">
+          <strong>{{ usage.callsToday }}</strong> calls today
+          <span *ngIf="usage.dailyQuota > 0"> of {{ usage.dailyQuota }}</span>
+        </p>
+        <table class="ai__table" *ngIf="usage.days.length; else noUsage">
+          <thead><tr><th>Day</th><th>Calls</th><th>Failed</th><th>Prompt tokens</th><th>Completion tokens</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let d of usage.days">
+              <td>{{ d.day | date:'d MMM' }}</td><td>{{ d.calls }}</td><td>{{ d.failed }}</td>
+              <td>{{ d.promptTokens | number }}</td><td>{{ d.completionTokens | number }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #noUsage><p class="ai__hint">No AI calls in the last 14 days.</p></ng-template>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- Add / edit provider dialog -->
+<div class="dialog-backdrop" *ngIf="editing !== undefined" (click)="closeDialog()">
+  <form class="dialog" role="dialog" aria-modal="true" aria-labelledby="ai-dialog-title" (click)="$event.stopPropagation()" (ngSubmit)="saveProvider()">
+    <div class="dialog__header">
+      <h3 id="ai-dialog-title">{{ editing ? 'Edit provider' : 'Add provider' }}</h3>
+      <button type="button" class="dialog__close" aria-label="Close" [disabled]="savingProvider" (click)="closeDialog()">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+          <path d="M13.8 7.8L7.8 13.8M7.8 7.8L13.8 13.8M20.8 10.8C20.8 16.3 16.3 20.8 10.8 20.8C5.3 20.8 0.8 16.3 0.8 10.8C0.8 5.3 5.3 0.8 10.8 0.8C16.3 0.8 20.8 5.3 20.8 10.8Z"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
+    <div class="dialog__panel">
+      <div class="dialog__body ai__form">
+        <label>Provider type
+          <select [(ngModel)]="form.provider" name="provider" (ngModelChange)="onTypeChange()">
+            <option *ngFor="let t of providerTypes" [value]="t.value">{{ t.label }}</option>
+          </select>
+        </label>
+        <label>Name
+          <input type="text" [(ngModel)]="form.name" name="name" required placeholder="e.g. OpenAI production" />
+        </label>
+        <label>Base URL
+          <input type="url" [(ngModel)]="form.baseUrl" name="baseUrl" required />
+          <small class="ai__hint">Any endpoint that speaks the OpenAI chat format. The API appends <code>/chat/completions</code>.</small>
+        </label>
+        <label>Model
+          <input type="text" [(ngModel)]="form.model" name="model" required />
+        </label>
+        <label>Fast model (optional)
+          <input type="text" [(ngModel)]="form.fastModel" name="fastModel" placeholder="Blank: use the model above" />
+          <small class="ai__hint">A cheaper model for quick routing and planning steps (Ask Data), e.g. gpt-4o-mini.</small>
+        </label>
+        <label *ngIf="needsKey">API key
+          <input type="password" [(ngModel)]="form.apiKey" name="apiKey" autocomplete="off"
+            [placeholder]="editing?.hasApiKey ? 'Stored — leave blank to keep it' : 'Paste the provider key'" />
+          <small class="ai__hint">Stored encrypted and never shown again.</small>
+        </label>
+        <p *ngIf="dialogError" class="ai__msg ai__msg--bad" role="alert">{{ dialogError }}</p>
+      </div>
+      <div class="dialog__footer">
+        <button type="button" class="btn btn-secondary" (click)="closeDialog()" [disabled]="savingProvider">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="!canSaveProvider">{{ savingProvider ? 'Saving…' : (editing ? 'Save' : 'Add') }}</button>
+      </div>
+    </div>
+  </form>
+</div>

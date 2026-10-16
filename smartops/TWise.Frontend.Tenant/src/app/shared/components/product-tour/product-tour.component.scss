@@ -1,0 +1,241 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  pointer-events: none;
+}
+
+.product-tour__dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.product-tour__spotlight {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55);
+  transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+.product-tour__connector {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+
+  path {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 2;
+    stroke-dasharray: 5 5;
+    opacity: 0.9;
+  }
+}
+
+.product-tour__badge {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #21409A;
+  color: #fff;
+  border: 3px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-family-base);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.product-tour__tooltip {
+  position: fixed;
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.20);
+
+  h4 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #21409A;
+    font-family: var(--font-family-base);
+  }
+
+  p {
+    margin: 0;
+    font-size: 12px;
+    color: #667085;
+    line-height: 1.4;
+  }
+}
+
+.product-tour__panel {
+  position: fixed;
+  top: 140px;
+  right: 24px;
+  width: 300px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  padding: 16px;
+  pointer-events: auto;
+  font-family: var(--font-family-base);
+}
+
+.product-tour__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+
+  span {
+    font-size: 14px;
+    font-weight: 700;
+    color: #101828;
+  }
+}
+
+.product-tour__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: #98A2B3;
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:hover { background: #F2F4F7; color: #667085; }
+}
+
+.product-tour__dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 14px;
+
+  span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #E4E7EC;
+
+    &.active { background: #21409A; width: 16px; border-radius: 3px; }
+  }
+}
+
+.product-tour__list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 380px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 8px;
+
+    &.active { background: #EEF4FF; }
+  }
+}
+
+.product-tour__list-num {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #EEF2F6;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+li.active .product-tour__list-num {
+  background: #21409A;
+  color: #fff;
+}
+
+.product-tour__list-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  strong {
+    font-size: 13px;
+    font-weight: 600;
+    color: #101828;
+  }
+
+  small {
+    font-size: 11px;
+    color: #667085;
+  }
+}
+
+.product-tour__panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.product-tour__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  border: none;
+
+  &--ghost {
+    background: transparent;
+    color: #667085;
+
+    &:hover { background: #F2F4F7; }
+  }
+
+  &--primary {
+    background: var(--gradient-primary);
+    color: #fff;
+
+    &:hover { opacity: 0.92; }
+  }
+}

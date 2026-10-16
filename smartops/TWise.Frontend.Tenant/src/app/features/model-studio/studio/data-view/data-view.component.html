@@ -1,0 +1,64 @@
+<div class="data-view" [class.data-view--expanded]="expanded">
+  <div class="data-view__header">
+    <h2 class="data-view__title">{{ source ? (source.caption || source.alias) : 'Data' }}</h2>
+    <p *ngIf="source" class="data-view__meta">{{ source.label || source.schemaName + '.' + source.sourceName }}</p>
+    <span *ngIf="source && calculatedCount" class="data-view__chip">{{ calculatedCount }} calculated</span>
+    <span *ngIf="source && transformCount" class="data-view__chip">{{ transformCount }} transform{{ transformCount === 1 ? '' : 's' }}</span>
+    <app-button *ngIf="source" class="data-view__refresh" variant="ghost" size="sm" [loading]="running" (clicked)="run(true)">
+      <app-icon name="refresh" aria-hidden="true"></app-icon>Refresh
+    </app-button>
+  </div>
+
+  <p *ngIf="!source" class="data-view__hint">Select Get data to add a table. Its rows show here.</p>
+
+  <p *ngIf="running && !result" class="data-view__hint" role="status">Reading the rows of {{ (source?.caption || source?.alias) }}.</p>
+  <app-loader *ngIf="running && !result" type="skeleton-table" aria-hidden="true"></app-loader>
+
+  <div *ngIf="error" class="data-view__error" role="alert">
+    <strong>{{ error.message }}</strong>
+    <span>{{ error.hint }}</span>
+  </div>
+
+  <ng-container *ngIf="result && !error">
+    <div class="data-view__status">
+      <p class="data-view__hint">
+        {{ rowsLabel }}.
+        {{ raw ? 'Shown as stored: the model could not read this table yet.' : 'As the model reads them, with transforms and calculated columns (draft).' }}
+      </p>
+      <time *ngIf="result.fetchedAt" class="data-view__hint" [attr.datetime]="result.fetchedAt">
+        Data as of {{ result.fetchedAt | date: 'HH:mm' }}
+      </time>
+    </div>
+    <div class="data-view__toolbar">
+      <input class="form-control data-view__search" type="search" placeholder="Search rows" aria-label="Search the rows" [(ngModel)]="search" />
+      <div class="data-view__density" role="group" aria-label="Row density">
+        <button *ngFor="let option of densities" type="button" class="data-view__density-button" [class.data-view__density-button--active]="density === option.id"
+          [attr.aria-pressed]="density === option.id" [title]="option.label + ' rows'" (click)="density = option.id">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <ng-container [ngSwitch]="option.id">
+              <g *ngSwitchCase="'comfortable'"><rect x="3" y="3" width="18" height="7" rx="1" /><rect x="3" y="14" width="18" height="7" rx="1" /></g>
+              <g *ngSwitchCase="'compact'"><rect x="3" y="3" width="18" height="5" rx="1" /><rect x="3" y="10" width="18" height="5" rx="1" /><rect x="3" y="17" width="18" height="5" rx="1" /></g>
+              <g *ngSwitchDefault><line x1="3" y1="4" x2="21" y2="4" /><line x1="3" y1="8" x2="21" y2="8" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="16" x2="21" y2="16" /><line x1="3" y1="20" x2="21" y2="20" /></g>
+            </ng-container>
+          </svg>
+        </button>
+      </div>
+      <button type="button" class="data-view__tool" title="Show or hide columns" aria-label="Show or hide columns" (click)="toggleColumns()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" />
+        </svg>
+      </button>
+      <button type="button" class="data-view__tool" [class.data-view__tool--active]="expanded" [attr.aria-pressed]="expanded"
+        [title]="expanded ? 'Exit full screen' : 'Full screen'" [attr.aria-label]="expanded ? 'Exit full screen' : 'Full screen'"
+        (click)="expanded = !expanded">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+        </svg>
+      </button>
+    </div>
+    <ag-grid-angular class="data-view__grid" [theme]="gridTheme" [columnDefs]="columnDefs" [defaultColDef]="defaultColDef"
+      [rowData]="result.rows" [rowHeight]="rowHeight" [quickFilterText]="search" [suppressFieldDotNotation]="true"
+      [rowSelection]="rowSelection" [sideBar]="sideBar" [columnHoverHighlight]="true" (gridReady)="onGridReady($event)"
+      [attr.aria-label]="'Rows of ' + (source?.caption || source?.alias)"></ag-grid-angular>
+  </ng-container>
+</div>

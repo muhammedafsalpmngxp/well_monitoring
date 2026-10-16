@@ -1,0 +1,732 @@
+.dp {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 9.5pt;
+}
+
+/* ── Header ─────────────────────────────────────── */
+.dp-header {
+  display: flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 0px!important;
+}
+.dp-header__title {
+  margin: 0;
+  font-size: 16pt;
+  font-weight: 700;
+  color: var(--txt-1);
+  line-height: 1.2;
+}
+.dp-header__sub {
+  margin: 4px 0 0;
+  font-size: 9.5pt;
+  color: var(--txt-muted);
+}
+.dp-header__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.dp-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 9.5pt;
+  color: var(--txt-1);
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease;
+}
+.dp-btn:hover { background: var(--surface-2); }
+.dp-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.dp-btn__caret { width: 12px !important; height: 12px !important; opacity: 0.6; }
+.dp-btn--icon { padding: 7px 9px; }
+
+/* ── Card shell ─────────────────────────────────── */
+.dp-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  min-width: 0;
+}
+.dp-card__head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+.dp-card__head--with-legend { flex-wrap: wrap; }
+.dp-card__title {
+  margin: 0;
+  font-size: 14pt;
+  font-weight: 700;
+  color: var(--txt-1);
+  line-height: 1.25;
+}
+.dp-card__meta { font-size: 8.5pt; color: var(--txt-muted); }
+
+/* ── KPI strip ──────────────────────────────────── */
+.dp-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.dp-kpi {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 10px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.dp-kpi::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  right: 0; bottom: auto;
+  width: auto;
+  height: 1px;
+  border-radius: 9px 9px 0 0;
+  opacity: 0.95;
+  background: var(--dp-kpi-accent, var(--txt-muted));
+}
+.dp-kpi:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); }
+
+/* Derive the accent color from the icon variant */
+.dp-kpi:has(.dp-kpi__icon--blue)   { --dp-kpi-accent: #29378d; }
+.dp-kpi:has(.dp-kpi__icon--green)  { --dp-kpi-accent: #00B050; }
+.dp-kpi:has(.dp-kpi__icon--orange) { --dp-kpi-accent: #FFC000; }
+.dp-kpi:has(.dp-kpi__icon--red)    { --dp-kpi-accent: #FF0000; }
+.dp-kpi:has(.dp-gauge)             { --dp-kpi-accent: #00B050; }
+
+.dp-kpi__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.dp-kpi__label {
+  font-size: 8pt;
+  font-weight: 600;
+  color: var(--txt-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+}
+.dp-kpi__icon {
+  flex: none;
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+}
+.dp-kpi__icon svg { width: 14px; height: 14px; }
+.dp-kpi__icon--blue   { background: rgba(41,55,141, 0.12); color: #29378d; }
+.dp-kpi__icon--green  { background: rgba(0, 176, 80, 0.12);   color: #00B050; }
+.dp-kpi__icon--orange { background: rgba(255, 192, 0, 0.12);  color: #FFC000; }
+.dp-kpi__icon--red    { background: rgba(255, 0, 0, 0.12);    color: #FF0000; }
+
+.dp-kpi__val {
+  font-family: var(--font-family-mono);
+  font-size: 20pt; font-weight: 700;
+  color: var(--txt-1);
+  line-height: 1;
+  margin: 0 0 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.dp-kpi__val-sub {
+  font-family: inherit;
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: var(--txt-muted);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.dp-kpi .dp-gauge { margin-bottom: 6px; }
+.dp-kpi__delta {
+  font-size: 8.5pt;
+  font-weight: 600;
+  display: flex; align-items: center; gap: 4px;
+}
+.dp-kpi__delta span { color: var(--txt-muted); font-weight: 500; }
+.dp-kpi__delta--up      { color: #00B050; }
+.dp-kpi__delta--down    { color: #FF0000; }
+.dp-kpi__delta--neutral { color: #FF0000; }
+
+/* ── Gauge (semi-circle) ────────────────────────── */
+.dp-gauge {
+  position: relative;
+  width: 100%;
+  max-width: 140px;
+  margin: 0 auto;
+}
+.dp-gauge--md { max-width: 180px; }
+.dp-gauge__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Value sits inside the gauge bowl — anchored to a fixed % so it's predictable
+   across every container size (semicircle viewBox is 120×70, bowl center ≈ y=35
+   which is 50% of SVG height; 65% sits slightly below center, inside the bowl). */
+.dp-gauge__center {
+  position: absolute;
+  top: 65%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  pointer-events: none;
+}
+.dp-gauge__val {
+  font-family: var(--font-family-mono);
+  font-size: 22pt; font-weight: 800;
+  color: var(--txt-1);
+  line-height: 1;
+  letter-spacing: -1px;
+  display: inline-flex;
+  align-items: baseline;
+}
+.dp-gauge__pct {
+  font-size: 11pt;
+  font-weight: 700;
+  margin-left: 2px;
+  color: var(--txt-1);
+  letter-spacing: -0.3px;
+}
+.dp-gauge__scale {
+  display: flex; justify-content: space-between;
+  font-size: 7.5pt;
+  color: var(--txt-muted);
+  padding: 0 4px;
+  margin-top: -6px;
+}
+
+/* ── Grid rows ──────────────────────────────────── */
+.dp-row { display: grid; gap: 10px; }
+.dp-row--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* When a 3-card row wraps, the third card spans the full width so it doesn't
+   leave an awkward empty column on the right. */
+.dp-row--3 > .dp-card:nth-child(3) { grid-column: 1 / -1; }
+
+@media (max-width: 1100px) {
+  .dp-kpi-strip { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 680px) {
+  .dp-kpi-strip { grid-template-columns: 1fr 1fr; }
+  .dp-row--3    { grid-template-columns: 1fr; }
+  .dp-row--3 > .dp-card:nth-child(3) { grid-column: auto; }
+}
+
+/* ── Trend chart ────────────────────────────────── */
+.dp-trend-legend {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  font-size: 8.5pt;
+  color: var(--txt-1);
+  margin-bottom: 10px;
+}
+.dp-trend-legend--sm { font-size: 8pt; margin-bottom: 8px; }
+/* Legend pinned at the bottom of a card (e.g. under the Gantt) — chip style, centered */
+.dp-trend-legend--bottom {
+  margin-top: 10px;
+  margin-bottom: 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dp-trend-legend--bottom > span {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: var(--txt-1);
+  gap: 6px;
+  letter-spacing: 0.2px;
+}
+.dp-trend-legend--bottom .dp-leg-dot {
+  width: 9px; height: 9px;
+}
+/* Gantt card — tighter bottom padding so the legend sits closer to the edge */
+.dp-card--gantt { padding-bottom: 10px; }
+.dp-trend-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.dp-leg-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block;
+}
+.dp-trend-chart {
+  width: 100%;
+  aspect-ratio: 480 / 230;
+}
+.dp-trend-chart svg { width: 100%; height: 100%; display: block; }
+
+/* ── Well-wise progress ─────────────────────────── */
+.dp-wells { display: flex; flex-direction: column; gap: 12px; }
+.dp-well-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 38px;
+  align-items: center;
+  gap: 10px;
+  font-size: 9pt;
+}
+.dp-well-row__label { font-weight: 600; color: var(--txt-1); }
+.dp-well-row__bar {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.dp-well-row__fill {
+  height: 100%;
+  background: #16a34a;
+  border-radius: 999px;
+}
+.dp-well-row__pct {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  font-size: 8.5pt;
+  color: var(--txt-1);
+  text-align: right;
+}
+
+/* ── Donut ──────────────────────────────────────── */
+.dp-donut-wrap {
+display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 15px;
+  justify-content: center;
+  padding: 0;
+}
+.dp-donut {
+  position: relative;
+  width: 180px; height: 180px;
+  flex-shrink: 0;
+}
+.dp-donut svg { width: 100%; height: 100%; display: block; }
+.dp-donut__center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+}
+.dp-donut__val {
+  font-family: var(--font-family-mono);
+  font-size: 22pt; font-weight: 800;
+  line-height: 1;
+  color: var(--txt-1);
+}
+.dp-donut__lbl {
+  font-size: 8.5pt;
+  color: var(--txt-muted);
+  margin-top: 4px;
+}
+
+/* Legend lays out as a 2×2 grid so it fills the right half of the wide card */
+.dp-donut-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 10px;
+  font-size: 10pt;
+  align-self: center;
+}
+.dp-leg-row {
+display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px;
+  color: var(--txt-1);
+  font-weight: 500;
+  padding: 8px 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;  
+}
+.dp-leg-row .dp-leg-dot { width: 10px; height: 10px; }
+.dp-leg-val {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  font-size: 9.5pt;
+  color: var(--txt-1);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  .dp-donut-wrap { grid-template-columns: 1fr; justify-items: center; gap: 16px; }
+  .dp-donut-legend { width: 100%; }
+}
+@media (max-width: 460px) {
+  .dp-donut-legend { grid-template-columns: 1fr; }
+}
+
+/* ── Discipline workload ────────────────────────── */
+.dp-disc { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dp-disc-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  font-size: 9pt;
+  min-width: 0;
+}
+.dp-disc-row__label { font-weight: 600; color: var(--txt-1); }
+.dp-disc-row__bars { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+/* Each bar row reserves a fixed 40px column on the right for its value label,
+   so the value never escapes the card edge. */
+.dp-disc-row__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 6px;
+  height: 12px;
+  min-width: 0;
+}
+.dp-disc-row__fill {
+  height: 100%;
+  border-radius: 3px;
+  /* width set inline (e.g. "80%") — interpreted against the 1fr chart area */
+}
+.dp-disc-row__fill--planned { background: #29378d; }
+.dp-disc-row__fill--actual  { background: #16a34a; }
+.dp-disc-row__val {
+  font-family: var(--font-family-mono);
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: var(--txt-1);
+  text-align: left;
+  white-space: nowrap;
+}
+.dp-disc-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-left: 90px;   /* clears label col + gap */
+  padding-right: 46px;  /* clears value col + gap */
+  font-size: 8pt;
+  color: var(--txt-muted);
+}
+
+/* ── AG Grid container (Crew Productivity table) ── */
+.dp-grid {
+  width: 100%;
+  height: 348px!important;
+  min-height: 300px;
+  font-size: 9pt;
+}
+
+/* ── Table (Crew Productivity, Top Delayed Tasks) ── */
+.dp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+}
+.dp-table thead th {
+  text-align: left;
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: var(--txt-muted);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.dp-table tbody td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--border-2, rgba(0,0,0,0.04));
+  color: var(--txt-1);
+}
+.dp-table tbody tr:last-child td { border-bottom: 0; }
+.dp-table__num { text-align: right; font-family: var(--font-family-mono); font-weight: 600; }
+.dp-table__num--green { color: #16a34a; }
+.dp-table--sm thead th, .dp-table--sm tbody td { padding: 7px 6px; font-size: 8.5pt; }
+
+.dp-rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  font-family: var(--font-family-mono);
+  font-size: 8.5pt;
+  font-weight: 800;
+  color: #fff;
+  background: var(--txt-muted);
+}
+.dp-rank--gold   { background: #f59e0b; }
+.dp-rank--silver { background: #9ca3af; }
+.dp-rank--bronze { background: #b45309; }
+
+.dp-pill {
+  display: inline-flex; align-items: center;
+  font-size: 8pt; font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.dp-pill--red   { background: rgba(220,38,38,0.10); color: #dc2626; }
+.dp-pill--amber { background: rgba(245,158,11,0.12); color: #b45309; }
+.dp-pill--green { background: rgba(22,163,74,0.12); color: #16a34a; }
+
+/* ── Schedule variance bar chart ────────────────── */
+.dp-sv-chart {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 10px;
+  height: 320px;
+  width: 100%;
+  padding-bottom: 28px; /* room for x-axis labels under the bars */
+  position: relative;
+}
+.dp-sv-yaxis {
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  font-size: 8pt;
+  color: var(--txt-muted);
+  text-align: right;
+}
+.dp-sv-yaxis span:first-child { font-weight: 600; text-align: left; margin-bottom: 4px; }
+
+.dp-sv-bars {
+  /* stretch is default — keeps .dp-sv-col at full height so % bar heights compute correctly */
+  display: flex;
+  justify-content: space-around;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  width: 100%;
+  min-width: 0;
+  position: relative;
+}
+.dp-sv-col {
+  display: flex; flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;   /* push number + bar to the bottom of the column */
+  flex: 1; min-width: 0;
+  position: relative;
+}
+.dp-sv-num {
+  font-family: var(--font-family-mono);
+  font-weight: 800;
+  font-size: 13pt;
+  color: var(--txt-1);
+  margin-bottom: 6px;
+}
+.dp-sv-bar {
+  width: 70%;
+  max-width: 160px;
+  min-height: 4px;
+  border-radius: 6px 6px 0 0;
+}
+.dp-sv-lbl {
+  position: absolute;
+  top: calc(100% + 8px);     /* sit just under the x-axis line */
+  left: 0; right: 0;
+  font-size: 9pt;
+  color: var(--txt-muted);
+  text-align: center;
+}
+
+/* ── Resource Util / Quantity Achievement ───────── */
+.dp-util {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+  align-items: stretch;
+
+}
+.dp-util__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 10px 14px;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+.dp-util__col:last-child { border-right: 0; }
+/* (The gauge column inherits the same centered layout as the others — no extra rules needed.) */
+
+/* Header row — label + (optional) small icon centered together at the top */
+.dp-util__head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.dp-util__label {
+  font-size: 8.5pt;
+  color: var(--txt-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+.dp-util__val {
+  font-family: var(--font-family-mono);
+  font-size: 28pt;
+  font-weight: 800;
+  color: var(--txt-1);
+  line-height: 1;
+  letter-spacing: -1.2px;
+}
+.dp-util__unit {
+  font-family: inherit;
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: var(--txt-muted);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.dp-util__icon {
+  flex: none;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.dp-util__icon svg { width: 13px; height: 13px; }
+.dp-util__icon--blue  { background: rgba(41,55,141,0.10); color: #29378d; }
+.dp-util__icon--green { background: rgba(22,163,74,0.12); color: #16a34a; }
+
+.dp-util__col--gauge .dp-gauge { margin: 0 auto; }
+.dp-util__col--gauge .dp-kpi__delta { justify-content: center; }
+
+/* ── Progress Ring (alternate gauge style — full circle donut) ── */
+.dp-ring {
+  position: relative;
+  width: 100%;
+  max-width: 88px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+.dp-ring__svg { display: block; width: 100%; height: 100%; }
+.dp-ring__track { stroke: rgba(0, 0, 0, 0.08); }
+.dp-ring__fill {
+  stroke: #16a34a;
+  stroke-linecap: round;
+  transition: stroke-dashoffset .4s ease;
+  filter: drop-shadow(0 1px 3px rgba(22, 163, 74, 0.25));
+}
+.dp-ring__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.dp-ring__val {
+  font-family: var(--font-family-mono);
+  font-size: 13pt;
+  font-weight: 800;
+  color: var(--txt-1);
+  line-height: 1;
+  letter-spacing: -1px;
+  display: inline-flex;
+  align-items: baseline;
+}
+.dp-ring__val .dp-ring__pct {
+  font-size: 10pt;
+  font-weight: 700;
+  margin-left: 1px;
+  color: var(--txt-1);
+}
+.dp-ring__label {
+  font-size: 7.5pt;
+  font-weight: 600;
+  color: var(--txt-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+html:not(.navbar-light) .dp-ring__track { stroke: rgba(255, 255, 255, 0.08); }
+/* Gauge column label uses sentence case (not uppercase) to match the visual */
+.dp-util__col--gauge .dp-util__label {
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--txt-1);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+@media (max-width: 640px) {
+  .dp-util { grid-template-columns: 1fr; min-height: 0; }
+  .dp-util__col {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 14px;
+  }
+  .dp-util__col:last-child { border-bottom: 0; }
+}
+
+/* ── Gantt ──────────────────────────────────────── */
+.dp-gantt {
+  display: flex; flex-direction: column;
+  font-size: 9pt;
+}
+.dp-gantt__hours {
+  display: grid;
+  grid-template-columns: 200px repeat(8, 1fr);
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 8pt;
+  color: var(--txt-muted);
+}
+.dp-gantt__row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-2, rgba(0,0,0,0.04));
+}
+.dp-gantt__row:last-child { border-bottom: 0; }
+.dp-gantt__lbl {
+  font-weight: 600;
+  color: var(--txt-1);
+  padding-right: 8px;
+}
+.dp-gantt__track {
+  position: relative;
+  height: 16px;
+  background: rgba(0,0,0,0.025);
+  border-radius: 4px;
+}
+.dp-gantt__seg {
+  position: absolute;
+  top: 0; bottom: 0;
+  border-radius: 4px;
+}
+
+/* ── Dark theme adjustments ─────────────────────── */
+html:not(.navbar-light) .dp-well-row__bar { background: rgba(255,255,255,0.08); }
+html:not(.navbar-light) .dp-gantt__track  { background: rgba(255,255,255,0.05); }
+html:not(.navbar-light) .dp-gauge__svg path:first-child { stroke: rgba(255,255,255,0.10); }
+html:not(.navbar-light) .dp-donut svg circle:first-child { stroke: rgba(255,255,255,0.10); }
+html:not(.navbar-light) .dp-kpi:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.30); }
+html:not(.navbar-light) .dp-kpi__icon--blue   { background: rgba(41,55,141, 0.18); color: #D6E4F0; }
+html:not(.navbar-light) .dp-kpi__icon--green  { background: rgba(0, 176, 80, 0.18);   color: #00B050; }
+html:not(.navbar-light) .dp-kpi__icon--orange { background: rgba(255, 192, 0, 0.18);  color: #FFC000; }
+html:not(.navbar-light) .dp-kpi__icon--red    { background: rgba(255, 0, 0, 0.18);    color: #FF0000; }
+.blueDeskMain   { color: var(--blue)!important; }
+.greenDeskMain  { color: var(--green)!important; }
+.orangeDeskMain { color: var(--amber)!important; }
+.redDeskMain    { color: var(--red)!important; }

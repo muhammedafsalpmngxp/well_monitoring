@@ -1,0 +1,65 @@
+<div id="page-penalty" class="page active">
+        <div class="pen-body">
+
+          <div class="breadcrumb">
+            <a onclick="navigate('cmdoverview', document.querySelector('#nav-cmdoverview'))">{{ 'PENALTY.BREADCRUMB_1' | translate }}</a>
+            <span>›</span>
+            <a onclick="navigate('cmdoverview', document.querySelector('#nav-cmdoverview'))">{{ 'PENALTY.BREADCRUMB_2' | translate }}</a>
+            <span>›</span>
+            <span class="current">{{ 'PENALTY.BREADCRUMB_CURRENT' | translate }}</span>
+          </div>
+
+          <!-- Hero strip -->
+          <div class="pen-hero">
+            <div class="pen-hero-main">
+              <div class="pen-hero-eyebrow">{{ 'PENALTY.HERO_EYEBROW' | translate }}</div>
+              <div class="pen-hero-title">{{ 'PENALTY.HERO_TITLE' | translate }}</div>
+              <div class="pen-hero-sub">{{ 'PENALTY.HERO_SUB' | translate }}</div>
+            </div>
+            <div class="pen-hero-metric">
+              <div class="pen-hero-metric-lbl">{{ 'PENALTY.TOTAL_EXPOSURE' | translate }}</div>
+              <div class="pen-hero-metric-val red">$2.30M</div>
+              <div class="pen-hero-metric-sub">{{ 'PENALTY.IF_ALL_DEADLINES_MISSED' | translate }}</div>
+            </div>
+            <div class="pen-hero-metric">
+              <div class="pen-hero-metric-lbl">{{ 'PENALTY.MAX_DAILY_PENALTY' | translate }}</div>
+              <div class="pen-hero-metric-val amber">OMR 1,733</div>
+              <div class="pen-hero-metric-sub">{{ 'PENALTY.PER_WELL_PER_DAY' | translate }}</div>
+            </div>
+            <div class="pen-hero-metric">
+              <div class="pen-hero-metric-lbl">{{ 'PENALTY.RECOVERABLE' | translate }}</div>
+              <div class="pen-hero-metric-val" style="color:#7c68f0">~72%</div>
+              <div class="pen-hero-metric-sub">{{ 'PENALTY.WITH_AI_ACTIONS' | translate }}</div>
+            </div>
+          </div>
+
+          <div class="pen-layout">
+
+            <!-- Wells list column -->
+            <div class="pen-wells" id="pen-wells"></div>
+
+            <!-- AI Assistant column -->
+            <div class="pen-ai" id="pen-ai">
+              <div class="pen-ai-head">
+                <div class="pen-ai-head-icon">
+                  <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v1h6V5a3 3 0 0 0-3-3z"/><path d="M7 7a5 5 0 0 1 10 0v3a7 7 0 0 1-14 0V9"/><path d="M9 16v2M15 16v2"/><circle cx="12" cy="12" r="1.5" fill="#fff"/></svg>
+                </div>
+                <div>
+                  <div class="pen-ai-head-title">{{ 'PENALTY.AI_RECOVERY_ASSISTANT' | translate }}</div>
+                  <div class="pen-ai-head-sub">{{ 'PENALTY.CLICK_WELL_RECOVERY' | translate }}</div>
+                </div>
+              </div>
+              <div class="pen-ai-body" id="pen-ai-body">
+                <div style="padding:28px 12px;text-align:center;color:var(--txt-muted);font-size:12px">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3;margin-bottom:8px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                  <div style="font-weight:600;color:var(--txt-2);margin-bottom:4px">{{ 'PENALTY.AWAITING_SELECTION' | translate }}</div>
+                  <div style="font-size:10.5px;line-height:1.6;max-width:240px;margin:0 auto">
+                    {{ 'PENALTY.SELECTION_HINT' | translate }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>

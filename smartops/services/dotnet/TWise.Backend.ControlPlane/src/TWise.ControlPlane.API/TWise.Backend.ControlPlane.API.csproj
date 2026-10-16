@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>TWise.Backend.ControlPlane.API</RootNamespace>
+    <UserSecretsId>smartops-controlplane</UserSecretsId>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TWise.Backend.ControlPlane.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.8.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Clean Architecture layer references -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\shared\dotnet\SmartOps.Shared\SmartOps.Shared.csproj" />
+    <ProjectReference Include="..\TWise.ControlPlane.Application\TWise.Backend.ControlPlane.Application.csproj" />
+    <ProjectReference Include="..\TWise.ControlPlane.Infrastructure\TWise.Backend.ControlPlane.Infrastructure.csproj" />
+    <ProjectReference Include="..\TWise.ControlPlane.Domain\TWise.Backend.ControlPlane.Domain.csproj" />
+  </ItemGroup>
+
+  <!-- Copy SQL provisioning scripts to output -->
+  <ItemGroup>
+    <None Update="sql\*.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

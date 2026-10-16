@@ -1,0 +1,849 @@
+  <!-- ═══════════ FLOW DESIGNER MODALS ═══════════ -->
+
+  <!-- Operation Picker Modal -->
+  <div class="fd-modal-backdrop" id="fdOpPickerModal" onclick="fdMaybeCloseOpPicker(event)">
+    <div class="fd-modal wide" onclick="event.stopPropagation()">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3>Add Operation</h3>
+          <div class="fd-modal-sub">Pick a built-in step or call out to an external system</div>
+        </div>
+        <button class="fd-modal-close" onclick="fdCloseOpPicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <div class="fd-op-tabs">
+        <button class="fd-op-tab active" data-tab="builtin" onclick="fdSwitchOpTab('builtin')">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Built-in Steps
+          <span class="fd-op-tab-badge" id="fdBuiltinCount">0</span>
+        </button>
+        <button class="fd-op-tab" data-tab="external" onclick="fdSwitchOpTab('external')">
+          <svg viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 10a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          External Integrations
+          <span class="fd-op-tab-badge" id="fdExternalCount">0</span>
+        </button>
+        <button class="fd-op-tab" data-tab="agent" onclick="fdSwitchOpTab('agent')">
+          <svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V4a3 3 0 0 1 6 0v3"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M9 17h6"/></svg>
+          Add Agent
+          <span class="fd-op-tab-badge" id="fdAgentCount">0</span>
+        </button>
+      </div>
+
+      <div style="padding:12px 20px 0;flex-shrink:0">
+        <div class="fd-search-wrap" style="max-width:none">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="fdOpPickerSearch" class="fd-search-input" placeholder="Search operations, integrations or agents…" oninput="fdFilterOpPicker()"/>
+        </div>
+      </div>
+
+      <div class="fd-modal-body">
+        <!-- Built-in tab pane -->
+        <div class="fd-op-tab-pane active" id="fdOpPaneBuiltin">
+          <!-- Built-in operations injected by JS -->
+        </div>
+
+        <!-- External tab pane -->
+        <div class="fd-op-tab-pane" id="fdOpPaneExternal">
+          <!-- External integrations injected by JS -->
+        </div>
+
+        <!-- Agent tab pane -->
+        <div class="fd-op-tab-pane" id="fdOpPaneAgent">
+          <!-- Available AI agents injected by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connection Editor Modal -->
+  <div class="fd-modal-backdrop" id="fdConnEditorModal" onclick="fdMaybeCloseConnEditor(event)">
+    <div class="fd-modal" onclick="event.stopPropagation()">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 id="fdConnEditorTitle">New Connection</h3>
+          <div class="fd-modal-sub">Configure how this flow can reach an external system</div>
+        </div>
+        <button class="fd-modal-close" onclick="fdCloseConnEditor()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="fd-modal-body">
+        <div class="fd-form-row">
+          <div class="fd-form-group">
+            <div class="fd-form-label">Connection Name <span class="fd-required">*</span></div>
+            <input type="text" class="fd-form-input" id="fdConnName" placeholder="e.g. ServiceNow Production"/>
+          </div>
+          <div class="fd-form-group">
+            <div class="fd-form-label">Connection Type <span class="fd-required">*</span></div>
+            <select class="fd-form-select" id="fdConnType" onchange="fdRenderAuthFields()">
+              <option value="REST API">REST API (Generic)</option>
+              <option value="ServiceNow">ServiceNow</option>
+              <option value="ServiceNow UI">ServiceNow UI (Browser Automation)</option>
+              <option value="Jira">Jira</option>
+              <option value="Slack">Slack</option>
+              <option value="Webhook">Webhook</option>
+              <option value="Autodesk ACC">Autodesk Construction Cloud (ACC)</option>
+              <option value="Database">Database</option>
+              <option value="Excel">Excel</option>
+              <option value="GraphQL">GraphQL</option>
+              <option value="SOAP">SOAP</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fd-form-group">
+          <div class="fd-form-label">Description</div>
+          <input type="text" class="fd-form-input" id="fdConnDesc" placeholder="Short note about what this connection is for"/>
+        </div>
+
+        <div class="fd-form-group">
+          <div class="fd-form-label">Base URL <span class="fd-required">*</span></div>
+          <input type="text" class="fd-form-input" id="fdConnUrl" placeholder="https://api.example.com/v1"/>
+          <div class="fd-form-help">Root URL for all requests. Action paths will be appended to this.</div>
+        </div>
+
+        <div class="fd-form-group">
+          <div class="fd-form-label">Authentication Method</div>
+          <select class="fd-form-select" id="fdConnAuth" onchange="fdRenderAuthFields()">
+            <option value="None">None</option>
+            <option value="API Key">API Key</option>
+            <option value="Bearer Token">Bearer Token</option>
+            <option value="Basic Auth">Basic Auth</option>
+            <option value="OAuth 2.0">OAuth 2.0</option>
+          </select>
+        </div>
+
+        <!-- Auth-method-specific fields injected here -->
+        <div id="fdAuthFields"></div>
+
+        <div class="fd-form-group">
+          <div class="fd-form-label">Default Headers</div>
+          <table class="fd-kv-table" id="fdConnHeaders">
+            <tbody>
+              <!-- Header rows injected by JS -->
+            </tbody>
+          </table>
+          <button class="fd-kv-add" type="button" onclick="fdAddHeaderRow()">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add header
+          </button>
+        </div>
+
+        <div id="fdConnTestResult"></div>
+      </div>
+      <div class="fd-modal-foot">
+        <button class="fd-btn" onclick="fdTestConnection()">
+          <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Test Connection
+        </button>
+        <div style="flex:1"></div>
+        <button class="fd-btn" onclick="fdCloseConnEditor()">Cancel</button>
+        <button class="fd-btn fd-btn-primary" onclick="fdSaveConnection()">
+          <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Connection
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agentic AI Tool Picker Modal -->
+  <div class="fd-modal-backdrop" id="aiaToolPickerModal" onclick="aiaMaybeCloseToolPicker(event)">
+    <div class="fd-modal wide" onclick="event.stopPropagation()">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3>Add a Tool</h3>
+          <div class="fd-modal-sub">Equip the agent with a capability — call an external system or delegate to another agent</div>
+        </div>
+        <button class="fd-modal-close" onclick="aiaCloseToolPicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <div class="aia-picker-tabs">
+        <button class="aia-picker-tab active" data-tab="conn" onclick="aiaSwitchToolTab('conn')">
+          <svg viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 10a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          External Connection
+        </button>
+        <button class="aia-picker-tab" data-tab="agent" onclick="aiaSwitchToolTab('agent')">
+          <svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V4a3 3 0 0 1 6 0v3"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M9 17h6"/></svg>
+          Another Agent
+        </button>
+      </div>
+
+      <div style="padding:12px 20px 0;flex-shrink:0">
+        <div class="fd-search-wrap" style="max-width:none">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="aiaToolSearch" class="fd-search-input" placeholder="Search…" oninput="aiaFilterToolPicker()"/>
+        </div>
+      </div>
+
+      <div class="fd-modal-body">
+        <div class="aia-picker-pane active" id="aiaToolPaneConn"><!-- connections injected --></div>
+        <div class="aia-picker-pane" id="aiaToolPaneAgent"><!-- agents injected --></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agentic AI: Flow Diagram Modal -->
+  <div class="fd-modal-backdrop" id="aiaFlowModal" onclick="aiaMaybeCloseFlowModal(event)">
+    <div class="fd-modal wide" onclick="event.stopPropagation()" style="max-width:760px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 id="aiaFlowTitle">Agent Flow Diagram</h3>
+          <div class="fd-modal-sub" id="aiaFlowSubtitle">Visual representation of how this agent reasons and acts</div>
+        </div>
+        <button class="fd-modal-close" onclick="aiaCloseFlowModal()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="fd-modal-body" style="padding:0">
+        <div class="aia-flow-canvas" id="aiaFlowCanvas"><!-- nodes injected --></div>
+      </div>
+      <div class="fd-modal-foot">
+        <div style="flex:1;font-size:11px;color:var(--txt-muted)">Hover any node to highlight it · the diagram is auto-generated from this agent's tools and seeded scenario logic.</div>
+        <button class="fd-btn" onclick="aiaCloseFlowModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agentic AI: Creation Workflow Modal (info icon) -->
+  <div class="fd-modal-backdrop" id="aiaCreationFlowModal" onclick="aiaMaybeCloseCreationFlow(event)">
+    <div class="fd-modal wide" onclick="event.stopPropagation()" style="max-width:880px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3>How Agent Creation Works</h3>
+          <div class="fd-modal-sub" id="aiaCreationSub">A supervisor agent orchestrates one or more specialised AI agents that do the work</div>
+        </div>
+        <div class="acf-view-toggle" role="tablist">
+          <button type="button" class="acf-view-pill active" data-view="simple" role="tab" onclick="aiaCreationFlowSetView('simple', this)">Simple</button>
+          <button type="button" class="acf-view-pill" data-view="detailed" role="tab" onclick="aiaCreationFlowSetView('detailed', this)">Detailed</button>
+        </div>
+        <button class="fd-modal-close" onclick="aiaCloseCreationFlow()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="fd-modal-body" style="padding:24px 28px">
+
+        <!-- ── SIMPLE VIEW (default) — supervisor + delegated agents ── -->
+        <div class="acf-view acf-view-simple active" id="aiaCreationFlowSimple">
+          <div class="acf-simple-canvas">
+            <!-- Supervisor node -->
+            <div class="acf-supervisor">
+              <div class="acf-super-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="3"/><path d="M5 22a7 7 0 0 1 14 0"/><path d="M9 11h6"/><path d="M12 11v3"/></svg>
+              </div>
+              <div class="acf-super-title">Supervisor AI</div>
+              <div class="acf-super-sub">Plans · routes · supervises</div>
+            </div>
+
+            <!-- Connector tree from supervisor down to agent row -->
+            <svg class="acf-connectors" viewBox="0 0 600 80" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="300" y1="0"  x2="300" y2="22" />
+              <line x1="120" y1="22" x2="480" y2="22" />
+              <line x1="120" y1="22" x2="120" y2="62" />
+              <line x1="300" y1="22" x2="300" y2="62" />
+              <line x1="480" y1="22" x2="480" y2="62" />
+              <polygon points="115,58 125,58 120,68" />
+              <polygon points="295,58 305,58 300,68" />
+              <polygon points="475,58 485,58 480,68" />
+            </svg>
+
+            <!-- Worker agents row -->
+            <div class="acf-workers">
+              <div class="acf-worker">
+                <div class="acf-worker-badge">AI</div>
+                <div class="acf-worker-title">Agent 1</div>
+                <div class="acf-worker-sub">Reads progress</div>
+              </div>
+              <div class="acf-worker">
+                <div class="acf-worker-badge">AI</div>
+                <div class="acf-worker-title">Agent 2</div>
+                <div class="acf-worker-sub">Predicts delays</div>
+              </div>
+              <div class="acf-worker acf-worker-add">
+                <div class="acf-worker-badge plus">+</div>
+                <div class="acf-worker-title">Add more</div>
+                <div class="acf-worker-sub">Specialise as needed</div>
+              </div>
+            </div>
+          </div>
+
+          <p class="acf-caption">
+            One <strong>Supervisor AI</strong> sits at the top. When a request comes in, the supervisor decides what to do and delegates the work to one or more specialised agents — for example, <em>Agent 1</em> reads field data and <em>Agent 2</em> predicts delays. You can add as many specialised agents as the job needs; the supervisor keeps them coordinated.
+          </p>
+          <div class="acf-tip">
+            <span class="acf-tip-dot"></span>
+            <span>Want the engineering view? Switch to <strong>Detailed</strong> to see the submit → provision → activate pipeline.</span>
+          </div>
+        </div>
+
+        <!-- ── DETAILED VIEW — original 3-phase pipeline ── -->
+        <div class="acf-view acf-view-detailed" id="aiaCreationFlowDetailed">
+
+        <!-- Lane labels -->
+        <div class="acf-lanes">
+          <div class="acf-lane-lbl acf-lane-mine">Your infrastructure</div>
+          <div class="acf-lane-lbl acf-lane-dbx">Databricks</div>
+        </div>
+
+        <!-- Phase 1 — Submit -->
+        <div class="acf-phase">
+          <div class="acf-phase-tag">Phase 1 · Submit</div>
+          <div class="acf-row">
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+              </div>
+              <div class="acf-node-title">Draft form</div>
+              <div class="acf-node-sub">User submits</div>
+            </div>
+            <div class="acf-arrow">›</div>
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/></svg>
+              </div>
+              <div class="acf-node-title">Validate</div>
+              <div class="acf-node-sub">Permissions</div>
+            </div>
+            <div class="acf-arrow">›</div>
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </div>
+              <div class="acf-node-title">Send to DBX</div>
+              <div class="acf-node-sub">via REST API</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="acf-vconnect"><span class="acf-vline"></span><span class="acf-vchevron">▼</span></div>
+
+        <!-- Phase 2 — Provision in Databricks -->
+        <div class="acf-phase acf-phase-dbx">
+          <div class="acf-phase-tag">Phase 2 · Provision in Databricks</div>
+          <div class="acf-row">
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/><polyline points="9 8 11 10 15 6"/></svg>
+              </div>
+              <div class="acf-node-title">Supervisor</div>
+              <div class="acf-node-sub">reviews</div>
+            </div>
+            <div class="acf-arrow">›</div>
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </div>
+              <div class="acf-node-title">Generate</div>
+              <div class="acf-node-sub">agent code</div>
+            </div>
+            <div class="acf-arrow">›</div>
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
+              </div>
+              <div class="acf-node-title">Register</div>
+              <div class="acf-node-sub">in MLflow</div>
+            </div>
+            <div class="acf-arrow">›</div>
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+              </div>
+              <div class="acf-node-title">Deploy</div>
+              <div class="acf-node-sub">endpoint</div>
+            </div>
+            <div class="acf-arrow">›</div>
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><polyline points="9 11 11 13 15 9"/></svg>
+              </div>
+              <div class="acf-node-title">Smoke test</div>
+              <div class="acf-node-sub">agent works</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="acf-vconnect"><span class="acf-vline"></span><span class="acf-vchevron">▼</span></div>
+
+        <!-- Phase 3 — Activate -->
+        <div class="acf-phase">
+          <div class="acf-phase-tag">Phase 3 · Activate</div>
+          <div class="acf-row">
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
+              <div class="acf-node-title">Webhook</div>
+              <div class="acf-node-sub">Result returns</div>
+            </div>
+            <div class="acf-arrow">›</div>
+            <div class="acf-node">
+              <div class="acf-node-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+              </div>
+              <div class="acf-node-title">Active in UI</div>
+              <div class="acf-node-sub">Live &amp; ready</div>
+            </div>
+          </div>
+        </div>
+
+        <p class="acf-caption">
+          Three phases stacked vertically — <strong>Submit</strong>, <strong>Provision in Databricks</strong>, <strong>Activate</strong> — each containing its blocks connected by dotted lines with arrowheads. Vertical dotted connectors link the phases. The middle phase is tinted blue to mark where work crosses into Databricks; everything else stays neutral on your side.
+        </p>
+
+        </div><!-- /acf-view-detailed -->
+      </div>
+      <div class="fd-modal-foot">
+        <div style="flex:1"></div>
+        <button class="fd-btn" onclick="aiaCloseCreationFlow()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Publish Progress Modal -->
+  <div class="fd-modal-backdrop" id="fdPubModal" onclick="fdMaybeClosePub(event)">
+    <div class="fd-modal wide" onclick="event.stopPropagation()" style="max-width:620px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 id="fdPubTitle">Publishing Workflow</h3>
+          <div class="fd-modal-sub" id="fdPubSubtitle">Walking through the operations one step at a time…</div>
+        </div>
+        <button class="fd-modal-close" onclick="fdClosePubModal()" id="fdPubClose" style="display:none"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="fd-pub-modal-body" id="fdPubBody"><!-- steps injected --></div>
+      <div class="fd-modal-foot">
+        <div style="flex:1;font-size:11px;color:var(--txt-muted)" id="fdPubFootNote">All steps run with mock data except those marked LIVE — those make actual HTTP calls.</div>
+        <button class="fd-btn" onclick="fdClosePubModal()" id="fdPubDoneBtn" style="display:none">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visual UI Automation Browser Simulator -->
+  <div class="aut-overlay" id="autOverlay">
+    <div class="aut-window" id="autWindow">
+      <button class="aut-close-btn" id="autCloseBtn" onclick="autClose()">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="aut-chrome">
+        <div class="aut-chrome-row1">
+          <div class="aut-traffic">
+            <div class="aut-traffic-dot r"></div>
+            <div class="aut-traffic-dot y"></div>
+            <div class="aut-traffic-dot g"></div>
+          </div>
+          <div class="aut-tabs">
+            <div class="aut-tab recording">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#62d84e"/><circle cx="12" cy="12" r="4" fill="#fff"/></svg>
+              <span class="ttl">ServiceNow</span>
+            </div>
+          </div>
+        </div>
+        <div class="aut-chrome-row2">
+          <button class="aut-nav-btn"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <button class="aut-nav-btn"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+          <button class="aut-nav-btn"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+          <div class="aut-url-bar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span class="aut-url-text" id="autUrlText"><span class="pro">about:</span><span class="hst">blank</span></span>
+          </div>
+          <div class="aut-control-badge">SELENIUM</div>
+        </div>
+        <div class="aut-loading-bar" id="autLoadBar"></div>
+      </div>
+      <div class="aut-viewport" id="autViewport"></div>
+      <div class="aut-cursor" id="autCursor" style="opacity:0">
+        <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><path d="M3 2 L3 23 L8 18 L11 26 L14 25 L11 17 L18 17 Z" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="aut-trace-footer">
+        <div class="aut-trace-head">
+          <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Selenium Driver Console
+          <span style="margin-left:auto;font-size:10px;opacity:0.6">webdriver.Chrome — connected</span>
+        </div>
+        <div class="aut-trace-body" id="autTraceBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Widget AI Generator Modal -->
+  <div class="fd-modal-backdrop" id="dbAIModal" onclick="dbAIMaybeClose(event)">
+    <div class="fd-modal" onclick="event.stopPropagation()" style="max-width:560px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 style="display:flex;align-items:center;gap:8px">
+            <span style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#a855f7,#6366f1);display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:13px;height:13px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+            Chart AI Agent
+          </h3>
+          <div class="fd-modal-sub">Describe the chart you want — the agent will design and add it to your canvas</div>
+        </div>
+        <button class="fd-modal-close" onclick="dbAIClose()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="db-ai-modal-body">
+        <div class="aia-label" style="margin-bottom:6px">Describe your chart</div>
+        <textarea class="db-ai-prompt-area" id="dbAIPrompt" placeholder="e.g. Show monthly drilling progress as a line chart, broken down by cluster"></textarea>
+        <div class="aia-help" style="margin-top:6px">Tip: include the metric, the visualisation type, and any grouping you want.</div>
+        <div class="db-ai-suggestions" id="dbAISuggestions">
+          <button class="db-ai-suggestion" onclick="dbAISetPrompt('Labour productivity — P-band plan vs actual by month, with sector drill-down')">Labour productivity chart with a Resource filter</button>
+          <button class="db-ai-suggestion" onclick="dbAISetPrompt('Bar chart of crew utilisation by cluster, this month')">Crew utilisation by cluster</button>
+          <button class="db-ai-suggestion" onclick="dbAISetPrompt('Line chart of well completion velocity over the last 6 months')">Velocity trend</button>
+          <button class="db-ai-suggestion" onclick="dbAISetPrompt('Heatmap of incident frequency by day-of-week and shift')">Incident heatmap</button>
+          <button class="db-ai-suggestion" onclick="dbAISetPrompt('Top 10 wells by penalty exposure with status')">Top penalty wells</button>
+          <button class="db-ai-suggestion" onclick="dbAISetPrompt('Donut showing material inventory days-of-cover')">Inventory donut</button>
+        </div>
+        <div id="dbAITraceWrap" style="display:none">
+          <div style="font-size:10px;letter-spacing:0.6px;text-transform:uppercase;font-weight:700;color:var(--txt-muted);margin-top:14px;margin-bottom:5px">Agent reasoning</div>
+          <div class="db-ai-trace" id="dbAITrace"></div>
+        </div>
+      </div>
+      <div class="fd-modal-foot">
+        <div style="flex:1;font-size:11px;color:var(--txt-muted)">The agent reasons over your data schema, picks the best chart type, and drops the chart on your canvas.</div>
+        <button class="fd-btn" onclick="dbAIClose()">Cancel</button>
+        <button class="fd-btn fd-btn-success" onclick="dbAIGenerate()" id="dbAIGenBtn" style="background:linear-gradient(135deg,#a855f7,#6366f1);border-color:#7c3aed;color:#fff">
+          <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          Generate Chart
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Chart Builder Modal (report-style config) -->
+  <div class="fd-modal-backdrop" id="dbCustomModal" onclick="dbCustomMaybeClose(event)">
+    <div class="fd-modal" onclick="event.stopPropagation()" style="max-width:910px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 style="display:flex;align-items:center;gap:8px">
+            <span style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#0ea5e9,#2563eb);display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:13px;height:13px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+            <span id="dbCustomModalTitle">Create Custom Chart</span>
+          </h3>
+          <div class="fd-modal-sub" id="dbCustomModalSub">Configure a chart from a data source — the same builder used for reports</div>
+        </div>
+        <button class="fd-modal-close" onclick="dbCustomClose()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="db-ai-modal-body">
+        <div class="db-custom-body">
+
+          <!-- Config column -->
+          <div class="db-custom-config">
+            <div class="db-custom-field">
+              <div class="aia-label">Chart title</div>
+              <input type="text" id="dbCustomTitle" placeholder="e.g. Wells by Cluster" oninput="dbCustomOnChange()">
+            </div>
+            <div class="db-custom-field">
+              <div class="aia-label">Data source</div>
+              <select id="dbCustomSource" onchange="dbCustomOnSource()">
+                <option value="">— Select —</option>
+                <option>Wells (db.WMR)</option>
+                <option>Crews (dbo.crews)</option>
+                <option>PH Productivity (dbo.ph_productivity)</option>
+                <option>Activities (dbo.activities)</option>
+              </select>
+            </div>
+
+            <div class="db-custom-field">
+              <div class="aia-label">Chart type</div>
+              <div class="db-viz-grid" id="dbCustomTypeGrid">
+                <button type="button" class="db-viz-tile" data-type="bar" onclick="dbCustomPickType('bar')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                  <span>Bar Chart</span>
+                </button>
+                <button type="button" class="db-viz-tile" data-type="line" onclick="dbCustomPickType('line')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  <span>Line Chart</span>
+                </button>
+                <button type="button" class="db-viz-tile" data-type="pie" onclick="dbCustomPickType('pie')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                  <span>Pie Chart</span>
+                </button>
+                <button type="button" class="db-viz-tile" data-type="donut" onclick="dbCustomPickType('donut')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+                  <span>Donut Chart</span>
+                </button>
+                <button type="button" class="db-viz-tile" data-type="kpi" onclick="dbCustomPickType('kpi')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7" y1="12" x2="12" y2="12"/></svg>
+                  <span>KPI Tile</span>
+                </button>
+                <button type="button" class="db-viz-tile" data-type="table" onclick="dbCustomPickType('table')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="0.8" fill="currentColor"/><circle cx="3.5" cy="12" r="0.8" fill="currentColor"/><circle cx="3.5" cy="18" r="0.8" fill="currentColor"/></svg>
+                  <span>Table</span>
+                </button>
+                <button type="button" class="db-viz-tile" data-type="trend" onclick="dbCustomPickType('trend')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><circle cx="9" cy="11" r="1.5" fill="currentColor"/><circle cx="13" cy="15" r="1.5" fill="currentColor"/><circle cx="21" cy="6" r="1.5" fill="currentColor"/></svg>
+                  <span>Trend</span>
+                </button>
+                <button type="button" class="db-viz-tile" data-type="area" onclick="dbCustomPickType('area')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20 L3 13 L9 8 L13 11 L21 4 L21 20 Z" fill="currentColor" fill-opacity="0.18"/><polyline points="3 13 9 8 13 11 21 4"/></svg>
+                  <span>Area</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Trend X-axis period + how many periods to show (Trend only) -->
+            <div class="db-custom-field" id="dbCustomPeriodWrap" style="display:none">
+              <div class="aia-label">X-axis period</div>
+              <div class="db-custom-grid">
+                <select id="dbCustomPeriod" onchange="dbCustomOnChange()">
+                  <option value="date">Date (daily)</option>
+                  <option value="week">Weekly</option>
+                  <option value="month" selected>Monthly</option>
+                </select>
+                <input type="number" id="dbCustomPeriodCount" min="1" max="60" value="6" oninput="dbCustomOnChange()" title="Number of days / weeks / months to show" placeholder="How many">
+              </div>
+            </div>
+
+            <div class="db-custom-grid">
+              <div class="db-custom-field">
+                <div class="aia-label">X-axis (category)</div>
+                <select id="dbCustomGroup" onchange="dbCustomOnChange()">
+                  <option value="">— Select —</option>
+                </select>
+              </div>
+              <div class="db-custom-field">
+                <div class="aia-label">Aggregate</div>
+                <select id="dbCustomAgg" onchange="dbCustomOnChange()">
+                  <option value="count">Count</option>
+                  <option value="sum">Sum</option>
+                  <option value="avg">Average</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Y-axis measure — the numeric column to aggregate (ignored for Count) -->
+            <div class="db-custom-field">
+              <div class="aia-label">Y-axis (measure)</div>
+              <select id="dbCustomMeasure" onchange="dbCustomOnChange()"></select>
+            </div>
+
+            <!-- Axis titles — only relevant for bar/line -->
+            <div class="db-custom-grid" id="dbCustomAxisWrap" style="display:none">
+              <div class="db-custom-field">
+                <div class="aia-label">X-axis title</div>
+                <input type="text" id="dbCustomXTitle" placeholder="e.g. Cluster" oninput="dbCustomOnChange()">
+              </div>
+              <div class="db-custom-field">
+                <div class="aia-label">Y-axis title</div>
+                <input type="text" id="dbCustomYTitle" placeholder="e.g. Count" oninput="dbCustomOnChange()">
+              </div>
+            </div>
+
+            <!-- Legend — available for chart types (bar/line/pie/donut) -->
+            <div class="db-custom-field" id="dbCustomLegendWrap" style="display:none;margin-top:10px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--txt-1)">
+                <input type="checkbox" id="dbCustomLegend" checked onchange="dbCustomOnChange()" style="accent-color:#29378d">
+                Show legend
+              </label>
+            </div>
+
+            <!-- Limit categories — Top N / Bottom N (bar / pie / donut) -->
+            <div class="db-custom-field" id="dbCustomLimitWrap" style="display:none">
+              <div class="aia-label">Limit categories</div>
+              <div class="db-custom-grid">
+                <select id="dbCustomLimitMode" onchange="dbCustomLimitSync();dbCustomOnChange()">
+                  <option value="all">Show all</option>
+                  <option value="top">Top N</option>
+                  <option value="bottom">Bottom N</option>
+                </select>
+                <div id="dbCustomLimitNWrap" style="display:none">
+                  <input type="number" id="dbCustomLimitN" min="1" value="10" oninput="dbCustomOnChange()" placeholder="N (e.g. 10)">
+                </div>
+              </div>
+              <div id="dbCustomLimitByWrap" style="display:none;margin-top:8px">
+                <div class="aia-label">Rank by</div>
+                <select id="dbCustomRankBy" onchange="dbCustomOnChange()"></select>
+              </div>
+              <label id="dbCustomLimitOthersWrap" style="display:none;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--txt-1);margin-top:8px">
+                <input type="checkbox" id="dbCustomLimitOthers" onchange="dbCustomOnChange()" style="accent-color:#29378d">
+                Group the rest as “Others”
+              </label>
+            </div>
+
+            <!-- Show a data table alongside the chart in its viewer/preview. -->
+            <div class="db-custom-field" style="margin-top:10px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--txt-1)">
+                <input type="checkbox" id="dbCustomShowTable" onchange="dbCustomOnChange()" style="accent-color:#29378d">
+                Show data table with chart
+              </label>
+            </div>
+
+            <!-- Chart-level filters — shown above the chart in its viewer.
+                 Each filter picks the source table + column its values come from. -->
+            <div class="db-custom-field" style="margin-top:12px">
+              <div class="aia-label" style="display:flex;align-items:center;justify-content:space-between">
+                <span>Chart filters</span>
+                <button type="button" class="fd-btn" onclick="dbCustomAddFilter()" style="padding:3px 9px;font-size:11px">+ Add filter</button>
+              </div>
+              <div id="dbCustomFilters"></div>
+            </div>
+          </div>
+
+          <!-- Live preview column -->
+          <div class="db-custom-preview">
+            <div class="db-custom-preview-head">Live Preview</div>
+            <!-- Chart-level filters preview (mirrors the filters configured on the left) -->
+            <div id="dbCustomPreviewFilters" style="display:none;flex-wrap:wrap;gap:8px 14px;align-items:flex-end;padding:10px 12px;border-bottom:1px solid var(--border)"></div>
+            <div class="db-custom-preview-body">
+              <canvas id="dbCustomPreviewCanvas" style="display:none"></canvas>
+              <div id="dbCustomPreviewKpi" class="db-custom-kpi" style="display:none"></div>
+              <div id="dbCustomPreviewTable" class="db-custom-tablewrap" style="display:none"></div>
+              <div id="dbCustomPreviewEmpty" class="db-custom-pv-empty">Pick a chart type to preview</div>
+            </div>
+            <!-- Optional data table shown with the chart -->
+            <div id="dbCustomPreviewDataTable" style="display:none;padding:0 12px 12px"></div>
+          </div>
+
+        </div>
+      </div>
+      <div class="fd-modal-foot">
+        <div style="flex:1;font-size:11px;color:var(--txt-muted)">The chart is added to the canvas and saved to the Chart Library as a Custom chart.</div>
+        <button class="fd-btn" onclick="dbCustomClose()">Cancel</button>
+        <button class="fd-btn fd-btn-success" onclick="dbCustomGenerate()" style="background:linear-gradient(135deg,#0ea5e9,#2563eb);border-color:#2563eb;color:#fff">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span id="dbCustomGenBtnLabel">Add Chart</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drill-down Viewer Modal (next-level chart shown on widget click) -->
+  <div class="fd-modal-backdrop" id="dbDrillViewModal" onclick="dbDrillViewMaybeClose(event)">
+    <div class="fd-modal" onclick="event.stopPropagation()" style="max-width:720px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 style="display:flex;align-items:center;gap:8px">
+            <span style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#0ea5e9,#2563eb);display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 12 15 18 9"/></svg></span>
+            <span id="dbDrillViewTitle">Drill-down</span>
+          </h3>
+          <div class="fd-modal-sub" id="dbDrillViewSub">Next-level detail</div>
+        </div>
+        <button class="fd-modal-close" onclick="dbDrillViewClose()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="db-ai-modal-body">
+        <!-- Chart-level filter bar (populated from the chart's saved filters) -->
+        <div id="dbDrillFilterBar" style="display:none;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;padding:0 2px 12px"></div>
+        <div class="db-custom-preview" style="border:none">
+          <div class="db-custom-preview-body" style="height:360px">
+            <canvas id="dbDrillViewCanvas" style="display:none"></canvas>
+            <div id="dbDrillViewKpi" class="db-custom-kpi" style="display:none"></div>
+            <div id="dbDrillViewTable" class="db-custom-tablewrap" style="display:none"></div>
+            <div id="dbDrillViewEmpty" class="db-custom-pv-empty">No drill-down configured</div>
+          </div>
+        </div>
+        <!-- Optional data table shown with the chart -->
+        <div id="dbDrillViewDataTable" style="display:none;padding:0 2px 6px"></div>
+      </div>
+      <div class="fd-modal-foot">
+        <div style="flex:1;font-size:11px;color:var(--txt-muted)" id="dbDrillViewMeta"></div>
+        <button class="fd-btn" id="dbDrillTableBtn" onclick="dbDrillToggleTable()" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="20"/></svg>
+          <span id="dbDrillTableBtnLabel">Data table</span>
+        </button>
+        <button class="fd-btn" id="dbDrillFullBtn" onclick="dbDrillToggleFull()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          <span id="dbDrillFullBtnLabel">Full view</span>
+        </button>
+        <div class="cv-export-wrap" id="dbChartExportWrap" style="position:relative;display:none">
+          <button class="fd-btn" onclick="dbChartExportToggle(event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </button>
+          <div class="cv-export-menu" id="dbChartExportMenu">
+            <button type="button" onclick="dbChartExport('png')">PNG image</button>
+            <button type="button" onclick="dbChartExport('jpeg')">JPEG image</button>
+            <button type="button" onclick="dbChartExport('pdf')">PDF document</button>
+            <button type="button" onclick="dbChartExport('csv')">CSV data</button>
+          </div>
+        </div>
+        <button class="fd-btn" onclick="dbDrillViewClose()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Dashboard: Manage Categories ═══ -->
+  <div class="fd-modal-backdrop" id="dbCatMgrModal" onclick="dbCatMgrMaybeClose(event)">
+    <div class="fd-modal" onclick="event.stopPropagation()" style="max-width:560px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 style="display:flex;align-items:center;gap:8px">
+            <span style="width:24px;height:24px;border-radius:6px;background:#29378d;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:13px;height:13px"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+            Manage Categories
+          </h3>
+          <div class="fd-modal-sub">Create, rename or remove dashboard categories</div>
+        </div>
+        <button class="fd-modal-close" onclick="dbCloseCategoryMgr()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="db-cat-modal-body">
+        <input type="hidden" id="dbCatEditId"/>
+        <label class="db-form-label">Category Name</label>
+        <input type="text" class="db-form-input" id="dbCatName" placeholder="e.g. Operations Overview"/>
+        <label class="db-form-label" style="margin-top:12px">Description</label>
+        <textarea class="db-form-input db-form-area" id="dbCatDesc" placeholder="Short description (optional)"></textarea>
+        <div style="margin-top:12px">
+          <button class="fd-btn fd-btn-primary" id="dbCatSaveBtn" onclick="dbSaveCategoryForm()">Add Category</button>
+        </div>
+        <div class="db-form-divider">Existing Categories</div>
+        <table class="db-table compact">
+          <thead><tr><th>Name</th><th style="text-align:center">Dashboards</th><th></th></tr></thead>
+          <tbody id="dbCatMgrList"></tbody>
+        </table>
+      </div>
+      <div class="fd-modal-foot">
+        <button class="fd-btn" onclick="dbCloseCategoryMgr()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Dashboard: Add Dashboard (pick / create category) ═══ -->
+  <div class="fd-modal-backdrop" id="dbAddModal" onclick="dbAddMaybeClose(event)">
+    <div class="fd-modal" onclick="event.stopPropagation()" style="max-width:520px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 style="display:flex;align-items:center;gap:8px">
+            <span style="width:24px;height:24px;border-radius:6px;background:#29378d;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+            Add Dashboard
+          </h3>
+          <div class="fd-modal-sub">Choose a category, name the dashboard, then build its widgets</div>
+        </div>
+        <button class="fd-modal-close" onclick="dbCloseAddDashboard()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="db-cat-modal-body">
+        <label class="db-form-label">Category</label>
+        <select class="db-form-input" id="dbAddCat"></select>
+        <div id="dbAddNewWrap" style="display:none">
+          <label class="db-form-label" style="margin-top:12px">New Category Name</label>
+          <input type="text" class="db-form-input" id="dbAddNewCat" placeholder="Enter new category name"/>
+        </div>
+        <label class="db-form-label" style="margin-top:12px">Dashboard Name</label>
+        <input type="text" class="db-form-input" id="dbAddName" placeholder="e.g. Daily Operations Briefing"/>
+      </div>
+      <div class="fd-modal-foot">
+        <button class="fd-btn" onclick="dbCloseAddDashboard()">Cancel</button>
+        <button class="fd-btn fd-btn-primary" onclick="dbAddContinue()">
+          Continue to Builder
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Dashboard: Share (users / groups) ═══ -->
+  <div class="fd-modal-backdrop" id="dbShareModal" onclick="dbShareMaybeClose(event)">
+    <div class="fd-modal" onclick="event.stopPropagation()" style="max-width:540px">
+      <div class="fd-modal-head">
+        <div style="flex:1">
+          <h3 style="display:flex;align-items:center;gap:8px">
+            <span style="width:24px;height:24px;border-radius:6px;background:#29378d;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:13px;height:13px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span>
+            <span id="dbShareTitle">Share Dashboard</span>
+          </h3>
+          <div class="fd-modal-sub">Search for a user or group and share this dashboard</div>
+        </div>
+        <button class="fd-modal-close" onclick="dbCloseShare()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="db-cat-modal-body">
+        <label class="db-form-label">Add people or groups</label>
+        <div class="db-search" style="max-width:none;margin-bottom:8px">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="dbShareSearch" placeholder="Search users or groups…" oninput="dbShareSearchInput()"/>
+        </div>
+        <div class="db-share-results" id="dbShareResults"></div>
+        <div class="db-form-divider">Shared with <span id="dbShareCount" style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--accent);margin-left:6px"></span></div>
+        <div class="db-share-current" id="dbShareCurrent"></div>
+      </div>
+      <div class="fd-modal-foot">
+        <button class="fd-btn fd-btn-primary" onclick="dbCloseShare()">Done</button>
+      </div>
+    </div>
+  </div>
+

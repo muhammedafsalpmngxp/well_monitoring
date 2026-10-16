@@ -1,0 +1,99 @@
+<div id="page-datadict" class="page active">
+        <!-- <div class="breadcrumb">
+          <a>{{ 'DATADICT.BREADCRUMB_INSIGHT' | translate }}</a><span>›</span><a>{{ 'DATADICT.BREADCRUMB_DATA_QUALITY' | translate }}</a><span>›</span>
+          <span class="current">{{ 'DATADICT.BREADCRUMB_CURRENT' | translate }}</span>
+        </div> -->
+        <div class="page-title-row">
+          <div class="dd-title-wrap">
+            <div class="page-title">{{ 'DATADICT.PAGE_TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'DATADICT.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+          <button class="dq-btn dq-btn-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            {{ 'DATADICT.EXPORT_SCHEMA' | translate }}</button>
+        </div>
+
+        <!-- KPI strip -->
+        <div class="dd-strip">
+
+          <!-- 1. Total Fields -->
+          <div class="dd-kpi blue">
+            <div class="dd-kpi-head">
+              <span class="dd-kpi-label">{{ 'DATADICT.TOTAL_FIELDS' | translate }}</span>
+              <span class="dd-kpi-icon dd-kpi-icon--blue" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              </span>
+            </div>
+            <div class="dd-kpi-val dd-kpi-val--blue">78</div>
+            <div class="dd-kpi-sub">{{ 'DATADICT.ACROSS_MODULES' | translate }}</div>
+          </div>
+
+          <!-- 2. Fully Documented -->
+          <div class="dd-kpi green">
+            <div class="dd-kpi-head">
+              <span class="dd-kpi-label">{{ 'DATADICT.FULLY_DOCUMENTED' | translate }}</span>
+              <span class="dd-kpi-icon dd-kpi-icon--green" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </span>
+            </div>
+            <div class="dd-kpi-val dd-kpi-val--green">71</div>
+            <div class="dd-kpi-sub">{{ 'DATADICT.COVERAGE' | translate }}</div>
+          </div>
+
+          <!-- 3. Validation Rules -->
+          <div class="dd-kpi blue">
+            <div class="dd-kpi-head">
+              <span class="dd-kpi-label">{{ 'DATADICT.VALIDATION_RULES' | translate }}</span>
+              <span class="dd-kpi-icon dd-kpi-icon--blue" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+              </span>
+            </div>
+            <div class="dd-kpi-val dd-kpi-val--blue">23</div>
+            <div class="dd-kpi-sub">{{ 'DATADICT.ACTIVE_RULES' | translate }}</div>
+          </div>
+
+          <!-- 4. Data Types -->
+          <div class="dd-kpi teal">
+            <div class="dd-kpi-head">
+              <span class="dd-kpi-label">{{ 'DATADICT.DATA_TYPES' | translate }}</span>
+              <span class="dd-kpi-icon dd-kpi-icon--teal" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </span>
+            </div>
+            <div class="dd-kpi-val dd-kpi-val--teal">5</div>
+            <div class="dd-kpi-sub">{{ 'DATADICT.DATA_TYPES_LIST' | translate }}</div>
+          </div>
+
+          <!-- 5. Under Review -->
+          <div class="dd-kpi amber">
+            <div class="dd-kpi-head">
+              <span class="dd-kpi-label">{{ 'DATADICT.UNDER_REVIEW' | translate }}</span>
+              <span class="dd-kpi-icon dd-kpi-icon--amber" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+            </div>
+            <div class="dd-kpi-val dd-kpi-val--amber">7</div>
+            <div class="dd-kpi-sub">{{ 'DATADICT.PENDING_DOCUMENTATION' | translate }}</div>
+          </div>
+
+        </div>
+
+        <!-- Filters -->
+        <div class="dd-filter-row" id="ddFilters">
+          <div class="am-search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" [placeholder]="'DATADICT.SEARCH_PLACEHOLDER' | translate" id="ddSearch" oninput="ddFilter()"/>
+          </div>
+          <div id="ddModuleChips"></div>
+          <select class="dq-filter-sel" id="ddTypeFilter" onchange="ddFilter()">
+            <option>{{ 'DATADICT.ALL_TYPES' | translate }}</option><option>{{ 'DATADICT.TYPE_STRING' | translate }}</option><option>{{ 'DATADICT.TYPE_NUMBER' | translate }}</option><option>{{ 'DATADICT.TYPE_DATE' | translate }}</option><option>{{ 'DATADICT.TYPE_BOOLEAN' | translate }}</option><option>{{ 'DATADICT.TYPE_ENUM' | translate }}</option>
+          </select>
+          <select class="dq-filter-sel" id="ddStatusFilter" onchange="ddFilter()">
+            <option>{{ 'DATADICT.ALL_STATUS' | translate }}</option><option>{{ 'DATADICT.STATUS_ACTIVE' | translate }}</option><option>{{ 'DATADICT.STATUS_UNDER_REVIEW' | translate }}</option><option>{{ 'DATADICT.STATUS_DEPRECATED' | translate }}</option>
+          </select>
+        </div>
+
+        <!-- Table (AG Grid) -->
+        <div id="ddGrid" class="ag-theme-alpine-dark"></div>
+        <div id="ddCount">{{ 'DATADICT.FIELD_COUNT' | translate }}</div>
+      </div><!-- /page-datadict -->

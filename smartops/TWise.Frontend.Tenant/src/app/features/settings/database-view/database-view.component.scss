@@ -1,0 +1,541 @@
+// Database View — styled to match Users page conventions
+
+.db-page-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #0F6CBD;
+  flex-shrink: 0;
+}
+
+// Pill-style tabs, matching the Standard Boards page's All/Favorites/Recent tabs
+.db-type-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #E2E7EF;
+  background: #fff;
+  border-radius: 12px;
+  padding: 6px 8px;
+  // margin-bottom: 16px;
+  box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.06);
+  // width: fit-content;
+
+  &__icon-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    flex-shrink: 0;
+
+    &--view {
+      background: #21409A;
+    }
+
+    &--cte {
+      background: #F5A000;
+    }
+
+    &--component {
+      background: #7C3AED;
+    }
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #667085;
+    font-family: var(--font-family-base);
+    transition: color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+      color: var(--color-primary);
+    }
+
+    &.active {
+      color: var(--color-primary);
+      background: #E8F0FF;
+      font-weight: 600;
+      border-bottom: 2px solid var(--color-primary);
+
+      .db-type-tabs__count {
+        background: #FFFFFF;
+        color: #21409A;
+        font-weight: 600;
+      }
+    }
+  }
+
+  &__count {
+    padding: 2px 7px;
+    height: 20px;
+    min-width: 26px;
+    width: auto;
+    border-radius: 23px;
+    background: #F1F3F6;
+    color: #686D71;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+}
+
+.db-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+
+  ::ng-deep .btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    font-family: var(--font-family-base);
+  }
+}
+
+.icon-only-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #21409A;
+  background: var(--color-bg-card);
+  color: #21409A;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    border-color: #21409A;
+    color: #21409A;
+  }
+}
+
+// Page layout
+.db-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+  font-family: var(--font-family-base);
+
+  svg {
+    display: block;
+  }
+}
+
+// Stat cards
+.db-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.stat-card {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #E2E7EF;
+  background: #FFF;
+  box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.06);
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex-shrink: 0;
+
+    &--blue {
+      background: #EAF4FF;
+      color: var(--color-primary);
+    }
+
+    &--teal {
+      background: #EAF6FF;
+      color: #0B7D73;
+    }
+
+    &--green {
+      background: #EEF8EE;
+      color: #11823B;
+    }
+  }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__label {
+    font-size: 13px;
+    font-family: var(--font-family-base);
+    color: #667085;
+  }
+
+  &__value {
+    font-size: 24px;
+    font-weight: 600;
+    font-family: var(--font-family-base);
+    color: var(--color-text-primary);
+  }
+}
+
+// Filter bar — sits between stats and table card, matches users-filter-bar style
+.db-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #E2E7EF;
+  box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.06);
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 160px;
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-family-base);
+      color: #667085;
+    }
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 10px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 14px;
+      font-family: var(--font-family-base);
+      color: var(--color-text-primary);
+
+      &::placeholder {
+        color: var(--color-text-muted);
+      }
+    }
+  }
+
+  // Unified bordered pill group — mirrors board-builder's .board-layout-toggle__group
+  &__segmented {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #D7DFED;
+    border-radius: 20px;
+    padding: 0;
+  }
+
+  &__segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 5px 14px;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    background: transparent;
+    color: #667085;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font-family-base);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+
+    &:not(.active):hover {
+      color: var(--color-primary, #21409A);
+    }
+
+    &.active {
+      border: 1px solid #21409A;
+      background: #E8F0FF;
+      color: #21409A;
+      font-weight: 600;
+    }
+  }
+}
+
+// ag-Grid host
+.db-grid {
+  display: block;
+  width: 100%;
+
+  ::ng-deep {
+
+    .ag-cell.ag-cell-not-inline-editing:has(.ag-checkbox),
+    .ag-cell.ag-cell-not-inline-editing:has(.ag-selection-checkbox) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .ag-header-cell:has(.ag-header-select-all) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .ag-checkbox-input-wrapper {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      margin-left: 20px;
+
+      input[type='checkbox'] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+
+      }
+    }
+
+    .ag-header-select-all,
+    .ag-selection-checkbox {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+
+      .ag-checkbox-input-wrapper {
+        width: 16px;
+        height: 16px;
+      }
+    }
+  }
+}
+
+// Pagination (reusing users-pagination class names for consistency)
+.users-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-border);
+
+  &__range {
+    font-size: 13px;
+    font-family: var(--font-family-base);
+    color: var(--color-text-secondary);
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: var(--color-bg-card);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  &__page {
+    font-size: 13px;
+    font-family: var(--font-family-base);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+}
+
+.scrollAccordionMain {
+  overflow: auto;
+  height: calc(100dvh / var(--app-zoom-factor, 1) - 436px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #21409A transparent;
+
+  &::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #21409A;
+    border-radius: 30px;
+  }
+}
+
+// ─── Delete View confirmation ───────────────────────────────────────────────
+
+.db-delete-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
+}
+
+.db-delete-confirm-modal {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 24px 24px;
+  background: var(--color-bg-card, #fff);
+  border-radius: 8px;
+  border: 1px solid #E9EEF5;
+
+  &__close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app, #f9fafb);
+    }
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    margin-bottom: 14px;
+    border-radius: 50%;
+    // Soft red halo behind the trash icon, matching the redesigned delete popup.
+    background: #FEE4E2;
+    box-shadow: 0 0 0 14px #FEF3F2, 0 0 30px 26px #FEF3F2;
+  }
+
+  &__title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary, #101828);
+  }
+
+  &__body {
+    margin: 0 0 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-text-muted, #667085);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: end;
+    gap: 10px;
+    width: 100%;
+  }
+
+  &__cancel {
+    padding: 10px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #DCE3ED;
+    background: #FFF;
+    color: var(--color-text-primary, #344054);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app, #f9fafb);
+    }
+  }
+
+  &__confirm {
+    padding: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: #EF5350;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #B91C1C;
+    }
+  }
+}

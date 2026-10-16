@@ -1,0 +1,202 @@
+<div id="page-pirevamp" class="page active">
+        <div class="breadcrumb"><a>{{ 'SIDEBAR.INSIGHT' | translate }}</a><span>›</span><a>{{ 'SIDEBAR.PRODUCTION_INTEL' | translate }}</a><span>›</span><span class="current">{{ 'SIDEBAR.PI_REVAMP' | translate }}</span></div>
+        <div class="page-title-row">
+          <div style="flex:1">
+            <div class="page-title" style="display:flex;align-items:center;gap:10px">
+              {{ 'PIREVAMP.TITLE_FULL' | translate }}
+              <span style="background:#7c3aed;color:#fff;font-size:10px;font-weight:800;padding:2px 10px;border-radius:10px;letter-spacing:0.5px">{{ 'PIREVAMP.NEW_SYSTEM' | translate }}</span>
+            </div>
+            <div class="page-subtitle">{{ 'PIREVAMP.SUBTITLE' | translate }}</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <select class="dq-sla-select" id="pi2CrewFilter"><option>{{ 'PIREVAMP.ALL_CREWS' | translate }}</option><option>CW-001</option><option>CW-002</option><option>CW-003</option></select>
+            <button class="dq-btn dq-btn-blue" onclick="pi2RunEngine()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              {{ 'PIREVAMP.RUN_ENGINE' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Problem facts -->
+        <div class="pi2-fact-row">
+          <div class="pi2-fact bad">
+            <div class="pi2-fact-label">{{ 'PIREVAMP.CURRENT_AVG_PI' | translate }}</div>
+            <div class="pi2-fact-val red">P7.0</div>
+            <div class="pi2-fact-sub">{{ 'PIREVAMP.CURRENT_AVG_PI_SUB' | translate }}</div>
+          </div>
+          <div class="pi2-fact warn">
+            <div class="pi2-fact-label">{{ 'PIREVAMP.NON_STANDARD_PI' | translate }}</div>
+            <div class="pi2-fact-val amber">~35%</div>
+            <div class="pi2-fact-sub">{{ 'PIREVAMP.NON_STANDARD_PI_SUB' | translate }}</div>
+          </div>
+          <div class="pi2-fact warn">
+            <div class="pi2-fact-label">{{ 'PIREVAMP.SALARY_LAG' | translate }}</div>
+            <div class="pi2-fact-val amber">{{ 'PIREVAMP.SALARY_LAG_VAL' | translate }}</div>
+            <div class="pi2-fact-sub">{{ 'PIREVAMP.SALARY_LAG_SUB' | translate }}</div>
+          </div>
+          <div class="pi2-fact good">
+            <div class="pi2-fact-label">{{ 'PIREVAMP.NEW_SYSTEM_PROJECTION' | translate }}</div>
+            <div class="pi2-fact-val green">P5.2</div>
+            <div class="pi2-fact-sub">{{ 'PIREVAMP.NEW_SYSTEM_PROJECTION_SUB' | translate }}</div>
+          </div>
+          <div class="pi2-fact good">
+            <div class="pi2-fact-label">{{ 'PIREVAMP.ESTIMATED_SAVING' | translate }}</div>
+            <div class="pi2-fact-val green">~23%</div>
+            <div class="pi2-fact-sub">{{ 'PIREVAMP.ESTIMATED_SAVING_SUB' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- Main tabs -->
+        <div class="ai-tabs">
+          <div class="ai-tab active" onclick="switchPi2Tab('engine',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPi2Tab('engine',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            {{ 'PIREVAMP.TAB_SCORING_ENGINE' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPi2Tab('dashboard',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPi2Tab('dashboard',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            {{ 'PIREVAMP.TAB_DAILY_DASHBOARD' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPi2Tab('supervisor',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPi2Tab('supervisor',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            {{ 'PIREVAMP.TAB_SUPERVISOR_VIEW' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchPi2Tab('approval',this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')switchPi2Tab('approval',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {{ 'PIREVAMP.TAB_APPROVAL_WORKFLOW' | translate }}
+            <span style="font-size:9px;background:rgba(124,58,237,0.15);color:#7c3aed;padding:1px 6px;border-radius:8px;font-weight:700">{{ 'PIREVAMP.MOCKUP' | translate }}</span>
+          </div>
+        </div>
+
+        <!-- Tab: Scoring Engine (LIVE) -->
+        <div id="pi2tab-engine" class="ai-tab-content active">
+
+          <!-- Eligibility group selector -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:600;color:var(--txt-muted);text-transform:uppercase;letter-spacing:0.5px">{{ 'PIREVAMP.ELIGIBILITY_GROUP' | translate }}:</span>
+            <div class="pi2-group-strip" id="pi2GroupStrip">
+              <button class="pi2-group-chip qty active" onclick="pi2SetGroup('qty',this)">{{ 'PIREVAMP.PI_BY_QTY' | translate }}  <span style="font-size:9px;opacity:0.7">({{ 'PIREVAMP.PI_BY_QTY_ROLES' | translate }})</span></button>
+              <button class="pi2-group-chip reason" onclick="pi2SetGroup('reason',this)">{{ 'PIREVAMP.PI_BY_REASON' | translate }}  <span style="font-size:9px;opacity:0.7">({{ 'PIREVAMP.PI_BY_REASON_ROLES' | translate }})</span></button>
+              <button class="pi2-group-chip sup" onclick="pi2SetGroup('sup',this)">{{ 'PIREVAMP.SUPERVISOR' | translate }}</button>
+              <button class="pi2-group-chip inelig" onclick="pi2SetGroup('inelig',this)" style="cursor:not-allowed;opacity:0.6">{{ 'PIREVAMP.INELIGIBLE' | translate }}  <span style="font-size:9px">({{ 'PIREVAMP.INELIGIBLE_ROLES' | translate }})</span></button>
+            </div>
+          </div>
+
+          <!-- Weight info -->
+          <div id="pi2WeightInfo" style="font-size:11.5px;color:var(--txt-muted);margin-bottom:12px;padding:8px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:7px"></div>
+
+          <!-- 4 Module sliders -->
+          <div class="pi2-module-grid" id="pi2ModuleGrid"></div>
+
+          <!-- Assertive criteria -->
+          <div class="pi2-assertive-wrap">
+            <div class="pi2-assertive-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              {{ 'PIREVAMP.ASSERTIVE_CRITERIA_TITLE' | translate }}
+            </div>
+            <div class="pi2-triggers" id="pi2TriggerRow"></div>
+          </div>
+
+          <!-- Live result -->
+          <div class="pi2-result-card">
+            <div class="pi2-p-ring" id="pi2Ring">
+              <svg viewBox="0 0 120 120">
+                <circle class="pi2-p-ring-bg" cx="60" cy="60" r="52"/>
+                <circle class="pi2-p-ring-fill" id="pi2RingFill" cx="60" cy="60" r="52" stroke="#16a34a" stroke-dasharray="326.7" stroke-dashoffset="0"/>
+              </svg>
+              <div class="pi2-p-ring-lbl">
+                <div class="pi2-p-val" id="pi2PVal">P6</div>
+                <div class="pi2-p-lbl" id="pi2PLbl">{{ 'PIREVAMP.SCORE' | translate }}: 86</div>
+              </div>
+            </div>
+            <div class="pi2-result-detail">
+              <div id="pi2AutoP0Msg"></div>
+              <div class="pi2-result-title" id="pi2ResultTitle">{{ 'PIREVAMP.RESULT_ELIGIBLE' | translate }}</div>
+              <div class="pi2-result-desc" id="pi2ResultDesc">{{ 'PIREVAMP.RESULT_DESC' | translate }}</div>
+              <div class="pi2-module-scores-row" id="pi2ModuleScoresRow"></div>
+            </div>
+            <div style="margin-left:auto;text-align:center;flex-shrink:0">
+              <canvas id="pi2TrendMini" width="180" height="80"></canvas>
+              <div style="font-size:10px;color:var(--txt-muted);margin-top:4px">{{ 'PIREVAMP.PRATING_HISTORY' | translate }}</div>
+            </div>
+          </div>
+
+          <!-- Problem vs New comparison chart -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="card" style="padding:16px 18px">
+              <div class="card-title" style="margin-bottom:4px">{{ 'PIREVAMP.PI_INFLATION_TITLE' | translate }}</div>
+              <div class="card-sub" style="margin-bottom:10px">{{ 'PIREVAMP.PI_INFLATION_SUB' | translate }}</div>
+              <canvas id="pi2InflationChart" style="max-height:180px"></canvas>
+            </div>
+            <div class="card" style="padding:16px 18px">
+              <div class="card-title" style="margin-bottom:4px">{{ 'PIREVAMP.CURRENT_VS_NEW_TITLE' | translate }}</div>
+              <div class="card-sub" style="margin-bottom:10px">{{ 'PIREVAMP.CURRENT_VS_NEW_SUB' | translate }}</div>
+              <canvas id="pi2CompareChart" style="max-height:180px"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Daily PI Dashboard -->
+        <div id="pi2tab-dashboard" class="ai-tab-content">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+            <span style="font-size:13px;font-weight:700;color:var(--txt-1)">{{ 'PIREVAMP.DASH_TITLE' | translate }}</span>
+            <div class="dq-filter-row" style="margin-left:auto">
+              <select class="dq-filter-sel" id="pi2DashFilter" onchange="pi2FilterDash()"><option>{{ 'PIREVAMP.ALL_WORKERS' | translate }}</option><option>{{ 'PIREVAMP.PI_BY_QTY' | translate }}</option><option>{{ 'PIREVAMP.PI_BY_REASON' | translate }}</option><option>{{ 'PIREVAMP.SUPERVISOR' | translate }}</option><option>{{ 'PIREVAMP.FLAGGED_P0' | translate }}</option></select>
+              <select class="dq-filter-sel" id="pi2DashDay" onchange="pi2FilterDash()"><option>{{ 'PIREVAMP.ALL_DAYS' | translate }}</option><option>Day 1</option><option>Day 3</option><option>Day 7</option><option>Day 12</option><option>Day 15</option><option>Day 18</option></select>
+            </div>
+          </div>
+          <div style="overflow-x:auto"><div id="pi2DashGrid" class="ag-theme-alpine-dark pi2-ag-grid" style="width:100%;height:500px;"></div></div>
+          <div style="margin-top:14px"><canvas id="pi2DashTrendChart" style="max-height:180px"></canvas></div>
+        </div>
+
+        <!-- Tab: Supervisor View -->
+        <div id="pi2tab-supervisor" class="ai-tab-content">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:700;color:var(--txt-1)">{{ 'PIREVAMP.TODAYS_PI' | translate }}</div>
+              <div style="font-size:11.5px;color:var(--txt-muted);margin-top:2px">{{ 'PIREVAMP.SUPERVISOR_INFO' | translate }}</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <span style="padding:5px 12px;background:var(--green-soft);color:var(--green);border:1px solid var(--green-bd);border-radius:16px;font-size:11.5px;font-weight:700">{{ 'PIREVAMP.CLEAN_COUNT' | translate }}</span>
+              <span style="padding:5px 12px;background:var(--red-soft);color:var(--red);border:1px solid var(--red-bd);border-radius:16px;font-size:11.5px;font-weight:700">{{ 'PIREVAMP.AUTO_P0_COUNT' | translate }}</span>
+              <span style="padding:5px 12px;background:var(--amber-soft);color:var(--amber);border:1px solid var(--amber-bd);border-radius:16px;font-size:11.5px;font-weight:700">{{ 'PIREVAMP.PENDING_P7_COUNT' | translate }}</span>
+            </div>
+          </div>
+          <div class="pi2-sup-grid" id="pi2SupGrid"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="card" style="padding:16px 18px">
+              <div class="card-title" style="margin-bottom:10px">{{ 'PIREVAMP.TEAM_PRATING_DIST' | translate }}</div>
+              <canvas id="pi2SupDistChart" style="max-height:180px"></canvas>
+            </div>
+            <div class="card" style="padding:16px 18px">
+              <div class="card-title" style="margin-bottom:10px">{{ 'PIREVAMP.WEEKLY_TREND_TEAM' | translate }}</div>
+              <canvas id="pi2SupTrendChart" style="max-height:180px"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: P7/P8 Approval Workflow MOCKUP -->
+        <div id="pi2tab-approval" class="ai-tab-content">
+          <div class="pi2-workflow-notice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div>
+              <strong>{{ 'PIREVAMP.MOCKUP_NOTICE_BOLD' | translate }}</strong> {{ 'PIREVAMP.MOCKUP_NOTICE_DESC' | translate }}
+              <strong style="color:#7c3aed"> {{ 'PIREVAMP.MOCKUP_PHASE1' | translate }}</strong> {{ 'PIREVAMP.MOCKUP_PHASE1_DESC' | translate }} <em>"{{ 'PIREVAMP.MOCKUP_DEMO_SAY' | translate }}"</em>
+            </div>
+          </div>
+
+          <!-- 4-stage pipeline -->
+          <div style="font-size:12px;font-weight:700;color:var(--txt-1);margin-bottom:10px">{{ 'PIREVAMP.APPROVAL_PIPELINE_TITLE' | translate }}</div>
+          <div class="pi2-approval-pipeline" id="pi2Pipeline"></div>
+
+          <!-- Pending approvals list -->
+          <div style="margin-top:16px;font-size:13px;font-weight:700;color:var(--txt-1);margin-bottom:10px">
+            {{ 'PIREVAMP.PENDING_APPROVAL_REQUESTS' | translate }}
+            <span style="font-size:11px;font-weight:400;color:var(--txt-muted);margin-left:6px">{{ 'PIREVAMP.PENDING_APPROVAL_SUB' | translate }}</span>
+          </div>
+          <div id="pi2PendingList" style="position:relative">
+            <div id="pi2ApprovalGrid" class="ag-theme-alpine-dark pi2-ag-grid" style="width:100%;height:260px;"></div>
+            <div id="pi2ApprovalNote"></div>
+          </div>
+        </div>
+
+      </div><!-- /page-pirevamp -->

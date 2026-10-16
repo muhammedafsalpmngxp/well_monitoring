@@ -1,0 +1,583 @@
+// ============================================================
+// Layout Utilities
+// ============================================================
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// Main Layout Shell
+.main-layout {
+  display: flex;
+  min-height: calc(100vh / var(--app-zoom-factor, 1));
+  background: var(--color-bg-app);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  // Pre-compensated for FontSizeService's zoom on <app-root> (see its doc comment) —
+  // at zoom X% this lays out taller/shorter than one real viewport by the inverse of
+  // X, so that once `zoom` renders it back down/up, it lands on exactly 100vh on
+  // screen at every text-size setting, not just Medium (100%).
+  height: calc(100vh / var(--app-zoom-factor, 1));
+  overflow: hidden;
+
+  @include respond-lg {
+    margin-left: 0;
+  }
+}
+
+.btn.btn-md {
+  height: 36px !important;
+  border-radius: 10px !important;
+  padding: 8px 12px !important;
+
+  svg {
+    margin-right: 5px;
+  }
+}
+
+.btn {
+  border-radius: 6px !important;
+}
+
+.page-content {
+  flex: 1;
+  min-height: 0;
+  padding: 0px;
+  overflow: auto;
+
+  @include custom-scrollbar;
+}
+
+// The layout shell's own <main class="page-content"> (holds app-navbar + .paddingContent,
+// see main-layout.component.html) needs .paddingContent sized via flex instead of a
+// hardcoded vh-based height, so it can't ever end up taller than the space actually left
+// after the navbar — which a fixed px/vh number can't track once FontSizeService's zoom
+// changes the navbar's own rendered height (see font-size.service.ts). Scoped to the `main`
+// tag specifically: routed pages reuse the bare `.page-content` class above for unrelated
+// layout and must not inherit this.
+main.page-content {
+  display: flex;
+  flex-direction: column;
+}
+
+// A card expanded to fullscreen (e.g. operations dashboard chart) is position:fixed,
+// but its scrollable ancestors (.page-content, .paddingContent) still accept wheel/keyboard
+// scroll underneath it. Lock them while body carries this class.
+body.has-fullscreen-card {
+  .page-content,
+  .paddingContent {
+    overflow: hidden !important;
+  }
+}
+
+// Backdrop injected at <body> level to avoid CSS-zoom positioning issues inside app-root.
+.ops-fs-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 999;
+  cursor: default;
+}
+
+.main-footer {
+  @include flex-between;
+  padding: 10px 16px;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  border-top: 1px solid $color-border;
+  background: #fff !important;
+}
+
+// Card
+.card {
+  @include card-surface;
+  overflow: hidden;
+
+  &__header {
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $color-border;
+  }
+
+  &__title {
+    font-size: $font-size-md;
+    font-weight: $font-weight-semi;
+    color: var(--color-text-primary);
+    margin-bottom: 6px;
+  }
+
+  &__subtitle {
+    font-weight: 500;
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+    margin-top: 2px;
+  }
+
+  &__body {
+    padding: $spacing-lg;
+  }
+
+  &--no-padding .card__body {
+    padding: 0;
+  }
+}
+
+// Page Header
+.page-header {
+  margin-bottom: 6px;
+
+  &__content {
+
+    flex-wrap: wrap;
+    gap: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  &__left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  &__title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__title {
+    font-size: $font-size-2xl;
+    font-weight: $font-weight-bold;
+    margin: 0;
+    line-height: 1.2;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    // Dark tooltip — shown below the title to avoid clipping by the header row
+    &[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      border-radius: 8px;
+      background: #172B4D;
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.5;
+      padding: 7px 12px;
+      white-space: normal;
+      max-width: 280px;
+      width: max-content;
+      text-align: left;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 200;
+    }
+
+    &[data-tooltip]::before {
+      content: '';
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid #172B4D;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 201;
+    }
+
+    &[data-tooltip]:hover::after,
+    &[data-tooltip]:hover::before {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  &__title-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  &__subtitle {
+    font-size: 13px;
+    color: #344054;
+    margin: 0;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  &__subtitle-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  &__subtitle > [page-header-subtitle-suffix] {
+    flex-shrink: 0;
+  }
+}
+
+// Breadcrumb
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  margin-bottom: $spacing-sm;
+  font-size: $font-size-sm;
+  color: $color-text-muted;
+
+  a {
+    color: $color-text-secondary;
+
+    &:hover {
+      color: $color-primary;
+    }
+  }
+
+  &__separator {
+    color: $color-text-muted;
+  }
+}
+
+// Dialog Backdrop
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: $color-bg-overlay;
+  z-index: 1000;
+  @include flex-center;
+}
+
+.dialog {
+  background: linear-gradient(90deg, #0A2468 0%, #21409A 45%, #5E4A73 78%, #F58220 100%);
+  border-radius: $radius-xl;
+  box-shadow: 0 20px 60px rgba(16, 24, 40, 0.18);
+  width: 100%;
+  max-width: 480px;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+    padding: 18px 20px 16px;
+
+    h3 {
+      margin: 0;
+      font-size: $font-size-lg;
+      font-weight: $font-weight-bold;
+      color: $color-text-inverse;
+    }
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-md;
+    color: $color-text-inverse;
+    flex-shrink: 0;
+
+    &--danger  { background: #D92D20; }
+    &--warning { background: #0F6CBD; }
+    &--info    { background: #0F6CBD; }
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: $radius-full;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    flex-shrink: 0;
+    @include transition(color);
+
+    &:hover { color: $color-text-inverse; }
+  }
+
+  &__panel {
+    background: $color-bg-card;
+    border-radius: $radius-xl;
+    padding: $spacing-lg;
+  }
+
+  &__body {
+    margin-bottom: $spacing-lg;
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: $spacing-md;
+
+    // pinned so page-specific ::ng-deep .btn overrides can't change the dialog's radius
+    .btn { border-radius: 10px !important; }
+  }
+
+  &--lg {
+    max-width: 900px;
+    max-height: calc(100vh - #{$spacing-2xl});
+    overflow-y: auto;
+  }
+}
+
+// Utility classes
+.d-flex {
+  display: flex;
+}
+
+.d-grid {
+  display: grid;
+}
+
+.d-none {
+  display: none;
+}
+
+.d-block {
+  display: block;
+}
+
+.gap-sm {
+  gap: $spacing-sm;
+}
+
+.gap-md {
+  gap: $spacing-md;
+}
+
+.gap-lg {
+  gap: $spacing-lg;
+}
+
+.align-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.mt-auto {
+  margin-top: auto;
+}
+
+.ml-auto {
+  margin-left: auto;
+}
+
+.p-0 {
+  padding: 0 !important;
+}
+
+.p-sm {
+  padding: $spacing-sm;
+}
+
+.p-md {
+  padding: $spacing-md;
+}
+
+.p-lg {
+  padding: $spacing-lg;
+}
+
+.mb-sm {
+  margin-bottom: $spacing-sm;
+}
+
+.mb-md {
+  margin-bottom: $spacing-md;
+}
+
+.mb-lg {
+  margin-bottom: $spacing-lg;
+}
+
+// Auth Layout
+.auth-layout {
+  min-height: 100vh;
+  @include flex-center;
+  background: $color-bg-app;
+
+  &__container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+    width: 100%;
+
+    @include respond-md {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__brand {
+    background: $color-primary;
+    @include flex-center;
+    flex-direction: column;
+    gap: $spacing-md;
+    color: $color-text-inverse;
+    padding: $spacing-2xl;
+
+    @include respond-md {
+      display: none;
+    }
+
+    img {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+    }
+
+    h1 {
+      font-size: $font-size-3xl;
+    }
+
+    p {
+      color: rgba(255, 255, 255, 0.75);
+    }
+  }
+
+  &__content {
+    @include flex-center;
+    padding: $spacing-2xl $spacing-lg;
+  }
+}
+
+// Loader
+.loader-wrapper {
+  @include flex-center;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-xl;
+  min-height: 60vh;
+
+  &.loader-overlay {
+    position: fixed;
+    inset: 0;
+    min-height: 0;
+    background: $color-bg-overlay;
+    z-index: 9999;
+  }
+}
+
+// Animated brand GIF — height is auto so the source's own aspect ratio is
+// preserved (no cropping/stretching regardless of the asset's dimensions).
+.loader {
+  display: block;
+  object-fit: contain;
+
+  &--sm {
+    width: 100%;
+    height: 500px;
+  }
+
+  &--md {
+    width: 500px;
+    height: 500px;
+  }
+
+  &--lg {
+    width: 500px;
+    height: 500px;
+  }
+}
+
+.loader__message {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+// Empty State
+.empty-state {
+  @include flex-center;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-2xl;
+  text-align: center;
+
+  &__icon {
+    font-size: 48px;
+    color: $color-text-muted;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semi;
+  }
+
+  &__description {
+    color: $color-text-secondary;
+    max-width: 400px;
+  }
+}
+
+.ag-cell {
+  display: flex !important;
+  align-items: center !important;
+}

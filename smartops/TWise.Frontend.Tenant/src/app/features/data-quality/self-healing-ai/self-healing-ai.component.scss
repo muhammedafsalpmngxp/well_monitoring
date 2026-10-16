@@ -1,0 +1,1002 @@
+// ─── Header Actions ───────────────────────────────────────────────────────────
+.sha-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+
+    button {
+        font-family: var(--font-family-base);
+    }
+
+    &__icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--color-primary);
+        border-radius: 10px;
+        background: #FFF;
+        color: var(--color-primary);
+        cursor: pointer;
+
+        &:hover {
+            background: var(--color-bg-app);
+        }
+    }
+
+    &__btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 12px;
+        border: 1px solid var(--color-primary);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--color-primary);
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &:hover {
+            background: var(--color-bg-legend, #DCE8FF);
+        }
+    }
+}
+
+// ─── Page Layout ──────────────────────────────────────────────────────────────
+.sha-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 0;
+    font-family: var(--font-family-base);
+
+    button,
+    input,
+    select,
+    textarea {
+        font-family: var(--font-family-base);
+    }
+
+    svg {
+        display: block;
+    }
+}
+
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
+.sha-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 15px 12px;
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+
+    &__left,
+    &__right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__sort-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid #DCE3ED;
+        border-radius: 6px;
+        background: var(--color-bg-card);
+        color: #101828;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+
+        &:hover {
+            border-color: var(--color-primary);
+        }
+    }
+
+    &__scan-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 14px;
+        border: none;
+        border-radius: 6px;
+        background: var(--color-primary);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+
+        &:hover {
+            background: var(--color-primary-dark);
+        }
+    }
+
+    &__refresh-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid #21409A;
+        border-radius: 6px;
+        background: var(--color-bg-card);
+        color: #21409A;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+
+        &:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+    }
+}
+
+// ─── Toolbar Dropdown ─────────────────────────────────────────────────────────
+.sha-dropdown {
+    position: relative;
+
+    &__btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid #E4E7EC;
+        border-radius: 6px;
+        background: var(--color-bg-card);
+        color: #4D555B;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+
+        svg {
+            flex-shrink: 0;
+        }
+    }
+
+    &__menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        min-width: 160px;
+        background: var(--color-bg-card);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        box-shadow: var(--shadow-md);
+        list-style: none;
+        padding: 4px;
+        margin: 0;
+        z-index: 200;
+
+        li {
+            padding: 7px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 6px;
+
+            &:hover {
+                background: var(--color-bg-app);
+            }
+
+            &.active {
+                color: var(--color-primary);
+                font-weight: 600;
+            }
+        }
+    }
+}
+
+.sha-chevron {
+    transition: transform 0.15s ease;
+}
+
+// ─── KPI Cards ────────────────────────────────────────────────────────────────
+.sha-kpis {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+
+    @media (max-width: 1200px) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    @media (max-width: 700px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.sha-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+    box-shadow: 0px 4px 14px 0px rgba(16, 24, 40, 0.04);
+
+    &__head {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    &__text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    &__icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        flex-shrink: 0;
+    }
+
+    &__label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #667085;
+    }
+
+    &__value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #101828;
+        line-height: 1;
+    }
+
+    &__desc {
+        font-size: 12px;
+        color: #667085;
+    }
+
+    &--blue .sha-kpi__icon {
+        background: #EAF6FF;
+        color: #2563EB;
+    }
+
+    &--green .sha-kpi__icon {
+        background: #EEF8EE;
+        color: #11823B;
+    }
+
+    &--yellow .sha-kpi__icon {
+        background: #FFF8E1;
+        color: #B45309;
+    }
+
+    &--red .sha-kpi__icon {
+        background: #FDECEC;
+        color: #CE2A1E;
+    }
+
+    &--orange .sha-kpi__icon {
+        background: #FFF4E8;
+        color: #C4320A;
+    }
+
+    &--purple .sha-kpi__icon {
+        background: #EEF4FF;
+        color: #7C3AED;
+    }
+}
+
+// ─── Two-Column Grid ──────────────────────────────────────────────────────────
+.sha-two-col {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+
+    @media (max-width: 900px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+// ─── Card ─────────────────────────────────────────────────────────────────────
+.sha-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-card);
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+    box-shadow: 0px 4px 14px 0px rgba(16, 24, 40, 0.04);
+    overflow: hidden;
+
+    &--full {
+        width: 100%;
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+
+        &--wrap {
+            flex-wrap: wrap;
+            row-gap: 8px;
+        }
+    }
+
+    &__title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #101828;
+        flex: 1;
+        min-width: 0;
+    }
+
+    &__subtitle {
+        font-size: 12px;
+        color: #667085;
+        margin: 2px 0 0;
+    }
+
+    &__controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    &__icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: none;
+        color: #667085;
+        cursor: pointer;
+
+        &:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+    }
+
+    &__body {
+        padding: 14px 16px;
+        flex: 1;
+    }
+}
+
+.sha-chart {
+    display: block;
+    width: 100%;
+}
+
+// ─── Badge ────────────────────────────────────────────────────────────────────
+.sha-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &--blue {
+        background: none;
+        color: #667085;
+        border: none;
+        border-radius: 0;
+        font-size: 14px;
+    }
+
+    &--orange {
+        background: #FFF8E1;
+        color: #8C6400;
+        border: 1px solid #E9DBB8;
+    }
+
+    &--red {
+        background: #FEF2F2;
+        color: #CE2A1E;
+        border: 1px solid #FECACA;
+    }
+
+    &--green {
+        background: #ECFDF5;
+        color: #11823B;
+        border: 1px solid #A7F3D0;
+    }
+}
+
+// ─── Auto-Heal Queue ──────────────────────────────────────────────────────────
+.sha-heal-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.sha-heal-illustration {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 0;
+}
+
+// .sha-heal-check {
+//     display: flex;
+//     align-items: center;
+//     justify-content: center;
+//     width: 64px;
+//     height: 64px;
+//     border-radius: 50%;
+//     background: #ECFDF5;
+//     border: 2px solid #A7F3D0;
+//     margin-bottom: 4px;
+// }
+
+.sha-heal-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1B7A3A;
+    margin: 0;
+}
+
+.sha-heal-sub {
+    font-size: 13px;
+    color: #667085;
+    font-weight: 500;
+    margin: 0;
+}
+
+.sha-heal-stats {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+
+    .sha-heal-stat {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 8px;
+        border: 1px solid #F7FFF7;
+        border-radius: 8px;
+        background: #F7FFF7;
+
+        &__value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #101828;
+            line-height: 1;
+        }
+
+        &__label {
+            font-size: 13px;
+            color: #667085;
+            text-align: center;
+        }
+    }
+}
+
+// ─── Human Review Queue ───────────────────────────────────────────────────────
+.sha-review-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 340px;
+    overflow-y: auto;
+}
+
+.sha-review-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    border: 1px solid #E7ECF3;
+    border-radius: 10px;
+    margin-top: -7px;
+
+
+    &__top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    &__id {
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+    }
+
+    &__detail {
+        font-size: 13px;
+        color: #667085;
+        margin-left: auto;
+    }
+
+    &__meta,
+    &__conf {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #667085;
+    }
+
+    &__actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        padding-top: 10px;
+        border-top: 1px solid #E7ECF3;
+    }
+}
+
+.sha-review-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+
+    &--approve {
+        background: #EEF8EE;
+        color: #427944;
+        border-color: #D8F4D9;
+
+    }
+
+    &--reject {
+        background: #FDECEC;
+        color: #BF4240;
+        border-color: #FFD4D4;
+
+    }
+
+    &--escalate {
+        background: #EEF4FF;
+        color: #21409A;
+        border-color: #C8D1F3;
+
+        &:hover {
+            background: #DBEAFE;
+        }
+    }
+}
+
+// ─── Filter Bar ───────────────────────────────────────────────────────────────
+.sha-filter-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 10px 14px;
+    margin: 0 16px 14px;
+    border: 1px solid #E7ECF3;
+    border-radius: 6px;
+    background: var(--color-bg-card);
+    flex-wrap: wrap;
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 190px;
+    }
+
+    &__label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #667085;
+    }
+
+    &__search {
+        position: relative;
+        display: flex;
+        align-items: center;
+
+        svg {
+            position: absolute;
+            left: 9px;
+            color: #667085;
+            pointer-events: none;
+        }
+
+        input {
+            width: 100%;
+            height: 32px;
+            padding: 0 10px 0 30px;
+            border: 1px solid #DCE3ED;
+            border-radius: 6px;
+            background: var(--color-bg-card);
+            font-size: 14px;
+            font-family: var(--font-family-base);
+            color: var(--color-text-primary);
+
+            &::placeholder {
+                color: #667085;
+            }
+
+            &:focus {
+                outline: none;
+                border-color: var(--color-primary);
+            }
+        }
+    }
+
+    &__select {
+        width: 100%;
+        height: 32px;
+        padding: 0 28px 0 10px;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        background: var(--color-bg-card);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23667085' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        appearance: none;
+        -webkit-appearance: none;
+        font-size: 14px;
+        color: #98A2B3;
+        cursor: pointer;
+
+        &:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+    }
+
+    &__settings {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 32px;
+        align-self: flex-end;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        background: var(--color-bg-card);
+        color: #667085;
+        cursor: pointer;
+        flex-shrink: 0;
+
+        &:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+    }
+}
+
+// ─── Grid ─────────────────────────────────────────────────────────────────────
+.sha-grid-wrapper {
+    position: relative;
+    border: 1px solid #E7ECF3;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 2px 15px 15px;
+}
+
+.sha-grid {
+    width: 100%;
+    height: 300px;
+}
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
+.sha-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-top: 1px solid #F2F4F7;
+
+    &__range {
+        font-size: 12px;
+        color: var(--color-text-secondary);
+    }
+
+    &__controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: 1px solid #E7ECF3;
+            border-radius: 6px;
+            background: var(--color-bg-card);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+
+            &:hover:not(:disabled) {
+                border-color: var(--color-primary);
+                color: var(--color-primary);
+            }
+
+            &:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+            }
+        }
+    }
+
+    &__page {
+        font-size: 12px;
+        color: var(--color-text-secondary);
+        padding: 0 6px;
+        white-space: nowrap;
+    }
+}
+
+// ─── Responsive breakpoints ───────────────────────────────────────────────────
+
+
+.sha-grid-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+.sha-grid {
+    min-width: 480px;
+}
+
+@media (max-width: 1024px) {
+    .sha-header-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .sha-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .sha-page {
+        gap: 12px;
+    }
+
+    .sha-header-actions {
+        gap: 4px;
+
+        &__btn {
+            font-size: 0;
+            padding: 0 8px;
+            gap: 4px;
+            min-width: 32px;
+        }
+    }
+
+
+    .sha-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 12px;
+
+        &__left {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        &__right {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        &__scan-btn,
+        &__refresh-btn {
+            width: 100%;
+            height: 36px;
+            justify-content: center;
+        }
+
+        &__sort-btn {
+            width: 100%;
+            height: 36px;
+            justify-content: space-between;
+        }
+    }
+
+    .sha-dropdown {
+        width: 100%;
+
+        &__btn {
+            width: 100%;
+            height: 36px;
+            justify-content: space-between;
+            align-items: center;
+        }
+    }
+
+
+    .sha-card {
+        &__head {
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px;
+        }
+
+        &__title {
+            font-size: 15px;
+        }
+
+        &__body {
+            padding: 12px;
+        }
+    }
+
+
+    .sha-kpi {
+        padding: 12px;
+
+        &__value {
+            font-size: 20px;
+        }
+
+        &__label {
+            font-size: 11px;
+        }
+
+        &__desc {
+            font-size: 11px;
+        }
+
+        &__icon {
+            width: 26px;
+            height: 26px;
+        }
+    }
+
+
+    .sha-heal-stats {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .sha-review-item {
+        &__detail {
+            margin-left: 0;
+            width: 100%;
+        }
+
+        &__actions {
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+    }
+
+    .sha-review-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .sha-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 12px;
+        margin: 0 12px 12px;
+
+        &__field {
+            min-width: 0;
+            width: 100%;
+        }
+
+        &__search {
+            width: 100%;
+
+            input {
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+
+        &__select {
+            width: 100%;
+        }
+
+        &__settings {
+            align-self: flex-start;
+        }
+    }
+
+    .sha-grid-wrapper {
+        margin: 0 10px 10px;
+    }
+
+    .sha-pagination {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+
+        &__range {
+            text-align: center;
+        }
+    }
+
+    .sha-kpis {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .sha-two-col {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .sha-kpi {
+        padding: 10px;
+
+        &__value {
+            font-size: 18px;
+        }
+    }
+
+    .sha-toolbar {
+        padding: 10px;
+    }
+
+    .sha-card {
+        &__head {
+            padding: 10px;
+        }
+
+        &__body {
+            padding: 10px;
+        }
+    }
+
+    .sha-filter-bar {
+        margin: 0 8px 8px;
+        padding: 10px;
+    }
+
+    .sha-pagination {
+        &__controls {
+            gap: 2px;
+
+            button {
+                width: 26px;
+                height: 26px;
+            }
+        }
+
+        &__page,
+        &__range {
+            font-size: 11px;
+        }
+    }
+}

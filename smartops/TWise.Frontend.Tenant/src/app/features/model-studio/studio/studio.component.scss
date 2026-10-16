@@ -1,0 +1,338 @@
+// Model Studio is a full-bleed route (data: { fullBleed: true }): the shell gives this host the content
+// area below the navbar, and each pane scrolls on its own. The heights chain through flex from the shell.
+:host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--color-bg-app);
+
+  // Panes stack at this width and the shell scrolls the page, so the host takes its content's height.
+  @media (max-width: 992px) {
+    flex: none;
+  }
+}
+
+.studio {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  // Rail, stage, handle, Properties, handle, Data pane. A folded pane is a narrow strip.
+  grid-template-columns: 64px minmax(0, 1fr) 6px var(--studio-inspector-width, 300px) 6px var(--studio-pane-width, 260px);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'rail canvas grip-i inspector grip-p pane';
+  transition: grid-template-columns 0.2s ease;
+
+  &--data {
+    grid-template-columns: 64px minmax(0, 1fr) 6px var(--studio-pane-width, 260px);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: 'rail data grip-p pane';
+  }
+
+  // Toolbar
+  &__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md);
+    min-height: 56px;
+    padding: 4px var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+  }
+
+  &__title-text { display: flex; flex-direction: column; min-width: 0; }
+
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text-label);
+    font-size: 11px;
+    font-weight: 600;
+
+    &--published { color: var(--color-success, #15803d); }
+    &--changed { color: var(--color-warning-dark, #b45309); }
+  }
+
+  &__status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+  }
+
+  &__end {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
+
+    app-icon { margin-right: var(--spacing-xs); }
+  }
+
+  &__title-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    background: var(--color-primary-50);
+    color: var(--color-primary);
+  }
+
+  &__name {
+    max-width: 320px;
+    margin: 0;
+    overflow: hidden;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  &__group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 var(--spacing-sm);
+    border-left: 1px solid var(--color-border);
+
+    app-icon { margin-right: var(--spacing-xs); color: var(--color-primary); }
+  }
+
+  &__group-actions { display: flex; gap: 2px; }
+
+  &__group-label { font-size: 11px; color: var(--color-text-label); }
+
+
+  // Rail
+  &__rail {
+    grid-area: rail;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+    background: var(--color-bg-card);
+  }
+
+  &__rail-button {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 52px;
+    padding: 6px 0;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--color-text-label);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+
+    &:hover { background: var(--color-primary-50); color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+    // The sidebar's active convention: an orange bar on the leading edge.
+    &--active {
+      background: var(--color-primary-50);
+      color: var(--color-primary);
+      font-weight: 600;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        left: -6px;
+        width: 3px;
+        border-radius: 0 3px 3px 0;
+        background: var(--color-accent);
+      }
+    }
+  }
+
+  // Panes
+  &__panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--spacing-md);
+    border-left: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  // The browser's [hidden] rule is weaker than display: flex above.
+  &__panel[hidden] { display: none; }
+
+  &__canvas { grid-area: canvas; padding: 0; }
+  &__inspector { grid-area: inspector; }
+  &__data { grid-area: data; }
+  &__pane { grid-area: pane; }
+
+  &--inspector-folded &__inspector,
+  &--pane-folded &__pane { padding: 0; overflow: hidden; }
+
+  // A folded pane: its name written down the strip, and a click opens it again.
+  &__strip {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm) 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-subtle);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    span { writing-mode: vertical-rl; letter-spacing: 0.04em; }
+    &:hover { background: var(--color-primary-50); color: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+  }
+
+  // A pane's drag handle. It is a keyboard separator too: Tab to it, then Left and Right.
+  &__grip {
+    position: relative;
+    background: var(--color-bg-app);
+    cursor: col-resize;
+    touch-action: none;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 2px;
+      height: 32px;
+      transform: translate(-50%, -50%);
+      border-radius: var(--radius-full);
+      background: var(--color-border);
+      transition: background-color var(--transition-fast), height var(--transition-fast);
+    }
+
+    &:hover::after,
+    &:focus-visible::after { height: 56px; background: var(--color-primary); }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+    &[hidden] { display: none; }
+  }
+
+  &__grip--inspector { grid-area: grip-i; }
+  &__grip--pane { grid-area: grip-p; }
+
+  // Messages and states
+  // Floats over the stage, so a message never pushes the panes down.
+  &__toast {
+    position: absolute;
+    top: 64px;
+    right: var(--spacing-md);
+    z-index: 5;
+    max-width: 420px;
+    margin: 0;
+    box-shadow: var(--shadow-md);
+  }
+
+  &__loading { flex: 1; padding: var(--spacing-md); }
+
+  &__error { margin: var(--spacing-md); }
+
+  // Two side panes leave the diagram too narrow here, so Properties moves under it.
+  @media (max-width: 1280px) {
+    grid-template-columns: 64px minmax(0, 1fr) 6px var(--studio-pane-width, 260px);
+    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+    grid-template-areas:
+      'rail canvas grip-p pane'
+      'rail inspector grip-p pane';
+
+    &--data {
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-areas: 'rail data grip-p pane';
+    }
+
+    &__inspector { border-top: 1px solid var(--color-border); }
+    // Properties sits under the diagram here and takes the stage's width.
+    &__grip--inspector { display: none; }
+  }
+
+  @media (max-width: 992px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: 'rail' 'canvas' 'inspector' 'pane';
+
+    &--data {
+      grid-template-rows: none;
+      grid-template-areas: 'rail' 'data' 'pane';
+    }
+
+    &__rail { flex-direction: row; justify-content: center; }
+
+    &__rail-button--active::before {
+      top: auto;
+      right: 8px;
+      bottom: -4px;
+      left: 8px;
+      width: auto;
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+    }
+
+    &__panel { overflow: visible; border-top: 1px solid var(--color-border); border-left: 0; }
+    &__canvas { min-height: 420px; }
+    &__grip { display: none; }
+  }
+}
+
+// Motion here is short and decorative. Anyone who asks for less motion gets none, the skeleton shimmer
+// and every child pane and dialog included.
+@media (prefers-reduced-motion: reduce) {
+  :host ::ng-deep * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.studio__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-label);
+  background: var(--color-surface, #fff);
+
+  &:hover { color: #d92d20; border-color: #fda29b; background: #fef3f2; }
+  &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  app-icon ::ng-deep svg { width: 16px; height: 16px; }
+}

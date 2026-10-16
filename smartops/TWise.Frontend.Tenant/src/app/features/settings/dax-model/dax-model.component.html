@@ -1,0 +1,476 @@
+<app-page-header title="Dax Model" subtitle="Create calculations once. Reuse them across charts."
+    [breadcrumbs]="breadcrumbs">
+    <span page-header-icon class="dax-model-page-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path
+                d="M10.1561 3.4505C9.35242 2.8477 8.20197 3.39134 8.15736 4.395L8.09343 5.83342H10C10.4603 5.83342 10.8333 6.20652 10.8333 6.66675C10.8333 7.12699 10.4603 7.50009 10 7.50009H8.01935L7.69157 14.8752C7.583 17.318 4.69735 18.5509 2.85714 16.9407L2.78459 16.8773C2.43823 16.5742 2.40313 16.0477 2.70619 15.7013C3.00927 15.355 3.53574 15.3198 3.8821 15.6229L3.95465 15.6864C4.74331 16.3765 5.98002 15.8481 6.02655 14.8012L6.35105 7.50009H5C4.53977 7.50009 4.16667 7.12699 4.16667 6.66675C4.16667 6.20652 4.53977 5.83342 5 5.83342H6.42512L6.49234 4.321C6.59642 1.97911 9.28075 0.71065 11.1561 2.11716L11.3333 2.25008C11.7015 2.52622 11.7762 3.04856 11.5 3.41675C11.2238 3.78494 10.7015 3.85955 10.3333 3.58341L10.1561 3.4505Z"
+                fill="white" />
+            <path
+                d="M10.9032 10.8717C11.1138 10.7557 11.3786 10.8417 11.481 11.0593L12.1581 12.4981L9.41217 15.2439C9.08675 15.5693 9.08675 16.097 9.41217 16.4224C9.73767 16.7479 10.2653 16.7479 10.5907 16.4224L12.9123 14.1008L13.5623 15.482C14.1412 16.7122 15.7243 17.0672 16.7731 16.2019L17.1984 15.851C17.5534 15.5581 17.6038 15.0329 17.3109 14.6778C17.018 14.3228 16.4928 14.2725 16.1378 14.5654L15.7124 14.9163C15.5027 15.0893 15.1861 15.0183 15.0703 14.7723L14.1648 12.8483L16.424 10.5891C16.7495 10.2637 16.7495 9.73599 16.424 9.41058C16.0986 9.08516 15.571 9.08516 15.2455 9.41058L13.4106 11.2455L12.989 10.3497C12.4772 9.26183 11.1533 8.83191 10.1 9.41124L9.59984 9.68633C9.19659 9.90816 9.0495 10.4148 9.27125 10.8182C9.49309 11.2214 9.99984 11.3685 10.4031 11.1467L10.9032 10.8717Z"
+                fill="white" />
+        </svg>
+    </span>
+    <div class="dax-model-header-actions">
+        <button *ngIf="canModify" type="button" class="icon-only-btn icon-only-btn--danger" title="Delete selected"
+            [disabled]="!selectedCount" (click)="deleteSelected()">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path
+                    d="M6.75 2.25H11.25M2.25 4.5H15.75M14.25 4.5L13.724 12.3895C13.6451 13.5731 13.6057 14.165 13.35 14.6138C13.1249 15.0089 12.7854 15.3265 12.3763 15.5248C11.9115 15.75 11.3183 15.75 10.132 15.75H7.86802C6.68168 15.75 6.08852 15.75 5.62376 15.5248C5.21457 15.3265 4.87507 15.0089 4.64998 14.6138C4.39433 14.165 4.35488 13.5731 4.27597 12.3895L3.75 4.5M7.5 7.875V11.625M10.5 7.875V11.625"
+                    stroke="#D92D20" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
+        <app-button *ngIf="canBuildChart" variant="secondary" (clicked)="openChartBuilder()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M4.5 13.5L13.5 4.5M13.5 10.5V4.5H7.5" stroke="#21409A" stroke-width="1.4"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Open Chart Builder
+        </app-button>
+        <app-button *ngIf="canCreate" variant="primary" (clicked)="openCreateModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M7.9987 3.3335V12.6668M3.33203 8.00016H12.6654" stroke="white" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Create DAX Model
+        </app-button>
+    </div>
+</app-page-header>
+
+<div class="page-content dax-model-page">
+
+    <div class="dax-model-toolbar">
+        <div class="dax-model-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" placeholder="Search" [ngModel]="searchTerm" (ngModelChange)="onSearchChange($event)" />
+        </div>
+
+        <div appKeyClick class="dax-model-select" [class.open]="openFilterName === 'status'"
+            (click)="toggleFilterDropdown('status', $event)">
+            <svg class="dax-model-select__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#21409A"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="16 10 11 15 8 12.5"></polyline>
+            </svg>
+            <span class="dax-model-select__label">{{ statusFilter }}</span>
+            <svg class="dax-model-select__chevron" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                    stroke-linejoin="round" />
+            </svg>
+            <div class="dax-model-select__panel" *ngIf="openFilterName === 'status'" (click)="$event.stopPropagation()">
+                <div appKeyClick class="dax-model-select__option" *ngFor="let o of statusOptions"
+                    [class.active]="o === statusFilter" (click)="selectStatusFilter(o, $event)">{{ o }}</div>
+            </div>
+        </div>
+
+        <div appKeyClick class="dax-model-select" [class.open]="openFilterName === 'time'"
+            (click)="toggleFilterDropdown('time', $event)">
+            <svg class="dax-model-select__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#21409A"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span class="dax-model-select__label">{{ timeFilter }}</span>
+            <svg class="dax-model-select__chevron" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
+                    stroke-linejoin="round" />
+            </svg>
+            <div class="dax-model-select__panel" *ngIf="openFilterName === 'time'" (click)="$event.stopPropagation()">
+                <div appKeyClick class="dax-model-select__option" *ngFor="let o of timeOptions" [class.active]="o === timeFilter"
+                    (click)="selectTimeFilter(o, $event)">{{ o }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dax-model-stat-row">
+        <div class="dax-model-stat-card dax-model-stat-card--total">
+            <span class="dax-model-stat-card__icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                    viewBox="0 0 18 18" fill="none">
+                    <path
+                        d="M9.14048 3.10554C8.41718 2.56303 7.38177 3.0523 7.34163 3.95559L7.28409 5.25018H9C9.41423 5.25018 9.75 5.58597 9.75 6.00018C9.75 6.41439 9.41423 6.75018 9 6.75018H7.21742L6.92241 13.3878C6.8247 15.5863 4.22761 16.6959 2.57143 15.2467L2.50614 15.1896C2.19441 14.9169 2.16282 14.443 2.43558 14.1313C2.70834 13.8196 3.18216 13.788 3.49389 14.0607L3.55919 14.1179C4.26898 14.739 5.38202 14.2634 5.4239 13.3212L5.71594 6.75018H4.5C4.08579 6.75018 3.75 6.41439 3.75 6.00018C3.75 5.58597 4.08579 5.25018 4.5 5.25018H5.78261L5.8431 3.88899C5.93678 1.7813 8.35268 0.639683 10.0405 1.90554L10.2 2.02517C10.5314 2.2737 10.5986 2.7438 10.35 3.07517C10.1015 3.40654 9.63135 3.4737 9.3 3.22517L9.14048 3.10554Z"
+                        fill="#22C55E" />
+                    <path
+                        d="M9.81168 9.78474C10.0013 9.68041 10.2396 9.75781 10.3317 9.95364L10.9411 11.2485L8.46978 13.7198C8.17691 14.0126 8.17691 14.4875 8.46978 14.7804C8.76273 15.0734 9.23755 15.0734 9.53043 14.7804L11.6199 12.691L12.2049 13.934C12.7259 15.0412 14.1507 15.3607 15.0946 14.582L15.4774 14.2661C15.7969 14.0025 15.8423 13.5299 15.5787 13.2103C15.315 12.8908 14.8424 12.8455 14.5229 13.1091L14.14 13.4249C13.9512 13.5806 13.6663 13.5167 13.5621 13.2953L12.7472 11.5637L14.7804 9.53041C15.0734 9.23754 15.0734 8.76264 14.7804 8.46976C14.4876 8.17689 14.0127 8.17689 13.7198 8.46976L12.0684 10.1212L11.6889 9.31494C11.2283 8.33589 10.0368 7.94896 9.08883 8.47036L8.63868 8.71794C8.27575 8.91759 8.14338 9.37359 8.34296 9.73659C8.54261 10.0995 8.99868 10.2319 9.36161 10.0322L9.81168 9.78474Z"
+                        fill="#22C55E" />
+                </svg></span>
+            <span class="dax-model-stat-card__text">
+                <span class="dax-model-stat-card__label">Total Models</span>
+                <span class="dax-model-stat-card__count">{{ totalModelsCount }}</span>
+            </span>
+        </div>
+        <div class="dax-model-stat-card dax-model-stat-card--tables">
+            <span class="dax-model-stat-card__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path
+                        d="M9.00056 6.75V11.25M9.00056 6.75H15.7506M9.00056 6.75H2.25047M9.00056 11.25H15.7506M9.00056 11.25H2.25M9.00056 11.25V15.75M9.00056 15.75H12.1506C13.4107 15.75 14.0407 15.75 14.522 15.5048C14.9454 15.289 15.2896 14.9448 15.5053 14.5215C15.7506 14.0402 15.7506 13.4101 15.7506 12.15V11.25M2.25047 6.75L2.25 11.25L2.25056 12.15C2.25056 13.4101 2.25056 14.0402 2.49579 14.5215C2.71151 14.9448 3.05572 15.289 3.47908 15.5048C3.96038 15.75 4.59044 15.75 5.85056 15.75H9.00056M15.7506 11.25V6.75M15.7506 6.75V5.85C15.7506 4.58988 15.7506 3.95982 15.5053 3.47852C15.2896 3.05516 14.9454 2.71095 14.522 2.49524C14.0407 2.25 13.4107 2.25 12.1506 2.25H5.85056C4.59044 2.25 3.96038 2.25 3.47908 2.49524C3.05572 2.71095 2.71151 3.05516 2.49579 3.47852C2.25056 3.95982 2.25056 4.58988 2.25056 5.85L2.25047 6.75"
+                        stroke="#4F46E5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </span>
+            <span class="dax-model-stat-card__text">
+                <span class="dax-model-stat-card__label">From Tables</span>
+                <span class="dax-model-stat-card__count">{{ fromTablesCount }}</span>
+            </span>
+        </div>
+        <div class="dax-model-stat-card dax-model-stat-card--views">
+            <span class="dax-model-stat-card__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path
+                        d="M2.01677 10.5942C1.90329 10.4144 1.84654 10.3246 1.81477 10.186C1.79091 10.0819 1.79091 9.91775 1.81477 9.81367C1.84654 9.67509 1.90329 9.58525 2.01677 9.4055C2.95461 7.92054 5.74617 4.1665 10.0003 4.1665C14.2545 4.1665 17.0461 7.92054 17.9839 9.4055C18.0974 9.58525 18.1542 9.67509 18.1859 9.81367C18.2098 9.91775 18.2098 10.0819 18.1859 10.186C18.1542 10.3246 18.0974 10.4144 17.9839 10.5942C17.0461 12.0792 14.2545 15.8332 10.0003 15.8332C5.74617 15.8332 2.95461 12.0792 2.01677 10.5942Z"
+                        stroke="#0EA5A4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    <path
+                        d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61925 11.3807 7.5 10 7.5C8.61925 7.5 7.5 8.61925 7.5 10C7.5 11.3807 8.61925 12.5 10 12.5Z"
+                        stroke="#0EA5A4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </span>
+            <span class="dax-model-stat-card__text">
+                <span class="dax-model-stat-card__label">From Views</span>
+                <span class="dax-model-stat-card__count">{{ fromViewsCount }}</span>
+            </span>
+        </div>
+    </div>
+
+    <div class="scrollAccordionMain">
+        <div class="dax-model-card" [class.dax-model-card--expanded]="tableExpanded">
+            <div class="dax-model-card__header">
+                <span class="dax-model-card__header-icon">fx</span>
+                <h3>Saved DAX Models</h3>
+                <button type="button" class="dax-model-card__expand" [title]="tableExpanded ? 'Collapse' : 'Expand'"
+                    [attr.aria-label]="tableExpanded ? 'Collapse table' : 'Expand table'" [attr.aria-pressed]="tableExpanded"
+                    (click)="toggleTableExpand()">
+                    <svg *ngIf="!tableExpanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                    <svg *ngIf="tableExpanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="4 14 10 14 10 20"></polyline>
+                        <polyline points="20 10 14 10 14 4"></polyline>
+                        <line x1="14" y1="10" x2="21" y2="3"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <p class="dax-model-load-error" role="alert" *ngIf="loadError">{{ loadError }}</p>
+            <div class="dax-model-table-wrap">
+                <ag-grid-angular class="dax-model-grid" [columnDefs]="columnDefs" [defaultColDef]="defaultColDef"
+                    [rowData]="rows" [loading]="loading" [theme]="gridTheme" [rowSelection]="rowSelection"
+                    [selectionColumnDef]="selectionColumnDef" [context]="gridContext" [animateRows]="true"
+                    (selectionChanged)="onSelectionChanged($event)">
+                </ag-grid-angular>
+            </div>
+
+            <div class="dax-model-pagination">
+                <div class="dax-model-pagination__left">
+                    <span class="dax-model-pagination__range">{{ rangeStart }} to {{ rangeEnd }} of {{ totalRecords
+                        }}</span>
+                    <label class="dax-model-pagination__size">Rows per page
+                        <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)" aria-label="Rows per page">
+                            <option *ngFor="let size of pageSizeOptions" [ngValue]="size">{{ size }}</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="dax-model-pagination__controls">
+                    <button (click)="goToFirstPage()" [disabled]="currentPage === 1" title="First page">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="11 17 6 12 11 7"></polyline>
+                            <polyline points="18 17 13 12 18 7"></polyline>
+                        </svg>
+                    </button>
+                    <button (click)="goToPrevPage()" [disabled]="currentPage === 1" title="Previous page">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                    <span class="dax-model-pagination__page">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button (click)="goToNextPage()" [disabled]="currentPage === totalPages" title="Next page">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                    <button (click)="goToLastPage()" [disabled]="currentPage === totalPages" title="Last page">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="13 17 18 12 13 7"></polyline>
+                            <polyline points="6 17 11 12 6 7"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="dialog-backdrop" *ngIf="showCreateModal" (click)="closeCreateModal()">
+    <div appDialog (dialogClose)="closeCreateModal()" class="dialog dax-create-modal" (click)="$event.stopPropagation()">
+        <div class="dax-create-modal__header">
+            <div class="dax-create-modal__header-title">
+                <span class="dax-create-modal__header-icon">fx</span>
+                <h3>{{ isEditing ? 'Edit DAX Model' : 'Create DAX Model' }}</h3>
+                <span role="img" class="dax-create-modal__header-info" data-tooltip="Define a reusable calculated&#10;measure"
+                    aria-label="Define a reusable calculated measure">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <path
+                            d="M9 0.5C13.6944 0.5 17.5 4.30558 17.5 9C17.5 13.6944 13.6944 17.5 9 17.5C4.30558 17.5 0.5 13.6944 0.5 9C0.5 4.30558 4.30558 0.5 9 0.5Z"
+                            fill="#EAF1FF" stroke="#CFE0FF" />
+                        <path
+                            d="M10.1658 5.15248C10.8475 5.15248 11.4 4.59991 11.4 3.91828C11.4 3.23665 10.8475 2.68408 10.1658 2.68408C9.48421 2.68408 8.93164 3.23665 8.93164 3.91828C8.93164 4.59991 9.48421 5.15248 10.1658 5.15248Z"
+                            fill="#21409A" />
+                        <path
+                            d="M10.9461 12.6598C10.8933 12.645 10.8329 12.6576 10.7923 12.6926C9.66367 13.6944 9.33467 13.8176 9.24547 13.824C9.11327 13.8144 9.07387 13.7416 9.10827 13.6204C9.07387 13.1438 9.39767 11.6722 10.0707 9.24642C10.6359 7.21782 10.6885 6.80642 10.6789 6.67382C10.6647 6.47582 10.5663 6.32202 10.3869 6.21642C10.2161 6.11622 9.98187 6.07622 9.69147 6.09722C9.20187 6.13262 8.61907 6.33842 7.95927 6.70922C7.77067 6.81542 7.57407 6.94242 7.37527 7.08642C6.85087 7.46642 6.56327 8.04442 6.60567 8.63222C6.64687 8.72142 6.75587 8.73662 6.85587 8.70122C7.37627 8.21742 7.72287 7.92082 7.88647 7.81942C8.06107 7.71142 8.21667 7.65202 8.34947 7.64242C8.42887 7.71842 8.41947 7.95602 8.37787 8.10222C7.39247 11.5004 6.94387 13.5708 7.00587 14.4316C7.02707 14.7242 7.14027 14.9516 7.34267 15.108C7.54747 15.2666 7.81527 15.3354 8.13787 15.312C8.48927 15.2866 8.91107 15.1316 9.42707 14.8382C9.67527 14.697 9.99687 14.4688 10.3831 14.16C10.8385 13.7956 11.0781 13.2868 11.0405 12.764C11.0369 12.7162 11.0001 12.6754 10.9461 12.6598Z"
+                            fill="#21409A" />
+                        <path
+                            d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                            fill="#21409A" />
+                    </svg>
+                </span>
+            </div>
+            <button type="button" class="dax-create-modal__close" (click)="closeCreateModal()" aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path
+                        d="M15 9L9 15M9 9L15 15M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z"
+                        stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
+        </div>
+
+        <ng-template #daxInfoIcon let-tooltip="tooltip" let-label="label">
+            <span role="img" class="dax-create-modal__lbl-info" [attr.data-tooltip]="tooltip" [attr.aria-label]="label">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none">
+                    <path
+                        d="M7.5 0.5C11.366 0.5 14.5 3.63401 14.5 7.5C14.5 11.366 11.366 14.5 7.5 14.5C3.63401 14.5 0.5 11.366 0.5 7.5C0.5 3.63401 3.63401 0.5 7.5 0.5Z"
+                        fill="#EAF1FF" stroke="#C8D7FF" />
+                    <path
+                        d="M9.12043 10.55C9.07643 10.5377 9.02609 10.5482 8.99226 10.5773C8.05176 11.4122 7.77759 11.5148 7.70326 11.5202C7.69393 11.5208 7.67326 11.5122 7.64593 11.485C7.61159 11.4515 7.59309 11.4075 7.58893 11.3505C7.56026 10.9533 7.83009 9.72702 8.39093 7.70552C8.86193 6.01502 8.90576 5.67218 8.89776 5.56168C8.88593 5.39668 8.80393 5.26852 8.65443 5.18052C8.51209 5.09702 8.31693 5.06368 8.07493 5.08118C7.66693 5.11068 7.18126 5.28218 6.63143 5.59118C6.47426 5.67968 6.31043 5.78552 6.14476 5.90552C5.70776 6.22218 5.46809 6.70385 5.50343 7.19368C5.50626 7.23385 5.53776 7.26802 5.58309 7.28068C5.62859 7.29318 5.67943 7.28152 5.71193 7.25118C6.14559 6.84802 6.43443 6.60085 6.57076 6.51635C6.71626 6.42635 6.84593 6.37685 6.95659 6.36885C6.99743 6.36585 7.01793 6.36435 7.02276 6.43218C7.02926 6.52235 7.01493 6.63018 6.98026 6.75202C6.15909 9.58385 5.78526 11.3092 5.83693 12.0265C5.85459 12.2703 5.94893 12.4598 6.11759 12.5902C6.28826 12.7223 6.51143 12.7797 6.78026 12.7602C7.07309 12.739 7.42459 12.6098 7.85459 12.3653C8.06143 12.2477 8.32943 12.0575 8.65126 11.8002C9.03076 11.4965 9.23043 11.0725 9.19909 10.6368C9.19609 10.597 9.16543 10.563 9.12043 10.55Z"
+                        fill="#21409A" />
+                    <path
+                        d="M8.47381 4.29382C9.04184 4.29382 9.50231 3.83334 9.50231 3.26532C9.50231 2.69729 9.04184 2.23682 8.47381 2.23682C7.90579 2.23682 7.44531 2.69729 7.44531 3.26532C7.44531 3.83334 7.90579 4.29382 8.47381 4.29382Z"
+                        fill="#21409A" />
+                </svg>
+            </span>
+        </ng-template>
+
+        <div class="dax-create-modal__content">
+            <div class="dax-create-modal__body">
+
+                <!-- Step 1: Data source -->
+                <div class="dax-create-modal__section-blue">
+                    <div class="dax-create-modal__section-title">
+                        <span class="dax-create-modal__step">1</span> Data source
+                        <ng-container
+                            *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'Choose the table or view\nthis measure is based on', label: 'Choose the table or view this measure is based on'}"></ng-container>
+                    </div>
+                    <div class="dax-create-modal__row">
+                        <div class="form-group dax-create-modal__field--auto">
+                            <label>Source type
+                                <ng-container
+                                    *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'Choose whether this measure reads\nfrom a table or a view', label: 'Choose whether this measure reads from a table or a view'}"></ng-container>
+                            </label>
+                            <div class="dax-create-modal__toggle" role="tablist">
+                                <button type="button" class="dax-create-modal__toggle-btn"
+                                    [class.active]="createSourceType === 'Table'"
+                                    (click)="selectCreateSourceType('Table')">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                                        <line x1="3" y1="15" x2="21" y2="15"></line>
+                                        <line x1="12" y1="3" x2="12" y2="21"></line>
+                                    </svg>
+                                    Table
+                                </button>
+                                <button type="button" class="dax-create-modal__toggle-btn"
+                                    [class.active]="createSourceType === 'View'"
+                                    (click)="selectCreateSourceType('View')">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                                    </svg>
+                                    View
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group dax-create-modal__field--grow">
+                            <label>Data Source <span class="dax-create-modal__required">*</span>
+                                <ng-container
+                                    *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'The specific table or view\nthis measure reads from', label: 'The specific table or view this measure reads from'}"></ng-container>
+                            </label>
+                            <div appKeyClick class="dax-create-modal__custom-select"
+                                [class.open]="openCreateDropdown === 'dataSource'"
+                                (click)="toggleCreateDropdown('dataSource', $event)">
+                                <span [class.dax-create-modal__custom-select-placeholder]="!createDataSource">
+                                    {{ createDataSource || 'Select' }}
+                                </span>
+                                <svg class="dax-create-modal__chevron" width="12" height="7" viewBox="0 0 12 7"
+                                    fill="none">
+                                    <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085"
+                                        stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="dax-create-modal__custom-select-panel"
+                                    *ngIf="openCreateDropdown === 'dataSource'" (click)="$event.stopPropagation()">
+                                    <input #dataSourceSearchInput type="text" class="dax-create-modal__custom-select-search"
+                                        placeholder="Type to search {{ createSourceType === 'View' ? 'views' : 'tables' }}"
+                                        aria-label="Search data sources" [(ngModel)]="dataSourceSearch"
+                                        (keydown.enter)="selectFirstDataSource($event)" />
+                                    <div class="dax-create-modal__custom-select-empty" *ngIf="!filteredDataSourceOptions.length">
+                                        No matching data sources</div>
+                                    <div appKeyClick class="dax-create-modal__custom-select-option"
+                                        *ngFor="let ds of filteredDataSourceOptions"
+                                        [class.active]="createDataSource === ds"
+                                        (click)="selectCreateDataSource(ds, $event)">{{ ds }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Setup -->
+                <div class="dax-create-modal__section-orange">
+                    <div class="dax-create-modal__section-title">
+                        <span class="dax-create-modal__step">2</span> Setup
+                        <ng-container
+                            *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'Define the name and formula\nfor this calculated measure', label: 'Define the name and formula for this calculated measure'}"></ng-container>
+                    </div>
+                    <div class="dax-create-modal__grid dax-create-modal__grid--2">
+                        <div class="form-group">
+                            <label>DAX Model Name <span class="dax-create-modal__required">*</span>
+                                <ng-container
+                                    *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'Give this measure a clear,\nidentifiable name', label: 'Give this measure a clear, identifiable name'}"></ng-container>
+                            </label>
+                            <input type="text" class="form-control" placeholder="Enter" [(ngModel)]="createModelName" />
+                        </div>
+                        <div class="form-group">
+                            <label>Calculate By <span class="dax-create-modal__required">*</span>
+                                <ng-container
+                                    *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'Evaluate the formula per\ncolumn total or per row', label: 'Evaluate the formula per column total or per row'}"></ng-container>
+                            </label>
+                            <div appKeyClick class="dax-create-modal__custom-select"
+                                [class.open]="openCreateDropdown === 'calculateBy'"
+                                (click)="toggleCreateDropdown('calculateBy', $event)">
+                                <span [class.dax-create-modal__custom-select-placeholder]="!createCalculateBy">
+                                    {{ createCalculateBy || 'Select' }}
+                                </span>
+                                <svg class="dax-create-modal__chevron" width="12" height="7" viewBox="0 0 12 7"
+                                    fill="none">
+                                    <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085"
+                                        stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="dax-create-modal__custom-select-panel"
+                                    *ngIf="openCreateDropdown === 'calculateBy'" (click)="$event.stopPropagation()">
+                                    <div appKeyClick class="dax-create-modal__custom-select-option"
+                                        *ngFor="let cb of createCalculateByOptions"
+                                        [class.active]="createCalculateBy === cb"
+                                        (click)="selectCreateCalculateBy(cb, $event)">{{ cb }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Operation <span class="dax-create-modal__required">*</span>
+                                <ng-container
+                                    *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'The aggregate function used\nin the expression', label: 'The aggregate function used in the expression'}"></ng-container>
+                            </label>
+                            <div appKeyClick class="dax-create-modal__custom-select"
+                                [class.open]="openCreateDropdown === 'operation'"
+                                (click)="toggleCreateDropdown('operation', $event)">
+                                <span [class.dax-create-modal__custom-select-placeholder]="!createOperation">
+                                    {{ createOperation || 'Select' }}
+                                </span>
+                                <svg class="dax-create-modal__chevron" width="12" height="7" viewBox="0 0 12 7"
+                                    fill="none">
+                                    <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085"
+                                        stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="dax-create-modal__custom-select-panel"
+                                    *ngIf="openCreateDropdown === 'operation'" (click)="$event.stopPropagation()">
+                                    <div appKeyClick class="dax-create-modal__custom-select-option"
+                                        *ngFor="let op of createOperationOptions"
+                                        [title]="op"
+                                        [class.active]="createOperation === op"
+                                        (click)="selectCreateOperation(op, $event)">{{ op }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Columns
+                                <ng-container
+                                    *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'The column the operation\nis applied to', label: 'The column the operation is applied to'}"></ng-container>
+                            </label>
+                            <div appKeyClick class="dax-create-modal__custom-select" [class.open]="openCreateDropdown === 'column'"
+                                (click)="toggleCreateDropdown('column', $event)">
+                                <span [class.dax-create-modal__custom-select-placeholder]="!createColumns.length" [title]="createColumns.join(', ')">
+                                    {{ createColumns.join(', ') || 'Select' }}
+                                </span>
+                                <svg class="dax-create-modal__chevron" width="12" height="7" viewBox="0 0 12 7"
+                                    fill="none">
+                                    <path d="M0.699951 0.700195L5.69995 5.7002L10.7 0.700195" stroke="#667085"
+                                        stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="dax-create-modal__custom-select-panel"
+                                    *ngIf="openCreateDropdown === 'column'" (click)="$event.stopPropagation()">
+                                    <div appKeyClick class="dax-create-modal__custom-select-option"
+                                        *ngFor="let col of createColumnOptions" [class.active]="createColumns.includes(col)"
+                                        (click)="selectCreateColumn(col, $event)">
+                                        <input type="checkbox" [checked]="createColumns.includes(col)" tabindex="-1" [attr.aria-label]="col" />
+                                        {{ col }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Expression <span class="dax-create-modal__required">*</span>
+                            <ng-container
+                                *ngTemplateOutlet="daxInfoIcon; context: {tooltip: 'The DAX formula that\ncalculates this measure', label: 'The DAX formula that calculates this measure'}"></ng-container>
+                        </label>
+                        <!-- Same smart compose as the Chart Builder: function/column suggestions, snippets, signature hint -->
+                        <app-dax-expression-input inputId="dax-model-expression" placeholder="SUM(Source[Column])"
+                            [rows]="3" [value]="createExpression" [columns]="createColumnOptions"
+                            textareaClass="form-control dax-create-modal__expression"
+                            (valueChange)="createExpression = $event"></app-dax-expression-input>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dax-create-modal__footer">
+                <span class="dax-create-modal__footer-hint">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <g clip-path="url(#clip0_7490_28915)">
+                            <path
+                                d="M7.5 13.2439V15C7.5 15.8284 8.17155 16.5 9 16.5C9.82845 16.5 10.5 15.8284 10.5 15V13.2439M9 1.5V2.25M2.25 9H1.5M4.125 4.125L3.67492 3.67492M13.875 4.125L14.3252 3.67492M16.5 9H15.75M13.5 9C13.5 11.4853 11.4853 13.5 9 13.5C6.51472 13.5 4.5 11.4853 4.5 9C4.5 6.51472 6.51472 4.5 9 4.5C11.4853 4.5 13.5 6.51472 13.5 9Z"
+                                stroke="#21409A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </g>
+                        <defs>
+                            <clipPath id="clip0_7490_28915">
+                                <rect width="18" height="18" fill="white" />
+                            </clipPath>
+                        </defs>
+                    </svg>
+                    {{ saveError || 'Saved models are available in Chart Builder for the same data source.' }}
+                </span>
+                <div class="dax-create-modal__footer-actions">
+                    <app-button variant="secondary" (clicked)="closeCreateModal()">Discard</app-button>
+                    <app-button variant="primary" [disabled]="!canSubmitCreateModel" (clicked)="submitCreateModel()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        {{ saving ? 'Saving…' : isEditing ? 'Update' : 'Save Model' }}
+                    </app-button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

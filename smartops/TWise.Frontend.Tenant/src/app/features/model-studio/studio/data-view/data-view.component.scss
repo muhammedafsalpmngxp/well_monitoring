@@ -1,0 +1,184 @@
+:host { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+.data-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-height: 0;
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+  }
+
+  &__title { margin: 0; font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+
+  &__meta,
+  &__hint { margin: 0; font-size: 12px; color: var(--color-text-label); }
+
+  &__refresh { margin-left: auto; }
+
+  &__chip {
+    padding: 1px 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-primary-50);
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  &__measures {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: var(--spacing-sm);
+  }
+
+  &__measure {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    animation: data-view-in 0.2s ease-out;
+
+    &--home { border-left: 3px solid var(--color-primary); }
+    &--problem .data-view__measure-value { color: var(--color-text-label); font-size: 13px; font-weight: 500; }
+  }
+
+  &__measure-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    color: var(--color-text-label);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    app-icon ::ng-deep svg { width: 12px; height: 12px; color: var(--color-primary); }
+  }
+
+  &__measure-value { min-height: 24px; font-size: 18px; font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
+
+  &__shimmer {
+    display: inline-block;
+    width: 72px;
+    height: 16px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, var(--color-bg-app), var(--color-border-subtle), var(--color-bg-app));
+    background-size: 200% 100%;
+    animation: data-view-shimmer 1.2s linear infinite;
+  }
+
+  &__hint--error { color: var(--color-danger); }
+
+  ::ng-deep .data-view__calculated { color: var(--color-primary); font-style: italic; }
+
+  &__status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  &__error {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--color-text-primary);
+
+    strong { color: var(--color-danger); }
+  }
+
+  // Fills what is left of the pane, which the Studio sizes from the shell through flex (no vh).
+  &__grid { display: block; flex: 1; min-height: 240px; }
+
+  // The page scrolls at this width, so the grid takes a height of its own.
+  @media (max-width: 992px) {
+    &__grid { flex: none; height: 360px; }
+  }
+}
+
+@keyframes data-view-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes data-view-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-view__measure, .data-view__shimmer { animation: none; }
+}
+
+.data-view__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.data-view__search { max-width: 280px; }
+
+.data-view__density {
+  display: inline-flex;
+  margin-left: auto;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-card);
+}
+
+.data-view__density-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover { color: var(--color-primary); }
+  &:focus-visible { outline: 2px solid var(--color-primary); }
+  &--active { background: #e8f0fc; color: #21409a; }
+}
+
+.data-view__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-card);
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover { color: #21409a; }
+  &:focus-visible { outline: 2px solid var(--color-primary); }
+  &--active { background: #e8f0fc; color: #21409a; }
+}
+
+// Full screen: the grid covers the window until the button is pressed again.
+.data-view--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  padding: var(--spacing-md);
+  background: var(--color-bg-card);
+}

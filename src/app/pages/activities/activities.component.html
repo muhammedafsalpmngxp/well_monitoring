@@ -1,0 +1,67 @@
+<div id="page-activities" class="page active">
+        <div class="breadcrumb">
+          <a onclick="navigate('cmdoverview',null)">{{ 'ACTIVITIES.BREADCRUMB_INSIGHT' | translate }}</a>
+          <span>›</span>
+          <a onclick="navigate('cmdoverview',null)">{{ 'ACTIVITIES.BREADCRUMB_DASHBOARD' | translate }}</a>
+          <span>›</span>
+          <span class="current">{{ 'ACTIVITIES.BREADCRUMB_ACTIVITIES' | translate }}</span>
+        </div>
+
+        <div class="page-title-row">
+          <div>
+            <div class="page-title">{{ 'ACTIVITIES.TITLE' | translate }}</div>
+            <div class="page-subtitle" data-act="pageSub" style="margin-top:4px">{{ 'ACTIVITIES.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- KPI cards — 5 across -->
+        <div class="act-kpi-strip">
+          <div class="act-kpi k-blue">
+            <div class="act-kpi-label">{{ 'ACTIVITIES.KPI_TOTAL_ACTIVITIES' | translate }}</div>
+            <div class="act-kpi-val" data-act="total">--</div>
+            <div class="act-kpi-sub" data-act="totalSub">{{ 'ACTIVITIES.KPI_ACROSS_ALL_DISCIPLINES' | translate }}</div>
+          </div>
+          <div class="act-kpi k-green">
+            <div class="act-kpi-label">{{ 'ACTIVITIES.KPI_COMPLETED' | translate }}</div>
+            <div class="act-kpi-val" data-act="completed">--</div>
+            <div class="act-kpi-bar"><div class="act-kpi-bar-fill" data-act="completedBar" style="width:35%;background:#16a34a"></div></div>
+            <div class="act-kpi-sub" data-act="completedSub">{{ 'ACTIVITIES.KPI_OF_TOTAL_SCOPE' | translate }}</div>
+          </div>
+          <div class="act-kpi k-blue">
+            <div class="act-kpi-label">{{ 'ACTIVITIES.KPI_IN_PROGRESS' | translate }}</div>
+            <div class="act-kpi-val" data-act="inprogress">--</div>
+            <div class="act-kpi-bar"><div class="act-kpi-bar-fill" data-act="inprogressBar" style="width:45%;background:#29378d"></div></div>
+            <div class="act-kpi-sub" data-act="inprogressSub">{{ 'ACTIVITIES.KPI_CURRENTLY_ACTIVE' | translate }}</div>
+          </div>
+          <div class="act-kpi k-amber">
+            <div class="act-kpi-label">{{ 'ACTIVITIES.KPI_AT_RISK_BLOCKED' | translate }}</div>
+            <div class="act-kpi-val" data-act="atrisk">--</div>
+            <div class="act-kpi-sub" data-act="atriskSub">{{ 'ACTIVITIES.KPI_BEHIND_PRODUCTIVITY_NORM' | translate }}</div>
+          </div>
+          <div class="act-kpi k-purple">
+            <div class="act-kpi-label">{{ 'ACTIVITIES.KPI_AVG_PRODUCTIVITY' | translate }}</div>
+            <div class="act-kpi-val" data-act="prod">--</div>
+            <div class="act-kpi-bar"><div class="act-kpi-bar-fill" data-act="prodBar" style="width:87%;background:#a855f7"></div></div>
+            <div class="act-kpi-sub">{{ 'ACTIVITIES.KPI_VS_PDO_STANDARD' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- Discipline tiles -->
+        <div class="act-discipline-strip" id="actDisciplineStrip"></div>
+
+        <!-- Activities AG grid -->
+        <div class="act-grid-wrap">
+          <div class="act-grid-head">
+            <div>
+              <div class="act-grid-title">{{ 'ACTIVITIES.GRID_TITLE' | translate }}</div>
+              <div class="act-grid-sub" data-act="gridSub">{{ 'ACTIVITIES.GRID_SUBTITLE' | translate }}</div>
+            </div>
+            <button class="act-export-btn" (click)="exportToExcel()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export
+            </button>
+          </div>
+          <div id="actGrid" class="ag-theme-alpine" style="height:580px;width:100%"></div>
+        </div>
+
+      </div><!-- /page-activities -->

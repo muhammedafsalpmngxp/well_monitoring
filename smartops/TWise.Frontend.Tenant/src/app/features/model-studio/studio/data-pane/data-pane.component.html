@@ -1,0 +1,165 @@
+<div class="data-pane">
+  <div class="data-pane__head">
+    <h2 class="data-pane__title">Data</h2>
+    <span class="data-pane__chip" [title]="(dataset?.sources?.length ?? 0) + ' tables'">{{ dataset?.sources?.length ?? 0 }}</span>
+    <button type="button" class="data-pane__collapse" aria-label="Collapse the Data pane" title="Collapse" (click)="collapse.emit()">
+      <app-icon name="chevron_right" aria-hidden="true"></app-icon>
+    </button>
+  </div>
+  <input class="form-control" type="search" placeholder="Search" aria-label="Search tables, fields and measures"
+    [(ngModel)]="search" (ngModelChange)="filter()" />
+
+  <ul class="data-pane__tables" aria-label="Tables">
+    <li *ngFor="let table of tables; trackBy: trackTable" class="data-pane__table"
+      [class.data-pane__table--drop]="dropTarget === table.source.id"
+      (dragover)="onDragOver($event, table.source.id)" (dragleave)="onDragLeave(table.source.id)" (drop)="onDrop($event, table.source.id)">
+      <div class="data-pane__table-row" [class.data-pane__table-row--active]="table.source.id === activeSourceId">
+        <button type="button" class="data-pane__toggle" [class.data-pane__toggle--open]="isOpen(table.source.id)"
+          [attr.aria-expanded]="isOpen(table.source.id)" [attr.aria-controls]="'data-pane-fields-' + table.source.id"
+          [attr.aria-label]="(isOpen(table.source.id) ? 'Hide fields of ' : 'Show fields of ') + (table.source.caption || table.source.alias)"
+          (click)="toggleTable(table.source.id)">
+          <app-icon name="chevron_right" aria-hidden="true"></app-icon>
+        </button>
+        <button type="button" class="data-pane__table-name" [attr.aria-pressed]="table.source.id === activeSourceId"
+          [title]="(table.source.connectionId ? table.source.databaseName + '.' : '') + (table.source.label || table.source.schemaName + '.' + table.source.sourceName)"
+          (click)="selectSource.emit(table.source.id)">
+          <app-icon name="database_view" aria-hidden="true"></app-icon>
+          <span class="data-pane__table-label">{{ (table.source.caption || table.source.alias) }}</span>
+          <span *ngIf="table.source.connectionId" class="data-pane__db">{{ table.source.databaseName }}</span>
+          <span class="data-pane__chip" aria-hidden="true">{{ table.fields.length }}</span>
+        </button>
+      </div>
+      <ul *ngIf="isOpen(table.source.id)" [id]="'data-pane-fields-' + table.source.id" class="data-pane__fields"
+        [attr.aria-label]="'Fields of ' + (table.source.caption || table.source.alias)">
+        <li *ngFor="let field of table.fields; trackBy: trackField" class="data-pane__field"
+          [class.data-pane__field--selected]="isColumnSelected(table.source.id, field.name)" [class.data-pane__field--hidden]="field.hidden">
+          <button type="button" class="data-pane__field-button" (click)="selectField(table, field)"
+            [title]="field.calculated ? describeColumn(field.calculated) : field.name">
+            <span class="data-pane__glyph" aria-hidden="true">
+              <ng-container *ngIf="field.calculated; else plainGlyph">ƒx</ng-container>
+              <ng-template #plainGlyph>
+                <app-icon *ngIf="field.kind === 'date'" name="calendar"></app-icon>{{ field.kind === 'number' ? '#' : field.kind === 'text' ? 'Aa' : '' }}
+              </ng-template>
+            </span>
+            <span class="data-pane__field-name">{{ field.name }}</span>
+          </button>
+          <button type="button" class="data-pane__eye" [class.data-pane__eye--off]="field.hidden" [disabled]="readonly"
+            [attr.aria-pressed]="field.hidden"
+            [attr.aria-label]="(field.hidden ? 'Show ' : 'Hide ') + (table.source.caption || table.source.alias) + '.' + field.name + (field.hidden ? ' in' : ' from') + ' report builders'"
+            [title]="field.hidden ? 'Hidden from report builders. Select to show it.' : 'Hide from report builders'"
+            (click)="toggleHidden.emit({ source: table.source, column: field.name })">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+              <line *ngIf="field.hidden" x1="3" y1="3" x2="21" y2="21" />
+            </svg>
+          </button>
+          <ng-container *ngIf="field.calculated as column">
+            <button type="button" class="data-pane__action" [disabled]="readonly"
+              [attr.aria-label]="'Edit calculated column ' + (table.source.caption || table.source.alias) + '.' + column.name"
+              (click)="editColumn.emit({ source: table.source, column: column })">
+              Edit
+            </button>
+            <button type="button" class="data-pane__action data-pane__action--danger" [disabled]="readonly"
+              [attr.aria-label]="'Delete calculated column ' + (table.source.caption || table.source.alias) + '.' + column.name"
+              (click)="removeColumn.emit(column)">
+              Remove
+            </button>
+          </ng-container>
+        </li>
+        <ng-container *ngFor="let group of table.measures; trackBy: trackGroup">
+          <li *ngIf="group.folder" class="data-pane__folder">
+            <button type="button" class="data-pane__folder-button" [attr.aria-expanded]="isFolderOpen(table.source.id, group.folder)"
+              (click)="toggleFolder(table.source.id, group.folder)">
+              <app-icon class="data-pane__folder-chevron" [class.data-pane__folder-chevron--open]="isFolderOpen(table.source.id, group.folder)"
+                name="chevron_right" aria-hidden="true"></app-icon>
+              <app-icon name="folder" aria-hidden="true"></app-icon>
+              <span class="data-pane__folder-name">{{ group.folder }}</span>
+              <span class="data-pane__chip" aria-hidden="true">{{ group.measures.length }}</span>
+            </button>
+          </li>
+          <ng-container *ngIf="!group.folder || isFolderOpen(table.source.id, group.folder)">
+          <ng-container *ngFor="let measure of group.measures; trackBy: trackMeasure">
+            <ng-container *ngTemplateOutlet="measureRow; context: { $implicit: measure, nested: !!group.folder }"></ng-container>
+          </ng-container>
+          </ng-container>
+        </ng-container>
+      </ul>
+    </li>
+  </ul>
+  <p *ngIf="!tables.length" class="data-pane__hint">
+    {{ dataset?.sources?.length ? 'No table or field matches "' + search + '".' : 'Select Get data to add a table.' }}
+  </p>
+
+  <h3 class="data-pane__subtitle" [class.data-pane__subtitle--drop]="dropTarget === 0"
+    (dragover)="onDragOver($event, 0)" (dragleave)="onDragLeave(0)" (drop)="onDrop($event, 0)">
+    <app-icon name="measure" aria-hidden="true"></app-icon>Measures
+    <span class="data-pane__chip">{{ measureCount }}</span>
+  </h3>
+  <ul class="data-pane__measures" aria-label="Measures of the data model">
+    <ng-container *ngFor="let group of measures; trackBy: trackGroup">
+      <li *ngIf="group.folder" class="data-pane__folder">
+        <button type="button" class="data-pane__folder-button" [attr.aria-expanded]="isFolderOpen(0, group.folder)"
+          (click)="toggleFolder(0, group.folder)">
+          <app-icon class="data-pane__folder-chevron" [class.data-pane__folder-chevron--open]="isFolderOpen(0, group.folder)"
+            name="chevron_right" aria-hidden="true"></app-icon>
+          <app-icon name="folder" aria-hidden="true"></app-icon>
+          <span class="data-pane__folder-name">{{ group.folder }}</span>
+          <span class="data-pane__chip" aria-hidden="true">{{ group.measures.length }}</span>
+        </button>
+      </li>
+      <ng-container *ngIf="!group.folder || isFolderOpen(0, group.folder)">
+      <ng-container *ngFor="let measure of group.measures; trackBy: trackMeasure">
+        <ng-container *ngTemplateOutlet="measureRow; context: { $implicit: measure, nested: !!group.folder }"></ng-container>
+      </ng-container>
+      </ng-container>
+    </ng-container>
+  </ul>
+  <p *ngIf="!measures.length" class="data-pane__hint">
+    {{ dataset?.measures?.length ? (search.trim() ? 'No measure matches "' + search + '".' : 'Every measure is listed under a table.')
+      : 'No measures yet. Select New measure to add one.' }}
+  </p>
+  <p *ngIf="!readonly && dataset?.measures?.length" class="data-pane__hint">
+    Drag a measure onto a table to list it there, or right-click it for more.
+  </p>
+</div>
+
+<ng-template #measureRow let-measure let-nested="nested">
+  <li class="data-pane__measure" [class.data-pane__measure--nested]="nested" [class.data-pane__measure--selected]="isMeasureSelected(measure)"
+    [attr.draggable]="!readonly" (dragstart)="onMeasureDragStart($event, measure)" (dragend)="onDragEnd()"
+    (contextmenu)="openMenu($event, measure)">
+    <button type="button" class="data-pane__measure-button" [title]="describe(measure.expression)"
+      (click)="selectMeasure(measure)" (dblclick)="!readonly && editMeasure.emit(measure)">
+      <app-icon class="data-pane__measure-icon" name="measure" aria-hidden="true"></app-icon>
+      <span class="data-pane__measure-name">{{ measure.name }}</span>
+    </button>
+    <button type="button" class="data-pane__more" [disabled]="readonly" aria-haspopup="menu"
+      [attr.aria-label]="'More for measure ' + measure.name" (click)="openMenu($event, measure)">
+      <app-icon name="more_vert" aria-hidden="true"></app-icon>
+    </button>
+  </li>
+</ng-template>
+
+<div *ngIf="menu as open" class="data-pane__menu" role="menu" [attr.aria-label]="'Actions for ' + open.measure.name"
+  [style.left.px]="open.x" [style.top.px]="open.y" (click)="$event.stopPropagation()">
+  <button type="button" role="menuitem" class="data-pane__menu-item" (click)="menuAction('edit')">Edit formula</button>
+  <div class="data-pane__menu-label">List under</div>
+  <button type="button" role="menuitem" class="data-pane__menu-item" [class.data-pane__menu-item--current]="open.measure.homeSourceId == null"
+    (click)="moveTo(null)">Measures (the data model)</button>
+  <button *ngFor="let source of dataset?.sources ?? []" type="button" role="menuitem" class="data-pane__menu-item"
+    [class.data-pane__menu-item--current]="open.measure.homeSourceId === source.id" (click)="moveTo(source.id)">
+    {{ source.alias }}
+  </button>
+  <div class="data-pane__menu-label">Folder</div>
+  <button type="button" role="menuitem" class="data-pane__menu-item" [class.data-pane__menu-item--current]="!open.measure.folder"
+    (click)="putInFolder(null)">No folder</button>
+  <button *ngFor="let folder of folders" type="button" role="menuitem" class="data-pane__menu-item"
+    [class.data-pane__menu-item--current]="open.measure.folder === folder" (click)="putInFolder(folder)">{{ folder }}</button>
+  <button *ngIf="!open.naming" type="button" role="menuitem" class="data-pane__menu-item" (click)="startFolderName($event)">New folder...</button>
+  <form *ngIf="open.naming" class="data-pane__menu-form" (ngSubmit)="putInFolder(folderName)">
+    <input class="form-control" name="folder" aria-label="Folder name" placeholder="Folder name" maxlength="128" [(ngModel)]="folderName" />
+    <app-button variant="primary" size="sm" type="submit" [disabled]="!folderName.trim()">Add</app-button>
+  </form>
+  <div class="data-pane__menu-divider"></div>
+  <button type="button" role="menuitem" class="data-pane__menu-item data-pane__menu-item--danger" (click)="menuAction('remove')">Delete measure</button>
+</div>

@@ -1,0 +1,202 @@
+<div class="ac" [class.ac--palette-collapsed]="paletteCollapsed" [class.ac--props-collapsed]="propertiesCollapsed">
+    @if (paletteCollapsed) {
+        <button type="button" class="ac__strip" (click)="paletteCollapsed = false" aria-label="Show Nodes palette" title="Show Nodes palette">
+            <span aria-hidden="true">›</span><span class="ac__strip-label">Nodes</span>
+        </button>
+    } @else {
+    <aside class="ac__palette" aria-label="Nodes">
+        <div class="ac__palette-head">
+            <p class="ac__palette-title">Nodes</p>
+            <button type="button" class="ac__collapse" (click)="paletteCollapsed = true" aria-label="Hide Nodes palette" title="Hide Nodes palette">‹</button>
+        </div>
+        @for (g of palette; track g.label) {
+            <button type="button" class="ac__group" [attr.aria-expanded]="!collapsed.has(g.label)" (click)="toggleGroup(g.label)">
+                {{ g.label }} <span class="ac__group-count">{{ g.items.length }}</span>
+            </button>
+            @if (!collapsed.has(g.label)) {
+                @for (item of g.items; track item.label) {
+                    @if (item.data) {
+                        <div class="ac__palette-item" fExternalItem [fData]="item.data" tabindex="0" role="button"
+                            [attr.aria-label]="item.label + ': drag onto the canvas. ' + item.description" [title]="item.description">
+                            <span class="ac__dot" [class.ac__dot--step]="item.data === 'step'" [class.ac__dot--tool]="item.data !== 'step'"></span>
+                            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+                        </div>
+                    } @else {
+                        <div class="ac__palette-item ac__palette-item--off" [title]="item.description">
+                            <span class="ac__dot"></span>
+                            <span><strong>{{ item.label }}</strong><small>{{ item.note }}</small></span>
+                        </div>
+                    }
+                }
+                @if (!g.items.length) { <p class="ac__hint">No tools available.</p> }
+            }
+        }
+        <p class="ac__hint">Drag an Agent or Task to add a step, a Router to branch, or a tool to give it to the agent. Connect a
+            step's (or a branch's) right dot to another step's left dot to run it next. Select any node to see its properties.</p>
+    </aside>
+    }
+
+    <div class="ac__stage">
+    <div class="ac__zoom" role="group" aria-label="Zoom">
+        <button type="button" (click)="zoomOut()" aria-label="Zoom out" title="Zoom out">−</button>
+        <button type="button" (click)="actualSize()" aria-label="Zoom to 100%" title="100%">100%</button>
+        <button type="button" (click)="zoomIn()" aria-label="Zoom in" title="Zoom in">+</button>
+        <button type="button" (click)="fit()" aria-label="Fit to screen" title="Fit to screen">Fit</button>
+    </div>
+    <f-flow fDraggable class="ac__flow"
+        (fCreateNode)="onCreateNode($event)"
+        (fMoveNodes)="onMoveNodes($event)"
+        (fCreateConnection)="onCreateConnection($event)"
+        (fSelectionChange)="onSelection($event)"
+        (fNodesRendered)="onRendered()">
+        <f-canvas fZoom>
+            <f-connection-for-create fType="segment"></f-connection-for-create>
+            @for (c of connections; track c.id) {
+                <f-connection [fConnectionId]="c.id" [fSourceId]="c.source" [fTargetId]="c.target"
+                    fType="segment" fBehavior="fixed" [fReassignDisabled]="true" [fSelectionDisabled]="true"
+                    [class.ac__uses]="c.uses" [class.ac__back]="c.back" [class.ac__loop]="c.loop"></f-connection>
+            }
+            @for (n of nodes; track n.id) {
+                <div fNode fDragHandle [fNodeId]="n.id" [fNodePosition]="n.position"
+                    [fNodeDraggingDisabled]="n.kind !== 'step' && n.kind !== 'router'"
+                    class="ac__node ac__node--{{ n.kind }}" [attr.aria-label]="n.title + ': ' + n.detail">
+                    <span class="ac__node-kind">{{ n.title }}</span>
+                    <span class="ac__node-detail">{{ n.detail }}</span>
+                    @if (n.kind !== 'start' && n.kind !== 'tool') {
+                        <div fConnector fConnectorType="target" [fConnectorId]="n.id + ':in'" fConnectorConnectableSide="left" [fConnectorMultiple]="true" class="ac__port ac__port--in"></div>
+                    }
+                    @if (n.kind === 'router') {
+                        <div class="ac__branches">
+                            @for (b of n.branches ?? []; track b.port) {
+                                <div class="ac__branch-row">{{ b.label }}
+                                    <div fConnector fConnectorType="source" [fConnectorId]="b.port" fConnectorConnectableSide="right"
+                                        class="ac__port ac__port--out" [attr.aria-label]="'Branch ' + b.label"></div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (n.kind !== 'answer' && n.kind !== 'router') {
+                        <div fConnector fConnectorType="source" [fConnectorId]="n.id + ':out'" [fConnectorMultiple]="true"
+                            [fConnectorConnectableSide]="n.kind === 'tool' ? 'bottom' : 'right'" class="ac__port"
+                            [class.ac__port--out]="n.kind !== 'tool'" [class.ac__port--down]="n.kind === 'tool'"></div>
+                    }
+                    @if (n.kind === 'step') {
+                        <div fConnector fConnectorType="target" [fConnectorId]="n.id + ':tool'" fConnectorConnectableSide="top"
+                            [fConnectorDisabled]="true" class="ac__port ac__port--top"></div>
+                    }
+                </div>
+            }
+        </f-canvas>
+    </f-flow>
+    @if (loopNote) { <p class="ac__warn" role="alert">{{ loopNote }}</p> }
+    </div>
+
+    @if (propertiesCollapsed) {
+        <button type="button" class="ac__strip" (click)="propertiesCollapsed = false" aria-label="Show Properties" title="Show Properties">
+            <span aria-hidden="true">‹</span><span class="ac__strip-label">Properties</span>
+        </button>
+    } @else {
+    <aside class="ac__panel" aria-label="Properties">
+        <div class="ac__panel-head">
+            <p class="ac__palette-title">Properties</p>
+            <button type="button" class="ac__collapse" (click)="propertiesCollapsed = true" aria-label="Hide Properties" title="Hide Properties">›</button>
+        </div>
+        @if (selectedNode; as node) {
+            <p class="ac__props-kind">{{ node.kind === 'step' ? node.title : node.kind === 'tool' ? 'Tool' : node.title }}</p>
+        }
+        @if (selectedStep; as step) {
+            <label class="ac__panel-label" for="ac-step-text">{{ step.kind === 'router' ? 'What to decide' : 'Instruction' }}</label>
+            <textarea id="ac-step-text" [rows]="step.kind === 'router' ? 2 : 4" [ngModel]="step.value" (ngModelChange)="editSelected($event)"
+                [placeholder]="step.kind === 'router' ? 'e.g. Which team should answer this question?' : ''"></textarea>
+            @if (step.kind === 'router') {
+                <div class="ac__seg" role="radiogroup" aria-label="Route by">
+                    <button type="button" role="radio" [attr.aria-checked]="step.routeBy !== 'ai'" [class.is-on]="step.routeBy !== 'ai'" (click)="setRouteBy('rules')">Rules</button>
+                    <button type="button" role="radio" [attr.aria-checked]="step.routeBy === 'ai'" [class.is-on]="step.routeBy === 'ai'" (click)="setRouteBy('ai')">AI decides</button>
+                </div>
+                <p class="ac__hint">{{ step.routeBy === 'ai' ? 'The model picks the branch whose name fits best; Otherwise when none does.'
+                    : 'Rules are checked in order; the first that matches wins, else Otherwise.' }}</p>
+                @for (b of step.branches ?? []; track b.id) {
+                    <fieldset class="ac__branch">
+                        <legend>{{ b.op === 'else' ? 'Otherwise' : 'Branch' }}</legend>
+                        @if (b.op !== 'else') {
+                            <input type="text" aria-label="Branch name" placeholder="Name, e.g. Production questions"
+                                [ngModel]="b.label" (ngModelChange)="b.label = $event; edited()" />
+                            @if (step.routeBy !== 'ai') {
+                                <div class="ac__rule">
+                                    <select aria-label="Compare" [ngModel]="b.input" (ngModelChange)="b.input = $event; edited()">
+                                        @for (name of inputs; track name) { <option [ngValue]="name">{{ name }}</option> }
+                                        <option ngValue="last_answer">Previous answer</option>
+                                    </select>
+                                    <select aria-label="Rule" [ngModel]="b.op" (ngModelChange)="b.op = $event; edited()">
+                                        @for (o of ruleOps; track o.value) { <option [ngValue]="o.value">{{ o.label }}</option> }
+                                    </select>
+                                    @if (b.op !== 'empty' && b.op !== 'not_empty') {
+                                        <input type="text" aria-label="Value" placeholder="Value" [ngModel]="b.value" (ngModelChange)="b.value = $event; edited()" />
+                                    }
+                                </div>
+                            }
+                        }
+                        <label class="ac__go">Go to
+                            <select [ngModel]="b.target ?? 'answer'" (ngModelChange)="b.target = $event; edited()">
+                                <option ngValue="answer">Answer</option>
+                                @for (t of targets; track t.id) { <option [ngValue]="t.id">{{ t.label }}</option> }
+                            </select>
+                        </label>
+                        <button type="button" class="ac__link" (click)="removeBranch(b.id)">Remove</button>
+                    </fieldset>
+                }
+                <div class="ac__row">
+                    <button type="button" class="ac__link" (click)="addBranch()">+ Add branch</button>
+                    @if (!hasOtherwise) { <button type="button" class="ac__link" (click)="addBranch(true)">+ Otherwise</button> }
+                </div>
+            } @else {
+                <label class="ac__go">Tool
+                    <select [ngModel]="toolOf(step) ?? ''" (ngModelChange)="setStepTool($event)">
+                        @for (t of tools; track t.id) { <option [ngValue]="t.id">{{ t.label }}{{ $first ? ' (default)' : '' }}</option> }
+                        @if (!tools.length) { <option ngValue="">Add a tool to the agent first</option> }
+                    </select>
+                </label>
+                @if (routable) {
+                    <label class="ac__go">Then go to
+                        <select [ngModel]="step.next ?? ''" (ngModelChange)="setNext($event)">
+                            <option ngValue="">The following step</option>
+                            <option ngValue="answer">Answer</option>
+                            @for (t of targets; track t.id) { <option [ngValue]="t.id">{{ t.label }}</option> }
+                        </select>
+                    </label>
+                }
+            }
+            <button type="button" class="ac__delete" (click)="deleteSelected()">Delete {{ step.kind === 'router' ? 'router' : 'instruction' }}</button>
+        } @else if (selectedNode; as node) {
+            @switch (node.kind) {
+                @case ('start') {
+                    <p class="ac__hint">Where every run begins. The run asks for these inputs; use them in instructions as <code ngNonBindable>{{name}}</code>.</p>
+                    @for (name of inputs; track name) { <p class="ac__chip">{{ name }}</p> }
+                    @if (!inputs.length) { <p class="ac__hint">No inputs. Add them in the Form view under Inputs &amp; Outputs.</p> }
+                }
+                @case ('tool') {
+                    <p class="ac__panel-label">{{ node.title }}</p>
+                    <p class="ac__hint">Used by:</p>
+                    @for (u of usersOf(node.id.slice(5)); track u) { <p class="ac__chip">{{ u }}</p> }
+                    @if (!usersOf(node.id.slice(5)).length) { <p class="ac__hint">No instruction uses it yet. Pick it under Tool on an instruction.</p> }
+                    <button type="button" class="ac__delete" (click)="removeSelectedTool()">{{ confirmRemoveTool ? 'Click again to remove' : 'Remove from agent' }}</button>
+                }
+                @case ('answer') {
+                    <p class="ac__hint">{{ steps.length > 1
+                        ? "The tenant's AI provider writes one answer from the step results, in the agent's role and goal."
+                        : 'The answer of the single instruction is returned as it is.' }}</p>
+                }
+                @default {
+                    <p class="ac__hint">{{ node.kind === 'supervisor' ? 'Picks the next instruction and its task each round, or finishes.'
+                        : 'Checks whether the results meet the goal; if not, the steps run again.' }}</p>
+                    <label class="ac__go">{{ node.kind === 'supervisor' ? 'Max rounds' : 'Max repeats' }}
+                        <input type="number" min="1" max="20" [ngModel]="maxIterations" (ngModelChange)="setMaxIterations($event)" />
+                    </label>
+                }
+            }
+        } @else {
+            <p class="ac__hint">Select a node on the canvas to see and edit its properties.</p>
+        }
+    </aside>
+    }
+</div>

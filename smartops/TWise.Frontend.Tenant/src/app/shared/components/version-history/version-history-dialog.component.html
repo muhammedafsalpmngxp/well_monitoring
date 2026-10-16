@@ -1,0 +1,74 @@
+<div class="vh-overlay" *ngIf="isOpen" (click)="close()"></div>
+
+<div appDialog (dialogClose)="close()" class="vh-dialog" *ngIf="isOpen" role="dialog" aria-modal="true" aria-labelledby="vh-title">
+  <header class="vh-dialog__head">
+    <div>
+      <h2 class="vh-dialog__title" id="vh-title">{{ title }}</h2>
+      <p class="vh-dialog__subtitle" *ngIf="subtitle">{{ subtitle }}</p>
+    </div>
+    <button type="button" class="vh-dialog__close" (click)="close()" aria-label="Close">&times;</button>
+  </header>
+
+  <div class="vh-dialog__body">
+    <div class="vh-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+    <app-loader *ngIf="loading" size="md"></app-loader>
+
+    <p class="vh-empty" *ngIf="!loading && versions.length === 0">
+      No published versions recorded yet. A version is saved each time this is published.
+    </p>
+
+    <ol class="vh-list" *ngIf="!loading && versions.length > 0">
+      <li class="vh-item" *ngFor="let v of versions; trackBy: trackByVersion" [class.vh-item--current]="v.isCurrent">
+        <div class="vh-item__marker">
+          <span class="vh-item__dot"></span>
+          <span class="vh-item__line"></span>
+        </div>
+
+        <div class="vh-item__body">
+          <div class="vh-item__head">
+            <span class="vh-item__version">v{{ v.versionNo }}</span>
+
+            <span class="vh-badge vh-badge--current" *ngIf="v.isCurrent">Current</span>
+            <span class="vh-badge vh-badge--restore" *ngIf="v.reason === 'restore'">
+              Restored from v{{ v.restoredFromVersionNo }}
+            </span>
+          </div>
+
+          <p class="vh-item__label" *ngIf="v.label">{{ v.label }}</p>
+
+          <p class="vh-item__meta">
+            <ng-container *ngIf="v.publishedAt">{{ v.publishedAt | date:'dd MMM yyyy, HH:mm' }}</ng-container>
+            <ng-container *ngIf="v.publishedBy"> · by {{ v.publishedBy }}</ng-container>
+          </p>
+        </div>
+
+        <div class="vh-item__actions">
+          <button type="button" class="vh-btn" *ngIf="canRestore && !v.isCurrent"
+            (click)="askRestore(v.versionNo)" [disabled]="restoringVersionNo !== null">
+            {{ restoringVersionNo === v.versionNo ? 'Restoring…' : 'Restore' }}
+          </button>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <!-- Confirmation: restoring changes what every viewer sees, so it is deliberate. -->
+  <div class="vh-confirm" *ngIf="pendingVersionNo !== null">
+    <p class="vh-confirm__text">
+      Restore <strong>v{{ pendingVersionNo }}</strong>? Its content will be published as a new
+      version <strong>v{{ nextVersionNo }}</strong>.
+    </p>
+    <p class="vh-confirm__note">
+      Nothing is deleted — every existing version stays in this history.
+    </p>
+    <div class="vh-confirm__actions">
+      <button type="button" class="vh-btn" (click)="cancelRestore()">Cancel</button>
+      <button type="button" class="vh-btn vh-btn--primary" (click)="confirmRestore()">Restore</button>
+    </div>
+  </div>
+
+  <footer class="vh-dialog__foot" *ngIf="pendingVersionNo === null">
+    <button type="button" class="vh-btn" (click)="close()">Close</button>
+  </footer>
+</div>

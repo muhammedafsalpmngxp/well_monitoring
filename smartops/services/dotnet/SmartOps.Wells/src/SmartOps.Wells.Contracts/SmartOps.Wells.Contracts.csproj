@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SmartOps.Wells.Contracts</RootNamespace>
+  </PropertyGroup>
+  <!-- Contracts has no external dependencies — only primitive .NET types -->
+</Project>

@@ -1,0 +1,228 @@
+<div id="page-material" class="page active">
+        <!-- <div class="breadcrumb"><a>{{ 'MATERIAL.BREADCRUMB_1' | translate }}</a><span>›</span><span class="current">{{ 'MATERIAL.TITLE' | translate }}</span></div> -->
+        <div class="page-title-row">
+          <div class="mat-title-info">
+            <div class="page-title">{{ 'MATERIAL.TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'MATERIAL.SUBTITLE' | translate }}</div>
+          </div>
+          <div class="mat-header-actions">
+            <select class="dq-sla-select" id="matWellFilter" onchange="matRenderAll()">
+              <option value="all">{{ 'MATERIAL.ALL_WELLS' | translate }}</option>
+              <option>31780</option><option>37797</option><option>34565</option>
+              <option>34561</option><option>36106</option><option>34357</option>
+              <option>36106</option><option>36748</option>
+            </select>
+            <button class="dq-btn dq-btn-blue" onclick="matRenderAll()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="btn-icon"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              {{ 'MATERIAL.SYNC' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI strip -->
+        <div class="mat-kpi-strip">
+
+          <!-- PO Not Raised -->
+          <div class="mat-kpi red">
+            <div class="mat-kpi-head">
+              <span class="mat-kpi-label">{{ 'MATERIAL.PO_NOT_RAISED' | translate }}</span>
+              <span class="mat-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+            </div>
+            <div class="mat-kpi-val red">8</div>
+            <div class="mat-kpi-sub">{{ 'MATERIAL.KPI_BLOCKING_ACTIVITIES' | translate }}</div>
+          </div>
+
+          <!-- In Transit -->
+          <div class="mat-kpi amber">
+            <div class="mat-kpi-head">
+              <span class="mat-kpi-label">{{ 'MATERIAL.IN_TRANSIT' | translate }}</span>
+              <span class="mat-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              </span>
+            </div>
+            <div class="mat-kpi-val amber">14</div>
+            <div class="mat-kpi-sub">{{ 'MATERIAL.KPI_DELIVERY_EXPECTED' | translate }}</div>
+          </div>
+
+          <!-- On Site -->
+          <div class="mat-kpi green">
+            <div class="mat-kpi-head">
+              <span class="mat-kpi-label">{{ 'MATERIAL.ON_SITE' | translate }}</span>
+              <span class="mat-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </span>
+            </div>
+            <div class="mat-kpi-val green">31</div>
+            <div class="mat-kpi-sub">{{ 'MATERIAL.KPI_READY_FOR_USE' | translate }}</div>
+          </div>
+
+          <!-- Total POs -->
+          <div class="mat-kpi blue">
+            <div class="mat-kpi-head">
+              <span class="mat-kpi-label">{{ 'MATERIAL.TOTAL_POS' | translate }}</span>
+              <span class="mat-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </span>
+            </div>
+            <div class="mat-kpi-val blue">53</div>
+            <div class="mat-kpi-sub">{{ 'MATERIAL.KPI_ACROSS_WELLS' | translate }}</div>
+          </div>
+
+          <!-- Late Deliveries -->
+          <div class="mat-kpi red">
+            <div class="mat-kpi-head">
+              <span class="mat-kpi-label">{{ 'MATERIAL.LATE_DELIVERIES' | translate }}</span>
+              <span class="mat-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+            </div>
+            <div class="mat-kpi-val red">6</div>
+            <div class="mat-kpi-sub">{{ 'MATERIAL.KPI_PAST_REQUIRED_DATE' | translate }}</div>
+          </div>
+
+          <!-- Est. Penalty Risk -->
+          <div class="mat-kpi purple">
+            <div class="mat-kpi-head">
+              <span class="mat-kpi-label">{{ 'MATERIAL.PENALTY_RISK' | translate }}</span>
+              <span class="mat-kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </span>
+            </div>
+            <div class="mat-kpi-val purple">OMR 72.0K</div>
+            <div class="mat-kpi-sub">{{ 'MATERIAL.KPI_FROM_MATERIAL_DELAYS' | translate }}</div>
+          </div>
+
+        </div>
+
+        <!-- Tabs -->
+        <div class="ai-tabs">
+          <div class="ai-tab active" onclick="switchMatTab('status',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg>
+            {{ 'MATERIAL.TAB_STATUS' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchMatTab('heatmap',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            {{ 'MATERIAL.TAB_HEATMAP' | translate }}
+          </div>
+          <!-- <div class="ai-tab" onclick="switchMatTab('po',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            {{ 'MATERIAL.TAB_PO' | translate }}
+          </div>
+          <div class="ai-tab" onclick="switchMatTab('vendor',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            {{ 'MATERIAL.TAB_VENDOR' | translate }}
+          </div> -->
+          <div class="ai-tab" onclick="switchMatTab('blocking',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>
+            {{ 'MATERIAL.TAB_BLOCKING' | translate }}
+            <span class="ai-tab-badge">8</span>
+          </div>
+        </div>
+
+        <!-- Tab: Material Status Grid -->
+        <div id="mattab-status" class="ai-tab-content active">
+          <div class="mat-filter-bar">
+            <div class="aw-search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="matSearch" [placeholder]="'MATERIAL.SEARCH_GRID_PLACEHOLDER' | translate" oninput="matFilterGrid()"/>
+            </div>
+            <select class="dq-filter-sel" id="matCatFilter" onchange="matFilterGrid()">
+              <option>{{ 'MATERIAL.CATEGORY_ALL' | translate }}</option><option>{{ 'MATERIAL.CAT_PIPE' | translate }}</option><option>{{ 'MATERIAL.CAT_FITTINGS' | translate }}</option><option>{{ 'MATERIAL.CAT_VALVES' | translate }}</option><option>{{ 'MATERIAL.CAT_CABLE' | translate }}</option><option>{{ 'MATERIAL.CAT_PUMP' | translate }}</option><option>{{ 'MATERIAL.CAT_TRANSFORMER' | translate }}</option><option>{{ 'MATERIAL.CAT_SLEEPERS' | translate }}</option><option>{{ 'MATERIAL.CAT_CIVIL' | translate }}</option><option>{{ 'MATERIAL.CAT_INSTRUMENTATION' | translate }}</option>
+            </select>
+            <select class="dq-filter-sel" id="matStatusFilter" onchange="matFilterGrid()">
+              <option>{{ 'MATERIAL.STATUS_ALL' | translate }}</option><option>{{ 'MATERIAL.STATUS_NOT_RAISED' | translate }}</option><option>{{ 'MATERIAL.STATUS_RAISED' | translate }}</option><option>{{ 'MATERIAL.STATUS_APPROVED' | translate }}</option><option>{{ 'MATERIAL.STATUS_SHIPPED' | translate }}</option><option>{{ 'MATERIAL.STATUS_IN_TRANSIT' | translate }}</option><option>{{ 'MATERIAL.STATUS_DELIVERED' | translate }}</option><option>{{ 'MATERIAL.STATUS_ON_SITE' | translate }}</option>
+            </select>
+            <select class="dq-filter-sel" id="matRiskFilter" onchange="matFilterGrid()">
+              <option>{{ 'MATERIAL.RISK_ALL' | translate }}</option><option>{{ 'MATERIAL.RISK_CRITICAL' | translate }}</option><option>{{ 'MATERIAL.RISK_HIGH' | translate }}</option><option>{{ 'MATERIAL.RISK_MEDIUM' | translate }}</option><option>{{ 'MATERIAL.RISK_CLEAR' | translate }}</option>
+            </select>
+            <span id="matGridCount"></span>
+          </div>
+          <div id="matGrid" class="ag-theme-alpine-dark"></div>
+        </div>
+
+        <!-- Tab: Risk Heatmap -->
+        <div id="mattab-heatmap" class="ai-tab-content">
+          <div class="mat-heatmap-header">
+            <div class="mat-section-title">{{ 'MATERIAL.HEATMAP_TITLE' | translate }}</div>
+            <!-- <div class="mat-heatmap-legend">
+              <span class="mat-legend-item"><span class="mat-legend-swatch swatch-green"></span>{{ 'MATERIAL.HEATMAP_ON_SITE' | translate }}</span>
+              <span class="mat-legend-item"><span class="mat-legend-swatch swatch-amber"></span>{{ 'MATERIAL.HEATMAP_IN_TRANSIT' | translate }}</span>
+              <span class="mat-legend-item"><span class="mat-legend-swatch swatch-blue"></span>{{ 'MATERIAL.HEATMAP_ORDERED' | translate }}</span>
+              <span class="mat-legend-item"><span class="mat-legend-swatch swatch-red"></span>{{ 'MATERIAL.HEATMAP_NOT_ORDERED' | translate }}</span>
+              <span class="mat-legend-item"><span class="mat-legend-swatch swatch-na"></span>{{ 'MATERIAL.HEATMAP_NA' | translate }}</span>
+            </div> -->
+          </div>
+          <div class="mat-scroll-x"><div id="matHeatmapGrid"></div></div>
+          <div class="mat-heatmap-legend mat-heatmap-legend--bottom">
+            <span class="mat-legend-item"><span class="mat-legend-swatch swatch-green"></span>{{ 'MATERIAL.HEATMAP_ON_SITE' | translate }}</span>
+            <span class="mat-legend-item"><span class="mat-legend-swatch swatch-amber"></span>{{ 'MATERIAL.HEATMAP_IN_TRANSIT' | translate }}</span>
+            <span class="mat-legend-item"><span class="mat-legend-swatch swatch-blue"></span>{{ 'MATERIAL.HEATMAP_ORDERED' | translate }}</span>
+            <span class="mat-legend-item"><span class="mat-legend-swatch swatch-red"></span>{{ 'MATERIAL.HEATMAP_NOT_ORDERED' | translate }}</span>
+            <span class="mat-legend-item"><span class="mat-legend-swatch swatch-na"></span>{{ 'MATERIAL.HEATMAP_NA' | translate }}</span>
+          </div>
+        </div>
+
+        <!-- Tab: PO Tracker -->
+        <div id="mattab-po" class="ai-tab-content">
+          <div class="mat-po-header">
+            <div class="mat-section-title">{{ 'MATERIAL.PO_TRACKER' | translate }}</div>
+            <span class="mat-section-sub">{{ 'MATERIAL.PO_COUNT_LABEL' | translate }}</span>
+            <div class="mat-filter-group">
+              <select class="dq-filter-sel" id="poStatusFilter" onchange="matRenderPoTracker()">
+                <option>{{ 'MATERIAL.STATUS_ALL' | translate }}</option><option>{{ 'MATERIAL.STATUS_NOT_RAISED' | translate }}</option><option>{{ 'MATERIAL.STATUS_RAISED' | translate }}</option><option>{{ 'MATERIAL.STATUS_APPROVED' | translate }}</option><option>{{ 'MATERIAL.STATUS_SHIPPED' | translate }}</option><option>{{ 'MATERIAL.STATUS_IN_TRANSIT' | translate }}</option><option>{{ 'MATERIAL.STATUS_DELIVERED' | translate }}</option><option>{{ 'MATERIAL.STATUS_ON_SITE' | translate }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="mat-scroll-x">
+            <table class="pi-tbl">
+              <thead><tr>
+                <th class="th-left">{{ 'MATERIAL.TH_PO_NUMBER' | translate }}</th><th class="th-left">{{ 'MATERIAL.TH_WELL' | translate }}</th>
+                <th class="th-left">{{ 'MATERIAL.TH_MATERIAL_ITEMS' | translate }}</th><th class="th-left">{{ 'MATERIAL.TH_VENDOR' | translate }}</th>
+                <th>{{ 'MATERIAL.TH_VALUE_OMR' | translate }}</th><th>{{ 'MATERIAL.TH_RAISED_DATE' | translate }}</th><th>{{ 'MATERIAL.TH_EXPECTED_DELIVERY' | translate }}</th>
+                <th>{{ 'MATERIAL.TH_ACTUAL_DELIVERY' | translate }}</th><th>{{ 'MATERIAL.TH_LEAD_TIME' | translate }}</th><th>{{ 'MATERIAL.TH_STATUS' | translate }}</th><th>{{ 'MATERIAL.TH_BLOCKING' | translate }}</th><th>{{ 'MATERIAL.TH_PENALTY_RISK' | translate }}</th>
+              </tr></thead>
+              <tbody id="poTrackerBody"></tbody>
+            </table>
+          </div>
+          <!-- PO pipeline visual -->
+          <div class="card mat-chart-card mat-card-mt">
+            <div class="card-title">{{ 'MATERIAL.PO_STAGE_DIST' | translate }}</div>
+            <canvas id="matPoChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Tab: Vendor Analytics -->
+        <div id="mattab-vendor" class="ai-tab-content">
+          <div class="mat-vendor-grid">
+            <div class="card mat-chart-card">
+              <div class="card-title">{{ 'MATERIAL.DELIVERY_RATE' | translate }}</div>
+              <div class="card-sub">{{ 'MATERIAL.DELIVERY_RATE_SUB' | translate }}</div>
+              <canvas id="matVendorChart"></canvas>
+            </div>
+            <div class="card mat-chart-card">
+              <div class="card-title">{{ 'MATERIAL.LEAD_TIME' | translate }}</div>
+              <div class="card-sub">{{ 'MATERIAL.LEAD_TIME_SUB' | translate }}</div>
+              <canvas id="matLeadChart"></canvas>
+            </div>
+          </div>
+          <div class="card mat-chart-card mat-vendor-score-card">
+            <div class="card-title">{{ 'MATERIAL.VENDOR_SCORE' | translate }}</div>
+            <div class="mat-scroll-x"><table class="pi-tbl" id="matVendorTable"></table></div>
+          </div>
+        </div>
+
+        <!-- Tab: Blocking Items -->
+        <div id="mattab-blocking" class="ai-tab-content">
+          <div class="mat-blocking-title">{{ 'MATERIAL.BLOCKING_WELLS' | translate }}</div>
+          <div class="mat-blocking-sub">{{ 'MATERIAL.BLOCKING_SUB' | translate }}</div>
+          <div id="matBlockingList"></div>
+          <div class="card mat-chart-card mat-card-mt">
+            <div class="card-title">{{ 'MATERIAL.FINANCIAL_IMPACT' | translate }}</div>
+            <div class="card-sub">{{ 'MATERIAL.FINANCIAL_IMPACT_SUB' | translate }}</div>
+            <canvas id="matBlockChart"></canvas>
+          </div>
+        </div>
+
+      </div><!-- /page-material -->

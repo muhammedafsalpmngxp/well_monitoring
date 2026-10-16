@@ -1,0 +1,118 @@
+<div id="page-aiopt" class="page active">
+        <div class="breadcrumb"><a>{{ 'AIOPT.BREADCRUMB_FIELD_OPERATIONS' | translate }}</a><span>›</span><span class="current">{{ 'AIOPT.BREADCRUMB_AI_CREW_OPTIMIZATION' | translate }}</span></div>
+        <div class="page-title-row">
+          <div style="flex:1">
+            <div class="page-title">{{ 'AIOPT.PAGE_TITLE' | translate }}</div>
+            <div class="page-subtitle">{{ 'AIOPT.PAGE_SUBTITLE' | translate }}</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select class="ai-horizon-select" id="aiHorizon">
+              <option value="1">{{ 'AIOPT.HORIZON_1_WEEK' | translate }}</option>
+              <option value="2" selected>{{ 'AIOPT.HORIZON_2_WEEK' | translate }}</option>
+              <option value="3">{{ 'AIOPT.HORIZON_3_WEEK' | translate }}</option>
+              <option value="4">{{ 'AIOPT.HORIZON_4_WEEK' | translate }}</option>
+            </select>
+            <button class="ai-run-btn" id="aiRunBtn" onclick="runAiOptimization()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              {{ 'AIOPT.RUN_AI_OPTIMIZATION' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Hero card -->
+        <div class="ai-hero">
+          <div class="ai-hero-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+          </div>
+          <div class="ai-hero-body">
+            <div class="ai-hero-title">{{ 'AIOPT.HERO_TITLE' | translate }}</div>
+            <div class="ai-hero-sub">{{ 'AIOPT.HERO_DESCRIPTION' | translate }}</div>
+            <div class="ai-hero-stats">
+              <div class="ai-hero-stat"><div class="v" id="aiStatCrews">487</div><div class="l">{{ 'AIOPT.CREWS_AVAILABLE' | translate }}</div></div>
+              <div class="ai-hero-stat"><div class="v" id="aiStatWells">14</div><div class="l">{{ 'AIOPT.ACTIVE_WELLS' | translate }}</div></div>
+              <div class="ai-hero-stat"><div class="v" id="aiStatGroups">61</div><div class="l">{{ 'AIOPT.CREW_GROUP_TYPES' | translate }}</div></div>
+              <div class="ai-hero-stat"><div class="v" id="aiStatScore" style="color:#fbbf24">—</div><div class="l">{{ 'AIOPT.OPT_SCORE' | translate }}</div></div>
+            </div>
+          </div>
+          <button class="ai-run-btn" style="flex-shrink:0" onclick="runAiOptimization()" id="aiRunBtn2">
+            <svg id="aiRunIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            {{ 'AIOPT.RUN_AI_REPLAN' | translate }}
+          </button>
+        </div>
+
+        <!-- Constraint toggles -->
+        <div class="ai-ctrl-bar">
+          <span class="ai-ctrl-label">{{ 'AIOPT.CONSTRAINTS_LABEL' | translate }}</span>
+          <div class="ai-toggle-chip on" id="chip-perf" role="button" tabindex="0" onclick="toggleChip(this)" onkeypress="if(event.key==='Enter')toggleChip(this)"><span class="dot"></span>{{ 'AIOPT.CONSTRAINT_P_RATING_PERFORMANCE' | translate }}</div>
+          <div class="ai-toggle-chip on" id="chip-mat"  role="button" tabindex="0" onclick="toggleChip(this)" onkeypress="if(event.key==='Enter')toggleChip(this)"><span class="dot"></span>{{ 'AIOPT.CONSTRAINT_MATERIAL_AVAILABILITY' | translate }}</div>
+          <div class="ai-toggle-chip on" id="chip-pred" role="button" tabindex="0" onclick="toggleChip(this)" onkeypress="if(event.key==='Enter')toggleChip(this)"><span class="dot"></span>{{ 'AIOPT.CONSTRAINT_PREDECESSOR_GATES' | translate }}</div>
+          <div class="ai-toggle-chip on" id="chip-dist" role="button" tabindex="0" onclick="toggleChip(this)" onkeypress="if(event.key==='Enter')toggleChip(this)"><span class="dot"></span>{{ 'AIOPT.CONSTRAINT_TRAVEL_DISTANCE' | translate }}</div>
+          <div class="ai-toggle-chip on" id="chip-kpi"  role="button" tabindex="0" onclick="toggleChip(this)" onkeypress="if(event.key==='Enter')toggleChip(this)"><span class="dot"></span>{{ 'AIOPT.CONSTRAINT_KPI_URGENCY' | translate }}</div>
+          <div class="ai-toggle-chip on" id="chip-eq"   role="button" tabindex="0" onclick="toggleChip(this)" onkeypress="if(event.key==='Enter')toggleChip(this)"><span class="dot"></span>{{ 'AIOPT.CONSTRAINT_EQUIPMENT_AVAILABILITY' | translate }}</div>
+        </div>
+
+        <!-- Progress bar (shown during optimization run) -->
+        <div class="ai-progress-wrap" id="aiProgress">
+          <div class="ai-progress-steps" id="aiSteps"></div>
+          <div class="ai-prog-bar-bg"><div class="ai-prog-bar-fill" id="aiProgFill"></div></div>
+          <div class="ai-prog-label" id="aiProgLabel">{{ 'AIOPT.INITIALISING' | translate }}</div>
+        </div>
+
+        <!-- Results area (shown after optimization) -->
+        <div id="aiResults" style="display:none">
+          <!-- Summary strip -->
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap">
+            <div class="ai-score-badge"><div class="v" id="aiScoreDisplay">94.2</div><div class="l">{{ 'AIOPT.OPT_SCORE' | translate }}</div></div>
+            <div style="flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+              <div class="card" style="padding:12px 14px;text-align:center">
+                <div style="font-size:20px;font-weight:700;color:var(--green);font-family:JetBrains Mono,monospace" id="rStat1">0</div>
+                <div style="font-size:10px;color:var(--txt-muted);font-weight:600;letter-spacing:0.4px;text-transform:uppercase;margin-top:3px">{{ 'AIOPT.CREWS_ASSIGNED' | translate }}</div>
+              </div>
+              <div class="card" style="padding:12px 14px;text-align:center">
+                <div style="font-size:20px;font-weight:700;color:var(--red);font-family:JetBrains Mono,monospace" id="rStat2">0</div>
+                <div style="font-size:10px;color:var(--txt-muted);font-weight:600;letter-spacing:0.4px;text-transform:uppercase;margin-top:3px">{{ 'AIOPT.CRITICAL_COVERED' | translate }}</div>
+              </div>
+              <div class="card" style="padding:12px 14px;text-align:center">
+                <div style="font-size:20px;font-weight:700;color:var(--amber);font-family:JetBrains Mono,monospace" id="rStat3">0</div>
+                <div style="font-size:10px;color:var(--txt-muted);font-weight:600;letter-spacing:0.4px;text-transform:uppercase;margin-top:3px">{{ 'AIOPT.CONSTRAINTS_BLOCKED' | translate }}</div>
+              </div>
+              <div class="card" style="padding:12px 14px;text-align:center">
+                <div style="font-size:20px;font-weight:700;color:#6d28d9;font-family:JetBrains Mono,monospace" id="rStat4">0</div>
+                <div style="font-size:10px;color:var(--txt-muted);font-weight:600;letter-spacing:0.4px;text-transform:uppercase;margin-top:3px">{{ 'AIOPT.OVERRIDES_APPLIED' | translate }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="ai-tabs">
+            <div class="ai-tab active" role="tab" tabindex="0" onclick="switchAiTab('assign',this)" onkeypress="if(event.key==='Enter')switchAiTab('assign',this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              {{ 'AIOPT.TAB_ASSIGNMENT_BOARD' | translate }}
+              <span class="ai-tab-badge" id="critBadge">2</span>
+            </div>
+            <div class="ai-tab" role="tab" tabindex="0" onclick="switchAiTab('calendar',this)" onkeypress="if(event.key==='Enter')switchAiTab('calendar',this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+              {{ 'AIOPT.TAB_WEEKLY_CALENDAR' | translate }}
+            </div>
+            <div class="ai-tab" role="tab" tabindex="0" onclick="switchAiTab('constraints',this)" onkeypress="if(event.key==='Enter')switchAiTab('constraints',this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              {{ 'AIOPT.TAB_CONSTRAINTS' | translate }}
+            </div>
+            <div class="ai-tab" role="tab" tabindex="0" onclick="switchAiTab('route',this)" onkeypress="if(event.key==='Enter')switchAiTab('route',this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+              {{ 'AIOPT.TAB_ROUTE_MAP' | translate }}
+            </div>
+            <div class="ai-tab" role="tab" tabindex="0" onclick="switchAiTab('overrides',this)" onkeypress="if(event.key==='Enter')switchAiTab('overrides',this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              {{ 'AIOPT.TAB_SUPERVISOR_OVERRIDES' | translate }}
+            </div>
+          </div>
+
+          <!-- Tab content areas -->
+          <div id="tab-assign" class="ai-tab-content active"><div style="overflow-x:auto"><table class="ai-assign-tbl" id="aiAssignTable"><thead><tr><th>{{ 'AIOPT.TH_WELL_ID' | translate }}</th><th>{{ 'AIOPT.TH_ACTIVITY' | translate }}</th><th>{{ 'AIOPT.TH_CREW_GROUP' | translate }}</th><th>{{ 'AIOPT.TH_ASSIGNED_CREW' | translate }}</th><th>{{ 'AIOPT.TH_P_RATING' | translate }}</th><th>{{ 'AIOPT.TH_MATERIAL' | translate }}</th><th>{{ 'AIOPT.TH_PREDECESSOR' | translate }}</th><th>{{ 'AIOPT.TH_EQUIPMENT' | translate }}</th><th>{{ 'AIOPT.TH_DISTANCE' | translate }}</th><th>{{ 'AIOPT.TH_DEADLINE' | translate }}</th><th>{{ 'AIOPT.TH_PRIORITY' | translate }}</th><th>{{ 'AIOPT.TH_AI_REASONING' | translate }}</th></tr></thead><tbody id="aiAssignBody"></tbody></table></div></div>
+          <div id="tab-calendar" class="ai-tab-content"><div id="aiCalContainer"></div></div>
+          <div id="tab-constraints" class="ai-tab-content"><div id="aiConstraintsContainer"></div></div>
+          <div id="tab-route" class="ai-tab-content"><div id="aiRouteContainer"></div></div>
+          <div id="tab-overrides" class="ai-tab-content"><div id="aiOverridesContainer"></div></div>
+        </div>
+      </div><!-- /page-aiopt -->

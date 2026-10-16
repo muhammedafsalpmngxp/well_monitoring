@@ -1,0 +1,415 @@
+<div id="page-execsummary" class="page active">
+        <div class="breadcrumb">
+          <a>Executive</a>
+          <span>›</span>
+          <span class="current">Executive Summary</span>
+        </div>
+
+        <div class="page-title-row">
+          <div>
+            <div class="page-title">{{ 'EXEC.TITLE' | translate }}</div>
+            <span class="exec-badge-mdceo">{{ 'EXEC.MD_CEO_VIEW' | translate }}</span>
+            <div class="page-subtitle" data-exec="pageSub">{{ 'EXEC.PROGRAMME_INFO' | translate }}</div>
+          </div>
+        </div>
+
+        <!-- KPI Strip — 5 tiles -->
+        <div class="exec-kpi-strip">
+
+          <!-- Well Delivery Progress -->
+          <div class="kpi k-blue" onclick="navigate('allwells', null)" title="View all wells">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'EXEC.WELL_DELIVERY' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val" data-exec="progress">58.0%</div>
+            <div class="exec-kpi-bar"><div class="exec-kpi-bar-fill" data-exec="progressBar"></div></div>
+            <div class="kpi-unit" data-exec="progressSub">{{ 'EXEC.PROGRESS_SUB' | translate }}</div>
+          </div>
+
+          <!-- Critical Wells -->
+          <div class="kpi k-red" onclick="openAllWellsFiltered('critical')" title="View critical wells">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'EXEC.CRITICAL_WELLS' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val red" data-exec="critWells">4</div>
+            <div class="exec-kpi-delta down" data-exec="critWellsSub">{{ 'EXEC.IMMEDIATE_ACTION' | translate }}</div>
+          </div>
+
+          <!-- Penalty Exposure -->
+          <div class="kpi k-red" onclick="openAllWellsFiltered('critical')" title="View wells driving penalty exposure">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'EXEC.PENALTY_EXPOSURE' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val red" data-exec="penalty">OMR 195K</div>
+            <div class="exec-kpi-delta down" data-exec="penaltySub">{{ 'EXEC.WELLS_DRIVING_EXPOSURE' | translate }}</div>
+          </div>
+
+          <!-- Bonus Opportunity -->
+          <div class="kpi k-green" onclick="openAccelerateCandidates()" title="View wells delivered early">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'EXEC.BONUS_OPPORTUNITY' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 6 23 6 23 12"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val green" data-exec="bonus">OMR 40K</div>
+            <div class="exec-kpi-delta up" data-exec="bonusSub">{{ 'EXEC.WELLS_DELIVERED_EARLY' | translate }}</div>
+          </div>
+
+          <!-- Schedule Performance -->
+          <div class="kpi k-teal" onclick="openAllWellsFiltered('critical')" title="View wells behind programme">
+            <div class="kpi-head">
+              <span class="kpi-label">{{ 'EXEC.SCHEDULE_PERF' | translate }}</span>
+              <span class="kpi-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+            </div>
+            <div class="kpi-val red" data-exec="spi">0.68 <span class="small">SPI</span></div>
+            <div class="exec-kpi-bar"><div class="exec-kpi-bar-fill" data-exec="spiBar"></div></div>
+            <div class="kpi-unit" data-exec="spiSub">{{ 'EXEC.BEHIND_PROGRAMME' | translate }}</div>
+          </div>
+
+        </div>
+
+        <!-- ═══════════ MD'S DAILY BRIEFING — ENTRY POINT TILE ═══════════ -->
+        
+        <div class="mdb-entry-card" onclick="navigate('mdbriefing', null)">
+          <div class="mdb-entry-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/><line x1="9" y1="9" x2="10" y2="9"/></svg>
+          </div>
+          <div class="mdb-entry-body">
+            <div class="mdb-entry-eyebrow">
+              <span>{{ 'EXEC.MD_BRIEFING' | translate }}</span>
+            </div>
+            <div class="mdb-entry-title" [innerHTML]="'EXEC.BRIEFING_TITLE' | translate:{ date: briefingDate }"></div>
+            <div class="mdb-entry-desc" [innerHTML]="'EXEC.BRIEFING_DESC' | translate">
+            </div>
+            <div class="mdb-entry-quickstats">
+              <div class="mdb-entry-stat"><span class="mdb-entry-stat-dot green"></span><span class="mdb-entry-stat-txt">{{ 'EXEC.HIGHLIGHTS_COUNT' | translate }}</span></div>
+              <div class="mdb-entry-stat"><span class="mdb-entry-stat-dot red"></span><span class="mdb-entry-stat-txt">{{ 'EXEC.DELAYS_COUNT' | translate }}</span></div>
+              <div class="mdb-entry-stat"><span class="mdb-entry-stat-dot amber"></span><span class="mdb-entry-stat-txt">{{ 'EXEC.ACTION_NEEDED_COUNT' | translate }}</span></div>
+            </div>
+          </div>
+          <button class="mdb-entry-cta">
+            {{ 'EXEC.OPEN_BRIEFING' | translate }}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+
+        <!-- Row 2: Financial Forecast + Well Programme Status -->
+        <div class="exec-row-2">
+
+          <!-- Financial Forecast -->
+          <div class="card exec-card">
+            <div class="exec-fin-head">
+              <div class="card-title">{{ 'EXEC.FINANCIAL_FORECAST' | translate }}</div>
+              <div class="exec-fin-week">{{ 'EXEC.FIN_WEEK' | translate }}</div>
+            </div>
+            <div class="exec-fin-list">
+              <div class="exec-fin-row">
+                <div><div class="exec-fin-label">{{ 'EXEC.CONTRACT_REVENUE' | translate }}</div><div class="exec-fin-sub">{{ 'EXEC.VS_TARGET' | translate }}</div></div>
+                <div class="exec-fin-right"><div class="exec-fin-val green">OMR 534,958</div><div class="exec-fin-delta green">+0.2%</div></div>
+              </div>
+              <div class="exec-fin-row">
+                <div><div class="exec-fin-label">{{ 'EXEC.CREW_COST_OWNED' | translate }}</div><div class="exec-fin-sub">{{ 'EXEC.OWNED_CREWS_SUB' | translate }}</div></div>
+                <div class="exec-fin-right"><div class="exec-fin-val">OMR 58,000</div></div>
+              </div>
+              <div class="exec-fin-row">
+                <div><div class="exec-fin-label">{{ 'EXEC.CREW_COST_SUB' | translate }}</div><div class="exec-fin-sub">{{ 'EXEC.SUB_CREWS_SUB' | translate }}</div></div>
+                <div class="exec-fin-right"><div class="exec-fin-val">OMR 476,958</div></div>
+              </div>
+              <div class="exec-fin-row exec-fin-row-clickable" onclick="openAllWellsFiltered('critical')" title="View wells driving penalty exposure">
+                <div><div class="exec-fin-label">{{ 'EXEC.PENALTY_ACTIVE' | translate }}</div><div class="exec-fin-sub" data-exec="finPenSub">{{ 'EXEC.PENALTY_ACTIVE_SUB' | translate }}</div></div>
+                <div class="exec-fin-right"><div class="exec-fin-val red" data-exec="finPen">OMR 185,920</div><div class="exec-fin-delta red">▲ +12.0%</div></div>
+              </div>
+              <div class="exec-fin-row exec-fin-row-clickable" onclick="openAccelerateCandidates()" title="View wells delivered early">
+                <div><div class="exec-fin-label">{{ 'EXEC.BONUS_EARNED' | translate }}</div><div class="exec-fin-sub" data-exec="finBonSub">{{ 'EXEC.BONUS_EARNED_SUB' | translate }}</div></div>
+                <div class="exec-fin-right"><div class="exec-fin-val green" data-exec="finBon">OMR 40,000</div><div class="exec-fin-delta green">▲ +3</div></div>
+              </div>
+              <div class="exec-fin-row">
+                <div><div class="exec-fin-label">{{ 'EXEC.NET_PL' | translate }}</div><div class="exec-fin-sub">{{ 'EXEC.NET_PL_SUB' | translate }}</div></div>
+                <div class="exec-fin-right"><div class="exec-fin-val red" data-exec="finNet">OMR -145,920</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Well Programme Status -->
+          <div class="card exec-card">
+            <div class="exec-well-head">
+              <div class="card-title">{{ 'EXEC.WELL_PROGRAMME' | translate }}</div>
+              <!-- <div class="exec-well-legend">
+                <span class="exec-well-dot green"></span> {{ 'EXEC.COMPLETE' | translate }}
+                <span class="exec-well-dot blue"></span> {{ 'EXEC.ON_TRACK' | translate }}
+                <span class="exec-well-dot amber"></span> {{ 'EXEC.AT_RISK' | translate }}
+                <span class="exec-well-dot red"></span> {{ 'EXEC.CRITICAL' | translate }}
+              </div> -->
+            </div>
+            <div id="execWellGrid" class="ag-theme-alpine-dark"></div>
+            <div class="exec-well-legend exec-well-legend--bottom">
+              <span class="exec-well-dot green"></span> {{ 'EXEC.COMPLETE' | translate }}
+              <span class="exec-well-dot blue"></span> {{ 'EXEC.ON_TRACK' | translate }}
+              <span class="exec-well-dot amber"></span> {{ 'EXEC.AT_RISK' | translate }}
+              <span class="exec-well-dot red"></span> {{ 'EXEC.CRITICAL' | translate }}
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════ EVM QUADRANT — Schedule vs Cost Performance ═══════════ -->
+        <div class="card evm-card" data-wfb-widget="evm-quadrant">
+          <div class="evm-head">
+            <div class="evm-head-text">
+              <div class="evm-head-titlerow">
+                <div class="card-title">{{ 'EXEC.EVM_TITLE' | translate }}</div>
+                <span class="evm-info-wrap" tabindex="0" aria-label="How SPI and CPI are calculated">
+                  <span class="evm-info-icon">i</span>
+                  <div class="evm-info-pop" role="tooltip">
+                    <div class="evm-info-block">
+                      <div class="evm-info-title">SPI — Schedule Performance Index</div>
+                      <div class="evm-info-formula">SPI = EV ÷ PV  =  $30K ÷ $40K  =  0.75</div>
+                      <div class="evm-info-desc"><strong>What it tells you:</strong> Are we keeping pace with the schedule?</div>
+                      <table class="evm-info-tbl">
+                        <thead><tr><th>SPI Value</th><th>Meaning</th><th>Action</th></tr></thead>
+                        <tbody>
+                          <tr><td><strong>&gt; 1.0</strong></td><td>Ahead of schedule</td><td>Reallocate resources elsewhere</td></tr>
+                          <tr><td><strong>= 1.0</strong></td><td>Exactly on schedule</td><td>Sustain</td></tr>
+                          <tr><td><strong>0.95 – 1.0</strong></td><td>Slightly behind (acceptable)</td><td>Monitor</td></tr>
+                          <tr><td><strong>0.85 – 0.95</strong></td><td>Concern</td><td>Investigate, take action</td></tr>
+                          <tr><td><strong>&lt; 0.85</strong></td><td>Critical</td><td>Recovery plan required</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="evm-info-block">
+                      <div class="evm-info-title">CPI — Cost Performance Index</div>
+                      <div class="evm-info-formula">CPI = EV ÷ AC  =  $30K ÷ $35K  =  0.86</div>
+                      <div class="evm-info-desc"><strong>What it tells you:</strong> Are we getting good value for money?</div>
+                      <table class="evm-info-tbl">
+                        <thead><tr><th>CPI Value</th><th>Meaning</th><th>Action</th></tr></thead>
+                        <tbody>
+                          <tr><td><strong>&gt; 1.0</strong></td><td>Under budget (efficient)</td><td>Bank the savings</td></tr>
+                          <tr><td><strong>= 1.0</strong></td><td>Exactly on budget</td><td>Sustain</td></tr>
+                          <tr><td><strong>0.95 – 1.0</strong></td><td>Slightly over</td><td>Monitor</td></tr>
+                          <tr><td><strong>0.85 – 0.95</strong></td><td>Concern</td><td>Cost controls</td></tr>
+                          <tr><td><strong>&lt; 0.85</strong></td><td>Critical</td><td>Re-baseline budget</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </span>
+              </div>
+              <div class="card-sub">{{ 'EXEC.EVM_SUB' | translate }}</div>
+            </div>
+          </div>
+          <div class="evm-body">
+            <div class="evm-chart-wrap">
+              <canvas id="evmQuadrantChart"></canvas>
+            </div>
+            <div class="evm-quad-legend">
+              <div class="evm-quad-card best">
+                <div class="evm-quad-head">
+                  <span class="evm-quad-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                  </span>
+                  <span class="evm-quad-title">{{ 'EXEC.EVM_BEST_TITLE' | translate }}</span>
+                  <span class="evm-quad-count" data-evm="qBest">0</span>
+                </div>
+                <div class="evm-quad-desc">{{ 'EXEC.EVM_BEST_DESC' | translate }}</div>
+              </div>
+              <div class="evm-quad-card fast">
+                <div class="evm-quad-head">
+                  <span class="evm-quad-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  </span>
+                  <span class="evm-quad-title">{{ 'EXEC.EVM_FAST_TITLE' | translate }}</span>
+                  <span class="evm-quad-count" data-evm="qFast">0</span>
+                </div>
+                <div class="evm-quad-desc">{{ 'EXEC.EVM_FAST_DESC' | translate }}</div>
+              </div>
+              <div class="evm-quad-card cheap">
+                <div class="evm-quad-head">
+                  <span class="evm-quad-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
+                  </span>
+                  <span class="evm-quad-title">{{ 'EXEC.EVM_CHEAP_TITLE' | translate }}</span>
+                  <span class="evm-quad-count" data-evm="qCheap">0</span>
+                </div>
+                <div class="evm-quad-desc">{{ 'EXEC.EVM_CHEAP_DESC' | translate }}</div>
+              </div>
+              <div class="evm-quad-card problem">
+                <div class="evm-quad-head">
+                  <span class="evm-quad-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  </span>
+                  <span class="evm-quad-title">{{ 'EXEC.EVM_PROBLEM_TITLE' | translate }}</span>
+                  <span class="evm-quad-count" data-evm="qProblem">0</span>
+                </div>
+                <div class="evm-quad-desc">{{ 'EXEC.EVM_PROBLEM_DESC' | translate }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3: Decisions + Performance + Risk & Compliance -->
+        <div class="exec-row-3">
+
+          <!-- Top Decisions Required -->
+          <div class="card exec-card">
+            <div class="exec-decisions-header">
+              <div class="card-title">{{ 'EXEC.TOP_DECISIONS' | translate }}</div>
+              <span class="exec-badge-action">{{ 'EXEC.ACTION_NEEDED_BADGE' | translate }}</span>
+            </div>
+            <div class="exec-decision-list">
+              <div class="exec-decision-item">
+                <div class="exec-decision-num red">1</div>
+                <div class="exec-decision-body">
+                  <div class="exec-decision-title">{{ 'EXEC.DECISION_1_TITLE' | translate }}</div>
+                  <div class="exec-decision-desc">{{ 'EXEC.DECISION_1_DESC' | translate }}</div>
+                  <div class="exec-decision-pills">
+                    <span class="exec-pill blue exec-pill-well" onclick="execOpenWellDetail('31780')" title="Open well 31780 details">31780</span>
+                    <span class="exec-pill red">{{ 'EXEC.DECISION_1_COST' | translate }}</span>
+                  </div>
+                  <div class="exec-decision-meta"><span class="exec-pill green">{{ 'EXEC.DECISION_1_NET' | translate }}</span> <span class="exec-decision-when">{{ 'EXEC.TODAY' | translate }}</span></div>
+                </div>
+              </div>
+              <div class="exec-decision-item">
+                <div class="exec-decision-num amber">2</div>
+                <div class="exec-decision-body">
+                  <div class="exec-decision-title">{{ 'EXEC.DECISION_2_TITLE' | translate }}</div>
+                  <div class="exec-decision-desc">{{ 'EXEC.DECISION_2_DESC' | translate }}</div>
+                  <div class="exec-decision-pills">
+                    <span class="exec-pill blue exec-pill-well" onclick="execOpenWellDetail('34357')" title="Open well 34357 details">34357</span>
+                    <span class="exec-pill red">{{ 'EXEC.DECISION_2_COST' | translate }}</span>
+                  </div>
+                  <div class="exec-decision-meta"><span class="exec-pill green">{{ 'EXEC.DECISION_2_NET' | translate }}</span> <span class="exec-decision-when">{{ 'EXEC.THIS_WEEK' | translate }}</span></div>
+                </div>
+              </div>
+              <div class="exec-decision-item">
+                <div class="exec-decision-num amber">3</div>
+                <div class="exec-decision-body">
+                  <div class="exec-decision-title">{{ 'EXEC.DECISION_3_TITLE' | translate }}</div>
+                  <div class="exec-decision-desc">{{ 'EXEC.DECISION_3_DESC' | translate }}</div>
+                  <div class="exec-decision-pills">
+                    <span class="exec-pill blue exec-pill-well" onclick="execOpenWellDetail('37797')" title="Open well 37797 details">37797</span>
+                    <span class="exec-pill red">{{ 'EXEC.DECISION_3_COST' | translate }}</span>
+                  </div>
+                  <div class="exec-decision-meta"><span class="exec-pill green">{{ 'EXEC.DECISION_3_NET' | translate }}</span> <span class="exec-decision-when">{{ 'EXEC.TOMORROW' | translate }}</span></div>
+                </div>
+              </div>
+              <div class="exec-decision-item">
+                <div class="exec-decision-num green">4</div>
+                <div class="exec-decision-body">
+                  <div class="exec-decision-title">{{ 'EXEC.DECISION_4_TITLE' | translate }}</div>
+                  <div class="exec-decision-desc">{{ 'EXEC.DECISION_4_DESC' | translate }}</div>
+                  <div class="exec-decision-pills">
+                    <span class="exec-pill blue exec-pill-well" onclick="execOpenWellDetail('34561')" title="Open well 34561 details">34561</span>
+                    <span class="exec-pill red">{{ 'EXEC.DECISION_4_COST' | translate }}</span>
+                  </div>
+                  <div class="exec-decision-meta"><span class="exec-pill green">{{ 'EXEC.DECISION_4_NET' | translate }}</span> <span class="exec-decision-when">{{ 'EXEC.THIS_WEEK' | translate }}</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Programme Performance -->
+          <div class="card exec-card">
+            <div class="card-title">{{ 'EXEC.PROGRAMME_PERF' | translate }}</div>
+            <div class="exec-perf-list">
+              <div class="exec-perf-row">
+                <div class="exec-perf-top"><span class="exec-perf-label">{{ 'EXEC.OVERALL_SPI' | translate }}</span><span class="exec-perf-val orange">0.82</span></div>
+                <div class="exec-perf-bar"><div class="exec-perf-fill fill-amber fill-spi"></div></div>
+                <div class="exec-perf-sub">{{ 'EXEC.BEHIND_PROGRAMME' | translate }}</div>
+              </div>
+              <div class="exec-perf-row">
+                <div class="exec-perf-top"><span class="exec-perf-label">{{ 'EXEC.CREW_UTILISATION' | translate }}</span><span class="exec-perf-val green">87.0%</span></div>
+                <div class="exec-perf-bar"><div class="exec-perf-fill fill-blue fill-crew"></div></div>
+                <div class="exec-perf-sub">{{ 'EXEC.HEADCOUNT_DEPLOYED' | translate }}</div>
+              </div>
+              <div class="exec-perf-row">
+                <div class="exec-perf-top"><span class="exec-perf-label">{{ 'EXEC.TOP_CLUSTER' | translate }}</span><span class="exec-perf-val mono">NMR Blk9</span></div>
+                <div class="exec-perf-sub">{{ 'EXEC.TOP_CLUSTER_SUB' | translate }}</div>
+              </div>
+              <div class="exec-perf-row">
+                <div class="exec-perf-top"><span class="exec-perf-label">{{ 'EXEC.NEEDS_ATTENTION' | translate }}</span><span class="exec-perf-val mono red">NMR Blk6</span></div>
+                <div class="exec-perf-sub">{{ 'EXEC.NEEDS_ATTENTION_SUB' | translate }}</div>
+              </div>
+              <div class="exec-perf-row">
+                <div class="exec-perf-top"><span class="exec-perf-label">{{ 'EXEC.PRATING_AVG_WEEK' | translate }}</span><span class="exec-perf-val mono green">P6.2</span></div>
+                <div class="exec-perf-sub">{{ 'EXEC.PRATING_CHANGE' | translate }}</div>
+              </div>
+              <div class="exec-perf-row">
+                <div class="exec-perf-top"><span class="exec-perf-label">{{ 'EXEC.FIELD_CAPTURE_RATE' | translate }}</span><span class="exec-perf-val green">92.0%</span></div>
+                <div class="exec-perf-bar"><div class="exec-perf-fill fill-blue fill-capture"></div></div>
+                <div class="exec-perf-sub">{{ 'EXEC.CREWS_SUBMITTED' | translate }}</div>
+              </div>
+              <div class="exec-perf-row">
+                <div class="exec-perf-top"><span class="exec-perf-label">{{ 'EXEC.MATERIAL_OTD_RATE' | translate }}</span><span class="exec-perf-val amber">74.0%</span></div>
+                <div class="exec-perf-bar"><div class="exec-perf-fill fill-amber fill-material"></div></div>
+                <div class="exec-perf-sub">{{ 'EXEC.MAT_FLAGS_INFO' | translate }}</div>
+              </div>
+              <div class="exec-perf-row">
+                <div class="exec-perf-top"><span class="exec-perf-label">{{ 'EXEC.PDO_COMPLIANCE' | translate }}</span><span class="exec-perf-val green">96.0%</span></div>
+                <div class="exec-perf-bar"><div class="exec-perf-fill fill-green fill-compliance"></div></div>
+                <div class="exec-perf-sub">{{ 'EXEC.QHSE_NO_INCIDENTS' | translate }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Risk & Compliance Flags -->
+          <div class="card exec-card-risk">
+            <div class="card-title">{{ 'EXEC.RISK_COMPLIANCE' | translate }}</div>
+            <div class="exec-risk-list">
+              <div class="exec-risk-item">
+                <div class="exec-risk-icon warn">⚠</div>
+                <div>
+                  <div class="exec-risk-title">{{ 'EXEC.RISK_1_TITLE' | translate }}</div>
+                  <div class="exec-risk-desc">{{ 'EXEC.RISK_1_DESC' | translate }}</div>
+                </div>
+              </div>
+              <div class="exec-risk-item">
+                <div class="exec-risk-icon red">⛓</div>
+                <div>
+                  <div class="exec-risk-title">{{ 'EXEC.RISK_2_TITLE' | translate }}</div>
+                  <div class="exec-risk-desc">{{ 'EXEC.RISK_2_DESC' | translate }}</div>
+                </div>
+              </div>
+              <div class="exec-risk-item">
+                <div class="exec-risk-icon amber">📦</div>
+                <div>
+                  <div class="exec-risk-title">{{ 'EXEC.RISK_3_TITLE' | translate }}</div>
+                  <div class="exec-risk-desc">{{ 'EXEC.RISK_3_DESC' | translate }}</div>
+                </div>
+              </div>
+              <div class="exec-risk-item">
+                <div class="exec-risk-icon blue">📋</div>
+                <div>
+                  <div class="exec-risk-title">{{ 'EXEC.RISK_4_TITLE' | translate }}</div>
+                  <div class="exec-risk-desc">{{ 'EXEC.RISK_4_DESC' | translate }}</div>
+                </div>
+              </div>
+              <div class="exec-risk-item">
+                <div class="exec-risk-icon purple">⚙</div>
+                <div>
+                  <div class="exec-risk-title">{{ 'EXEC.RISK_5_TITLE' | translate }}</div>
+                  <div class="exec-risk-desc">{{ 'EXEC.RISK_5_DESC' | translate }}</div>
+                </div>
+              </div>
+              <div class="exec-risk-item">
+                <div class="exec-risk-icon teal">✓</div>
+                <div>
+                  <div class="exec-risk-title">{{ 'EXEC.RISK_6_TITLE' | translate }}</div>
+                  <div class="exec-risk-desc">{{ 'EXEC.RISK_6_DESC' | translate }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /page-execsummary -->

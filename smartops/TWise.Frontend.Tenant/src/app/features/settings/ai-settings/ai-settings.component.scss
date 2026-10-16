@@ -1,0 +1,82 @@
+.ai-page-icon { display: inline-flex; }
+
+.ai {
+  &__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    gap: 16px;
+    align-items: start;
+    .ai__side { grid-column: 2; grid-row: 1 / span 2; }
+    &--single { grid-template-columns: 1fr; }
+    @media (max-width: 1000px) { grid-template-columns: 1fr; }
+  }
+  &__side { display: grid; gap: 16px; }
+
+  &__card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    padding: 16px;
+    h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #101828; }
+  }
+  &__card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  &__empty { display: grid; gap: 10px; justify-items: center; padding: 24px; color: #667085; font-size: 13px; p { margin: 0; } }
+
+  // Provider row
+  &__provider {
+    display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: start;
+    padding: 12px; border: 1px solid #eaecf0; border-radius: 8px; margin-top: 10px;
+    &--active { border-color: #21409a; background: #f5f7ff; }
+  }
+  &__radio { display: flex; align-items: center; justify-content: center; height: 36px; input { width: 16px; height: 16px; cursor: pointer; } }
+  &__provider-body { display: grid; gap: 6px; min-width: 0; }
+  &__provider-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #101828; }
+  &__type { font-size: 11px; color: #475467; background: #f2f4f7; border-radius: 999px; padding: 2px 8px; }
+  &__badge { font-size: 11px; font-weight: 600; color: #067647; background: #ecfdf3; border-radius: 999px; padding: 2px 8px; }
+  &__provider-meta {
+    display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: #475467;
+    b { font-weight: 600; color: #344054; margin-right: 4px; }
+  }
+  &__url { overflow-wrap: anywhere; }
+  &__provider-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  &__danger { color: #b42318; }
+
+  &__form {
+    display: grid; gap: 12px;
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: #344054; }
+    input, select, textarea {
+      min-height: 36px; padding: 6px 10px; border: 1px solid #d0d5dd; border-radius: 6px;
+      font: inherit; font-weight: 400; color: #101828; background: #fff;
+      &:focus-visible { outline: 2px solid #21409a; outline-offset: 1px; }
+    }
+    code { font-size: 11px; }
+  }
+  &__inline { flex-direction: row !important; align-items: center; gap: 8px !important; flex-wrap: wrap; }
+  &__access { grid-column: 1; }
+  &__prompt { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid #f2f4f7; textarea { resize: vertical; line-height: 1.4; } }
+  &__matrix {
+    overflow: auto; margin-bottom: 12px;
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #f2f4f7; text-align: left; vertical-align: top; }
+    th { font-size: 12px; font-weight: 600; color: #475467; background: #f9fafb; white-space: nowrap; }
+    th:not(:first-child), td.ai__cell { text-align: center; }
+    input[type='checkbox'] { width: 16px; height: 16px; cursor: pointer; &:disabled { cursor: not-allowed; } }
+  }
+  &__hint { font-size: 12px; font-weight: 400; color: #667085; }
+  &__actions { display: flex; gap: 12px; align-items: center; }
+
+  &__msg {
+    margin: 0; padding: 6px 10px; border-radius: 6px; font-size: 12px;
+    &--ok { background: #ecfdf3; color: #067647; }
+    &--bad { background: #fef3f2; color: #b42318; }
+  }
+
+  &__today { margin: 0 0 12px; font-size: 13px; color: #344054; strong { font-size: 20px; color: #101828; } }
+  &__table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #f2f4f7; color: #101828; }
+    th { font-size: 12px; font-weight: 600; color: #475467; background: #f9fafb; }
+    td:not(:first-child), th:not(:first-child) { text-align: right; }
+  }
+}

@@ -1,0 +1,68 @@
+SQL DIALECT: Microsoft SQL Server (T-SQL). Key rules:
+- Row limiting uses TOP (e.g. SELECT TOP 5 ...), NOT LIMIT — but ONLY add TOP when the user asked
+  for a limited number/sample (see RESULT SIZE below). Do not cap results the user wants in full.
+- Always schema-qualify tables (schema.table), exactly as they appear in the SCHEMA block.
+- Today's date: CAST(GETDATE() AS date).
+- You may use: =, <>, !=, >, <, >=, <=; AND, OR, NOT; BETWEEN, IN, LIKE (% = many chars,
+  _ = one char, [abc], [a-z], [^abc]); IS NULL / IS NOT NULL; EXISTS / NOT EXISTS; CASE.
+- Aggregates: SUM, AVG, COUNT, MIN, MAX with GROUP BY / HAVING. ALWAYS do totals/averages/counts
+  in SQL so the database computes them exactly.
+- IMPORTANT — for questions about MANY or ALL rows ("each", "per", "all", counts, averages,
+  rankings, or scoring across the whole table), compute the answer with SQL aggregates / GROUP BY /
+  window functions rather than returning every raw row. The downstream analysis only sees a
+  capped sample of rows, so the summary MUST be computed in SQL.
+- Dates: DATEDIFF(day, a, b), DATEADD(day, n, d).
+- Window functions: ROW_NUMBER()/RANK()/LAG()/LEAD() OVER (PARTITION BY ... ORDER BY ...) —
+  use ROW_NUMBER() to pick the latest row per entity in snapshot/history tables.
+- Joins: INNER JOIN (matches only), LEFT JOIN (keep all left rows), plus RIGHT/FULL/CROSS.
+- Arithmetic: + - * / % .
+- Qualify EVERY column with its table alias in any multi-table query - in GROUP BY and ORDER BY
+  too, not just JOIN conditions. A bare name present in two joined tables fails as "Ambiguous
+  column name".
+- Copy each table and column name character-for-character from the SCHEMA block. Never re-case
+  it, add or drop underscores, pluralise it, or blend two similar names into one.
+- A column exists ONLY under the table the SCHEMA block lists it under: a generic-sounding name
+  is not evidence it is present there, and the same name may appear under several tables.
+  Separately, in a CTE chain a column is available downstream ONLY if that CTE's SELECT list
+  projects it. Both mistakes report the same "Invalid column name". So begin the sql block with
+  one comment per source table naming the columns you will take from it, then use only those:
+    -- <schema.table>: <column>, <column>
+- Never name a CTE or an alias after a T-SQL keyword (plan, key, value, user, order, table,
+  check, percent, current) - it fails as "Incorrect syntax near the keyword ...", and every
+  following comma then reports a bogus error too. Suffix it instead: x_data, x_cte.
+- An aggregate may NOT contain another aggregate or a subquery - e.g. SUM(CASE WHEN EXISTS
+  (SELECT ...) THEN 1 ELSE 0 END) is invalid. Compute the inner value in a CTE first, then
+  aggregate a plain column.
+- STRING_AGG does not accept DISTINCT - de-duplicate in a subquery, then aggregate that.
+- A text/ntext/image column cannot appear in =, <>, IN, LIKE, JOIN ... ON, GROUP BY, DISTINCT or
+  ORDER BY; wrap every such use as CAST(col AS nvarchar(max)).
+- Read the DECLARED TYPE in the SCHEMA block before comparing, joining or aggregating a column.
+  The type says what is ALLOWED, not just what the column holds: a bit column cannot be used with
+  MAX/MIN/SUM (wrap it as MAX(CAST(col AS int))), and a uniqueidentifier cannot be compared with a
+  number, so never join one to an integer column.
+- The SAME column name may carry a DIFFERENT declared type in another table. Before joining or
+  comparing two columns, check BOTH declared types in the SCHEMA block; when they differ, CAST one
+  side explicitly rather than relying on implicit conversion.
+
+RESULT SIZE — read the user's intent about HOW MANY rows and follow it exactly:
+- "all" / "list all" / "every" / "show all" / no number mentioned -> return ALL matching rows;
+  do NOT add TOP.
+- "top N" / "first N" / "N records" / "list 5" / "give me 5"      -> use TOP N with that exact N
+  (add an ORDER BY that matches the ranking, e.g. TOP 5 highest -> ORDER BY ... DESC).
+- "a sample" / "a few" / "some" / "examples"                      -> use TOP 10 as a small sample.
+- "how many" / "count of ..."                                     -> return COUNT(*) (a number,
+  not a list).
+Never silently limit a result the user asked for in full. (A system-level safety cap of
+MAX_ROWS rows still applies during execution, but you must not add your own smaller limit.)
+
+TRUE TOTAL when the row cap might silently truncate — whenever you do NOT add TOP (the "all" /
+"list all" case above is the only one this applies to; skip it for TOP N, a sample, or a COUNT
+answer), also add one extra column: COUNT(*) OVER() AS total_matching_rows. This lets the true
+total be known even if the system-level MAX_ROWS cap trims what is actually returned — it costs
+nothing to compute and is never wrong, since the database itself derives it fresh for this exact
+query. Do NOT add it when a chart was requested.
+
+HARD CONSTRAINTS:
+- Output EXACTLY ONE statement, and it MUST be a SELECT (or a WITH cte ... SELECT). Never write
+  INSERT/UPDATE/DELETE/MERGE/DROP/ALTER/TRUNCATE/EXEC or multiple statements.
+- Only reference tables/columns that appear in the provided SCHEMA. Never invent names.

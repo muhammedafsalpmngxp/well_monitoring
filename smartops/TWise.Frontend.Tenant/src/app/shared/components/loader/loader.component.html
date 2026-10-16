@@ -1,0 +1,39 @@
+<ng-container *ngIf="type === 'spinner'; else skeletonTpl">
+  <div class="loader-wrapper" [class.loader-overlay]="overlay">
+    <img src="assets/images/Final_with_out_.gif" alt="" class="loader" [class]="'loader--' + size" />
+    <p *ngIf="message" class="loader__message">{{ message }}</p>
+  </div>
+</ng-container>
+
+<ng-template #skeletonTpl>
+  <div class="app-loader-skeleton" [ngSwitch]="type">
+
+    <div *ngSwitchCase="'skeleton-bars'" class="app-loader-skeleton__chart">
+      <div class="app-loader-skeleton__bars">
+        <span *ngFor="let h of barHeights; let i = index" [style.height.%]="h"
+          [style.animation-delay.ms]="delay(i)"></span>
+      </div>
+      <div class="app-loader-skeleton__legend">
+        <span *ngFor="let p of legendPills; let i = index" [style.animation-delay.ms]="delay(i)"></span>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'skeleton-table'" class="app-loader-skeleton__table">
+      <span class="app-loader-skeleton__table-header" [style.animation-delay.ms]="delay(0)"></span>
+      <span class="app-loader-skeleton__table-row" *ngFor="let r of tableRows; let i = index"
+        [style.animation-delay.ms]="delay(i + 1)"></span>
+    </div>
+
+    <div *ngSwitchCase="'skeleton-tile'" class="app-loader-skeleton__tile">
+      <div class="app-loader-skeleton__tile-top">
+        <span class="app-loader-skeleton__tile-icon" [style.animation-delay.ms]="delay(0)"></span>
+        <div class="app-loader-skeleton__tile-meta">
+          <span class="app-loader-skeleton__tile-name" [style.animation-delay.ms]="delay(1)"></span>
+          <span class="app-loader-skeleton__tile-value" [style.animation-delay.ms]="delay(2)"></span>
+        </div>
+      </div> 9jm
+      <span class="app-loader-skeleton__tile-footer" [style.animation-delay.ms]="delay(3)"></span>
+    </div>
+
+  </div>
+</ng-template>
