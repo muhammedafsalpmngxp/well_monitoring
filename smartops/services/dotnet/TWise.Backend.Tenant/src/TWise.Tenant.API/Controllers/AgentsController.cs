@@ -41,8 +41,10 @@ public sealed class AgentsController(ISender sender) : ControllerBase
     [HttpPost("agentflow")]
     [RequireModulePermission(Module, ModulePermission.View)]
     [ProducesResponseType(typeof(JsonElement), StatusCodes.Status200OK)]
-    public Task<IActionResult> ExportAgentFlow([FromBody] SaveAiAgentRequest agent, CancellationToken ct) =>
-        RuntimeAsync(async () => Ok(await sender.Send(new ExportAgentFlowQuery(agent), ct)));
+    public async Task<IActionResult> ExportAgentFlow([FromBody] SaveAiAgentRequest agent, CancellationToken ct) =>
+        TryGetTenantId(out var t)
+            ? await RuntimeAsync(async () => Ok(await sender.Send(new ExportAgentFlowQuery(agent, t), ct)))
+            : Unauthorized();
 
     /// <summary>Turns an agentflow.json v1 into an agent for the page (not saved); 400 with the reason when unusable.</summary>
     [HttpPost("agentflow/import")]

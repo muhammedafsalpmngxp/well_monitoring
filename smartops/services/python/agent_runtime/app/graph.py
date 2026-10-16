@@ -158,6 +158,9 @@ def _router_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, to
             decision, usage = _decide(chat, llm, system, _progress(state))
             n, reason = decision.get("branch"), str(decision.get("reason", ""))
             chosen = rules[n - 1] if isinstance(n, int) and 1 <= n <= len(rules) else fallback
+        elif step.route_by == "ai":
+            # AI branches carry no real rules (their default is "equals ''"), so don't match them silently.
+            chosen, reason = fallback, "No AI provider is active, so the Otherwise branch was taken."
         else:
             chosen = next((b for b in rules if matches(b, inputs, last)), fallback)
         route = to(chosen.target if chosen else None)
@@ -190,8 +193,9 @@ def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: 
 
     def node(state: AgentState) -> dict[str, Any]:
         write = get_stream_writer()
-        # Under a supervisor the step runs the task it was given; the instruction says what the step is for.
-        text = (state.get("task") if cfg.type == "supervisor" else None) or fill(step.text, state.get("inputs") or {})
+        # Every agent type runs the instruction as written (with its {{inputs}}): a supervisor only picks the order.
+        # Letting it reword the task changed the question ("a rig on date" became "a rig on the specified date").
+        text = fill(step.text, state.get("inputs") or {})
         attempt = 1 + sum(1 for r in state.get("results") or [] if r["step"] == i)
         write({"event": "step", "data": {"step": i, "attempt": attempt, "phase": "start", "question": text,
                                          "agent": tool.agent, "action": tool.action}})
@@ -233,6 +237,8 @@ def _answer_node(cfg: AgentConfig, llm: Llm | None, chat):
     def node(state: AgentState) -> dict[str, Any]:
         results = state.get("results") or []
         done = [r for r in results if r["ok"]]
+        if not results:
+            return {"answer": "No step ran: the supervisor finished before choosing a step.", "ok": False}
         if not done:
             return {"answer": "No step produced an answer. " + "; ".join(r["error"] or "" for r in results), "ok": False}
         if len(results) == 1:
@@ -266,22 +272,30 @@ def _supervisor_node(cfg: AgentConfig, llm: Llm | None, chat, names: list[str]):
     workers = "\n".join(f"- {n}: {s.text} (tool: {(s.tool or cfg.tools[0]).agent})" for n, s in zip(names, cfg.steps))
     system = "\n".join(p for p in [
         profile(cfg),
-        "You are the supervisor. You coordinate these workers; each answers one task with its tool:", workers,
-        "Pick the worker to run next and give it one precise, self-contained task, or FINISH when the results "
-        "already answer the goal. Do not repeat a task that already succeeded.",
-        'Reply with JSON only: {"next": "<worker name> or FINISH", "task": "<task for that worker>"}',
+        "You are the supervisor. You coordinate these workers; each one answers its own instruction with its tool:",
+        workers,
+        "Pick the worker to run next, or FINISH when the results already answer the goal. "
+        "Do not pick a worker that already succeeded.",
+        'Reply with JSON only: {"next": "<worker name> or FINISH", "reason": "<one sentence>"}',
     ] if p)
 
     def node(state: AgentState) -> dict[str, Any]:
         n = state.get("iterations", 0)
-        if llm is None or n >= cfg.max_iterations:
+        succeeded = {f"step_{r['step']}" for r in state.get("results") or [] if r["ok"]}
+        if n >= cfg.max_iterations:
             return {"next": "answer"}
-        decision, usage = _decide(chat, llm, system, _progress(state))
-        nxt, task = str(decision.get("next", "")).strip(), str(decision.get("task", "")).strip()
-        if nxt not in names or not task:
-            nxt = "answer"
-        get_stream_writer()({"event": "decision", "data": {"by": "supervisor", "next": nxt, "task": task, "round": n + 1}})
-        return {"next": nxt, "task": task, "iterations": n + 1, "usage": usage}
+        if llm is None:
+            # No AI provider to decide with: run every worker once, in order, instead of ending with nothing.
+            ran = {f"step_{r['step']}" for r in state.get("results") or []}
+            nxt = next((w for w in names if w not in ran), "answer")
+            reason, usage = "No AI provider is active, so the steps run in order.", []
+        else:
+            decision, usage = _decide(chat, llm, system, _progress(state))
+            nxt, reason = str(decision.get("next", "")).strip(), str(decision.get("reason", "")).strip()
+            if nxt not in names or nxt in succeeded:
+                nxt = "answer"
+        get_stream_writer()({"event": "decision", "data": {"by": "supervisor", "next": nxt, "reason": reason, "round": n + 1}})
+        return {"next": nxt, "iterations": n + 1, "usage": usage}
 
     return node
 

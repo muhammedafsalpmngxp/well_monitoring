@@ -3,14 +3,18 @@ using TWise.Tenant.Domain.DTOs;
 
 namespace TWise.Tenant.Application.Abstractions.Services;
 
+/// <summary>The tenant's active AI provider as agentflow.json records it: which provider and model, no key.</summary>
+public sealed record AgentFlowLlm(string Provider, string Model, string? BaseUrl);
+
 /// <summary>The Python agent runtime (services/python/agent_runtime), which runs agents as LangGraph graphs.</summary>
 public interface IAgentRuntimeClient
 {
     /// <summary>The tools a step can use, with a message when twise is down. Throws HttpRequestException when the runtime is down.</summary>
     Task<AgentToolsDto> ListToolsAsync(CancellationToken ct);
 
-    /// <summary>The agent as agentflow.json v1 (AgenticUIFramework format).</summary>
-    Task<JsonElement> ExportAgentFlowAsync(SaveAiAgentRequest agent, CancellationToken ct);
+    /// <summary>The agent as agentflow.json v1 (AgenticUIFramework format), naming the tenant's model when one is
+    /// active (never its key).</summary>
+    Task<JsonElement> ExportAgentFlowAsync(SaveAiAgentRequest agent, AgentFlowLlm? llm, CancellationToken ct);
 
     /// <summary>An agentflow.json v1 as an agent; throws InvalidOperationException with the reason when it is not usable.</summary>
     Task<AgentFlowImportDto> ImportAgentFlowAsync(JsonElement flow, CancellationToken ct);

@@ -15,8 +15,22 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.agentflow.schema import (AgentFlow, AgentSpec, LangGraphConfig, Meta, RouterSpec, RouteSpec,
+from app.agentflow.schema import (AgentFlow, AgentSpec, LangGraphConfig, LlmProviderSpec, Meta, RouterSpec, RouteSpec,
                                   StateChannelSpec, TaskSpec, ToolSpec)
+
+# The Tenant API's provider names (Settings > AI > Providers) as agentflow.json's. "custom" is any
+# OpenAI-compatible endpoint, which agentflow calls vllm (it needs the base URL).
+_PROVIDERS = {"openai": "openai", "azure": "azure-openai", "anthropic": "anthropic", "ollama": "ollama", "custom": "vllm"}
+
+
+def _llm(agent: dict[str, Any]) -> LlmProviderSpec | None:
+    """The tenant's active model (sent by the Tenant API as "llm", never with its key); None = agentflow's default."""
+    llm = agent.get("llm") or {}
+    if not llm.get("model"):
+        return None
+    provider = _PROVIDERS.get(str(llm.get("provider") or "").lower(), "vllm")
+    return LlmProviderSpec(provider=provider, model=llm["model"], base_url=llm.get("baseUrl") or None,
+                           api_key_env="AZURE_OPENAI_API_KEY" if provider == "azure-openai" else "OPENAI_API_KEY")
 
 TYPES = ("sequential", "parallel", "supervisor", "loop")
 EXTRA = "wellmonitoring"
@@ -88,7 +102,9 @@ def to_agentflow(agent: dict[str, Any]) -> dict[str, Any]:
     flow = AgentFlow(
         framework="langgraph",
         meta=Meta(name=agent.get("name"), description=agent.get("description")),
+        **({"provider": spec.provider} if (spec := _llm(agent)) else {}),
         config=LangGraphConfig(
+            **({"llm_provider": spec} if spec else {}),
             process=kind if kind in TYPES else "sequential",
             max_iterations=int(agent.get("maxIterations") or 5),
             agents=agents,

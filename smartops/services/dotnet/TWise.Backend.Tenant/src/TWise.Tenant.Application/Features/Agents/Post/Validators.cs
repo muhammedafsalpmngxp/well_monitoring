@@ -21,7 +21,7 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
         RuleFor(x => x.Type).Must(t => Types.Contains((t ?? "").Trim().ToLowerInvariant()))
             .WithMessage("Agent type must be sequential, parallel, supervisor or loop.");
         RuleFor(x => x.MaxIterations).InclusiveBetween(1, 20).WithMessage("Max iterations must be between 1 and 20.");
-        RuleFor(x => x.Steps).NotEmpty().WithMessage("Add at least one instruction.").Must(s => s.Count <= 20).WithMessage("An agent can have up to 20 instructions.");
+        RuleFor(x => x.Steps).NotEmpty().WithMessage("Add at least one instruction.").Must(s => s is null || s.Count <= 20).WithMessage("An agent can have up to 20 instructions.");
         RuleForEach(x => x.Steps).ChildRules(s =>
         {
             s.RuleFor(x => x.Text).NotEmpty().WithMessage("An instruction is empty.").MaximumLength(2000);
@@ -61,6 +61,7 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
     /// <summary>Same checks as the runtime: routing only where steps run in order, and every target exists.</summary>
     private static bool RoutesAreValid(SaveAiAgentRequest r)
     {
+        if (r.Steps is null) return true;   // NotEmpty reports it
         var routed = r.Steps.Where(s => s.Kind == "router" || s.Next is not null).ToList();
         if (routed.Count == 0) return true;
         if ((r.Type ?? "").Trim().ToLowerInvariant() is not ("sequential" or "loop") || routed.Any(s => string.IsNullOrEmpty(s.Id))) return false;
@@ -73,9 +74,22 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
     /// The text of a step the links lead back to, or null. Same walk as the runtime's _check_no_cycle (graph.py):
     /// within one run (or one loop round) a step is reached at most once; unknown targets end the path.
     /// </summary>
-    private static string? CircleAt(SaveAiAgentRequest r)
+    private static string? CircleAt(SaveAiAgentRequest r) => Walk(r).Circle;
+
+    /// <summary>
+    /// The text of the first step no path from the start reaches (e.g. a router dropped on the Canvas that nothing
+    /// links to), or null. Checked on save: such a step is saved but never runs.
+    /// </summary>
+    public static string? NeverReached(SaveAiAgentRequest r)
     {
-        if ((r.Type ?? "").Trim().ToLowerInvariant() is not ("sequential" or "loop") || r.Steps.Count == 0) return null;
+        var (circle, reached) = Walk(r);
+        if (circle is not null || reached is null) return null;
+        return r.Steps.Where((_, i) => !reached[i]).Select(s => s.Text).FirstOrDefault();
+    }
+
+    private static (string? Circle, bool[]? Reached) Walk(SaveAiAgentRequest r)
+    {
+        if ((r.Type ?? "").Trim().ToLowerInvariant() is not ("sequential" or "loop") || r.Steps is not { Count: > 0 }) return (null, null);
         var index = r.Steps.Select((s, i) => (s.Id, i)).Where(p => !string.IsNullOrEmpty(p.Id))
             .GroupBy(p => p.Id!).ToDictionary(g => g.Key, g => g.First().i);
         int? To(string? target) => target is null || target == "answer" ? null : index.TryGetValue(target, out var i) ? i : null;
@@ -98,7 +112,8 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
             state[i] = 2;
             return null;
         }
-        return Visit(0);
+        var circle = Visit(0);
+        return (circle, state.Select(s => s != 0).ToArray());
     }
 }
 
@@ -115,12 +130,33 @@ public sealed class ExportAskDataQueryValidator : AbstractValidator<ExportAskDat
 
 public sealed class CreateAiAgentCommandValidator : AbstractValidator<CreateAiAgentCommand>
 {
-    public CreateAiAgentCommandValidator() => RuleFor(x => x.Request).SetValidator(new SaveAiAgentRequestValidator());
+    public CreateAiAgentCommandValidator()
+    {
+        RuleFor(x => x.Request).SetValidator(new SaveAiAgentRequestValidator());
+        RuleFor(x => x.Request).Custom((r, ctx) => SavedSteps.AllReached(r, ctx));
+    }
 }
 
 public sealed class UpdateAiAgentCommandValidator : AbstractValidator<UpdateAiAgentCommand>
 {
-    public UpdateAiAgentCommandValidator() => RuleFor(x => x.Request).SetValidator(new SaveAiAgentRequestValidator());
+    public UpdateAiAgentCommandValidator()
+    {
+        RuleFor(x => x.Request).SetValidator(new SaveAiAgentRequestValidator());
+        RuleFor(x => x.Request).Custom((r, ctx) => SavedSteps.AllReached(r, ctx));
+    }
+}
+
+/// <summary>Save-only rule (a test run may try a half-built flow): every step must be reachable from the start.</summary>
+internal static class SavedSteps
+{
+    public static void AllReached(SaveAiAgentRequest r, ValidationContext<CreateAiAgentCommand> ctx) => Check(r, ctx.AddFailure);
+    public static void AllReached(SaveAiAgentRequest r, ValidationContext<UpdateAiAgentCommand> ctx) => Check(r, ctx.AddFailure);
+
+    private static void Check(SaveAiAgentRequest r, Action<string, string> fail)
+    {
+        if (SaveAiAgentRequestValidator.NeverReached(r) is { } text)
+            fail("Steps", $"'{(text.Length <= 40 ? text : text[..40])}' is never reached. On the Canvas, link a step or a branch to it, or remove it.");
+    }
 }
 
 public sealed class TestAiAgentStreamValidator : AbstractValidator<TestAiAgentStream>

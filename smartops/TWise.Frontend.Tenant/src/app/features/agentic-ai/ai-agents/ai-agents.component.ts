@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Agent, AgentsService } from '../agents.service';
 
@@ -37,6 +37,34 @@ export class AiAgentsComponent implements OnInit {
     this.router.navigate(['/agentic-ai/ai-agents', agent.id]);
   }
 
+  /** The card whose ⋮ menu is open, and the agent being deleted. */
+  menuFor: number | null = null;
+  deleting: number | null = null;
+
+  toggleMenu(agent: AgentCard, e: Event): void { e.stopPropagation(); this.menuFor = this.menuFor === agent.id ? null : agent.id; }
+
+  @HostListener('document:click')
+  closeMenu(): void { this.menuFor = null; }
+
+  /** Deletes the agent (its run history stays, for the Activity Log). */
+  deleteAgent(agent: AgentCard): void {
+    if (!confirm(`Delete "${agent.name}"? This cannot be undone. Its test runs stay in the Activity Log.`)) return;
+    this.deleting = agent.id;
+    this.agentsApi.delete(agent.id).subscribe({
+      next: () => {
+        this.deleting = null;
+        this.menuFor = null;
+        this.saved = this.saved.filter(a => a.id !== agent.id);
+        this.render();
+      },
+      error: err => {
+        this.deleting = null;
+        this.error = err?.status === 403 ? 'You do not have permission to delete agents.' : `Could not delete "${agent.name}".`;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
   kpis = this.kpisFor([]);
 
   sourceOptions = ['All', 'Published', 'Draft'];
@@ -51,13 +79,20 @@ export class AiAgentsComponent implements OnInit {
     { iconBg: 'linear-gradient(135deg, #22C55E 0%, #059669 100%)', iconType: 'mail' },
   ];
 
+  /** The saved agents as loaded, and each tool key's display name from the agent service. */
+  private saved: Agent[] = [];
+  private toolTitles = new Map<string, string>();
+
   ngOnInit(): void {
+    this.agentsApi.tools().subscribe({
+      next: r => { this.toolTitles = new Map(r.tools.map(t => [t.agent, t.title])); this.render(); },
+      error: () => { /* raw tool keys are shown */ },
+    });
     this.agentsApi.list().subscribe({
       next: list => {
-        this.agents = list.map((a, i) => this.toCard(a, i));
-        this.kpis = this.kpisFor(list);
+        this.saved = list;
         this.loading = false;
-        this.cdr.markForCheck();
+        this.render();
       },
       error: err => {
         this.loading = false;
@@ -68,15 +103,22 @@ export class AiAgentsComponent implements OnInit {
     });
   }
 
-  private toCard(a: Agent, i: number): AgentCard {
+  private render(): void {
+    this.agents = this.saved.map(a => this.toCard(a));
+    this.kpis = this.kpisFor(this.saved);
+    this.cdr.markForCheck();
+  }
+
+  private toCard(a: Agent): AgentCard {
     return {
       id: a.id,
       name: a.name,
       role: a.role ?? '',
       status: a.status === 'published' ? 'Published' : 'Draft',
       description: a.description || a.goal || a.steps.map(s => s.text).join(' · '),
-      ...AiAgentsComponent.ICONS[i % AiAgentsComponent.ICONS.length],
-      capabilities: a.tools.map(t => `${t.agent.replace(/_/g, ' ')} · ${t.action}`),
+      // By id, not list position: the list is sorted by last update, so the icon changed after every save.
+      ...AiAgentsComponent.ICONS[a.id % AiAgentsComponent.ICONS.length],
+      capabilities: a.tools.map(t => `${this.toolTitles.get(t.agent) ?? t.agent.replace(/_/g, ' ')} · ${t.action}`),
       runs: a.stats.runs,
       successRate: a.stats.successRate === null ? '—' : `${a.stats.successRate}%`,
       avgTime: a.stats.avgSeconds === null ? '—' : `${a.stats.avgSeconds}s`,

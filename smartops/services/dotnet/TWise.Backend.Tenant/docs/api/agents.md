@@ -38,7 +38,8 @@ Base path: `/api/agents`
 | `tools` | at least one; `agent` and `action` come from `GET /api/agents/tools` |
 | `inputs` | names use letters, digits and `_`, unique |
 | `status` | `draft` or `published` |
-| `type` | how the instructions run: `sequential` (one after another, the default), `parallel` (all at once, then one combined answer), `supervisor` (the AI picks the next instruction and its task), `loop` (repeat until the AI judges the goal met) |
+| `type` | how the instructions run: `sequential` (one after another, the default), `parallel` (all at once, then one combined answer), `supervisor` (the AI picks which instruction runs next until the goal is answered; each instruction runs exactly as written, and none runs twice once it succeeded), `loop` (repeat until the AI judges the goal met) |
+| `askData.allowedSchemas` | narrows the schemas Ask Data may read; names outside the server's list (`ASKDATA_ALLOWED_SCHEMAS`) are ignored. Empty or null = the server's list |
 | `maxIterations` | 1 to 20 (default 5): rounds for `supervisor` and `loop` |
 | `steps[].id` | optional, up to 64 characters; needed by routers and links. `x` / `y` are the canvas position |
 
@@ -60,13 +61,15 @@ A step with `"kind": "router"` runs no tool: it picks **one** of its branches an
 
 | Field | Rules |
 |---|---|
-| `routeBy` | `rules` (default): branches are checked in order, the first match wins. `ai`: the tenant's AI provider picks the branch whose `label` fits best |
+| `routeBy` | `rules` (default): branches are checked in order, the first match wins. `ai`: the tenant's AI provider picks the branch whose `label` fits best; with no active provider the `else` branch is taken and the `decision` event says why |
 | `branches` | 1 to 10. `input` is an input name or `last_answer` (the previous step's answer) |
 | `op` | `equals`, `not_equals`, `contains`, `not_contains`, `gt`, `gte`, `lt`, `lte`, `empty`, `not_empty`, or `else` (the fallback). Text compares ignore case; two numbers compare as numbers |
 | `target` | a step `id`, `"answer"`, or null (= the answer). With no match and no `else`, the run goes to the answer |
 
 Routers and links are refused for `parallel` and `supervisor` agents, targets must be existing step ids,
-and a run fails if the links go round in a circle.
+and links that go round in a circle are refused (on save and on test). **Saving** also refuses a step that no
+path from the first step reaches, e.g. a router nothing links to: it would be saved but never run. A test may
+still try such a half-built flow.
 
 Responses add `id`, `createdBy`, `createdAt`, `updatedAt` and `stats` (`runs`, `successRate` %, `avgSeconds`, `lastRunAt`).
 
@@ -76,14 +79,14 @@ Responses add `id`, `createdBy`, `createdAt`, `updatedAt` and `stats` (`runs`, `
 |---|---|---|
 | GET | `/api/agents` | The tenant's agents, most recently changed first |
 | GET | `/api/agents/{id}` | One agent (404 if it is not the tenant's) |
-| GET | `/api/agents/tools` | `{ tools: [{ agent, title, description, capabilities, ready }], message }`. When the agent service is down, `tools` is empty and `message` says why |
+| GET | `/api/agents/tools` | `{ tools: [{ agent, title, description, capabilities, ready }], message }`. When the agent runtime is down, `tools` is empty and `message` says why; when only the twise agent service (port 8000) is down, `tools` holds Ask Data and `message` says the extra tools are offline |
 | POST | `/api/agents` | Save a new agent. 201 with the agent |
 | PUT | `/api/agents/{id}` | Replace an agent (Save as Draft / Publish on an existing agent) |
 | DELETE | `/api/agents/{id}` | Delete. 204. Past runs stay in the run history |
 | GET | `/api/agents/{id}/runs?take=50` | The agent's latest test runs |
-| GET | `/api/agents/runs?take=50` | Latest test runs of all agents |
+| GET | `/api/agents/runs?take=50` | Latest test runs of all agents (at most 200); the Activity Log page shows these |
 | POST | `/api/agents/test` | Run an agent and stream its progress (below) |
-| POST | `/api/agents/agentflow` | Body: the agent object. Returns it as an `agentflow.json` v1 document |
+| POST | `/api/agents/agentflow` | Body: the agent object. Returns it as an `agentflow.json` v1 document; `llm_provider` names the tenant's active provider and model (never its key) |
 | GET | `/api/agents/{id}/agentflow` | Download a saved agent as `agentflow.json` |
 | POST | `/api/agents/askdata/export` | Body: `{ token, format: "xlsx" \| "docx", question, answer, verified, askData }`. The data behind an Ask Data answer as a file: every row, re-read with that answer's SQL, no AI call. `token` is the step's `export_token`; 400 when it is not valid, expired or no longer allowed |
 | POST | `/api/agents/agentflow/import` | Body: an `agentflow.json` (LangGraph). Returns `{ agent, warnings }`: the agent to load on the page (not saved) and what could not be used |
@@ -106,9 +109,9 @@ server-sent events:
 | `step` | `{ step, phase: "start", question, agent, action }`, later `{ step, phase: "end", answer, sql: [...], ok, error, seconds }` |
 | `status` | `{ step, stage }`, e.g. "Fetching your data" |
 | `node` | `{ step, node }`, the part of the tool that is running |
-| `decision` | supervisor `{ by: "supervisor", next, task, round }`, loop `{ by: "loop", done, reason, round }`, router `{ by: "router", step, router, branch, next, reason }` |
+| `decision` | supervisor `{ by: "supervisor", next, reason, round }`, loop `{ by: "loop", done, reason, round }`, router `{ by: "router", step, router, branch, next, reason }` |
 | `done` | `{ runId, ok, answer, steps: [...], seconds }` |
-| `error` | `{ message, runId? }`, e.g. a required input is empty or the agent service is not reachable |
+| `error` | `{ message, runId? }`, e.g. a required input is empty, the agent service is not reachable, or Ask Data has no database configured |
 
 A step that runs more than once (supervisor, loop) has `attempt` 1, 2, … in its `step` events.
 An Ask Data step's `end` event also carries `route` (sql, clarify, chitchat), `verified`, `needs_analysis`,
@@ -116,7 +119,9 @@ An Ask Data step's `end` event also carries `route` (sql, clarify, chitchat), `v
 A `ping` event arrives every 15 s while a step is still working; ignore it.
 With one instruction the answer is the tool's answer. With several, the tenant's active AI provider
 (AI Settings → AI Providers) writes one answer from all of them, in the agent's role and goal; if AI is
-off, the step answers are shown one after another. Every run is saved.
+off, the step answers are shown one after another; a supervisor agent then runs its instructions once, in
+order. Every run is saved. When the page closes mid-run, the runtime stops at the next event (no further
+steps start) and the run is saved as stopped.
 
 ```bash
 curl -N -X POST https://<tenant-api>/api/agents/test \

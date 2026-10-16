@@ -47,10 +47,10 @@ class AgentInput(_Camel):
 
 
 class AskDataOptions(_Camel):
-    """Knowledge Source and limits for the built-in Ask Data tool. Blank knowledge = the Al-Tasnim defaults."""
+    """Knowledge Source and limits for the built-in Ask Data tool. Blank knowledge = the deployment's default files."""
     business_rules: str | None = None
     examples: str | None = None
-    allowed_schemas: list[str] = []
+    allowed_schemas: list[str] | None = None   # the Tenant API allows null: treated as "all the deployment allows"
     max_rows: int = 500
 
 

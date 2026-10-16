@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AgentStep } from './agents.service';
-import { circleAt, stepsToSave } from './agent-steps.util';
+import { circleAt, neverReached, stepsToSave } from './agent-steps.util';
 
 const step = (id: string, text = id.toUpperCase(), more: Partial<AgentStep> = {}): AgentStep => ({ id, text, kind: 'step', ...more });
 const router = (id: string, targets: (string | null)[]): AgentStep => ({
@@ -25,6 +25,22 @@ describe('circleAt', () => {
 
   it('ignores links in agents whose steps do not run in order', () => {
     expect(circleAt([step('a'), step('b', 'B', { next: 'a' })], 'parallel')).toBeNull();
+  });
+});
+
+describe('neverReached', () => {
+  it('finds a router nothing links to', () => {
+    // What the Canvas used to build: the last step ends at the answer and the router dropped after it never runs.
+    expect(neverReached([step('a', 'A', { next: 'answer' }), router('r', ['answer'])], 'sequential')).toBe('Route');
+  });
+
+  it('accepts a router the last step leads into, and steps reached by a branch', () => {
+    expect(neverReached([step('a', 'A', { next: 'r' }), router('r', ['c', null]), step('c')], 'sequential')).toBeNull();
+    expect(neverReached([step('a'), step('b')], 'sequential')).toBeNull();
+  });
+
+  it('ignores agent types whose steps all run', () => {
+    expect(neverReached([step('a', 'A', { next: 'answer' }), step('b')], 'parallel')).toBeNull();
   });
 });
 

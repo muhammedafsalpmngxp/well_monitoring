@@ -327,6 +327,16 @@ def test_exclusion_lists_are_lowercased_like_twise():
     assert "dbo.activitycodesnorms" in s.excluded_tables and s.allowed_schemas[0] == "well"
 
 
+def test_an_agent_can_only_narrow_the_allowed_schemas():
+    from app.askdata.runner import settings_for
+    from app.models import AskDataOptions
+
+    assert settings_for(AskDataOptions(allowed_schemas=["Well", "sys", "INFORMATION_SCHEMA"])).allowed_schemas == ("well",)
+    default = settings_for(None).allowed_schemas
+    assert settings_for(AskDataOptions(allowed_schemas=["sys"])).allowed_schemas == default   # nothing allowed: defaults
+    assert settings_for(AskDataOptions(allowed_schemas=None)).allowed_schemas == default       # null from the Tenant API
+
+
 def test_done_event_carries_an_export_token(monkeypatch):
     # The response is built inside the run, so the token can be signed (it was None when built after it).
     from app.askdata import runner

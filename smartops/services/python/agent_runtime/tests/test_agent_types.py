@@ -43,20 +43,36 @@ def test_parallel_runs_every_step_then_combines():
     assert done["answer"] == "combined" and len(done["steps"]) == 2
 
 
-def test_supervisor_assigns_tasks_until_finish():
+def test_supervisor_picks_the_order_and_steps_run_their_own_instruction():
     calls = []
-    replies = [{"next": "step_2", "task": "count wells"}, {"next": "step_1", "task": "list delays"}, {"next": "FINISH"}]
+    replies = [{"next": "step_2", "reason": "count first"}, {"next": "step_1"}, {"next": "FINISH"}]
     events = list(run_events(_req("supervisor"), run_tool=tool(calls), chat=scripted(replies)))
-    assert calls == ["count wells", "list delays"]          # runs the task it was given, not the instruction
+    assert calls == ["B", "A"]          # the instruction as written, never a reworded task
     assert [d["next"] for n, d in events if n == "decision"] == ["step_2", "step_1", "answer"]
     assert _done(events)["answer"] == "combined"
 
 
+def test_supervisor_does_not_rerun_a_step_that_succeeded():
+    calls = []
+    replies = [{"next": "step_1"} for _ in range(10)]
+    _done(run_events(_req("supervisor", max_iterations=3), run_tool=tool(calls), chat=scripted(replies)))
+    assert calls == ["A"]
+
+
 def test_supervisor_stops_at_max_iterations():
     calls = []
-    replies = [{"next": "step_1", "task": f"t{i}"} for i in range(10)]
-    _done(run_events(_req("supervisor", max_iterations=3), run_tool=tool(calls), chat=scripted(replies)))
-    assert len(calls) == 3
+    replies = [{"next": "step_1"}, {"next": "step_2"}, {"next": "step_1"}]
+    _done(run_events(_req("supervisor", steps=("A", "B", "C"), max_iterations=2), run_tool=tool(calls),
+                     chat=scripted(replies)))
+    assert calls == ["A", "B"]
+
+
+def test_supervisor_without_a_provider_runs_every_step_in_order():
+    calls = []
+    events = list(run_events(_req("supervisor", llm=False), run_tool=tool(calls)))
+    assert calls == ["A", "B"]
+    assert _done(events)["ok"] is True
+    assert all("No AI provider" in d["reason"] for n, d in events if n == "decision" and d["next"] != "answer")
 
 
 def test_supervisor_with_unknown_worker_finishes():

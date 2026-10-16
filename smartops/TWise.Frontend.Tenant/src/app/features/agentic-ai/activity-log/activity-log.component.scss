@@ -509,3 +509,12 @@
     }
   }
 }
+
+// Loading, error and empty states above the grid.
+.acl-state {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #667085;
+
+  &--bad { color: #C62828; }
+}

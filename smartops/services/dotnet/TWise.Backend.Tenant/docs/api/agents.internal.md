@@ -14,17 +14,26 @@ New Agent page (Angular) ──► Tenant API /api/agents (CQRS) ──► core.
 * **Agents are data, created at runtime.** Saving writes a row; nothing is generated or deployed.
   Each run, `app/graph.py: build_graph()` compiles a LangGraph graph from the definition, wired by `type`:
   sequential `START → step_1 → … → answer`; parallel fan-out then `answer`; supervisor hub (`supervisor` node
-  returns `{next, task}` JSON); loop chain then `check` (returns `{done, reason}`), back to step 1 or `answer`.
+  returns `{next, reason}` JSON); loop chain then `check` (returns `{done, reason}`), back to step 1 or `answer`.
+* **Supervisor only orders the steps.** Every step runs its own instruction (with `{{inputs}}`), never a task
+  the model rewrote: letting it reword "rig on date" into "rig on the specified date" turned 188 wells into 0.
+  A worker that already succeeded is not picked again (that ends the run); with no AI provider the steps run
+  once, in order, and the `decision` events say so.
 * **Routers (sequential, loop):** a router node writes `route` in the state; a conditional edge goes there.
   Rules are evaluated in Python (`graph.matches`), never `eval`; `ai` asks the tenant provider for
-  `{branch, reason}`. A plain step's `next` sets its edge; `_check_no_cycle` rejects circles at build time.
+  `{branch, reason}` (no provider: the `else` branch, with that reason). A plain step's `next` sets its edge.
   Pydantic (`AgentConfig._check_routing`) and the .NET validator (`RoutesAreValid`) reject routers in
   parallel / supervisor agents and targets that are not step ids. In a loop, "answer" means the round's end (`check`).
+* **One walk, three places:** circles (`graph._check_no_cycle`, .NET `CircleAt`, UI `agent-steps.util.ts circleAt`)
+  are refused on save and test; steps nothing reaches (.NET `NeverReached` in the Create/Update validators,
+  UI `neverReached`) only on save. The Canvas links the last step into a router dropped after it.
 * **agentflow.json:** `app/agentflow/convert.py` (`to_agentflow` / `from_agentflow`) maps an agent to the
   portable v1 format (LangGraph flavour, `app/agentflow/schema.py`, MIT). Routers become `routers[]`
   (conditions written as readable Python expressions); everything without an agentflow field (Ask Data
   knowledge, layout, routers' full rules) goes in `config.wellmonitoring`, so export → import is lossless.
-  Imported foreign routers, interrupts, subgraphs and map-reduce are reported as warnings.
+  Imported foreign routers, interrupts, subgraphs and map-reduce are reported as warnings. The Tenant API adds
+  `llm` (the active provider's name, model and base URL, never the key) so `llm_provider` names the real model.
+  An import in the UI is always a new agent (it no longer overwrites the agent that was open).
 * **Step node:** fills `{{input}}` placeholders, calls the step's tool (or the agent's first tool) through
   the twise supervisor with the earlier steps as `history`, and relays `status` / `node` events through
   LangGraph's custom stream (`get_stream_writer`).
@@ -45,7 +54,13 @@ retries and the per-node reasoning table (`llm.py`). Prompts come from the files
 prompt_service. Export (`tools/export.py`, `export_formats.py`) signs the answer's SQL with
 `ASKDATA_EXPORT_SECRET` (set it outside local development; without it links stop working on restart).
 Differences on purpose: the executor also refuses anything but one SELECT and opens read-only connections;
-the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_FAST_MODEL).
+the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_FAST_MODEL); an agent's
+`allowedSchemas` can only narrow `ASKDATA_ALLOWED_SCHEMAS` (`runner.settings_for`), never add `sys` & co.
+
+**Which database:** Ask Data reads `AgentRuntime:AskDataConnection`, else `ConnectionStrings:AlTasnimBI`
+(the Tenant API sends it with each run). The twise agents (DB Assistant, Data Anomaly, Well Slippage,
+Daily Report on ports 8001-8004) read the database in twise-agentic's own `backend/.env` (`DB_*`, AlTasnimBI
+on QA) with their own OpenAI key.
 
 ## Code
 
@@ -57,12 +72,14 @@ the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_
 | API | `Controllers/AgentsController.cs` |
 | Python | `services/python/agent_runtime/app/{main,graph,twise,models}.py`, tests in `tests/` |
 | SQL | `infra/sql/add-ai-agents.sql` (idempotent; change the `USE` line per tenant DB) |
-| UI | `features/agentic-ai/agents.service.ts`, `new-agent/`, `ai-agents/` |
+| UI | `features/agentic-ai/agents.service.ts`, `agent-steps.util.ts` (+ spec), `new-agent/`, `ai-agents/` (Edit / Delete menu), `activity-log/` (`GET /api/agents/runs`) |
 
 * `TestAiAgentStreamHandler` validates itself: MediatR's `ValidationBehavior` only wraps `IRequest`, not
   stream requests. It always saves the run (fresh token), success or failure.
-* A `TaskCanceledException` or `HttpRequestException` from the runtime becomes an `error` event and a
-  failed run, not a 500.
+* A `TaskCanceledException` or `HttpRequestException` from the runtime, an `InvalidOperationException`
+  raised before the first event (no Ask Data connection string) and a `JsonException` (unreadable stream)
+  become an `error` event and a failed run, not a 500.
+* The runtime's `with_heartbeat` stops the run at its next event once the caller stops reading.
 * Stats are computed per request from `AiAgentRuns` (count, success %, average seconds).
 
 ## Configuration
@@ -75,6 +92,10 @@ the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_
 | Runtime env | `AGENT_RUNTIME_TWISE_URL` | `http://localhost:8000` | twise supervisor |
 | Runtime env | `AGENT_RUNTIME_TWISE_API_KEY` | empty | twise `X-API-Key` |
 | Runtime env | `AGENT_RUNTIME_STEP_TIMEOUT` | `180` | seconds per step |
+| Runtime env | `ASKDATA_ALLOWED_SCHEMAS` | `well,project,ref,bridge,dbo` | the most an agent's Allowed schemas can read |
+| Runtime env | `ASKDATA_KNOWLEDGE_DIR` | `app/askdata/knowledge_default` | business rules / examples used when an agent leaves them blank |
+| Runtime env | `ASKDATA_ORG_NAME` | `Al-Tasnim` | the organisation the Ask Data prompts speak for (`ORG_NAME` in the prompt files) |
+| Runtime env | `ASKDATA_EXPORT_PREFIX` | `ask-data` | start of exported file names (`al-tasnim` gives the old names) |
 
 Set both keys outside local development: the runtime receives the tenant's decrypted AI key in the
 request body, so it must only be reachable from the Tenant API.
@@ -92,7 +113,11 @@ Docker: the `agent-runtime` service in `smartops/docker-compose.yml`.
 
 ## Limits / next
 
-* Knowledge Sources and Triggers are on the page but not saved yet.
+* Triggers are not built: the page says so and saves nothing. Knowledge Source covers Ask Data only (RAG / MCP
+  on the Canvas are "Coming soon").
+* The Activity Log reads the latest 200 runs and filters them in the browser.
+* On a PC with Windows Smart App Control on, newly built .NET DLLs can be blocked ("An Application Control
+  policy has blocked this file"): the Tenant API and its tests then do not start.
 * No per-step tool picker in the UI yet (the API accepts `steps[].tool`).
 * Routers decide on inputs and the previous answer; they cannot read a named field out of a step's result.
 * twise reads one database (`AlTasnimBI`) for every tenant.

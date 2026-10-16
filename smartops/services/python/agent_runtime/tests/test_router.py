@@ -77,6 +77,13 @@ def test_ai_router_uses_the_models_choice():
     assert [d["reason"] for n, d in events if n == "decision"] == ["old"]
 
 
+def test_an_ai_router_without_a_provider_takes_otherwise_and_says_why():
+    router = {**ROUTER, "routeBy": "ai"}
+    calls, events = _run(_req("8", steps=[STEPS[0], router, *STEPS[2:]]))   # age 8 would match "Child" by rules
+    assert calls == ["Price for 8", "Final price"]
+    assert "No AI provider" in [d for n, d in events if n == "decision"][0]["reason"]
+
+
 def test_a_link_back_is_rejected():
     steps = [{"id": "a", "text": "A"}, {"id": "b", "text": "B", "next": "a"}]
     _, events = _run(_req("1", steps=steps))

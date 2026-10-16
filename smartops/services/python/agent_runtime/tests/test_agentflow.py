@@ -41,6 +41,15 @@ def test_export_is_a_valid_agentflow_in_the_frameworks_shape():
     assert cfg["state_channels"][0]["name"] == "cluster"
 
 
+def test_export_names_the_tenants_model_without_its_key():
+    flow = to_agentflow({**AGENT, "llm": {"provider": "azure", "model": "gpt-5-deploy", "baseUrl": "https://az.example/v1"}})
+    AgentFlow.model_validate(flow)
+    spec = flow["config"]["llm_provider"]
+    assert flow["provider"] == "azure-openai" and spec["model"] == "gpt-5-deploy" and spec["base_url"] == "https://az.example/v1"
+    assert "api_key" not in spec and spec["api_key_env"] == "AZURE_OPENAI_API_KEY"   # the name of a variable, no key
+    assert "gpt-4o-mini" not in json.dumps(flow)
+
+
 def test_round_trip_is_lossless():
     back, warnings = from_agentflow(json.loads(json.dumps(to_agentflow(AGENT))))
     assert warnings == []

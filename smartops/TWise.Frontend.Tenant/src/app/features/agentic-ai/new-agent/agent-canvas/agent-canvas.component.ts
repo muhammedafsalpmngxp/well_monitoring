@@ -1,7 +1,9 @@
-import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { FCanvasComponent, FCreateConnectionEvent, FCreateNodeEvent, FFlowModule, FMoveNodesEvent, FSelectionChangeEvent, FZoomDirective } from '@foblex/flow';
+import {
+  FCanvasComponent, FCreateConnectionEvent, FCreateNodeEvent, FFlowComponent, FFlowModule, FMoveNodesEvent, FSelectionChangeEvent, FZoomDirective,
+} from '@foblex/flow';
 
 /** An instruction as the canvas sees it: the New Agent page's own item (same object, so both views edit one agent). */
 /** id is always set by the page before the canvas opens (see NewAgentComponent.setView). */
@@ -57,7 +59,7 @@ const ROW_Y = 220;
   templateUrl: './agent-canvas.component.html',
   styleUrls: ['./agent-canvas.component.scss'],
 })
-export class AgentCanvasComponent implements OnChanges {
+export class AgentCanvasComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() steps: CanvasStep[] = [];
   @Input() tools: CanvasTool[] = [];
   @Input() inputs: string[] = [];
@@ -96,10 +98,29 @@ export class AgentCanvasComponent implements OnChanges {
   confirmRemoveTool = false;
 
   @ViewChild(FCanvasComponent) private fCanvas?: FCanvasComponent;
+  @ViewChild(FFlowComponent) private fFlow?: FFlowComponent;
   // Zoom through the directive: FCanvasComponent.setScale / resetScale change the model without redrawing.
   @ViewChild(FZoomDirective) private fZoom?: FZoomDirective;
 
-  constructor(private readonly cdr: ChangeDetectorRef) {}
+  constructor(private readonly cdr: ChangeDetectorRef, private readonly host: ElementRef<HTMLElement>) {}
+
+  /**
+   * Foblex measures node ports when it draws; when the canvas area changes size (Test panel or Properties folded,
+   * window resized) the links stayed where the ports used to be. Redraw them on every resize.
+   */
+  private resize?: ResizeObserver;
+  private resizeFrame = 0;
+
+  ngAfterViewInit(): void {
+    if (typeof ResizeObserver === 'undefined') return;
+    this.resize = new ResizeObserver(() => {
+      cancelAnimationFrame(this.resizeFrame);
+      this.resizeFrame = requestAnimationFrame(() => this.fFlow?.redraw());
+    });
+    this.resize.observe(this.host.nativeElement);
+  }
+
+  ngOnDestroy(): void { this.resize?.disconnect(); cancelAnimationFrame(this.resizeFrame); }
 
   /** Open with every node in view, never zoomed past 100%, so the nodes stay readable. */
   onRendered(): void { this.fit(); }

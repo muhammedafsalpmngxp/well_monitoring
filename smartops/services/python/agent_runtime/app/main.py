@@ -14,6 +14,7 @@ Endpoints:
                                   then done or error
 """
 import json
+import logging
 import os
 import queue
 import sys
@@ -39,6 +40,7 @@ from app.models import AskDataExportRequest, RunRequest
 API_KEY = os.environ.get("AGENT_RUNTIME_API_KEY", "")
 
 app = create_app(title="SmartOps Agent Runtime", service_name="agent-runtime")
+log = logging.getLogger("agent_runtime")
 
 
 def require_key(x_api_key: str | None = Header(default=None)) -> None:
@@ -58,8 +60,10 @@ def tools() -> dict[str, Any]:
     """The built-in Ask Data tool, then the twise agents (left out, with a message, when twise is down)."""
     try:
         return {"tools": [ASK_DATA_TOOL, *twise.list_tools()], "message": None}
-    except httpx.HTTPError as exc:
-        return {"tools": [ASK_DATA_TOOL], "message": f"The agent service at {twise.TWISE_URL} is not reachable: {exc}"}
+    except httpx.HTTPError:
+        log.warning("twise agent service at %s is not reachable", twise.TWISE_URL, exc_info=True)
+        return {"tools": [ASK_DATA_TOOL], "message": f"The extra agent tools (agent service at {twise.TWISE_URL}) are "
+                                                     "offline. Ask Data still works; start that service to add the others."}
 
 
 @app.post("/api/agent-runtime/agentflow/export", dependencies=[Depends(require_key)])

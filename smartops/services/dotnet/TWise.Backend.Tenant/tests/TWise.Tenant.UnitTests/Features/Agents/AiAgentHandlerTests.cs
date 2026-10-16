@@ -14,6 +14,7 @@ public sealed class AiAgentHandlerTests
     private readonly Mock<IAgentRuntimeClient> _runtime = new();
     private readonly Mock<IAiService> _ai = new();
     private readonly Mock<IAiUsageRepository> _usage = new();
+    private readonly Mock<IAiProviderRepository> _providers = new();
 
     private static SaveAiAgentRequest Agent(int steps = 1, string status = "draft") => new(
         "Active Wells Analyst", "drilling data analyst", null, null, "Report active wells",
@@ -204,6 +205,30 @@ public sealed class AiAgentHandlerTests
     }
 
     [Fact]
+    public void SaveValidator_RejectsAStepNothingLinksTo()
+    {
+        // The Canvas drops a router last; the step before it ends at the answer, so the router never runs.
+        var router = new AiAgentStepDto("Decide", Id: "r", Kind: "router",
+            Branches: [new AiAgentBranchDto("x", "Otherwise", null, "else", null, "answer")]);
+        var agent = Agent() with { Steps = [new AiAgentStepDto("A", Id: "a", Next: "answer"), router] };
+
+        var result = new CreateAiAgentCommandValidator().Validate(new CreateAiAgentCommand(7, "a@b.com", agent));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("'Decide' is never reached"));
+        new UpdateAiAgentCommandValidator().Validate(new UpdateAiAgentCommand(7, 1, agent with
+        {
+            Steps = [new AiAgentStepDto("A", Id: "a", Next: "r"), router],   // linked: fine
+        })).IsValid.Should().BeTrue();
+        new TestAiAgentStreamValidator().Validate(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(agent)))
+            .IsValid.Should().BeTrue();   // a test run may try a half-built flow
+    }
+
+    [Fact]
+    public void Validator_ReportsMissingSteps_InsteadOfThrowing() =>
+        new SaveAiAgentRequestValidator().Validate(Agent() with { Steps = null! }).IsValid.Should().BeFalse();
+
+    [Fact]
     public void Validator_RejectsRouterWithoutBranches() =>
         new SaveAiAgentRequestValidator().Validate(Agent() with { Steps = [new AiAgentStepDto("R", Id: "r", Kind: "router")] })
             .IsValid.Should().BeFalse();
@@ -212,8 +237,8 @@ public sealed class AiAgentHandlerTests
     public async Task AgentFlowDownload_IsNull_ForAnotherTenantsAgent()
     {
         _repo.Setup(r => r.GetAsync(7, 5, default)).ReturnsAsync((AiAgent?)null);
-        (await new GetAgentFlowHandler(_repo.Object, _runtime.Object).Handle(new GetAgentFlowQuery(7, 5), default)).Should().BeNull();
-        _runtime.Verify(r => r.ExportAgentFlowAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        (await new GetAgentFlowHandler(_repo.Object, _runtime.Object, _providers.Object).Handle(new GetAgentFlowQuery(7, 5), default)).Should().BeNull();
+        _runtime.Verify(r => r.ExportAgentFlowAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<AgentFlowLlm?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -221,14 +246,29 @@ public sealed class AiAgentHandlerTests
     {
         var saved = new AiAgent { Id = 5, TenantId = 7, Name = "A", Type = "loop", MaxIterations = 3, StepsJson = "[{\"text\":\"x\"}]", ToolsJson = "[]" };
         _repo.Setup(r => r.GetAsync(7, 5, default)).ReturnsAsync(saved);
+        _providers.Setup(p => p.GetActiveAsync(7, default))
+            .ReturnsAsync(new AiProvider { Provider = "azure", Model = "gpt-5", BaseUrl = "https://x", ApiKeyEncrypted = "secret" });
         SaveAiAgentRequest? exported = null;
-        _runtime.Setup(r => r.ExportAgentFlowAsync(It.IsAny<SaveAiAgentRequest>(), default))
-            .Callback<SaveAiAgentRequest, CancellationToken>((a, _) => exported = a)
+        AgentFlowLlm? model = null;
+        _runtime.Setup(r => r.ExportAgentFlowAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<AgentFlowLlm?>(), default))
+            .Callback<SaveAiAgentRequest, AgentFlowLlm?, CancellationToken>((a, l, _) => (exported, model) = (a, l))
             .ReturnsAsync(JsonSerializer.Deserialize<JsonElement>("{\"framework\":\"langgraph\"}"));
 
-        (await new GetAgentFlowHandler(_repo.Object, _runtime.Object).Handle(new GetAgentFlowQuery(7, 5), default)).Should().NotBeNull();
+        (await new GetAgentFlowHandler(_repo.Object, _runtime.Object, _providers.Object).Handle(new GetAgentFlowQuery(7, 5), default)).Should().NotBeNull();
         exported!.Type.Should().Be("loop");
         exported.MaxIterations.Should().Be(3);
+        model.Should().Be(new AgentFlowLlm("azure", "gpt-5", "https://x"));   // the tenant's model, never its key
+    }
+
+    [Fact]
+    public async Task AgentFlowExport_WithoutAnActiveProvider_SendsNoModel()
+    {
+        AgentFlowLlm? model = new("x", "y", null);
+        _runtime.Setup(r => r.ExportAgentFlowAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<AgentFlowLlm?>(), default))
+            .Callback<SaveAiAgentRequest, AgentFlowLlm?, CancellationToken>((_, l, _) => model = l)
+            .ReturnsAsync(JsonSerializer.Deserialize<JsonElement>("{}"));
+        await new ExportAgentFlowHandler(_runtime.Object, _providers.Object).Handle(new ExportAgentFlowQuery(Agent(), 7), default);
+        model.Should().BeNull();
     }
 
     [Fact]

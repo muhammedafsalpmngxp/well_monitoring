@@ -1,9 +1,10 @@
+import { Location } from '@angular/common';
 import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { Agent, AgentBranch, AgentsService, AgentTool, AgentStepResult, AgentToolOption, AgentType, SaveAgentRequest } from '../agents.service';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
-import { circleAt, stepsToSave } from '../agent-steps.util';
+import { circleAt, neverReached, stepsToSave } from '../agent-steps.util';
 
 export interface InstructionItem {
   value: string;
@@ -94,14 +95,21 @@ export class NewAgentComponent implements OnInit, OnDestroy {
 
   activeSection = 'section-role';
 
-  navSections = [
-    { label: 'Identity & Role',      iconType: 'identity',  status: 'complete', anchor: 'section-role' },
-    { label: 'Goal & Instructions',  iconType: 'goal',      status: 'warning',  anchor: 'section-goal' },
-    { label: 'Tools & Capabilities', iconType: 'tools',     status: 'warning',  anchor: 'section-tools' },
-    { label: 'Inputs & Outputs',     iconType: 'inputs',    status: 'warning',  anchor: 'section-io' },
-    { label: 'Knowledge Source',     iconType: 'knowledge', status: 'warning',  anchor: 'section-knowledge' },
-    { label: 'Triggers',             iconType: 'triggers',  status: 'warning',  anchor: 'section-triggers' },
-  ];
+  /** Section badges from what is on the page (they were fixed values before). */
+  get navSections(): { label: string; iconType: string; status: 'complete' | 'warning' | 'soon'; note: string; anchor: string }[] {
+    const ok = (missing: string) => missing ? { status: 'warning' as const, note: missing } : { status: 'complete' as const, note: 'Complete' };
+    const steps = this.goalInstructions.filter(i => i.value.trim());
+    const inputNames = new Set(this.inputs.map(i => i.name.trim()).filter(Boolean));
+    const unknown = steps.flatMap(s => [...s.value.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(m => m[1])).find(n => !inputNames.has(n));
+    return [
+      { label: 'Identity & Role', iconType: 'identity', anchor: 'section-role', ...ok(this.agentName.trim() ? '' : 'Needs a name') },
+      { label: 'Goal & Instructions', iconType: 'goal', anchor: 'section-goal', ...ok(steps.length ? '' : 'Add an instruction') },
+      { label: 'Tools & Capabilities', iconType: 'tools', anchor: 'section-tools', ...ok(this.agentToolGroups.length ? '' : 'Add a tool') },
+      { label: 'Inputs & Outputs', iconType: 'inputs', anchor: 'section-io', ...ok(unknown ? `Add input "${unknown}"` : '') },
+      { label: 'Knowledge Source', iconType: 'knowledge', anchor: 'section-knowledge', ...ok('') },
+      { label: 'Triggers', iconType: 'triggers', anchor: 'section-triggers', status: 'soon', note: 'Coming soon' },
+    ];
+  }
 
   // Section 1
   rolePersona = '';
@@ -123,7 +131,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   readonly agentTypes: { value: AgentType; label: string; hint: string }[] = [
     { value: 'sequential', label: 'Sequential', hint: 'Runs the instructions one after another.' },
     { value: 'parallel', label: 'Parallel', hint: 'Runs every instruction at once, then combines the answers.' },
-    { value: 'supervisor', label: 'Supervisor', hint: 'A supervisor picks which instruction to run next, and with what task, until it is done.' },
+    { value: 'supervisor', label: 'Supervisor', hint: 'A supervisor picks which instruction to run next until the goal is answered; each instruction runs as written.' },
     { value: 'loop', label: 'Loop', hint: 'Repeats the instructions until the goal is met.' },
   ];
   get agentTypeHint(): string { return this.agentTypes.find(t => t.value === this.agentType)?.hint ?? ''; }
@@ -153,19 +161,18 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   inputs: IORow[] = [{ name: '', type: 'String', requirement: 'Required', description: '' }];
   outputs: IORow[] = [{ name: '', type: 'String', requirement: '', description: '' }];
 
-  // Section 5: Knowledge Source for the Ask Data tool (blank = Al Tasnim defaults)
+  // Section 5: Knowledge Source for the Ask Data tool (blank = the workspace's default knowledge)
   askBusinessRules = '';
   askExamples = '';
   askSchemas = '';
   askMaxRows = 500;
 
-  // Section 6: not saved yet (coming soon)
-  triggerItems: InstructionItem[] = [];
-
   // Test panel
   testValues: Record<string, string> = {};
   testing = false;
   testStage = '';
+  /** Router, supervisor and loop decisions of the last test, kept after it ends. */
+  testDecisions: string[] = [];
   testSteps: (Partial<AgentStepResult> & { step: number; phase: 'start' | 'end' })[] = [];
   testAnswer = '';
   testError = '';
@@ -211,7 +218,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   }
 
   constructor(private router: Router, private route: ActivatedRoute, private agents: AgentsService, private cdr: ChangeDetectorRef,
-              private layoutState: LayoutStateService) {}
+              private layoutState: LayoutStateService, private location: Location) {}
 
   /** App sidebar state before the editor opened: the editor (Form and Canvas) collapses it for room, leaving restores it. */
   private sidebarBefore: boolean | null = null;
@@ -340,8 +347,14 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     const circle = circleAt(r.steps, r.type);
     if (circle !== null)
       return `The steps go round in a circle at '${circle.slice(0, 40)}'. On the Canvas, point that link forward or to the answer.`;
-    if (!r.tools.length) return 'Add at least one tool under Tools & Capabilities (for example DB Assistant · chat).';
+    if (!r.tools.length) return 'Add at least one tool under Tools & Capabilities (for example Ask Data · deep).';
     return '';
+  }
+
+  /** Save-only check (a test may try a half-built flow): every step must be reachable from the start. */
+  private unreachable(r: SaveAgentRequest): string {
+    const step = neverReached(r.steps, r.type);
+    return step === null ? '' : `'${step.slice(0, 40)}' is never reached. On the Canvas, link a step or a branch to it, or remove it.`;
   }
 
   /** Inputs the Test panel asks for: the named rows under Inputs & Outputs. */
@@ -351,8 +364,10 @@ export class NewAgentComponent implements OnInit, OnDestroy {
 
   private save(status: 'draft' | 'published'): void {
     const req = this.request(status);
-    const problem = this.problems(req);
+    const problem = this.problems(req) || this.unreachable(req);
     if (problem) { this.show(problem, 'bad'); return; }
+    if (status === 'draft' && this.agentId && this.status === 'published'
+        && !confirm('This agent is published. Saving it as a draft unpublishes it. Continue?')) return;
     this.saving = true;
     const call = this.agentId ? this.agents.update(this.agentId, req) : this.agents.create(req);
     call.subscribe({
@@ -363,7 +378,8 @@ export class NewAgentComponent implements OnInit, OnDestroy {
         this.markSaved();
         if (status === 'published') { this.router.navigate(['/agentic-ai/ai-agents']); return; }
         this.show('Saved as draft.', 'ok');
-        this.router.navigate(['/agentic-ai/ai-agents', a.id], { replaceUrl: true });
+        // Only the address changes (/new → /:id): navigating rebuilt the page and lost this message and the test results.
+        this.location.replaceState(`/agentic-ai/ai-agents/${a.id}`);
       },
       error: err => { this.saving = false; this.show(this.errorText(err), 'bad'); },
     });
@@ -410,10 +426,11 @@ export class NewAgentComponent implements OnInit, OnDestroy {
           { id: newStepId(), label: 'Otherwise', op: 'else' }] }
       : { id: newStepId(), value: 'New instruction', x: at.x, y: at.y };
     const kept = this.goalInstructions.filter(i => i.value.trim());
-    // The router goes last in the list; the step that was last keeps ending at the answer instead of
-    // running into the router (that silent link made circles once a branch pointed back to it).
+    // The router goes last in the list and the step that was last now leads into it, so the router runs.
+    // (It used to be sent to the answer, leaving the router unreachable; a branch back to an earlier step
+    // is now caught as a circle before saving.)
     const lastStep = kept[kept.length - 1];
-    if (at.kind === 'router' && lastStep && lastStep.kind !== 'router' && !lastStep.next) lastStep.next = 'answer';
+    if (at.kind === 'router' && lastStep && lastStep.kind !== 'router' && !lastStep.next) lastStep.next = item.id!;
     this.goalInstructions = [...kept, item];
     this.cdr.markForCheck();
   }
@@ -453,23 +470,22 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   removeGoalInstruction(i: number): void { const [gone] = this.goalInstructions.splice(i, 1); this.unlink(gone?.id); }
   clearGoalInstructions(): void { this.goalInstructions = []; }
 
-  addTrigger(): void { this.triggerItems.push({ value: '' }); }
-  removeTrigger(i: number): void { this.triggerItems.splice(i, 1); }
-  clearTriggers(): void { this.triggerItems = []; }
-
-  addInput(): void { this.inputs.push({ name: '', type: '', requirement: '', description: '' }); }
+  // New rows show what they save as (an empty "Select" was saved as String / Required).
+  addInput(): void { this.inputs.push({ name: '', type: 'String', requirement: 'Required', description: '' }); }
   removeInput(i: number): void { this.inputs.splice(i, 1); }
   clearInputs(): void { this.inputs = []; }
 
-  addOutput(): void { this.outputs.push({ name: '', type: '', requirement: '', description: '' }); }
+  addOutput(): void { this.outputs.push({ name: '', type: 'String', requirement: '', description: '' }); }
   removeOutput(i: number): void { this.outputs.splice(i, 1); }
   clearOutputs(): void { this.outputs = []; }
 
   // ── Tool modal helpers ────────────────────────────────────
   get filteredConnections(): AvailableConnection[] {
-    if (!this.addToolSearch.trim()) return this.availableConnections;
+    // The two tabs split the list: agent tools (Ask Data, twise agents) and external connections (none yet).
+    const inTab = this.availableConnections.filter(c => (c.type === 'Agent') === (this.addToolTab === 'agent'));
+    if (!this.addToolSearch.trim()) return inTab;
     const q = this.addToolSearch.toLowerCase();
-    return this.availableConnections.filter(c =>
+    return inTab.filter(c =>
       c.name.toLowerCase().includes(q) ||
       c.actions.some(a => a.name.toLowerCase().includes(q))
     );
@@ -596,39 +612,53 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     const problem = this.problems(req);
     if (problem) { this.testError = problem; return; }
     this.testSub?.unsubscribe();
-    Object.assign(this, { testing: true, testStage: 'Starting', testSteps: [], testAnswer: '', testError: '', testSeconds: null });
+    Object.assign(this, { testing: true, testStage: 'Starting', testSteps: [], testAnswer: '', testError: '', testSeconds: null,
+      testDecisions: [] });
     this.startTimer();
     const values: Record<string, string> = {};
     for (const i of req.inputs) values[i.name] = this.testValues[i.name] ?? '';
+    let ended = false;
+    const why = (reason?: string) => reason ? ` (${reason})` : '';
     this.testSub = this.agents.test(req, values, this.agentId).subscribe({
       next: ev => {
         if (ev.type === 'status') this.testStage = ev.data.stage;
         else if (ev.type === 'decision') {
           this.testStage = ev.data.by === 'router'
-            ? `${ev.data.router}: ${ev.data.branch}${ev.data.reason ? ' (' + ev.data.reason + ')' : ''}`
+            ? `${ev.data.router}: ${ev.data.branch}${why(ev.data.reason)}`
             : ev.data.by === 'supervisor'
-            ? (ev.data.next === 'answer' ? 'Supervisor: finished' : `Supervisor → ${ev.data.next}: ${ev.data.task}`)
-            : `Round ${ev.data.round}: ${ev.data.done ? 'goal met' : 'repeating'}${ev.data.reason ? ' (' + ev.data.reason + ')' : ''}`;
+            ? (ev.data.next === 'answer' ? `Supervisor: finished${why(ev.data.reason)}` : `Supervisor → ${ev.data.next}${why(ev.data.reason)}`)
+            : `Round ${ev.data.round}: ${ev.data.done ? 'goal met' : 'repeating'}${why(ev.data.reason)}`;
+          this.testDecisions.push(this.testStage);
         } else if (ev.type === 'step') {
           // Supervisor and loop can run a step more than once: one entry per attempt.
           const at = this.testSteps.findIndex(s => s.step === ev.data.step && (s.attempt ?? 1) === (ev.data.attempt ?? 1));
           if (at >= 0) this.testSteps[at] = { ...this.testSteps[at], ...ev.data }; else this.testSteps.push(ev.data);
           this.testStage = ev.data.phase === 'start' ? `Step ${ev.data.step}: ${ev.data.question}` : this.testStage;
         } else if (ev.type === 'done') {
+          ended = true;
           this.testAnswer = ev.data.answer;
           this.testSeconds = ev.data.seconds;
           if (!ev.data.ok) this.testError = 'The agent could not answer. See the steps below.';
-        } else if (ev.type === 'error') this.testError = ev.data.message;
+        } else if (ev.type === 'error') { ended = true; this.testError = ev.data.message; }
         this.cdr.markForCheck();
       },
       error: err => {
         this.stopTimer();
         this.testing = false;
-        this.testError = `The connection to the agent service was lost after ${this.testElapsed}s (${err?.message ?? 'no reason given'}). `
-          + 'The run is recorded as stopped; try again.';
+        // A refused request (4xx) has a reason from the API; only a broken stream is a lost connection.
+        this.testError = err?.status >= 400 && err?.status < 500
+          ? this.errorText(err, 'The test could not start.')
+          : `The connection to the agent service was lost after ${this.testElapsed}s (${err?.message ?? 'no reason given'}). `
+            + 'The run is recorded as stopped; try again.';
         this.cdr.markForCheck();
       },
-      complete: () => { this.stopTimer(); this.testing = false; this.testStage = ''; this.cdr.markForCheck(); },
+      complete: () => {
+        this.stopTimer();
+        this.testing = false;
+        this.testStage = '';
+        if (!ended) this.testError = 'The agent service ended the run without an answer. Check that the agent runtime is running, then try again.';
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -692,13 +722,14 @@ export class NewAgentComponent implements OnInit, OnDestroy {
       try { flow = JSON.parse(text); } catch { this.show('That file is not JSON.', 'bad'); return; }
       this.agents.importAgentFlow(flow).subscribe({
         next: r => {
-          const keepId = this.agentId;
-          this.load({ ...r.agent, id: keepId ?? 0, createdBy: '', createdAt: '', updatedAt: '',
+          // An import is a new agent: keeping the open agent's id made Save overwrite that agent.
+          this.load({ ...r.agent, id: 0, createdBy: '', createdAt: '', updatedAt: '',
             stats: { runs: 0, successRate: null, avgSeconds: null, lastRunAt: null } } as Agent);
-          this.agentId = keepId;
+          this.agentId = null;
           this.status = 'draft';
+          this.location.replaceState('/agentic-ai/ai-agents/new');
           this.importWarnings = r.warnings;
-          this.show(`Imported "${r.agent.name}". Review it, then Save as Draft or Publish.`, 'ok');
+          this.show(`Imported "${r.agent.name}" as a new agent. Review it, then Save as Draft or Publish.`, 'ok');
           this.refreshJson();
         },
         error: err => this.show(this.errorText(err, 'The file could not be imported.'), 'bad'),
@@ -710,4 +741,5 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   plain(text: string | null | undefined): string { return (text ?? '').replace(/\*\*|__/g, ''); }
 
   trackByIndex(i: number): number { return i; }
+  trackByLabel(_: number, n: { label: string }): string { return n.label; }
 }

@@ -251,6 +251,42 @@
         }
     }
 
+    &__menu {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    &__menu-list {
+        position: absolute;
+        top: 32px;
+        right: 0;
+        z-index: 5;
+        min-width: 140px;
+        padding: 4px;
+        background: #FFFFFF;
+        border: 1px solid #EAECF0;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #344054;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+
+            &:hover:not(:disabled) { background: #F2F4F7; }
+            &:disabled { opacity: 0.6; cursor: default; }
+        }
+    }
+
+    &__menu-danger { color: #D92D20 !important; }
+
     &__desc {
         margin: 0;
         font-size: 13px;

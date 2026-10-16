@@ -41,6 +41,13 @@ export interface SaveAgentRequest {
   maxIterations: number;
 }
 
+/** One saved test run (core.AiAgentRuns); agentId is null for a test of an agent that was never saved. */
+export interface AgentRun {
+  id: number; agentId: number | null; agentName: string; runBy: string; status: 'success' | 'failed' | string;
+  answer: string | null; error: string | null; seconds: number; startedAt: string;
+  inputs: Record<string, string> | null; steps: { step: number; question: string; ok: boolean; error?: string | null }[] | null;
+}
+
 export interface AgentStats { runs: number; successRate: number | null; avgSeconds: number | null; lastRunAt: string | null; }
 
 export interface Agent extends SaveAgentRequest {
@@ -89,6 +96,9 @@ export class AgentsService {
   update(id: number, req: SaveAgentRequest): Observable<Agent> { return this.http.put<Agent>(`${this.api}/${id}`, req); }
   delete(id: number): Observable<void> { return this.http.delete<void>(`${this.api}/${id}`); }
 
+  /** The latest test runs of every agent (newest first), for the Activity Log. */
+  runs(take = 200): Observable<AgentRun[]> { return this.http.get<AgentRun[]>(`${this.api}/runs`, { params: { take } }); }
+
   /** The agent on the page (saved or not) as agentflow.json v1, the AgenticUIFramework's format. */
   exportAgentFlow(req: SaveAgentRequest): Observable<unknown> { return this.http.post<unknown>(`${this.api}/agentflow`, req); }
   /** The data behind an Ask Data answer as a file: every row, re-read with the answer's SQL (no model call). */
@@ -114,7 +124,13 @@ export class AgentsService {
           body: JSON.stringify({ agent, inputs, agentId }),
           signal: controller.signal,
         });
-        if (!res.ok || !res.body) throw new Error(res.status === 401 ? 'Please sign in again.' : res.status === 403 ? 'You do not have permission to test agents.' : `The request failed (HTTP ${res.status}).`);
+        if (!res.ok || !res.body) {
+          // Keep the status and the API's reason (e.g. a validation message) like HttpClient errors do.
+          const body = await res.json().catch(() => null);
+          const message = res.status === 401 ? 'Please sign in again.' : res.status === 403 ? 'You do not have permission to test agents.'
+            : `The request failed (HTTP ${res.status}).`;
+          throw Object.assign(new Error(message), { status: res.status, error: body ?? { message } });
+        }
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';

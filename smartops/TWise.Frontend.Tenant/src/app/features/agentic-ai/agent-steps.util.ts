@@ -25,7 +25,22 @@ export function stepsToSave(steps: AgentStep[], type: AgentType): AgentStep[] {
  * Tenant API validator: within one run (or one loop round) a step is reached at most once; unknown targets end the path.
  */
 export function circleAt(steps: AgentStep[], type: AgentType): string | null {
-  if (!routes(type) || !steps.length) return null;
+  return walk(steps, type).circle;
+}
+
+/**
+ * The text of the first step no path from the start reaches (a router dropped on the Canvas with nothing linking
+ * to it), or null. Checked on save, as the Tenant API does: such a step is saved but never runs.
+ */
+export function neverReached(steps: AgentStep[], type: AgentType): string | null {
+  const { circle, reached } = walk(steps, type);
+  if (circle !== null || !reached) return null;
+  const i = reached.findIndex(r => !r);
+  return i < 0 ? null : steps[i].text;
+}
+
+function walk(steps: AgentStep[], type: AgentType): { circle: string | null; reached: boolean[] | null } {
+  if (!routes(type) || !steps.length) return { circle: null, reached: null };
   const index = new Map<string, number>();
   steps.forEach((s, i) => { if (s.id && !index.has(s.id)) index.set(s.id, i); });
   const to = (target?: string | null) => (!target || target === 'answer' ? undefined : index.get(target));
@@ -48,5 +63,6 @@ export function circleAt(steps: AgentStep[], type: AgentType): string | null {
     state[i] = 2;
     return null;
   };
-  return visit(0);
+  const circle = visit(0);
+  return { circle, reached: state.map(s => s !== 0) };
 }

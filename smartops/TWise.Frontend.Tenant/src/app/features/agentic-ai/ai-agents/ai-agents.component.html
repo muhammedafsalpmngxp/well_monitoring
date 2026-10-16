@@ -121,7 +121,9 @@
                     </div>
                     <span class="aia-agent-card__role">{{ agent.role }}</span>
                 </div>
-                <button class="aia-agent-card__menu-btn" title="Edit agent" [attr.aria-label]="'Edit ' + agent.name" (click)="openAgent(agent)">
+                <div class="aia-agent-card__menu">
+                <button class="aia-agent-card__menu-btn" title="More actions" [attr.aria-label]="'Actions for ' + agent.name"
+                    aria-haspopup="menu" [attr.aria-expanded]="menuFor === agent.id" (click)="toggleMenu(agent, $event)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
                         <path
                             d="M10 10.8332C10.4603 10.8332 10.8334 10.4601 10.8334 9.99984C10.8334 9.53959 10.4603 9.1665 10 9.1665C9.53977 9.1665 9.16669 9.53959 9.16669 9.99984C9.16669 10.4601 9.53977 10.8332 10 10.8332Z"
@@ -134,6 +136,12 @@
                             stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </button>
+                <div class="aia-agent-card__menu-list" role="menu" *ngIf="menuFor === agent.id">
+                    <button role="menuitem" type="button" (click)="openAgent(agent)">Edit</button>
+                    <button role="menuitem" type="button" class="aia-agent-card__menu-danger" [disabled]="deleting === agent.id"
+                        (click)="deleteAgent(agent)">{{ deleting === agent.id ? 'Deleting…' : 'Delete' }}</button>
+                </div>
+                </div>
             </div>
 
             <!-- Description -->

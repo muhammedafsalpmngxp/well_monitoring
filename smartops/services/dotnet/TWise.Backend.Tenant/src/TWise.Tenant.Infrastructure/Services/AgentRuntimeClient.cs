@@ -55,9 +55,12 @@ public sealed class AgentRuntimeClient(HttpClient http, IConfiguration config) :
         }
     }
 
-    public async Task<JsonElement> ExportAgentFlowAsync(SaveAiAgentRequest agent, CancellationToken ct)
+    public async Task<JsonElement> ExportAgentFlowAsync(SaveAiAgentRequest agent, AgentFlowLlm? llm, CancellationToken ct)
     {
-        using var res = await http.PostAsJsonAsync("api/agent-runtime/agentflow/export", agent, Json, ct);
+        // The agent's own fields plus "llm" (provider and model only): agentflow.json names the model it runs on.
+        var body = JsonSerializer.SerializeToNode(agent, Json)!.AsObject();
+        if (llm is not null) body["llm"] = JsonSerializer.SerializeToNode(llm, Json);
+        using var res = await http.PostAsJsonAsync("api/agent-runtime/agentflow/export", body, Json, ct);
         if (!res.IsSuccessStatusCode)
             throw new HttpRequestException($"{(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync(ct))}");
         return await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);

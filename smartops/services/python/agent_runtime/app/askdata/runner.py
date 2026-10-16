@@ -7,6 +7,7 @@ plus usage, or ``error``. As in twise, routes that run no verification (chitchat
 from __future__ import annotations
 
 import logging
+import os
 import time
 from functools import lru_cache
 from typing import Any, Iterator
@@ -100,10 +101,13 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
 
 
 def settings_for(options: Any) -> AskDataSettings:
-    """The agent's Knowledge Source limits over twise's defaults."""
+    """The agent's Knowledge Source limits over the deployment's defaults. An agent can only narrow the schemas
+    the deployment allows (ASKDATA_ALLOWED_SCHEMAS), never add one such as sys or INFORMATION_SCHEMA."""
+    base = AskDataSettings()
+    wanted = tuple(s.strip().lower() for s in (options.allowed_schemas or []) if s.strip()) if options else ()
+    allowed = tuple(s for s in wanted if s in {a.lower() for a in base.allowed_schemas})
     return AskDataSettings(**({"max_rows": options.max_rows} if options and options.max_rows else {}),
-                           **({"allowed_schemas": tuple(s.strip().lower() for s in options.allowed_schemas if s.strip())}
-                              if options and options.allowed_schemas else {}))
+                           **({"allowed_schemas": allowed} if allowed else {}))
 
 
 def target(db: Any) -> DbTarget:
@@ -152,4 +156,5 @@ def export(token: str, fmt_name: str, *, question: str, answer: str, verified: b
         title = (question or "Data export").strip()[:120]
         body = fmt.to_xlsx(columns, rows, notes, title) if fmt_name == "xlsx" else fmt.to_docx(columns, rows, notes, title, answer)
     stem = re.sub(r"[^a-z0-9]+", "-", (question or "export").lower()).strip("-")[:50] or "export"
-    return content_type, f"al-tasnim-{stem}.{ext}", body
+    prefix = re.sub(r"[^a-z0-9-]+", "-", os.environ.get("ASKDATA_EXPORT_PREFIX", "ask-data").lower()).strip("-")
+    return content_type, f"{prefix + '-' if prefix else ''}{stem}.{ext}", body

@@ -4,8 +4,9 @@ Composition is unchanged: the static texts, the MAX_ROWS substitution and the bu
 injection. The texts come from ``prompt_files/<name>/v1.txt``, or, with ASKDATA_PROMPT_STORE=db, from the
 config table ``<ASKDATA_PROMPT_SCHEMA>.prompt`` (task ``db_assistant/<name>``: the active version, else v1;
 a task the table does not hold, or every task when it cannot be read, comes from the files) - twise's
-prompt_service. BUSINESS_RULES and FEW_SHOTS come from the agent's Knowledge Source (default:
-knowledge_default/, the Al-Tasnim files). The SQL safety rules are not editable.
+prompt_service. BUSINESS_RULES and FEW_SHOTS come from the agent's Knowledge Source (default: the files in
+ASKDATA_KNOWLEDGE_DIR, else knowledge_default/). ORG_NAME in a prompt is ASKDATA_ORG_NAME. The SQL safety rules
+are not editable.
 """
 from __future__ import annotations
 
@@ -19,7 +20,10 @@ from pathlib import Path
 from app.askdata.settings import current_run
 
 _DIR = Path(__file__).resolve().parent
-_KNOWLEDGE = _DIR / "knowledge_default"
+# The Knowledge Source used when an agent leaves it blank, and the organisation the assistant speaks for, are
+# deployment settings: the shipped files are Al Tasnim's (the deployment this was built for).
+_KNOWLEDGE = Path(os.environ.get("ASKDATA_KNOWLEDGE_DIR") or _DIR / "knowledge_default")
+ORG_NAME = os.environ.get("ASKDATA_ORG_NAME", "Al-Tasnim")
 
 
 log = logging.getLogger("askdata.prompts")
@@ -67,8 +71,10 @@ def load_db_prompts() -> None:
 
 def _load(name: str) -> str:
     if _DB_PROMPTS and name in _DB_PROMPTS:
-        return _DB_PROMPTS[name]
-    return (_DIR / "prompt_files" / name / "v1.txt").read_text(encoding="utf-8").strip()
+        text = _DB_PROMPTS[name]
+    else:
+        text = (_DIR / "prompt_files" / name / "v1.txt").read_text(encoding="utf-8").strip()
+    return text.replace("ORG_NAME", ORG_NAME)
 
 
 def default_knowledge(filename: str) -> str:

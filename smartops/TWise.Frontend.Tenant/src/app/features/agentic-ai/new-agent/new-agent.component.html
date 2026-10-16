@@ -60,7 +60,7 @@
         <!-- Section menu belongs to the form; the canvas gets the full width -->
         <ng-container *ngIf="view === 'form'">
         <nav class="na-sidebar">
-            <button *ngFor="let n of navSections" class="na-nav-item"
+            <button *ngFor="let n of navSections; trackBy: trackByLabel" class="na-nav-item"
                 [class.na-nav-item--active]="activeSection === n.anchor" (click)="scrollTo(n.anchor)">
 
                 <span class="na-nav-icon-box">
@@ -153,8 +153,9 @@
                                     d="M1.58954 12.25C1.4826 12.25 1.38538 12.2233 1.29788 12.1698C1.21038 12.1163 1.14232 12.0458 1.09371 11.9583C1.0451 11.8708 1.01836 11.776 1.0135 11.674C1.00864 11.5719 1.03538 11.4722 1.09371 11.375L6.48954 2.04167C6.54788 1.94444 6.62322 1.87153 6.71558 1.82292C6.80794 1.77431 6.90274 1.75 6.99996 1.75C7.09718 1.75 7.19197 1.77431 7.28433 1.82292C7.37669 1.87153 7.45204 1.94444 7.51038 2.04167L12.9062 11.375C12.9645 11.4722 12.9913 11.5719 12.9864 11.674C12.9816 11.776 12.9548 11.8708 12.9062 11.9583C12.8576 12.0458 12.7895 12.1163 12.702 12.1698C12.6145 12.2233 12.5173 12.25 12.4104 12.25H1.58954ZM7.41558 10.3323C7.52739 10.2205 7.58329 10.0819 7.58329 9.91667C7.58329 9.75139 7.52739 9.61285 7.41558 9.50104C7.30378 9.38924 7.16524 9.33333 6.99996 9.33333C6.83468 9.33333 6.69614 9.38924 6.58433 9.50104C6.47253 9.61285 6.41663 9.75139 6.41663 9.91667C6.41663 10.0819 6.47253 10.2205 6.58433 10.3323C6.69614 10.4441 6.83468 10.5 6.99996 10.5C7.16524 10.5 7.30378 10.4441 7.41558 10.3323ZM7.41558 8.58229C7.52739 8.47049 7.58329 8.33194 7.58329 8.16667V6.41667C7.58329 6.25139 7.52739 6.11285 7.41558 6.00104C7.30378 5.88924 7.16524 5.83333 6.99996 5.83333C6.83468 5.83333 6.69614 5.88924 6.58433 6.00104C6.47253 6.11285 6.41663 6.25139 6.41663 6.41667V8.16667C6.41663 8.33194 6.47253 8.47049 6.58433 8.58229C6.69614 8.6941 6.83468 8.75 6.99996 8.75C7.16524 8.75 7.30378 8.6941 7.41558 8.58229Z"
                                     fill="#FFA726" />
                             </svg>
-                            <span class="na-nav-status__text ">Complete</span>
+                            <span class="na-nav-status__text ">{{ n.note }}</span>
                         </ng-container>
+                        <span class="na-nav-status__text" *ngIf="n.status==='soon'">Coming soon</span>
                     </span>
                 </span>
 
@@ -311,7 +312,7 @@
                 <div class="na-card__head">
                     <span class="na-card__num">3</span>
                     <span class="na-card__title">Tools &amp; Capabilities</span>
-                    <span class="na-card__desc">Agents each instruction can run, e.g. DB Assistant · chat.</span>
+                    <span class="na-card__desc">Tools the instructions run, e.g. Ask Data · deep.</span>
                     <button class="na-card__chevron">
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                             <path d="M5 12.5l5-5 5 5" stroke="#667085" stroke-width="1.5" stroke-linecap="round"
@@ -368,23 +369,6 @@
                                     <span class="na-tool-action__name">{{ action.name }}</span>
                                     <span class="na-tool-action__path">{{ action.path }}</span>
                                 </div>
-                                <button class="na-tool-action__btn" title="Edit">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                        fill="none">
-                                        <rect width="24" height="24" rx="6" fill="white" />
-                                        <g clip-path="url(#clip0_1725_6702)">
-                                            <path
-                                                d="M11.25 6.00017H8.1C6.83988 6.00017 6.20982 6.00017 5.72852 6.2454C5.30516 6.46112 4.96095 6.80533 4.74524 7.22869C4.5 7.71 4.5 8.34006 4.5 9.60017V15.9002C4.5 17.1603 4.5 17.7903 4.74524 18.2717C4.96095 18.695 5.30516 19.0392 5.72852 19.2549C6.20982 19.5002 6.83988 19.5002 8.1 19.5002H14.4C15.6601 19.5002 16.2901 19.5002 16.7715 19.2549C17.1949 19.0392 17.5391 18.695 17.7548 18.2717C18 17.7903 18 17.1603 18 15.9002V12.7502M8.99998 15.0002H10.2559C10.6228 15.0002 10.8062 15.0002 10.9789 14.9587C11.1319 14.922 11.2782 14.8614 11.4125 14.7792C11.5638 14.6864 11.6935 14.5566 11.953 14.2972L19.125 7.12517C19.7463 6.50385 19.7463 5.49649 19.125 4.87517C18.5037 4.25385 17.4963 4.25385 16.875 4.87517L9.70292 12.0472C9.4435 12.3066 9.31379 12.4364 9.22102 12.5877C9.13878 12.722 9.07817 12.8682 9.04142 13.0213C8.99998 13.194 8.99998 13.3774 8.99998 13.7443V15.0002Z"
-                                                stroke="#64748B" stroke-width="1.6" stroke-linecap="round"
-                                                stroke-linejoin="round" />
-                                        </g>
-                                        <defs>
-                                            <clipPath id="clip0_1725_6702">
-                                                <rect width="18" height="18" fill="white" transform="translate(3 3)" />
-                                            </clipPath>
-                                        </defs>
-                                    </svg>
-                                </button>
                                 <button class="na-tool-action__btn na-tool-action__btn--delete"
                                     (click)="removeAgentToolAction(gi, ai)" title="Remove">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
@@ -495,7 +479,7 @@
                                         <path d="M8 2.5v11M2.5 8h11" stroke="currentColor" stroke-width="1.6"
                                             stroke-linecap="round" />
                                     </svg>
-                                    Add Input
+                                    Add Output
                                 </button>
                                 <button class="na-btn-clearall" (click)="clearOutputs()">Clear all</button>
                             </div>
@@ -558,7 +542,7 @@
                     </button>
                 </div>
                 <div class="na-card__body">
-                    <p class="na-test-hint">Used by the <strong>Ask Data</strong> tool. Leave blank to use the Al Tasnim business rules and example queries.</p>
+                    <p class="na-test-hint">Used by the <strong>Ask Data</strong> tool. Leave blank to use the default business rules and example queries set up for this workspace.</p>
                     <div class="na-field">
                         <label class="na-label" for="ask-rules">Business rules</label>
                         <textarea id="ask-rules" class="na-textarea" rows="6" [(ngModel)]="askBusinessRules"
@@ -572,7 +556,7 @@
                     <div class="na-row-2col">
                         <div class="na-field">
                             <label class="na-label" for="ask-schemas">Allowed schemas</label>
-                            <input id="ask-schemas" class="na-input" [(ngModel)]="askSchemas" placeholder="bridge, dbo, project, ref, well" />
+                            <input id="ask-schemas" class="na-input" [(ngModel)]="askSchemas" placeholder="Blank = every schema the workspace allows" />
                         </div>
                         <div class="na-field">
                             <label class="na-label" for="ask-rows">Max rows per query</label>
@@ -597,52 +581,7 @@
                     </button>
                 </div>
                 <div class="na-card__body">
-                    <div class="na-field">
-                        <label class="na-label">Step-by-step instructions</label>
-                        <div class="na-instr-list">
-                            <div class="na-instr-row"
-                                *ngFor="let item of triggerItems; let i = index; trackBy: trackByIndex">
-                                <div class="na-instr-card">
-                                    <span class="na-file-icon">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                                            viewBox="0 0 12 12" fill="none">
-                                            <path
-                                                d="M6.49994 1L2.04666 6.34395C1.87226 6.5532 1.78505 6.65785 1.78372 6.74625C1.78256 6.82305 1.8168 6.89615 1.87656 6.94445C1.94531 7 2.08152 7 2.35395 7H5.99994L5.49994 11L9.95319 5.65605C10.1276 5.4468 10.2148 5.34215 10.2161 5.25375C10.2173 5.17695 10.1831 5.10385 10.1233 5.05555C10.0545 5 9.91834 5 9.64594 5H5.99994L6.49994 1Z"
-                                                stroke="#667085" stroke-linecap="round" stroke-linejoin="round" />
-                                        </svg>
-                                    </span>
-                                    <input class="na-instr-input" type="text" [(ngModel)]="item.value" />
-                                    <button class="na-btn-trash" (click)="removeTrigger(i)">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                            viewBox="0 0 24 24" fill="none">
-                                            <path
-                                                d="M9.75 5.25H14.25M5.25 7.5H18.75M17.25 7.5L16.724 15.3895C16.6451 16.5731 16.6057 17.165 16.35 17.6138C16.1249 18.0089 15.7854 18.3265 15.3763 18.5248C14.9115 18.75 14.3183 18.75 13.132 18.75H10.868C9.68168 18.75 9.08852 18.75 8.62376 18.5248C8.21457 18.3265 7.87507 18.0089 7.64998 17.6138C7.39433 17.165 7.35488 16.5731 7.27597 15.3895L6.75 7.5M10.5 10.875V14.625M13.5 10.875V14.625"
-                                                stroke="#D92D20" stroke-width="1.6" stroke-linecap="round"
-                                                stroke-linejoin="round" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="na-list-footer">
-                            <button class="na-btn-add" (click)="addTrigger()">
-                                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                                    <path d="M8 2.5v11M2.5 8h11" stroke="currentColor" stroke-width="1.6"
-                                        stroke-linecap="round" />
-                                </svg>
-                                Add Instruction
-                            </button>
-                            <button class="na-btn-clearall" (click)="clearTriggers()">
-                                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                                    <path d="M13.5 8a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" stroke-width="1.4"
-                                        stroke-linecap="round" stroke-linejoin="round" />
-                                    <path d="M13.5 3v2.5H11" stroke="currentColor" stroke-width="1.4"
-                                        stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                                Clear all
-                            </button>
-                        </div>
-                    </div>
+                    <p class="na-test-hint">Triggers (schedules, events, webhooks) are not available yet: nothing here is saved. Run the agent with <strong>Test Agent</strong>, or call it through the API.</p>
                 </div>
             </div>
 
@@ -692,6 +631,10 @@
                     <div class="na-test-answer" *ngIf="testAnswer">
                         <span class="na-label">Answer<span class="na-label--muted" *ngIf="testSeconds !== null"> · {{ testSeconds }}s</span></span>
                         <p>{{ plain(testAnswer) }}</p>
+                    </div>
+                    <div class="na-test-decisions" *ngIf="testDecisions.length">
+                        <span class="na-label">Decisions</span>
+                        <p class="na-test-hint" *ngFor="let d of testDecisions">{{ d }}</p>
                     </div>
                     <details class="na-test-step" *ngFor="let s of testSteps" [open]="s.phase === 'end' && !s.ok">
                         <summary>
@@ -807,6 +750,8 @@
 
                 <!-- Connection list -->
                 <div class="na-modal__connections">
+                    <p class="na-test-hint" *ngIf="!filteredConnections.length">{{ addToolTab === 'agent'
+                        ? 'No agent tools match.' : 'No external connections yet: use Another Agent (Ask Data or the twise agents).' }}</p>
                     <div class="na-modal__connection" *ngFor="let conn of filteredConnections">
                         <div appKeyClick class="na-modal__conn-head" (click)="toggleConnectionExpand(conn)">
                             <svg class="na-modal__conn-chevron" [class.na-modal__conn-chevron--open]="conn.expanded"

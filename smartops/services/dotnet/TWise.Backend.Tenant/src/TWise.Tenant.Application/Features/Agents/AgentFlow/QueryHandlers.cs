@@ -6,19 +6,29 @@ using TWise.Tenant.Domain.DTOs;
 
 namespace TWise.Tenant.Application.Features.Agents;
 
-public sealed class ExportAgentFlowHandler(IAgentRuntimeClient runtime) : IRequestHandler<ExportAgentFlowQuery, JsonElement>
+public sealed class ExportAgentFlowHandler(IAgentRuntimeClient runtime, IAiProviderRepository providers) : IRequestHandler<ExportAgentFlowQuery, JsonElement>
 {
-    public Task<JsonElement> Handle(ExportAgentFlowQuery q, CancellationToken ct) => runtime.ExportAgentFlowAsync(q.Agent, ct);
+    public async Task<JsonElement> Handle(ExportAgentFlowQuery q, CancellationToken ct) =>
+        await runtime.ExportAgentFlowAsync(q.Agent, await AgentFlowModel.ActiveAsync(providers, q.TenantId, ct), ct);
 }
 
-public sealed class GetAgentFlowHandler(IAiAgentRepository agents, IAgentRuntimeClient runtime) : IRequestHandler<GetAgentFlowQuery, JsonElement?>
+public sealed class GetAgentFlowHandler(IAiAgentRepository agents, IAgentRuntimeClient runtime, IAiProviderRepository providers)
+    : IRequestHandler<GetAgentFlowQuery, JsonElement?>
 {
     public async Task<JsonElement?> Handle(GetAgentFlowQuery q, CancellationToken ct)
     {
         var agent = await agents.GetAsync(q.TenantId, q.Id, ct);
         if (agent is null) return null;
-        return await runtime.ExportAgentFlowAsync(AgentMapping.ToRequest(AgentMapping.ToDto(agent, null)), ct);
+        return await runtime.ExportAgentFlowAsync(AgentMapping.ToRequest(AgentMapping.ToDto(agent, null)),
+            await AgentFlowModel.ActiveAsync(providers, q.TenantId, ct), ct);
     }
+}
+
+/// <summary>The tenant's active provider for agentflow.json (it used to always say openai / gpt-4o-mini).</summary>
+internal static class AgentFlowModel
+{
+    public static async Task<AgentFlowLlm?> ActiveAsync(IAiProviderRepository providers, long tenantId, CancellationToken ct) =>
+        await providers.GetActiveAsync(tenantId, ct) is { } p ? new AgentFlowLlm(p.Provider, p.Model, p.BaseUrl) : null;
 }
 
 public sealed class ExportAskDataHandler(IAgentRuntimeClient runtime) : IRequestHandler<ExportAskDataQuery, AskDataExportFile>
