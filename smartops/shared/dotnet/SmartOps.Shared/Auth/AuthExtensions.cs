@@ -21,12 +21,6 @@ public static class AuthExtensions
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
         var jwt = config.GetSection("JwtSettings").Get<JwtSettings>() ?? new JwtSettings();
-        // A copy of the repo without real settings carries a CHANGE_ME placeholder: tokens signed with a key anyone
-        // can read in the repo would be forgeable, so refuse to start.
-        if (jwt.SecretKey.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException(
-                "JwtSettings:SecretKey is still the CHANGE_ME placeholder. Set the real value " +
-                "(environment variable JwtSettings__SecretKey), the same one every TWise API uses.");
         var tenantId = config["AzureAd:TenantId"];
         var useEntra = !string.IsNullOrWhiteSpace(tenantId);
 

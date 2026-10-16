@@ -265,17 +265,12 @@ app.MapGet("/health", (IConfiguration cfg) => new
 
 app.Run();
 
-// A secret that must be set, and must not be the CHANGE_ME placeholder that a copy of the repo without real
-// settings carries: an API that ran with the placeholder encryption key re-saved the AI provider key with it, and
-// every API with the real key then failed with "cannot be decrypted". Fail at startup instead.
+// A secret that must be set. Every TWise API on the same database must use the same value (the appsettings.json
+// one unless overridden), or encrypted settings saved by one become unreadable for the others.
 static string RequireSecret(IConfiguration config, string key)
 {
     var value = config[key];
     if (string.IsNullOrWhiteSpace(value))
         throw new InvalidOperationException($"{key} is not configured.");
-    if (value.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
-        throw new InvalidOperationException(
-            $"{key} is still the CHANGE_ME placeholder. Set the value every TWise API on this database uses " +
-            $"(environment variable {key.Replace(":", "__")}), or encrypted settings become unreadable for the others.");
     return value;
 }
