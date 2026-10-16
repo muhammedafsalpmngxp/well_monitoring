@@ -142,6 +142,9 @@ public sealed class TestAiAgentStreamHandler(
             try { more = await e.MoveNextAsync(); }
             catch (HttpRequestException ex) { onError("The agent service failed: " + ex.Message); yield break; }
             catch (TaskCanceledException) when (!ct.IsCancellationRequested) { onError("The agent service did not answer in time."); yield break; }
+            // Raised before the first event (e.g. no Ask Data connection string): the reason, not a bare 500.
+            catch (InvalidOperationException ex) { onError(ex.Message); yield break; }
+            catch (JsonException) { onError("The agent service sent a reply that could not be read."); yield break; }
             if (!more) yield break;
             yield return e.Current;
         }

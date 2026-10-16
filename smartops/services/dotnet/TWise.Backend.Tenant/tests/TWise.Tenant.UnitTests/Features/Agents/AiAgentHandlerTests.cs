@@ -177,6 +177,32 @@ public sealed class AiAgentHandlerTests
         new SaveAiAgentRequestValidator().Validate(agent).IsValid.Should().Be(valid);
     }
 
+    [Theory]
+    [InlineData("sequential", "a", false)]   // c links back to a
+    [InlineData("loop", "a", false)]         // a loop repeats through its check, not through a link
+    [InlineData("sequential", "answer", true)]
+    [InlineData("parallel", null, true)]     // parallel steps are not linked
+    public void Validator_RejectsLinksThatGoRoundInACircle(string type, string? lastNext, bool valid)
+    {
+        var agent = Agent() with
+        {
+            Type = type,
+            Steps = [new AiAgentStepDto("A", Id: "a"), new AiAgentStepDto("B", Id: "b"), new AiAgentStepDto("C", Id: "c", Next: lastNext)],
+        };
+        var result = new SaveAiAgentRequestValidator().Validate(agent);
+        result.IsValid.Should().Be(valid);
+        if (!valid) result.Errors.Should().Contain(e => e.ErrorMessage.Contains("round in a circle at 'A'"));
+    }
+
+    [Fact]
+    public void Validator_RejectsARouterBranchBackToAnEarlierStep()
+    {
+        var router = new AiAgentStepDto("By cluster", Id: "r", Kind: "router",
+            Branches: [new AiAgentBranchDto("x", "Nimr", "cluster", "equals", "Nimr", "a"), new AiAgentBranchDto("y", "Else", null, "else", null, "answer")]);
+        var agent = Agent() with { Steps = [new AiAgentStepDto("A", Id: "a"), router] };
+        new SaveAiAgentRequestValidator().Validate(agent).IsValid.Should().BeFalse();
+    }
+
     [Fact]
     public void Validator_RejectsRouterWithoutBranches() =>
         new SaveAiAgentRequestValidator().Validate(Agent() with { Steps = [new AiAgentStepDto("R", Id: "r", Kind: "router")] })
@@ -218,6 +244,25 @@ public sealed class AiAgentHandlerTests
         events.Should().ContainSingle().Which.Type.Should().Be("error");
         run!.Status.Should().Be("failed");
         run.Error.Should().Contain("agent service failed");
+    }
+
+    [Theory]
+    [InlineData("config", "Ask Data has no database")]
+    [InlineData("json", "could not be read")]
+    public async Task Test_FailureBeforeTheFirstEvent_SavesFailedRun_AndYieldsTheReason(string failure, string message)
+    {
+        AiAgentRun? run = null;
+        _repo.Setup(r => r.AddRunAsync(It.IsAny<AiAgentRun>(), It.IsAny<CancellationToken>())).Callback<AiAgentRun, CancellationToken>((r, _) => run = r);
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Throwing(failure == "config"
+                ? new InvalidOperationException("Ask Data has no database: set ConnectionStrings:AlTasnimBI or AgentRuntime:AskDataConnection.")
+                : new JsonException("bad")));
+
+        var events = await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(Agent())), default));
+
+        events.Should().ContainSingle().Which.Type.Should().Be("error");
+        JsonSerializer.Serialize(events[0].Data).Should().Contain(message);
+        run!.Status.Should().Be("failed");
     }
 
     [Fact]
@@ -279,10 +324,10 @@ public sealed class AiAgentHandlerTests
         }
     }
 
-    private static async IAsyncEnumerable<AgentRuntimeEvent> Throwing([EnumeratorCancellation] CancellationToken ct = default)
+    private static async IAsyncEnumerable<AgentRuntimeEvent> Throwing(Exception? error = null, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await Task.Yield();
-        throw new HttpRequestException("refused");
+        throw error ?? new HttpRequestException("refused");
 #pragma warning disable CS0162
         yield break;
 #pragma warning restore CS0162

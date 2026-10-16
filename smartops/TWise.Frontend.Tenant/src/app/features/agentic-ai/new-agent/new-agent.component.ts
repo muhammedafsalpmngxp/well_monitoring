@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { Agent, AgentBranch, AgentsService, AgentTool, AgentStepResult, AgentToolOption, AgentType, SaveAgentRequest } from '../agents.service';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
+import { circleAt, stepsToSave } from '../agent-steps.util';
 
 export interface InstructionItem {
   value: string;
@@ -312,9 +313,9 @@ export class NewAgentComponent implements OnInit, OnDestroy {
       description: blank(this.roleDescription),
       systemPrompt: blank(this.systemPrompt),
       goal: blank(this.primaryGoal),
-      steps: this.goalInstructions.filter(i => i.value.trim())
-        .map(i => ({ text: i.value.trim(), id: i.id ?? newStepId(), x: i.x ?? null, y: i.y ?? null,
-          kind: i.kind ?? 'step', routeBy: i.routeBy ?? 'rules', branches: i.branches ?? null, next: i.next ?? null, tool: i.tool ?? null })),
+      steps: stepsToSave(this.goalInstructions.map(i => ({ text: i.value, id: i.id ?? newStepId(), x: i.x ?? null, y: i.y ?? null,
+        kind: i.kind ?? 'step', routeBy: i.routeBy ?? 'rules', branches: i.branches ?? null, next: i.next ?? null, tool: i.tool ?? null })),
+        this.agentType),
       tools: this.agentToolGroups.flatMap(g => g.actions.map(a => ({ agent: g.connectionId, action: a.name }))),
       inputs: this.inputs.filter(i => i.name.trim()).map(i => ({ name: i.name.trim(), type: (i.type || 'String').toLowerCase(), required: i.requirement !== 'Optional', description: blank(i.description) })),
       outputs: this.outputs.filter(o => o.name.trim()).map(o => ({ name: o.name.trim(), type: (o.type || 'String').toLowerCase(), description: blank(o.description) })),
@@ -336,6 +337,9 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     if (!r.steps.length) return 'Add at least one instruction under Goal & Instructions.';
     if (r.steps.some(s => s.kind === 'router' || s.next) && r.type !== 'sequential' && r.type !== 'loop')
       return 'Routers and step links work in Sequential and Loop agents. Change the agent type or remove them on the Canvas.';
+    const circle = circleAt(r.steps, r.type);
+    if (circle !== null)
+      return `The steps go round in a circle at '${circle.slice(0, 40)}'. On the Canvas, point that link forward or to the answer.`;
     if (!r.tools.length) return 'Add at least one tool under Tools & Capabilities (for example DB Assistant · chat).';
     return '';
   }
@@ -568,11 +572,16 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     this.closeAddToolModal();
   }
 
+  /** Remove a tool (Form view); steps that used it go back to the agent's first tool, as on the Canvas. */
   removeAgentToolAction(groupIdx: number, actionIdx: number): void {
-    this.agentToolGroups[groupIdx].actions.splice(actionIdx, 1);
-    if (this.agentToolGroups[groupIdx].actions.length === 0) {
+    const group = this.agentToolGroups[groupIdx];
+    const [removed] = group.actions.splice(actionIdx, 1);
+    if (group.actions.length === 0) {
       this.agentToolGroups.splice(groupIdx, 1);
     }
+    for (const i of this.goalInstructions)
+      if (i.tool?.agent === group.connectionId && i.tool.action === removed?.name) i.tool = null;
+    this.refreshCanvasTools();
   }
 
   addTool(): void { this.openAddToolModal(); }

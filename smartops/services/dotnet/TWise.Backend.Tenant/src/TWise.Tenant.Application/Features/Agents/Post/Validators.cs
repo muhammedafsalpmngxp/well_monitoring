@@ -39,6 +39,11 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
         });
         RuleFor(x => x).Must(RoutesAreValid)
             .WithMessage("Routers and step links work in sequential and loop agents, need step ids, and must point to existing steps.");
+        RuleFor(x => x).Custom((r, ctx) =>
+        {
+            if (CircleAt(r) is { } text)
+                ctx.AddFailure("Steps", $"The steps go round in a circle at '{(text.Length <= 40 ? text : text[..40])}'. Point a link forward or to the answer.");
+        });
         RuleFor(x => x.Tools).NotEmpty().WithMessage("Add at least one tool.");
         RuleForEach(x => x.Tools).ChildRules(t => t.RuleFor(x => x.Agent).NotEmpty().MaximumLength(100));
         RuleForEach(x => x.Inputs).ChildRules(i => i.RuleFor(x => x.Name).Matches("^[A-Za-z_][A-Za-z0-9_]{0,49}$")
@@ -62,6 +67,38 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
         var ids = r.Steps.Select(s => s.Id).Where(id => id is not null).ToHashSet();
         return r.Steps.SelectMany(s => (s.Branches ?? []).Select(b => b.Target).Append(s.Next))
             .All(t => t is null || t == "answer" || ids.Contains(t));
+    }
+
+    /// <summary>
+    /// The text of a step the links lead back to, or null. Same walk as the runtime's _check_no_cycle (graph.py):
+    /// within one run (or one loop round) a step is reached at most once; unknown targets end the path.
+    /// </summary>
+    private static string? CircleAt(SaveAiAgentRequest r)
+    {
+        if ((r.Type ?? "").Trim().ToLowerInvariant() is not ("sequential" or "loop") || r.Steps.Count == 0) return null;
+        var index = r.Steps.Select((s, i) => (s.Id, i)).Where(p => !string.IsNullOrEmpty(p.Id))
+            .GroupBy(p => p.Id!).ToDictionary(g => g.Key, g => g.First().i);
+        int? To(string? target) => target is null || target == "answer" ? null : index.TryGetValue(target, out var i) ? i : null;
+        IEnumerable<int?> Next(int i)
+        {
+            var s = r.Steps[i];
+            if (s.Kind == "router") return (s.Branches ?? []).Select(b => To(b.Target));
+            if (s.Next is not null) return [To(s.Next)];
+            return [i + 1 < r.Steps.Count ? i + 1 : null];
+        }
+
+        var state = new int[r.Steps.Count];   // 1 = on the current path, 2 = done
+        string? Visit(int i)
+        {
+            if (state[i] == 2) return null;
+            if (state[i] == 1) return r.Steps[i].Text;
+            state[i] = 1;
+            foreach (var n in Next(i))
+                if (n is { } m && Visit(m) is { } hit) return hit;
+            state[i] = 2;
+            return null;
+        }
+        return Visit(0);
     }
 }
 

@@ -96,3 +96,28 @@ def test_heartbeat_pings_while_a_step_is_quiet():
         yield "done", {"ok": True}
     names = [n for n, _ in with_heartbeat(slow(), every=0.1)]
     assert names[0] == "step" and names[-1] == "done" and "ping" in names
+
+
+def test_heartbeat_stops_the_run_when_the_caller_stops_reading():
+    import threading
+    import time as _t
+    from app.main import with_heartbeat
+
+    produced, closed = [], threading.Event()
+
+    def endless():
+        try:
+            while True:
+                produced.append(1)
+                yield "step", {"step": len(produced)}
+                _t.sleep(0.01)
+        finally:
+            closed.set()
+
+    stream = with_heartbeat(endless(), every=1)
+    assert next(stream)[0] == "step"
+    stream.close()   # the page left
+    assert closed.wait(2), "the run kept going after the caller stopped reading"
+    count = len(produced)
+    _t.sleep(0.1)
+    assert len(produced) == count
