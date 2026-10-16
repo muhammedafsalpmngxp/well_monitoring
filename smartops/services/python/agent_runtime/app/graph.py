@@ -160,7 +160,9 @@ def _router_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, to
             chosen = rules[n - 1] if isinstance(n, int) and 1 <= n <= len(rules) else fallback
         elif step.route_by == "ai":
             # AI branches carry no real rules (their default is "equals ''"), so don't match them silently.
-            chosen, reason = fallback, "No AI provider is active, so the Otherwise branch was taken."
+            chosen = fallback
+            reason = ("No AI provider is active, so the Otherwise branch was taken." if rules
+                      else "The router has only an Otherwise branch.")
         else:
             chosen = next((b for b in rules if matches(b, inputs, last)), fallback)
         route = to(chosen.target if chosen else None)
@@ -238,7 +240,8 @@ def _answer_node(cfg: AgentConfig, llm: Llm | None, chat):
         results = state.get("results") or []
         done = [r for r in results if r["ok"]]
         if not results:
-            return {"answer": "No step ran: the supervisor finished before choosing a step.", "ok": False}
+            return {"answer": "No step ran: the supervisor finished before choosing a step." if cfg.type == "supervisor"
+                    else "No step ran: a router sent the run straight to the answer.", "ok": False}
         if not done:
             return {"answer": "No step produced an answer. " + "; ".join(r["error"] or "" for r in results), "ok": False}
         if len(results) == 1:
@@ -282,13 +285,14 @@ def _supervisor_node(cfg: AgentConfig, llm: Llm | None, chat, names: list[str]):
     def node(state: AgentState) -> dict[str, Any]:
         n = state.get("iterations", 0)
         succeeded = {f"step_{r['step']}" for r in state.get("results") or [] if r["ok"]}
-        if n >= cfg.max_iterations:
-            return {"next": "answer"}
         if llm is None:
             # No AI provider to decide with: run every worker once, in order, instead of ending with nothing.
+            # (Not capped by max_iterations: each worker runs once, and there are at most 20.)
             ran = {f"step_{r['step']}" for r in state.get("results") or []}
             nxt = next((w for w in names if w not in ran), "answer")
             reason, usage = "No AI provider is active, so the steps run in order.", []
+        elif n >= cfg.max_iterations:
+            return {"next": "answer"}
         else:
             decision, usage = _decide(chat, llm, system, _progress(state))
             nxt, reason = str(decision.get("next", "")).strip(), str(decision.get("reason", "")).strip()

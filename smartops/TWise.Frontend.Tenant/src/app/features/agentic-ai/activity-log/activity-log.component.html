@@ -139,7 +139,7 @@
   <div class="acl-grid-wrapper">
     <ag-grid-angular class="acl-grid" [theme]="gridTheme" [columnDefs]="columnDefs" [rowData]="pagedRows"
       [defaultColDef]="defaultColDef" [rowSelection]="rowSelection" [selectionColumnDef]="selectionColumnDef"
-      [pagination]="false" [suppressPaginationPanel]="true"></ag-grid-angular>
+      [pagination]="false" [suppressPaginationPanel]="true" [getRowId]="getRowId"></ag-grid-angular>
     <div class="acl-pagination">
       <span class="acl-pagination__range">{{ paginationInfo }}</span>
       <div class="acl-pagination__controls">

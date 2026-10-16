@@ -5,7 +5,7 @@ injection. The texts come from ``prompt_files/<name>/v1.txt``, or, with ASKDATA_
 config table ``<ASKDATA_PROMPT_SCHEMA>.prompt`` (task ``db_assistant/<name>``: the active version, else v1;
 a task the table does not hold, or every task when it cannot be read, comes from the files) - twise's
 prompt_service. BUSINESS_RULES and FEW_SHOTS come from the agent's Knowledge Source (default: the files in
-ASKDATA_KNOWLEDGE_DIR, else knowledge_default/). ORG_NAME in a prompt is ASKDATA_ORG_NAME. The SQL safety rules
+ASKDATA_KNOWLEDGE_DIR, else knowledge_default/). {{ORG_NAME}} in a prompt is ASKDATA_ORG_NAME. The SQL safety rules
 are not editable.
 """
 from __future__ import annotations
@@ -74,7 +74,7 @@ def _load(name: str) -> str:
         text = _DB_PROMPTS[name]
     else:
         text = (_DIR / "prompt_files" / name / "v1.txt").read_text(encoding="utf-8").strip()
-    return text.replace("ORG_NAME", ORG_NAME)
+    return text.replace("{{ORG_NAME}}", ORG_NAME)   # a placeholder no column or table name can match
 
 
 def default_knowledge(filename: str) -> str:

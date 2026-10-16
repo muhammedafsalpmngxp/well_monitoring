@@ -69,8 +69,8 @@ def test_supervisor_stops_at_max_iterations():
 
 def test_supervisor_without_a_provider_runs_every_step_in_order():
     calls = []
-    events = list(run_events(_req("supervisor", llm=False), run_tool=tool(calls)))
-    assert calls == ["A", "B"]
+    events = list(run_events(_req("supervisor", steps=("A", "B", "C"), max_iterations=2, llm=False), run_tool=tool(calls)))
+    assert calls == ["A", "B", "C"]   # every step once, even with more steps than max_iterations
     assert _done(events)["ok"] is True
     assert all("No AI provider" in d["reason"] for n, d in events if n == "decision" and d["next"] != "answer")
 

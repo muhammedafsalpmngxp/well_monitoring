@@ -30,7 +30,12 @@ def _llm(agent: dict[str, Any]) -> LlmProviderSpec | None:
         return None
     provider = _PROVIDERS.get(str(llm.get("provider") or "").lower(), "vllm")
     return LlmProviderSpec(provider=provider, model=llm["model"], base_url=llm.get("baseUrl") or None,
-                           api_key_env="AZURE_OPENAI_API_KEY" if provider == "azure-openai" else "OPENAI_API_KEY")
+                           api_key_env=_KEY_ENV.get(provider, "OPENAI_API_KEY"))
+
+
+# The environment variable a generated project reads the key from (the key itself is never exported).
+_KEY_ENV = {"azure-openai": "AZURE_OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "ollama": "OLLAMA_API_KEY",
+            "vllm": "OPENAI_API_KEY", "openai": "OPENAI_API_KEY"}
 
 TYPES = ("sequential", "parallel", "supervisor", "loop")
 EXTRA = "wellmonitoring"

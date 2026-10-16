@@ -48,6 +48,16 @@ def test_export_names_the_tenants_model_without_its_key():
     assert flow["provider"] == "azure-openai" and spec["model"] == "gpt-5-deploy" and spec["base_url"] == "https://az.example/v1"
     assert "api_key" not in spec and spec["api_key_env"] == "AZURE_OPENAI_API_KEY"   # the name of a variable, no key
     assert "gpt-4o-mini" not in json.dumps(flow)
+    anthropic = to_agentflow({**AGENT, "llm": {"provider": "anthropic", "model": "claude", "baseUrl": "https://api.anthropic.com/v1"}})
+    assert anthropic["config"]["llm_provider"]["api_key_env"] == "ANTHROPIC_API_KEY"
+
+
+def test_org_name_replaces_only_its_placeholder(monkeypatch):
+    from app.askdata import prompts
+
+    monkeypatch.setattr(prompts, "ORG_NAME", "Acme")
+    monkeypatch.setattr(prompts, "_DB_PROMPTS", {"sql_knowledge": "Column ORG_NAME_ID; ask about {{ORG_NAME}}"})
+    assert prompts._load("sql_knowledge") == "Column ORG_NAME_ID; ask about Acme"
 
 
 def test_round_trip_is_lossless():

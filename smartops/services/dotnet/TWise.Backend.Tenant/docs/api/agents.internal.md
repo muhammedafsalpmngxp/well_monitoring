@@ -94,7 +94,7 @@ on QA) with their own OpenAI key.
 | Runtime env | `AGENT_RUNTIME_STEP_TIMEOUT` | `180` | seconds per step |
 | Runtime env | `ASKDATA_ALLOWED_SCHEMAS` | `well,project,ref,bridge,dbo` | the most an agent's Allowed schemas can read |
 | Runtime env | `ASKDATA_KNOWLEDGE_DIR` | `app/askdata/knowledge_default` | business rules / examples used when an agent leaves them blank |
-| Runtime env | `ASKDATA_ORG_NAME` | `Al-Tasnim` | the organisation the Ask Data prompts speak for (`ORG_NAME` in the prompt files) |
+| Runtime env | `ASKDATA_ORG_NAME` | `Al-Tasnim` | the organisation the Ask Data prompts speak for (`{{ORG_NAME}}` in the prompt files) |
 | Runtime env | `ASKDATA_EXPORT_PREFIX` | `ask-data` | start of exported file names (`al-tasnim` gives the old names) |
 
 Set both keys outside local development: the runtime receives the tenant's decrypted AI key in the

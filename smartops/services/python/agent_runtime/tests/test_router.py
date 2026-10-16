@@ -84,6 +84,13 @@ def test_an_ai_router_without_a_provider_takes_otherwise_and_says_why():
     assert "No AI provider" in [d for n, d in events if n == "decision"][0]["reason"]
 
 
+def test_a_router_straight_to_the_answer_says_so():
+    router = {"id": "r", "text": "Skip?", "kind": "router", "branches": [{"id": "b", "op": "else", "target": "answer"}]}
+    calls, events = _run(_req("1", steps=[router, {"id": "a", "text": "A"}]))
+    done = [d for n, d in events if n == "done"][0]
+    assert calls == [] and done["ok"] is False and "router sent the run straight to the answer" in done["answer"]
+
+
 def test_a_link_back_is_rejected():
     steps = [{"id": "a", "text": "A"}, {"id": "b", "text": "B", "next": "a"}]
     _, events = _run(_req("1", steps=steps))

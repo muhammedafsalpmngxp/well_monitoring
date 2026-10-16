@@ -333,8 +333,10 @@ def test_an_agent_can_only_narrow_the_allowed_schemas():
 
     assert settings_for(AskDataOptions(allowed_schemas=["Well", "sys", "INFORMATION_SCHEMA"])).allowed_schemas == ("well",)
     default = settings_for(None).allowed_schemas
-    assert settings_for(AskDataOptions(allowed_schemas=["sys"])).allowed_schemas == default   # nothing allowed: defaults
     assert settings_for(AskDataOptions(allowed_schemas=None)).allowed_schemas == default       # null from the Tenant API
+    assert settings_for(AskDataOptions(allowed_schemas=[])).allowed_schemas == default         # blank: the server's list
+    with pytest.raises(ValueError, match="can be read here"):
+        settings_for(AskDataOptions(allowed_schemas=["sys", "wel"]))   # never widened to every schema
 
 
 def test_done_event_carries_an_export_token(monkeypatch):

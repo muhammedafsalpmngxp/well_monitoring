@@ -69,7 +69,11 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
         yield {"event": "error", "data": {"message": "Ask Data has no database configured."}}
         return
     mode = "normal" if mode == "normal" else "deep"
-    settings = settings_for(options)
+    try:
+        settings = settings_for(options)
+    except ValueError as exc:
+        yield {"event": "error", "data": {"message": str(exc)}}
+        return
     run = AskDataRun(settings=settings, llm=llm, db=target(db))
     history = bound_history(history, settings.history_turns)
     started = time.monotonic()
@@ -106,6 +110,10 @@ def settings_for(options: Any) -> AskDataSettings:
     base = AskDataSettings()
     wanted = tuple(s.strip().lower() for s in (options.allowed_schemas or []) if s.strip()) if options else ()
     allowed = tuple(s for s in wanted if s in {a.lower() for a in base.allowed_schemas})
+    if wanted and not allowed:
+        # Falling back to every schema would widen what the agent asked for (e.g. a typo "wel").
+        raise ValueError(f"None of the agent's allowed schemas ({', '.join(wanted)}) can be read here. "
+                         f"Use some of: {', '.join(base.allowed_schemas)}.")
     return AskDataSettings(**({"max_rows": options.max_rows} if options and options.max_rows else {}),
                            **({"allowed_schemas": allowed} if allowed else {}))
 

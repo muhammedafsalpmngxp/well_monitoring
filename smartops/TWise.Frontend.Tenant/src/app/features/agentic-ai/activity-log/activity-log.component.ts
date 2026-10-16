@@ -172,7 +172,23 @@ export class ActivityLogComponent implements OnInit {
     this.currentPage = 1;
   }
 
+  /**
+   * The rows after the filters, recomputed only when a filter changes: change detection reads these getters
+   * many times, and a new array each time made ag-grid reset its rows (and the checkbox selection).
+   */
+  private filteredKey = '';
+  private filteredCache: ActivityRow[] = [];
+  private pagedKey = '';
+  private pagedCache: ActivityRow[] = [];
+
   private get filteredRows(): ActivityRow[] {
+    const key = JSON.stringify([this.rows.length, this.filterAgent, this.filterStatus, this.filterRunBy, this.filterFrom,
+      this.filterTo, this.searchTerm]);
+    if (key !== this.filteredKey) { this.filteredKey = key; this.filteredCache = this.computeFiltered(); }
+    return this.filteredCache;
+  }
+
+  private computeFiltered(): ActivityRow[] {
     const from = this.filterFrom ? new Date(this.filterFrom + 'T00:00:00').getTime() : -Infinity;
     const to = this.filterTo ? new Date(this.filterTo + 'T23:59:59.999').getTime() : Infinity;
     const q = this.searchTerm.trim().toLowerCase();
@@ -236,9 +252,15 @@ export class ActivityLogComponent implements OnInit {
   get totalPages(): number { return Math.max(1, Math.ceil(this.totalRecords / this.pageSize)); }
 
   get pagedRows(): ActivityRow[] {
+    const rows = this.filteredRows;
     const start = (Math.min(this.currentPage, this.totalPages) - 1) * this.pageSize;
-    return this.filteredRows.slice(start, start + this.pageSize);
+    const key = `${this.filteredKey}|${start}`;
+    if (key !== this.pagedKey) { this.pagedKey = key; this.pagedCache = rows.slice(start, start + this.pageSize); }
+    return this.pagedCache;
   }
+
+  /** Stable row ids, so a refresh keeps ag-grid's rows (and their selection) in place. */
+  readonly getRowId = (p: { data: ActivityRow }) => p.data.run;
 
   get paginationInfo(): string {
     if (!this.totalRecords) return '0 runs';

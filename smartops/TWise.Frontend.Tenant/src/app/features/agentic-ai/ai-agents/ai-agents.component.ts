@@ -49,6 +49,7 @@ export class AiAgentsComponent implements OnInit {
   /** Deletes the agent (its run history stays, for the Activity Log). */
   deleteAgent(agent: AgentCard): void {
     if (!confirm(`Delete "${agent.name}"? This cannot be undone. Its test runs stay in the Activity Log.`)) return;
+    this.error = '';   // a message from an earlier failed delete hid the list's empty state for good
     this.deleting = agent.id;
     this.agentsApi.delete(agent.id).subscribe({
       next: () => {
@@ -59,6 +60,7 @@ export class AiAgentsComponent implements OnInit {
       },
       error: err => {
         this.deleting = null;
+        this.menuFor = null;
         this.error = err?.status === 403 ? 'You do not have permission to delete agents.' : `Could not delete "${agent.name}".`;
         this.cdr.markForCheck();
       },

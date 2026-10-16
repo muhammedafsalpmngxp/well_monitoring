@@ -243,7 +243,17 @@ export class NewAgentComponent implements OnInit, OnDestroy {
       error: () => { this.toolsMessage = 'Could not load the tools.'; this.cdr.markForCheck(); },
     });
     const id = Number(this.route.snapshot.paramMap.get('id'));
-    if (id > 0) this.agents.get(id).subscribe({ next: a => { this.load(a); this.markSaved(); this.cdr.markForCheck(); }, error: () => this.show('Agent not found.', 'bad') });
+    if (id > 0) this.agents.get(id).subscribe({
+      next: a => {
+        this.load(a);
+        this.markSaved();
+        // Agents built before routers were linked in can hold a step nothing reaches: say so on open, not only on Save.
+        const dead = this.unreachable(this.request(this.status));
+        if (dead) this.show(`${dead} Saving is blocked until then; tests still run.`, 'bad');
+        this.cdr.markForCheck();
+      },
+      error: () => this.show('Agent not found.', 'bad'),
+    });
     else this.markSaved();
   }
 

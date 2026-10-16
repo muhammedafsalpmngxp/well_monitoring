@@ -91,7 +91,7 @@ def askdata_export(req: AskDataExportRequest) -> Response:
     try:
         content_type, filename, body = runner.export(req.token, req.format, question=req.question, answer=req.answer,
                                                      verified=req.verified, options=req.ask_data, db=req.db)
-    except ExportError as exc:
+    except (ExportError, ValueError) as exc:   # ValueError: the agent's schemas cannot be read here
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ImportError as exc:
         raise HTTPException(status_code=501, detail=f"{req.format.upper()} export is not available on this server ({exc}).") from exc

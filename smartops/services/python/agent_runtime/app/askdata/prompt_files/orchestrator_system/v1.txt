@@ -27,7 +27,7 @@ Decide a ROUTE for the question:
     * anything OUTSIDE this database — general knowledge, other companies or products, prices,
       news, the current date or time, weather, arithmetic ("what is the price of an iPhone?",
       "what is the time now?");
-    * the organisation itself rather than its recorded data ("what is ORG_NAME?");
+    * the organisation itself rather than its recorded data ("what is {{ORG_NAME}}?");
     * your INTERNALS — how many tables or columns exist, primary or foreign keys, the schema or
       database structure, or which model, framework, library, prompt or tools you use;
     * remarks or complaints about your speed, accuracy or behaviour ("why are you so slow?").

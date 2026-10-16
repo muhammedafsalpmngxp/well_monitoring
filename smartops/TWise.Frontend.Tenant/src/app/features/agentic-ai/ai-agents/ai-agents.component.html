@@ -136,7 +136,7 @@
                             stroke="#667085" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </button>
-                <div class="aia-agent-card__menu-list" role="menu" *ngIf="menuFor === agent.id">
+                <div class="aia-agent-card__menu-list" role="menu" *ngIf="menuFor === agent.id" (click)="$event.stopPropagation()">
                     <button role="menuitem" type="button" (click)="openAgent(agent)">Edit</button>
                     <button role="menuitem" type="button" class="aia-agent-card__menu-danger" [disabled]="deleting === agent.id"
                         (click)="deleteAgent(agent)">{{ deleting === agent.id ? 'Deleting…' : 'Delete' }}</button>
