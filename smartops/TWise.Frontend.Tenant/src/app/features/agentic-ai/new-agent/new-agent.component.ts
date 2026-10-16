@@ -258,7 +258,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     else this.markSaved();
   }
 
-  ngOnDestroy(): void { this.testSub?.unsubscribe(); this.stopTimer(); this.restoreSidebar(); }
+  ngOnDestroy(): void { this.confirmBox?.resolve(false); this.testSub?.unsubscribe(); this.stopTimer(); this.restoreSidebar(); }
 
   /** The page as last loaded or saved, to tell unsaved changes. */
   private savedSnapshot = '';
@@ -270,7 +270,26 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   onBeforeUnload(e: BeforeUnloadEvent): void { if (this.dirty) e.preventDefault(); }
 
   /** Leaving inside the app (route guard). */
-  canLeave(): boolean { return !this.dirty || confirm('You have unsaved changes to this agent. Leave without saving?'); }
+  canLeave(): boolean | Promise<boolean> {
+    return !this.dirty || this.ask({ title: 'Unsaved changes', message: 'You have unsaved changes to this agent. Leave without saving?',
+      confirmLabel: 'Leave without saving', cancelLabel: 'Stay here', variant: 'warning' });
+  }
+
+  /** The open confirmation (the app's dialog, not the browser's confirm()); resolve gets the answer. */
+  confirmBox: { title: string; message: string; confirmLabel: string; cancelLabel: string; variant: 'danger' | 'warning' | 'info';
+    resolve: (ok: boolean) => void } | null = null;
+
+  private ask(box: Omit<NonNullable<NewAgentComponent['confirmBox']>, 'resolve'>): Promise<boolean> {
+    this.confirmBox?.resolve(false);
+    return new Promise<boolean>(resolve => { this.confirmBox = { ...box, resolve }; this.cdr.markForCheck(); });
+  }
+
+  answerConfirm(ok: boolean): void {
+    const box = this.confirmBox;
+    this.confirmBox = null;
+    box?.resolve(ok);
+    this.cdr.markForCheck();
+  }
 
   /** A twise agent as an Add Tool "connection"; each capability is an action. */
   private toConnection(t: AgentToolOption): AvailableConnection {
@@ -377,8 +396,16 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     const req = this.request(status);
     const problem = this.problems(req) || this.unreachable(req);
     if (problem) { this.show(problem, 'bad'); return; }
-    if (status === 'draft' && this.agentId && this.status === 'published'
-        && !confirm('This agent is published. Saving it as a draft unpublishes it. Continue?')) return;
+    if (status === 'draft' && this.agentId && this.status === 'published') {
+      this.ask({ title: 'Unpublish agent', message: 'This agent is published. Saving it as a draft unpublishes it. Continue?',
+        confirmLabel: 'Save as draft', cancelLabel: 'Cancel', variant: 'warning' })
+        .then(ok => { if (ok) this.send(status, req); });
+      return;
+    }
+    this.send(status, req);
+  }
+
+  private send(status: 'draft' | 'published', req: SaveAgentRequest): void {
     this.saving = true;
     const call = this.agentId ? this.agents.update(this.agentId, req) : this.agents.create(req);
     call.subscribe({

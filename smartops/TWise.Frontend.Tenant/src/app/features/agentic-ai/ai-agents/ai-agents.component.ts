@@ -61,22 +61,48 @@ export class AiAgentsComponent implements OnInit {
   @HostListener('document:click')
   closeMenu(): void { this.menuFor = null; }
 
-  /** Deletes the agent (its run history stays, for the Activity Log). */
+  /** The agent the delete dialog asks about, and why its delete failed (shown in the dialog). */
+  confirmDelete: AgentCard | null = null;
+  deleteError: string | null = null;
+
+  /** Asks first, in the app's confirmation dialog. */
   deleteAgent(agent: AgentCard): void {
-    if (!confirm(`Delete "${agent.name}"? This cannot be undone. Its test runs stay in the Activity Log.`)) return;
+    this.menuFor = null;
+    this.deleteError = null;
+    this.confirmDelete = agent;
+  }
+
+  get deleteMessage(): string {
+    const name = (this.confirmDelete?.name ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `Delete <strong>${name}</strong>? This cannot be undone. Its test runs stay in the Activity Log.`;
+  }
+
+  cancelDelete(): void { if (this.deleting === null) { this.confirmDelete = null; this.deleteError = null; } }
+
+  /** Deletes the agent (its run history stays, for the Activity Log). */
+  doDelete(): void {
+    const agent = this.confirmDelete;
+    if (!agent || this.deleting !== null) return;
     this.error = '';   // a message from an earlier failed delete hid the list's empty state for good
+    this.deleteError = null;
     this.deleting = agent.id;
     this.agentsApi.delete(agent.id).subscribe({
       next: () => {
         this.deleting = null;
-        this.menuFor = null;
+        this.confirmDelete = null;
         this.saved = this.saved.filter(a => a.id !== agent.id);
         this.render();
       },
       error: err => {
         this.deleting = null;
-        this.menuFor = null;
-        this.error = err?.status === 403 ? 'You do not have permission to delete agents.' : `Could not delete "${agent.name}".`;
+        // Already gone (deleted elsewhere): drop the card, nothing to retry.
+        if (err?.status === 404) {
+          this.confirmDelete = null;
+          this.saved = this.saved.filter(a => a.id !== agent.id);
+          this.render();
+          return;
+        }
+        this.deleteError = err?.status === 403 ? 'You do not have permission to delete agents.' : `Could not delete "${agent.name}". Try again.`;
         this.cdr.markForCheck();
       },
     });

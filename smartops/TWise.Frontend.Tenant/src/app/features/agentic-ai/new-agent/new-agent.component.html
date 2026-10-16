@@ -890,3 +890,6 @@
 
     </div><!-- /na-modal -->
 </div><!-- /backdrop -->
+<app-confirmation-dialog [isOpen]="!!confirmBox" [title]="confirmBox?.title ?? ''" [message]="confirmBox?.message ?? ''"
+    [confirmLabel]="confirmBox?.confirmLabel ?? 'Confirm'" [cancelLabel]="confirmBox?.cancelLabel ?? 'Cancel'"
+    [variant]="confirmBox?.variant ?? 'warning'" (confirmed)="answerConfirm(true)" (cancelled)="answerConfirm(false)"></app-confirmation-dialog>

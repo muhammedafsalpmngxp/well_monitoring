@@ -226,3 +226,7 @@
 
 </div>
 <app-run-agent-dialog *ngIf="running" [agent]="running" (closed)="runClosed($event)"></app-run-agent-dialog>
+
+<app-confirmation-dialog [isOpen]="!!confirmDelete" title="Delete agent" [message]="deleteMessage"
+    [confirmLabel]="deleting !== null ? 'Deleting…' : 'Delete'" variant="danger" [busy]="deleting !== null" [error]="deleteError"
+    (confirmed)="doDelete()" (cancelled)="cancelDelete()"></app-confirmation-dialog>
