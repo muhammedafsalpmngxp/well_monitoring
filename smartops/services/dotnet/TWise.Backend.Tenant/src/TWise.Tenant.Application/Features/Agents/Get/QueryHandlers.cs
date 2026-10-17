@@ -28,8 +28,12 @@ public sealed class GetAiAgentHandler(IAiAgentRepository agents) : IRequestHandl
 
 public sealed class ListAiAgentRunsHandler(IAiAgentRepository agents) : IRequestHandler<ListAiAgentRunsQuery, IReadOnlyList<AiAgentRunDto>>
 {
-    public async Task<IReadOnlyList<AiAgentRunDto>> Handle(ListAiAgentRunsQuery q, CancellationToken ct) =>
-        (await agents.ListRunsAsync(q.TenantId, q.AgentId, Math.Clamp(q.Take, 1, 200), ct)).Select(AgentMapping.ToDto).ToList();
+    public async Task<IReadOnlyList<AiAgentRunDto>> Handle(ListAiAgentRunsQuery q, CancellationToken ct)
+    {
+        var runs = await agents.ListRunsAsync(q.TenantId, q.AgentId, Math.Clamp(q.Take, 1, 200), ct);
+        var llm = AgentUsage.ByRun(await agents.UsageAsync(q.TenantId, runs.Select(r => AgentUsage.Purpose(r.AgentId, r.Id)).ToList(), ct));
+        return runs.Select(r => AgentMapping.ToDto(r) with { Llm = llm.GetValueOrDefault(r.Id) }).ToList();
+    }
 }
 
 public sealed class ListAgentToolsHandler(IAgentRuntimeClient runtime) : IRequestHandler<ListAgentToolsQuery, AgentToolsDto>

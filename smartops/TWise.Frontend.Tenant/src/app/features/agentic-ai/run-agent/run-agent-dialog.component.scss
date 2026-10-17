@@ -290,3 +290,36 @@
     .ra-backdrop { padding: 0; align-items: stretch; }
     .ra-dialog { max-width: none; max-height: none; border-radius: 0; }
 }
+
+// ── LLM use of this run ─────────────────────────────────
+.ra-llm {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    margin: 0;
+
+    &__item {
+        padding: 10px 12px;
+        border: 1px solid #EAECF0;
+        border-radius: 6px;
+        background: #F9FAFB;
+
+        &--total { border-color: #D0D5DD; background: #F2F4F7; }
+    }
+
+    dt { margin: 0 0 2px; font-size: 12px; font-weight: 600; color: #667085; }
+
+    dd {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #101828;
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+    }
+
+    &__detail { font-size: 12px; font-weight: 400; color: #667085; }
+}

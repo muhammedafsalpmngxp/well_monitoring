@@ -42,13 +42,28 @@ export interface SaveAgentRequest {
 }
 
 /** One saved test run (core.AiAgentRuns); agentId is null for a test of an agent that was never saved. */
+/** LLM calls of one model for an agent or a run, and their tokens. */
+export interface AgentModelUsage { model: string; calls: number; promptTokens: number; completionTokens: number; }
+
+/** LLM use on the tenant's provider; null for runs made before usage was tied to agents. */
+export interface AgentLlmUsage {
+  calls: number; promptTokens: number; completionTokens: number; totalTokens: number; models: AgentModelUsage[];
+}
+
 export interface AgentRun {
   id: number; agentId: number | null; agentName: string; runBy: string; status: 'success' | 'failed' | string;
   answer: string | null; error: string | null; seconds: number; startedAt: string;
   inputs: Record<string, string> | null; steps: { step: number; question: string; ok: boolean; error?: string | null }[] | null;
+  llm?: AgentLlmUsage | null;
+  /** Tokens saved on the run row (core.AiAgentRuns.input_tokens / output_tokens / total_tokens). */
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
 }
 
-export interface AgentStats { runs: number; successRate: number | null; avgSeconds: number | null; lastRunAt: string | null; }
+export interface AgentStats {
+  runs: number; successRate: number | null; avgSeconds: number | null; lastRunAt: string | null; llm?: AgentLlmUsage | null;
+}
 
 export interface Agent extends SaveAgentRequest {
   id: number;
@@ -79,7 +94,7 @@ export type AgentRunEvent =
   | { type: 'node'; data: { step: number; node: string } }
   | { type: 'decision'; data: { by: 'supervisor' | 'loop' | 'router'; next?: string; task?: string; done?: boolean; reason?: string; round?: number; router?: string; branch?: string } }
   | { type: 'ping'; data: Record<string, never> }   // keeps the stream open while a step waits
-  | { type: 'done'; data: { runId: number; ok: boolean; answer: string; steps: AgentStepResult[]; seconds: number } }
+  | { type: 'done'; data: { runId: number; ok: boolean; answer: string; steps: AgentStepResult[]; seconds: number; llm?: AgentLlmUsage | null } }
   | { type: 'error'; data: { message: string; runId?: number } };
 
 /** Agentic AI → AI Agents, against the Tenant API's /api/agents. */

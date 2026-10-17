@@ -56,7 +56,23 @@ public sealed record SaveAiAgentRequest(
     string Type = "sequential",
     int MaxIterations = 5);
 
-public sealed record AiAgentStatsDto(int Runs, double? SuccessRate, double? AvgSeconds, DateTime? LastRunAt);
+/// <summary>LLM calls one model made for an agent or a run, with their tokens.</summary>
+public sealed record AiModelUsageDto(string Model, int Calls, long PromptTokens, long CompletionTokens);
+
+/// <summary>
+/// LLM use of an agent or one run on the tenant's provider: Ask Data's model calls, routers / supervisor / loop
+/// decisions and the combined answer. Models are listed most-used first.
+/// </summary>
+public sealed record AiLlmUsageDto(int Calls, long PromptTokens, long CompletionTokens, IReadOnlyList<AiModelUsageDto> Models)
+{
+    public long TotalTokens => PromptTokens + CompletionTokens;
+}
+
+/// <summary>One grouped row of core.AiUsageLog for agent runs (purpose agent:&lt;agentId&gt;:&lt;runId&gt;).</summary>
+public sealed record AgentUsageRow(string Purpose, string Model, int Calls, long PromptTokens, long CompletionTokens);
+
+/// <summary>Llm is null for agents whose runs predate per-agent usage.</summary>
+public sealed record AiAgentStatsDto(int Runs, double? SuccessRate, double? AvgSeconds, DateTime? LastRunAt, AiLlmUsageDto? Llm = null);
 
 public sealed record AiAgentDto(
     long Id,
@@ -89,7 +105,11 @@ public sealed record AiAgentRunDto(
     double Seconds,
     DateTime StartedAt,
     JsonElement? Inputs,
-    JsonElement? Steps);
+    JsonElement? Steps,
+    AiLlmUsageDto? Llm = null,
+    int? InputTokens = null,
+    int? OutputTokens = null,
+    int? TotalTokens = null);
 
 /// <summary>Runs the configuration as sent (saved or not). AgentId links the run to a saved agent.</summary>
 public sealed record TestAiAgentRequest(SaveAiAgentRequest Agent, Dictionary<string, string>? Inputs = null, long? AgentId = null);

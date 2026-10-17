@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TWise.Tenant.Application.Abstractions;
+using TWise.Tenant.Application.Features.Agents;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
 using TWise.Tenant.Infrastructure.Persistence;
@@ -45,7 +46,20 @@ public sealed class AiAgentRepository(TenantDbContext db) : IAiAgentRepository
                 LastRunAt = g.Max(r => r.StartedAt),
             })
             .ToListAsync(ct);
+        var llm = AgentUsage.ByAgent(await UsageAsync(tenantId, null, ct));
         return rows.ToDictionary(r => r.AgentId, r => new AiAgentStatsDto(
-            r.Runs, Math.Round(100.0 * r.Succeeded / r.Runs, 1), Math.Round(r.AvgSeconds, 1), r.LastRunAt));
+            r.Runs, Math.Round(100.0 * r.Succeeded / r.Runs, 1), Math.Round(r.AvgSeconds, 1), r.LastRunAt, llm.GetValueOrDefault(r.AgentId)));
+    }
+
+    public async Task<IReadOnlyList<AgentUsageRow>> UsageAsync(long tenantId, IReadOnlyCollection<string>? purposes, CancellationToken ct)
+    {
+        if (purposes is { Count: 0 }) return [];
+        var logs = db.AiUsageLogs.AsNoTracking().Where(l => l.TenantId == tenantId);
+        logs = purposes is null ? logs.Where(l => l.Purpose.StartsWith(AgentUsage.Prefix)) : logs.Where(l => purposes.Contains(l.Purpose));
+        // Anonymous projection: EF cannot translate a record constructor inside a GroupBy select.
+        var rows = await logs.GroupBy(l => new { l.Purpose, l.Model })
+            .Select(g => new { g.Key.Purpose, g.Key.Model, Calls = g.Count(), Prompt = g.Sum(x => (long)x.PromptTokens), Completion = g.Sum(x => (long)x.CompletionTokens) })
+            .ToListAsync(ct);
+        return rows.Select(r => new AgentUsageRow(r.Purpose, r.Model, r.Calls, r.Prompt, r.Completion)).ToList();
     }
 }

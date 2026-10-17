@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, HostListener, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Agent, AgentsService } from '../agents.service';
+import { modelsLine, usageLine, usageTitle } from '../llm-usage.util';
 
 export interface AgentCard {
   id: number;
@@ -14,6 +15,10 @@ export interface AgentCard {
   runs: number;
   successRate: string;
   avgTime: string;
+  /** LLM use on the tenant's provider: "5 calls · 3.2k tokens", the models, and the full numbers. */
+  llmUsage: string;
+  llmModels: string;
+  llmTitle: string;
 }
 
 @Component({
@@ -165,6 +170,9 @@ export class AiAgentsComponent implements OnInit {
       runs: a.stats.runs,
       successRate: a.stats.successRate === null ? '—' : `${a.stats.successRate}%`,
       avgTime: a.stats.avgSeconds === null ? '—' : `${a.stats.avgSeconds}s`,
+      llmUsage: usageLine(a.stats.llm),
+      llmModels: modelsLine(a.stats.llm),
+      llmTitle: usageTitle(a.stats.llm),
     };
   }
 

@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { Agent, AgentBranch, AgentsService, AgentTool, AgentStepResult, AgentToolOption, AgentType, SaveAgentRequest } from '../agents.service';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
 import { circleAt, neverReached, stepsToSave } from '../agent-steps.util';
+import { usageLine, usageTitle } from '../llm-usage.util';
 import { markdownToHtml } from '../../../core/utils/markdown.util';
 
 export interface InstructionItem {
@@ -178,6 +179,9 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   testAnswer = '';
   testError = '';
   testSeconds: number | null = null;
+  /** The run's LLM use on the tenant's provider: "5 calls · 3.2k tokens" and the full numbers. */
+  testLlm = '';
+  testLlmTitle = '';
   private testSub?: Subscription;
 
   // Column resize state
@@ -650,7 +654,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     const problem = this.problems(req);
     if (problem) { this.testError = problem; return; }
     this.testSub?.unsubscribe();
-    Object.assign(this, { testing: true, testStage: 'Starting', testSteps: [], testAnswer: '', testError: '', testSeconds: null,
+    Object.assign(this, { testing: true, testStage: 'Starting', testSteps: [], testAnswer: '', testError: '', testSeconds: null, testLlm: '', testLlmTitle: '',
       testDecisions: [] });
     this.startTimer();
     const values: Record<string, string> = {};
@@ -676,6 +680,8 @@ export class NewAgentComponent implements OnInit, OnDestroy {
           ended = true;
           this.testAnswer = ev.data.answer;
           this.testSeconds = ev.data.seconds;
+          this.testLlm = ev.data.llm ? usageLine(ev.data.llm) : '';
+          this.testLlmTitle = usageTitle(ev.data.llm);
           if (!ev.data.ok) this.testError = 'The agent could not answer. See the steps below.';
         } else if (ev.type === 'error') { ended = true; this.testError = ev.data.message; }
         this.cdr.markForCheck();

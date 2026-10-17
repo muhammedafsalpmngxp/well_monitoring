@@ -97,13 +97,23 @@ public sealed class TestAiAgentStreamHandler(
             run.Status = "failed";
             run.Error = Trim(error ?? "The agent runtime ended without an answer.");
         }
+        // The model calls on the tenant's provider; their input, output and total tokens are saved on the run
+        // (core.AiAgentRuns.input_tokens / output_tokens / total_tokens).
+        var calls = done is { } final ? ProviderCalls(final) : [];
+        if (calls.Count > 0)
+        {
+            long input = calls.Sum(c => (long)c.Prompt), output = calls.Sum(c => (long)c.Completion);
+            run.InputTokens = (int)Math.Min(int.MaxValue, input);
+            run.OutputTokens = (int)Math.Min(int.MaxValue, output);
+            run.TotalTokens = (int)Math.Min(int.MaxValue, input + output);
+        }
         // Record with a fresh token: the caller may have gone, the run must still land.
         await agents.AddRunAsync(run, CancellationToken.None);
-        if (done is { } final) await LogUsageAsync(s, final);
+        var llmUsed = await LogUsageAsync(s, run, calls);
 
         yield return done is null
             ? new AiAskEvent("error", new { message = run.Error, runId = run.Id })
-            : new AiAskEvent("done", new { runId = run.Id, ok, answer = run.Answer, steps = done.Value.TryGetProperty("steps", out var st) ? st : default, seconds = run.Seconds });
+            : new AiAskEvent("done", new { runId = run.Id, ok, answer = run.Answer, steps = done.Value.TryGetProperty("steps", out var st) ? st : default, seconds = run.Seconds, llm = llmUsed });
     }
 
     /// <summary>
@@ -123,17 +133,27 @@ public sealed class TestAiAgentStreamHandler(
         catch (InvalidOperationException) { return null; }
     }
 
-    /// <summary>One AI usage row per model call the runtime made with the tenant's provider: Ask Data's nodes and the
-    /// multi-step answer (the twise agents use their own provider).</summary>
-    private async Task LogUsageAsync(TestAiAgentStream s, JsonElement done)
+    /// <summary>The model calls the runtime made with the tenant's provider: Ask Data's nodes, router / supervisor / loop
+    /// decisions and the multi-step answer (the twise agents use their own provider).</summary>
+    private static List<(string Model, int Prompt, int Completion)> ProviderCalls(JsonElement done) =>
+        done.TryGetProperty("usage", out var rows) && rows.ValueKind == JsonValueKind.Array
+            ? rows.EnumerateArray()
+                .Where(u => Text(u, "agent") is { } a && (a == "agent_runtime.answer" || a.StartsWith("askdata.", StringComparison.Ordinal)))
+                .Select(u => (Text(u, "model") ?? "", Int(u, "input"), Int(u, "output"))).ToList()
+            : [];
+
+    /// <summary>One AI usage row per call, naming its agent and run (AgentUsage), so the cards and the Activity Log can
+    /// show what every agent used. Returns the run's totals for the page.</summary>
+    private async Task<AiLlmUsageDto?> LogUsageAsync(TestAiAgentStream s, AiAgentRun run, List<(string Model, int Prompt, int Completion)> calls)
     {
-        if (!done.TryGetProperty("usage", out var rows) || rows.ValueKind != JsonValueKind.Array) return;
-        foreach (var u in rows.EnumerateArray().Where(u => Text(u, "agent") is { } a && (a == "agent_runtime.answer" || a.StartsWith("askdata.", StringComparison.Ordinal))))
+        var purpose = AgentUsage.Purpose(run.AgentId, run.Id);
+        foreach (var (model, prompt, completion) in calls)
             await usage.AddAsync(new AiUsageLog
             {
-                TenantId = s.TenantId, UserId = s.UserId, Purpose = "agent", Model = Text(u, "model") ?? "",
-                PromptTokens = Int(u, "input"), CompletionTokens = Int(u, "output"), Succeeded = true,
+                TenantId = s.TenantId, UserId = s.UserId, Purpose = purpose, Model = model,
+                PromptTokens = prompt, CompletionTokens = completion, Succeeded = true,
             }, CancellationToken.None);
+        return AgentUsage.Summarise(calls.Select(c => new AgentUsageRow(purpose, c.Model, 1, c.Prompt, c.Completion)));
     }
 
     /// <summary>Turns a transport failure into an error message instead of an exception (C# forbids yield inside try/catch).</summary>

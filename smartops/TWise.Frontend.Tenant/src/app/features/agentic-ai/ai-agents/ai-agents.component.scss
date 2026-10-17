@@ -588,3 +588,27 @@ a.aia-agent-card__name {
 .aia-agent-card__badge--draft {
     filter: grayscale(1);
 }
+
+// ── LLM usage ───────────────────────────────────────────
+.aia-agent-card__llm {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    padding: 8px 10px;
+    border: 1px solid #EAECF0;
+    border-radius: 6px;
+    background: #F9FAFB;
+    font-size: 12px;
+    cursor: default;
+
+    &-label { font-weight: 600; color: #344054; }
+    &-value { color: #101828; font-variant-numeric: tabular-nums; }
+    &-models {
+        flex-basis: 100%;
+        color: #667085;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}

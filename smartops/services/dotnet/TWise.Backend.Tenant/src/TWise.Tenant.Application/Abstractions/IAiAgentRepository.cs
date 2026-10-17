@@ -15,6 +15,11 @@ public interface IAiAgentRepository
     Task AddRunAsync(AiAgentRun run, CancellationToken ct);
     /// <summary>Newest first; all of the tenant's runs when agentId is null.</summary>
     Task<IReadOnlyList<AiAgentRun>> ListRunsAsync(long tenantId, long? agentId, int take, CancellationToken ct);
-    /// <summary>Run count, success rate, average seconds and last run per saved agent.</summary>
+    /// <summary>Run count, success rate, average seconds, last run and LLM use per saved agent.</summary>
     Task<IReadOnlyDictionary<long, AiAgentStatsDto>> StatsAsync(long tenantId, CancellationToken ct);
+    /// <summary>
+    /// core.AiUsageLog rows of agent runs grouped by purpose and model: those purposes only, or every agent run's
+    /// when purposes is null (see AgentUsage).
+    /// </summary>
+    Task<IReadOnlyList<AgentUsageRow>> UsageAsync(long tenantId, IReadOnlyCollection<string>? purposes, CancellationToken ct);
 }

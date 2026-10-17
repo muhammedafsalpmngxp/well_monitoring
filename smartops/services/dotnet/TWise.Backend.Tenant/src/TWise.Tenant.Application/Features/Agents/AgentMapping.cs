@@ -47,7 +47,8 @@ public static class AgentMapping
 
     public static AiAgentRunDto ToDto(AiAgentRun r) => new(
         r.Id, r.AgentId, r.AgentName, r.RunBy, r.Status, r.Answer, r.Error, r.Seconds, r.StartedAt,
-        Element(r.InputsJson), Element(r.StepsJson));
+        Element(r.InputsJson), Element(r.StepsJson), InputTokens: r.InputTokens, OutputTokens: r.OutputTokens,
+        TotalTokens: r.TotalTokens);
 
     private static IReadOnlyList<T> List<T>(string json) =>
         string.IsNullOrWhiteSpace(json) ? [] : JsonSerializer.Deserialize<List<T>>(json, Json) ?? [];

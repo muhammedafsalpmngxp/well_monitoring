@@ -47,4 +47,9 @@ public class AiAgentRun
     public string? Error { get; set; }
     public double Seconds { get; set; }
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>LLM input (prompt) and output (completion) tokens the run used on the tenant's provider; null when none were recorded.</summary>
+    public int? InputTokens { get; set; }
+    public int? OutputTokens { get; set; }
+    /// <summary>InputTokens + OutputTokens, stored so reports can read it directly.</summary>
+    public int? TotalTokens { get; set; }
 }

@@ -103,6 +103,9 @@ public sealed class AiAgentHandlerTests
         run!.Status.Should().Be("success");
         run.Answer.Should().Be("393 wells");
         run.InputsJson.Should().Contain("Nimr");
+        run.InputTokens.Should().BeNull();   // no model call on the tenant's provider
+        run.OutputTokens.Should().BeNull();
+        run.TotalTokens.Should().BeNull();
         JsonSerializer.Serialize(events[^1].Data).Should().Contain("\"runId\":11");
         _ai.Verify(a => a.ResolveProviderAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never); // one step: no model call
     }
@@ -126,6 +129,8 @@ public sealed class AiAgentHandlerTests
     [Fact]
     public async Task Test_MultiStep_UsesTenantProvider_AndLogsItsUsage()
     {
+        _repo.Setup(r => r.AddRunAsync(It.IsAny<AiAgentRun>(), It.IsAny<CancellationToken>())).Callback<AiAgentRun, CancellationToken>((r, _) => r.Id = 11);
+        _repo.Setup(r => r.GetAsync(7, 3, It.IsAny<CancellationToken>())).ReturnsAsync(new AiAgent { Id = 3, TenantId = 7 });
         _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m" }, "key"));
         AgentRuntimeLlm? sent = null;
@@ -133,16 +138,22 @@ public sealed class AiAgentHandlerTests
             .Callback<SaveAiAgentRequest, IReadOnlyDictionary<string, string>, AgentRuntimeLlm?, string, IReadOnlyDictionary<string, string>, CancellationToken>((_, _, l, _, _, _) => sent = l)
             .Returns(Events(("done", "{\"ok\":true,\"answer\":\"x\",\"steps\":[],\"usage\":[{\"agent\":\"agent_runtime.answer\",\"model\":\"m\",\"input\":50,\"output\":9},{\"agent\":\"db_assistant.sql_author\",\"model\":\"g\",\"input\":1,\"output\":1}]}")));
 
-        await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com",
-            new TestAiAgentRequest(Agent(steps: 2), new Dictionary<string, string> { ["cluster"] = "Nimr" })), default));
+        var events = await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com",
+            new TestAiAgentRequest(Agent(steps: 2), new Dictionary<string, string> { ["cluster"] = "Nimr" }, AgentId: 3)), default));
 
         sent.Should().Be(new AgentRuntimeLlm("openai", "http://llm", "m", "key"));
-        _usage.Verify(u => u.AddAsync(It.Is<AiUsageLog>(l => l.Purpose == "agent" && l.PromptTokens == 50 && l.UserId == "1"), It.IsAny<CancellationToken>()), Times.Once);
+        // Tagged with its agent and run, so the cards and the Activity Log can show what each agent used.
+        _usage.Verify(u => u.AddAsync(It.Is<AiUsageLog>(l => l.Purpose == "agent:3:11" && l.PromptTokens == 50 && l.UserId == "1"), It.IsAny<CancellationToken>()), Times.Once);
+        // Saved on the run itself (input_tokens / output_tokens): only the tenant provider's call, 50 in and 9 out.
+        _repo.Verify(r => r.AddRunAsync(It.Is<AiAgentRun>(x => x.InputTokens == 50 && x.OutputTokens == 9 && x.TotalTokens == 59), It.IsAny<CancellationToken>()), Times.Once);
+        var done = JsonSerializer.Serialize(events[^1].Data, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        done.Should().Contain("\"llm\":{\"calls\":1,\"promptTokens\":50,\"completionTokens\":9");
     }
 
     [Fact]
     public async Task Test_AskDataSingleStep_UsesTenantProvider_AndLogsAskDataUsage()
     {
+        _repo.Setup(r => r.AddRunAsync(It.IsAny<AiAgentRun>(), It.IsAny<CancellationToken>())).Callback<AiAgentRun, CancellationToken>((r, _) => r.Id = 11);
         _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m" }, "key"));
         AgentRuntimeLlm? sent = null;
@@ -155,7 +166,7 @@ public sealed class AiAgentHandlerTests
             new Dictionary<string, string> { ["cluster"] = "Nimr" })), default));
 
         sent.Should().NotBeNull();   // Ask Data needs the provider even for one step
-        _usage.Verify(u => u.AddAsync(It.Is<AiUsageLog>(l => l.Purpose == "agent"), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _usage.Verify(u => u.AddAsync(It.Is<AiUsageLog>(l => l.Purpose == "agent:0:11"), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]

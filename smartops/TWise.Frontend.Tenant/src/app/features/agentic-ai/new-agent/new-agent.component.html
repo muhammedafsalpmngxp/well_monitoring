@@ -629,7 +629,7 @@
                     <p class="na-test-stage" *ngIf="testing">{{ testStage || 'Running' }} · {{ testElapsed }}s</p>
                     <p class="na-msg na-msg--bad" *ngIf="testError">{{ testError }}</p>
                     <div class="na-test-answer" *ngIf="testAnswer">
-                        <span class="na-label">Answer<span class="na-label--muted" *ngIf="testSeconds !== null"> · {{ testSeconds }}s</span></span>
+                        <span class="na-label">Answer<span class="na-label--muted" *ngIf="testSeconds !== null"> · {{ testSeconds }}s</span><span class="na-label--muted" *ngIf="testLlm" [title]="testLlmTitle"> · LLM {{ testLlm }}</span></span>
                         <div class="agent-md" [innerHTML]="md(testAnswer)"></div>
                     </div>
                     <div class="na-test-decisions" *ngIf="testDecisions.length">

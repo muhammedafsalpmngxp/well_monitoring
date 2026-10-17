@@ -4,6 +4,7 @@ import {
   RowSelectionModule, RowSelectionOptions, SelectionColumnDef,
 } from 'ag-grid-community';
 import { AgentRun, AgentsService } from '../agents.service';
+import { countText, inputTokensText, modelNames, outputTokensText, totalTokensText, usageTitle } from '../llm-usage.util';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule, RowSelectionModule]);
 
@@ -14,6 +15,16 @@ export interface ActivityRow {
   inputSummary: string;
   verdict: string;
   duration: string;
+  /** The run's LLM use on the tenant's provider: models, input and output tokens, and the full numbers for the tooltip. */
+  llmModel: string;
+  inputTokens: string;
+  outputTokens: string;
+  totalTokens: string;
+  llmTitle: string;
+  /** For sorting (-1 = not recorded). */
+  inputCount: number;
+  outputCount: number;
+  totalCount: number;
   started: string;
   /** For sorting and the date filter. */
   startedAt: number;
@@ -98,6 +109,14 @@ export class ActivityLogComponent implements OnInit {
       // Answers are markdown: one plain line for the grid (the full text is in the tooltip).
       verdict: ((failed ? r.error || r.answer : r.answer) || '—').replace(/[#*_`>|]+/g, '').replace(/\s+/g, ' ').trim(),
       duration: `${r.seconds.toFixed(1)}s`,
+      llmModel: modelNames(r.llm),
+      inputTokens: r.llm ? inputTokensText(r.llm) : countText(r.inputTokens),
+      outputTokens: r.llm ? outputTokensText(r.llm) : countText(r.outputTokens),
+      totalTokens: r.llm ? totalTokensText(r.llm) : countText(r.totalTokens),
+      llmTitle: usageTitle(r.llm),
+      inputCount: r.llm?.promptTokens ?? r.inputTokens ?? -1,
+      outputCount: r.llm?.completionTokens ?? r.outputTokens ?? -1,
+      totalCount: r.llm?.totalTokens ?? r.totalTokens ?? -1,
       started: started.toLocaleString(undefined, { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
       startedAt: started.getTime(),
       status: failed ? 'Failed' : 'Success',
@@ -227,6 +246,13 @@ export class ActivityLogComponent implements OnInit {
         textCell(p.value ?? '', { color: p.data?.status === 'Failed' ? '#C62828' : 'inherit' }),
     },
     { field: 'duration', headerName: 'Duration', flex: 0.6, minWidth: 90 },
+    { field: 'llmModel', headerName: 'LLM model', flex: 1, minWidth: 140, tooltipField: 'llmTitle' },
+    { field: 'inputTokens', headerName: 'Input tokens', flex: 0.7, minWidth: 110, tooltipField: 'llmTitle', type: 'rightAligned',
+      comparator: (_a, _b, x, y) => (x.data?.inputCount ?? -1) - (y.data?.inputCount ?? -1) },
+    { field: 'outputTokens', headerName: 'Output tokens', flex: 0.7, minWidth: 110, tooltipField: 'llmTitle', type: 'rightAligned',
+      comparator: (_a, _b, x, y) => (x.data?.outputCount ?? -1) - (y.data?.outputCount ?? -1) },
+    { field: 'totalTokens', headerName: 'Total tokens', flex: 0.7, minWidth: 110, tooltipField: 'llmTitle', type: 'rightAligned',
+      comparator: (_a, _b, x, y) => (x.data?.totalCount ?? -1) - (y.data?.totalCount ?? -1) },
     { field: 'started',  headerName: 'Started',  flex: 1, minWidth: 140, comparator: (_a, _b, x, y) => (x.data?.startedAt ?? 0) - (y.data?.startedAt ?? 0) },
     {
       field: 'status', headerName: 'Status', flex: 0.8, minWidth: 110,

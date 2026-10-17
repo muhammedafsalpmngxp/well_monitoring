@@ -58,7 +58,10 @@ CREATE TABLE core.AiAgentRuns (
     status       nvarchar(20)    NOT NULL,    -- success | failed
     error        nvarchar(1000)  NULL,
     seconds      float           NOT NULL CONSTRAINT DF_core_AiAgentRuns_seconds DEFAULT 0,
-    started_at   datetime2       NOT NULL CONSTRAINT DF_core_AiAgentRuns_started DEFAULT SYSUTCDATETIME()
+    started_at   datetime2       NOT NULL CONSTRAINT DF_core_AiAgentRuns_started DEFAULT SYSUTCDATETIME(),
+    input_tokens  int            NULL,        -- LLM input (prompt) tokens on the tenant's AI provider; null = not recorded
+    output_tokens int            NULL,        -- LLM output (completion) tokens
+    total_tokens  int            NULL         -- input_tokens + output_tokens
 );
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiAgentRuns_agent')
 CREATE INDEX IX_core_AiAgentRuns_agent ON core.AiAgentRuns (tenant_id, agent_id, started_at DESC);

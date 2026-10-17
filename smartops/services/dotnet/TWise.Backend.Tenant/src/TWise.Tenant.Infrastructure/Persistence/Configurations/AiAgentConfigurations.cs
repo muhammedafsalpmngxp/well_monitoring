@@ -49,5 +49,8 @@ public sealed class AiAgentRunConfiguration : IEntityTypeConfiguration<AiAgentRu
         b.Property(e => e.Error).HasColumnName("error").HasMaxLength(1000);
         b.Property(e => e.Seconds).HasColumnName("seconds");
         b.Property(e => e.StartedAt).HasColumnName("started_at");
+        b.Property(e => e.InputTokens).HasColumnName("input_tokens");     // infra/sql/add-ai-agents.sql
+        b.Property(e => e.OutputTokens).HasColumnName("output_tokens");
+        b.Property(e => e.TotalTokens).HasColumnName("total_tokens");
     }
 }

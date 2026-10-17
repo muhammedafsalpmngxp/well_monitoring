@@ -52,6 +52,25 @@
                 <div class="agent-md" [innerHTML]="answerHtml"></div>
             </section>
 
+            <dl class="ra-llm" *ngIf="llm !== undefined && !running" [title]="llmTitle">
+                <div class="ra-llm__item">
+                    <dt>LLM model</dt>
+                    <dd>{{ llmModel }}<span class="ra-llm__detail" *ngIf="llmCalls">{{ llmCalls }}</span></dd>
+                </div>
+                <div class="ra-llm__item">
+                    <dt>Input tokens</dt>
+                    <dd>{{ llmInput }}</dd>
+                </div>
+                <div class="ra-llm__item">
+                    <dt>Output tokens</dt>
+                    <dd>{{ llmOutput }}</dd>
+                </div>
+                <div class="ra-llm__item ra-llm__item--total">
+                    <dt>Total tokens</dt>
+                    <dd>{{ llmTotal }}</dd>
+                </div>
+            </dl>
+
             <details class="ra-steps" *ngIf="steps.length && !running">
                 <summary>Steps ({{ steps.length }})</summary>
                 <div class="ra-step" *ngFor="let s of steps">

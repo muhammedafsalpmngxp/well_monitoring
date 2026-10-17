@@ -208,6 +208,13 @@
                 </div>
             </div>
 
+            <!-- LLM usage -->
+            <div class="aia-agent-card__llm" [title]="agent.llmTitle">
+                <span class="aia-agent-card__llm-label">LLM usage</span>
+                <span class="aia-agent-card__llm-value">{{ agent.llmUsage }}</span>
+                <span class="aia-agent-card__llm-models" *ngIf="agent.llmModels">{{ agent.llmModels }}</span>
+            </div>
+
             <!-- Actions -->
             <div class="aia-agent-card__actions">
                 <button type="button" class="aia-card-btn" (click)="openAgent(agent)">Edit</button>

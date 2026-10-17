@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { Agent, AgentsService, AgentStepResult, SaveAgentRequest } from '../agents.service';
+import { Agent, AgentLlmUsage, AgentsService, AgentStepResult, SaveAgentRequest } from '../agents.service';
+import { callsText, inputTokensText, modelNames, outputTokensText, totalTokensText, usageTitle } from '../llm-usage.util';
 import { markdownToHtml } from '../../../core/utils/markdown.util';
 
 /**
@@ -26,6 +27,8 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
   answerHtml = '';
   error = '';
   seconds: number | null = null;
+  /** The run's LLM use on the tenant's provider; undefined until the run ends. */
+  llm: AgentLlmUsage | null | undefined;
   elapsed = 0;
   private ran = false;
   private sub?: Subscription;
@@ -49,7 +52,7 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
     if (this.running) return;
     if (this.missing.length) { this.error = `Enter ${this.missing.join(', ')}.`; return; }
     this.sub?.unsubscribe();
-    Object.assign(this, { running: true, stage: 'Starting', steps: [], answer: '', answerHtml: '', error: '', seconds: null });
+    Object.assign(this, { running: true, stage: 'Starting', steps: [], answer: '', answerHtml: '', error: '', seconds: null, llm: undefined });
     this.startTimer();
     const values: Record<string, string> = {};
     for (const i of this.agent.inputs) values[i.name] = (this.values[i.name] ?? '').trim();
@@ -71,6 +74,7 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
           this.answer = ev.data.answer;
           this.answerHtml = markdownToHtml(ev.data.answer);
           this.seconds = ev.data.seconds;
+          this.llm = ev.data.llm ?? null;
           if (!ev.data.ok) this.error = 'The agent could not answer fully. See the steps below.';
         } else if (ev.type === 'error') { ended = true; this.ran = true; this.error = ev.data.message; }
         this.cdr.markForCheck();
@@ -103,6 +107,13 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
     this.stop();
     this.closed.emit(this.ran);
   }
+
+  get llmModel(): string { return modelNames(this.llm); }
+  get llmCalls(): string { return callsText(this.llm); }
+  get llmInput(): string { return inputTokensText(this.llm); }
+  get llmOutput(): string { return outputTokensText(this.llm); }
+  get llmTotal(): string { return totalTokensText(this.llm); }
+  get llmTitle(): string { return usageTitle(this.llm); }
 
   copy(): void { navigator.clipboard?.writeText(this.answer).catch(() => { /* not allowed: nothing to do */ }); }
 
