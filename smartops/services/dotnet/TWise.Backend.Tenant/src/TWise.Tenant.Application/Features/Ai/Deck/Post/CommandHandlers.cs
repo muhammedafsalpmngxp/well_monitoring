@@ -11,7 +11,7 @@ namespace TWise.Tenant.Application.Features.Ai.Deck;
 /// One AI call turns the charts' rows into the deck narrative as JSON; the slides are then matched
 /// back to the charts by position so the client can pair each with its captured image.
 /// </summary>
-public sealed class BuildAiDeckHandler(IAiService ai, IAiAskService ask, IAiSettingsRepository settings) : IRequestHandler<BuildAiDeckCommand, AiDeckDto>
+public sealed class BuildAiDeckHandler(IAiService ai, IAiAskService ask, IAiPromptStore store) : IRequestHandler<BuildAiDeckCommand, AiDeckDto>
 {
     public const int MaxCharts = 12;
     private const int RowsPerChart = 60;
@@ -28,7 +28,7 @@ public sealed class BuildAiDeckHandler(IAiService ai, IAiAskService ask, IAiSett
         for (var i = 0; i < charts.Count; i++)
             body.Append("Chart ").Append(i + 1).Append(" \"").Append(charts[i].Title).Append("\" (").Append(string.Join(", ", charts[i].Columns)).Append("): ")
                 .Append(JsonSerializer.Serialize(charts[i].Rows.Take(RowsPerChart), Json)).Append('\n');
-        var prompts = AiPrompts.Parse((await settings.GetAsync(c.TenantId, ct))?.PromptsJson);
+        var prompts = await store.GetAsync(c.TenantId, ct);
         var messages = new List<AiMessage>
         {
             new("system", AiPrompts.Text(AiPrompts.Deck, prompts) +

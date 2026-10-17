@@ -10,12 +10,13 @@ import logging
 import os
 import time
 from functools import lru_cache
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 
 from app.askdata.graph_deep import build_graph
 from app.askdata.graph_fast import build_fast_graph
 from app.askdata.nodes._common import answer_steps
-from app.askdata.prompts import build_prompts, default_knowledge, load_db_prompts
+from app.askdata.prompts import KEYS as PROMPT_KEYS, build_prompts, knowledge
+from app.prompt_text import missing
 from app.askdata.tools import export as export_svc
 from app.askdata.settings import AskDataRun, AskDataSettings, DbTarget, run_context
 from app.askdata.tools.schema_introspect import build_schema_text, build_value_hints
@@ -63,10 +64,18 @@ def bound_history(turns: list[dict[str, str]], limit: int) -> list[dict[str, str
     return [{"user": str(t.get("user", "")), "assistant": str(t.get("assistant", ""))} for t in recent]
 
 
-def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any, db: Any, llm: Any) -> Iterator[dict[str, Any]]:
-    """``options`` is models.AskDataOptions (or None), ``db`` models.Db, ``llm`` models.Llm."""
+def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any, db: Any, llm: Any,
+        prompts: Mapping[str, str] | None = None) -> Iterator[dict[str, Any]]:
+    """``options`` is models.AskDataOptions (or None), ``db`` models.Db, ``llm`` models.Llm, ``prompts`` the tenant's
+    prompt texts {key: text} (every key in prompts.KEYS is required)."""
     if db is None:
         yield {"event": "error", "data": {"message": "Ask Data has no database configured."}}
+        return
+    absent = missing(prompts, PROMPT_KEYS)
+    if absent:
+        yield {"event": "error", "data": {"message": "Ask Data cannot run: these AI prompts are not configured for this "
+                                                     f"tenant: {', '.join(absent)}. An admin can restore them under "
+                                                     "Settings > AI Prompts."}}
         return
     mode = "normal" if mode == "normal" else "deep"
     try:
@@ -74,15 +83,16 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
     except ValueError as exc:
         yield {"event": "error", "data": {"message": str(exc)}}
         return
-    run = AskDataRun(settings=settings, llm=llm, db=target(db))
+    texts = dict(prompts or {})
+    run = AskDataRun(settings=settings, llm=llm, db=target(db), texts=texts)
     history = bound_history(history, settings.history_turns)
     started = time.monotonic()
     with run_context(run):
-        load_db_prompts()
         run.prompts = build_prompts(
             settings.max_rows,
-            (options.business_rules if options and options.business_rules else default_knowledge("business_rules.md")),
-            (options.examples if options and options.examples else default_knowledge("few_shots.md")),
+            knowledge(texts, "business_rules", options.business_rules if options else None),
+            knowledge(texts, "few_shots", options.examples if options else None),
+            texts,
         )
         yield {"event": "status", "data": {"stage": "Reading the database structure"}}
         schema = _schema(run)

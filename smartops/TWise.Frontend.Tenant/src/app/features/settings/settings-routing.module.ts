@@ -8,12 +8,14 @@ import { DataSyncComponent } from './data-sync/data-sync.component';
 import { AiSettingsComponent } from './ai-settings/ai-settings.component';
 import { AiActivityComponent } from './ai-activity/ai-activity.component';
 import { AiRelationsComponent } from './ai-relations/ai-relations.component';
+import { AiPromptsComponent } from './ai-prompts/ai-prompts.component';
 import { DataSourcesComponent } from './data-sources/data-sources.component';
 import { MarketplaceComponent } from './marketplace/marketplace.component';
 import { PowerBiComponent } from './power-bi/power-bi.component';
 import { LearnVideosComponent } from './learn-videos/learn-videos.component';
 import { DaxModelComponent } from './dax-model/dax-model.component';
 import { permissionGuard } from '../../core/guards/permission.guard';
+import { adminGuard } from '../../core/guards/admin.guard';
 
 const routes: Routes = [
   { path: '',                      redirectTo: 'database-view', pathMatch: 'full' },
@@ -25,6 +27,8 @@ const routes: Routes = [
   { path: 'ai',                    redirectTo: 'ai/providers', pathMatch: 'full' },
   { path: 'ai/providers',          component: AiSettingsComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai', section: 'providers' } },
   { path: 'ai/features',           component: AiSettingsComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai', section: 'features' } },
+  // Every AI prompt of the tenant (database), with version history: admins only (the API checks too).
+  { path: 'ai/prompts',            component: AiPromptsComponent, canActivate: [permissionGuard, adminGuard], data: { permission: 'settings.ai' } },
   { path: 'ai/activity',           component: AiActivityComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai' } },
   { path: 'ai/relations',          component: AiRelationsComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai' } },
   { path: 'data-sources',          component: DataSourcesComponent, canActivate: [permissionGuard], data: { permission: 'settings.data-sources' } },

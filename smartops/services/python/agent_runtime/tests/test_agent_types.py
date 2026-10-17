@@ -3,6 +3,7 @@ import json
 
 from app.main import run_events
 from app.models import RunRequest
+from tests.seeded_prompts import runtime_texts
 
 
 def _req(kind, steps=("A", "B"), max_iterations=5, llm=True):
@@ -10,6 +11,7 @@ def _req(kind, steps=("A", "B"), max_iterations=5, llm=True):
         "agent": {"name": "T", "type": kind, "maxIterations": max_iterations, "goal": "Answer the question",
                   "steps": [{"text": s} for s in steps], "tools": [{"agent": "db_assistant", "action": "chat"}]},
         "llm": {"baseUrl": "http://llm", "model": "m"} if llm else None,
+        "prompts": runtime_texts(),
     })
 
 

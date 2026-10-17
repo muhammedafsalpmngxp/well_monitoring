@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.askdata.prompts import msg
 from app.askdata.state import AgentState
 from app.askdata.settings import agent_settings
 from app.askdata.common.text import rows_to_markdown  # noqa: F401 - shared; re-exported for the nodes
@@ -22,14 +23,14 @@ def format_history(history: list[dict[str, str]] | None, max_turns: int | None =
     recent = history[-limit:] if limit > 0 else []
     if not recent:
         return ""
-    lines = ["CONVERSATION SO FAR:"]
+    lines = [msg("history_header")]
     for turn in recent:
         u = turn.get("user", "").strip()
         a = turn.get("assistant", "").strip()
         if u:
-            lines.append(f"User: {u}")
+            lines.append(msg("history_user", TEXT=u))
         if a:
-            lines.append(f"Assistant: {a}")
+            lines.append(msg("history_assistant", TEXT=a))
     lines.append("")
     return "\n".join(lines)
 
@@ -79,18 +80,12 @@ def render_steps(steps: list[dict[str, Any]] | None, max_rows: int = 200) -> str
     whole picture.
     """
     if not steps:
-        return "(no data retrieved)"
+        return msg("no_data")
     blocks: list[str] = []
     for i, step in enumerate(steps, 1):
-        header = f"### Query {i}: {step.get('sub_question', '')}".rstrip()
+        header = msg("step_header", N=i, QUESTION=step.get("sub_question", "")).rstrip()
         sql = step.get("sql", "")
         table = rows_to_markdown(step.get("columns", []), step.get("rows", []), max_rows=max_rows)
-        warn = ""
-        if step.get("truncated"):
-            warn = (
-                "\n\n⚠ NOTE: this result was capped — you are seeing only a sample of the rows. "
-                "Do NOT compute totals/averages/counts by reading these rows; rely on SQL "
-                "aggregates instead, or state that the figure is based on a partial sample."
-            )
-        blocks.append(f"{header}\nSQL:\n{sql}\n\nRESULT:\n{table}{warn}")
+        warn = "\n\n" + msg("step_truncated") if step.get("truncated") else ""
+        blocks.append(msg("step_block", HEADER=header, SQL=sql, TABLE=table, WARNING=warn))
     return "\n\n".join(blocks)

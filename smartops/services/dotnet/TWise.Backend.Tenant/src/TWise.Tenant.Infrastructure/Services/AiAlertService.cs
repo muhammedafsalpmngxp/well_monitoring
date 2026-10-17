@@ -23,7 +23,7 @@ public sealed class AiAlertService(
     IControlPlaneNotificationClient notifications,
     IMailSender mail,
     IAiService ai,
-    IAiSettingsRepository settings,
+    IAiPromptStore prompts,
     IAiKnowledgeRepository knowledge,
     ILogger<AiAlertService> log) : IAiAlertService
 {
@@ -139,13 +139,13 @@ public sealed class AiAlertService(
         var facts = alert.LastMessage ?? "";
         try
         {
-            var prompts = AiPrompts.Merge(AiPrompts.Parse((await settings.GetAsync(alert.TenantId, ct))?.PromptsJson),
+            var texts = AiPrompts.Merge(await prompts.GetAsync(alert.TenantId, ct),
                 await knowledge.GetDatasetPromptsAsync(alert.TenantId, alert.SourceType, alert.SourceId, ct));
             var rule = alert.Kind == AlertCheck.Unusual ? "looks unusual" : alert.Kind == AlertCheck.Change ? $"changes by more than {alert.Threshold}%" : $"goes {alert.Kind} {alert.Threshold}";
             var past = history.Count == 0 ? "" : $"\nEarlier checks (oldest first): {string.Join(", ", history.TakeLast(5).Select(Insights.N))}";
             var messages = new List<AiMessage>
             {
-                new("system", AiPrompts.Text(AiPrompts.AlertMessage, prompts) + " Reply with plain text only."),
+                new("system", AiPrompts.Text(AiPrompts.AlertMessage, texts) + " Reply with plain text only."),
                 new("user", $"Question watched: {alert.Question}\nDataset: {alert.SourceName}\nRule: notify when the answer {rule}, checked every {alert.EveryHours} h\nResult now: {facts}{past}"),
             };
             var text = (await ai.CompleteAsync(alert.TenantId, alert.UserId, "alert", messages, ct)).Content.Trim();

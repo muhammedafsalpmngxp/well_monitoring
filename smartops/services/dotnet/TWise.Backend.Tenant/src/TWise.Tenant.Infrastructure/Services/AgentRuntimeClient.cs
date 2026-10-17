@@ -31,21 +31,21 @@ public sealed class AgentRuntimeClient(HttpClient http, IConfiguration config) :
     }
 
     public async IAsyncEnumerable<AgentRuntimeEvent> RunAsync(SaveAiAgentRequest agent, IReadOnlyDictionary<string, string> inputs,
-        AgentRuntimeLlm? llm, string sessionId, [EnumeratorCancellation] CancellationToken ct)
+        AgentRuntimeLlm? llm, string sessionId, IReadOnlyDictionary<string, string> prompts, [EnumeratorCancellation] CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, "api/agent-runtime/run")
         {
-            Content = JsonContent.Create(new { agent, inputs, llm, sessionId, db = AgentMapping.UsesAskData(agent) ? AskDataDb() : null }, options: Json),
+            Content = JsonContent.Create(new { agent, inputs, llm, sessionId, db = AgentMapping.UsesAskData(agent) ? AskDataDb() : null, prompts }, options: Json),
         };
         await foreach (var ev in EventsAsync(req, ct)) yield return ev;
     }
 
     public async IAsyncEnumerable<AgentRuntimeEvent> AskDataAsync(string question, IReadOnlyList<Dictionary<string, string>> history,
-        AgentRuntimeLlm llm, [EnumeratorCancellation] CancellationToken ct)
+        AgentRuntimeLlm llm, IReadOnlyDictionary<string, string> prompts, [EnumeratorCancellation] CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, "api/agent-runtime/askdata/ask")
         {
-            Content = JsonContent.Create(new { question, history, mode = "deep", db = AskDataDb(), llm }, options: Json),
+            Content = JsonContent.Create(new { question, history, mode = "deep", db = AskDataDb(), llm, prompts }, options: Json),
         };
         await foreach (var ev in EventsAsync(req, ct)) yield return ev;
     }

@@ -1203,13 +1203,37 @@ CREATE TABLE core.AiSettings (
     tenant_id          bigint         NOT NULL CONSTRAINT UQ_core_AiSettings_tenant UNIQUE,
     daily_quota        int            NOT NULL CONSTRAINT DF_core_AiSettings_quota DEFAULT 500,
     is_enabled         bit            NOT NULL CONSTRAINT DF_core_AiSettings_enabled DEFAULT 0,
-    prompts_json       nvarchar(max)  NULL,       -- admin's custom AI instructions (see infra/sql/add-ai-prompts.sql)
+    prompts_json       nvarchar(max)  NULL,       -- every AI prompt's active text (see infra/sql/add-ai-prompt-history.sql)
+    row_ver            rowversion     NOT NULL,   -- changes on every update: the Tenant API's prompt cache key
     created_by         nvarchar(100)  NULL,
     created_at         datetime2      NOT NULL CONSTRAINT DF_core_AiSettings_created DEFAULT SYSUTCDATETIME(),
     modified_by        nvarchar(100)  NULL,
     modified_at        datetime2      NOT NULL CONSTRAINT DF_core_AiSettings_modified DEFAULT SYSUTCDATETIME(),
     is_deleted         bit            NOT NULL CONSTRAINT DF_core_AiSettings_deleted DEFAULT 0
 );
+GO
+
+-- Every version of every AI prompt (Settings → AI Prompts). Version 1 of a key is its original text ('seed'),
+-- copied in by the Tenant API the first time the tenant needs the prompt.
+IF OBJECT_ID('core.AiPromptHistory', 'U') IS NULL
+CREATE TABLE core.AiPromptHistory (
+    id                 bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiPromptHistory PRIMARY KEY,
+    tenant_id          bigint         NOT NULL,
+    prompt_key         nvarchar(100)  NOT NULL,
+    version_no         int            NOT NULL,
+    body               nvarchar(max)  NOT NULL,
+    action             nvarchar(20)   NOT NULL,       -- seed | update | restore
+    note               nvarchar(400)  NULL,
+    changed_by         nvarchar(200)  NOT NULL,
+    changed_at         datetime2      NOT NULL CONSTRAINT DF_core_AiPromptHistory_changed DEFAULT SYSUTCDATETIME(),
+    is_current         bit            NOT NULL,
+    CONSTRAINT UQ_core_AiPromptHistory_version UNIQUE (tenant_id, prompt_key, version_no),
+    CONSTRAINT CK_core_AiPromptHistory_action CHECK (action IN ('seed', 'update', 'restore'))
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_core_AiPromptHistory_current' AND object_id = OBJECT_ID('core.AiPromptHistory'))
+CREATE UNIQUE INDEX UX_core_AiPromptHistory_current ON core.AiPromptHistory (tenant_id, prompt_key) WHERE is_current = 1;
 GO
 
 IF OBJECT_ID('core.AiProviders', 'U') IS NULL

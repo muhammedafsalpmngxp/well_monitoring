@@ -21,7 +21,7 @@ from __future__ import annotations
 import operator
 import re
 import time
-from typing import Annotated, Any, Callable, Iterator, TypedDict
+from typing import Annotated, Any, Callable, Iterator, Mapping, TypedDict
 
 import httpx
 from langgraph.config import get_stream_writer
@@ -29,8 +29,15 @@ from langgraph.graph import END, START, StateGraph
 
 from app import twise
 from app.models import AgentConfig, Branch, Db, Llm, Step
+from app.prompt_text import fill as fill_prompt, fill_lines, text as prompt
 
 ASK_DATA = "ask_data"   # the built-in tool: DB Assistant's graph, run in this process (app/askdata)
+# The agent-level prompt texts (core.AiSettings.prompts_json, sent with each run). Needed when the run has a model.
+AGENT_KEYS = tuple(f"agent.{n}" for n in (
+    "profile_role", "profile_goal", "supervisor", "worker", "loop_check", "router", "router_none_fits", "choice",
+    "progress_inputs", "progress_input", "progress_results", "progress_none", "progress_step", "progress_failed",
+    "answer", "answer_role", "answer_goal", "answer_step", "answer_result", "answer_failed"))
+Texts = Mapping[str, str]
 RunTool = Callable[[str, str, str, list[dict[str, str]], str], Iterator[dict[str, Any]]]
 _PLACEHOLDER = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
@@ -59,8 +66,9 @@ def missing_inputs(cfg: AgentConfig, inputs: dict[str, str]) -> list[str]:
 
 def build_graph(cfg: AgentConfig, llm: Llm | None, session_id: str, run_tool: RunTool | None = None,
                 chat: Callable[[Llm, list[tuple[str, str]]], tuple[str, dict[str, int]]] | None = None,
-                db: Db | None = None):
-    run_tool, chat = run_tool or _tools(cfg, llm, db), chat or _chat
+                db: Db | None = None, prompts: Texts | None = None):
+    texts = prompts or {}
+    run_tool, chat = run_tool or _tools(cfg, llm, db, texts), chat or _chat
     g = StateGraph(AgentState)
     names = [f"step_{i}" for i in range(1, len(cfg.steps) + 1)]
     end = "check" if cfg.type == "loop" else "answer"
@@ -70,9 +78,9 @@ def build_graph(cfg: AgentConfig, llm: Llm | None, session_id: str, run_tool: Ru
         return end if not target or target == "answer" else node_of[target]
 
     for i, (name, step) in enumerate(zip(names, cfg.steps), start=1):
-        g.add_node(name, _router_node(i, step, cfg, llm, chat, to) if step.kind == "router"
+        g.add_node(name, _router_node(i, step, cfg, llm, chat, to, texts=texts) if step.kind == "router"
                    else _step_node(i, step, cfg, session_id, run_tool))
-    g.add_node("answer", _answer_node(cfg, llm, chat))
+    g.add_node("answer", _answer_node(cfg, llm, chat, texts=texts))
     g.add_edge("answer", END)
 
     if cfg.type == "parallel":
@@ -80,7 +88,7 @@ def build_graph(cfg: AgentConfig, llm: Llm | None, session_id: str, run_tool: Ru
             g.add_edge(START, name)
             g.add_edge(name, "answer")
     elif cfg.type == "supervisor":
-        g.add_node("supervisor", _supervisor_node(cfg, llm, chat, names))
+        g.add_node("supervisor", _supervisor_node(cfg, llm, chat, names, texts=texts))
         g.add_edge(START, "supervisor")
         g.add_conditional_edges("supervisor", lambda st: st.get("next") or "answer", [*names, "answer"])
         for name in names:
@@ -97,7 +105,7 @@ def build_graph(cfg: AgentConfig, llm: Llm | None, session_id: str, run_tool: Ru
         _check_no_cycle(names[0], nxt, {n: s.text for n, s in zip(names, cfg.steps)})
         g.add_edge(START, names[0])
         if cfg.type == "loop":
-            g.add_node("check", _loop_check_node(cfg, llm, chat))
+            g.add_node("check", _loop_check_node(cfg, llm, chat, texts=texts))
             g.add_conditional_edges("check", lambda st: "answer" if st.get("next") == "answer" else names[0],
                                     [names[0], "answer"])
     # Supervisor and loop revisit nodes: give the graph room for max_iterations rounds.
@@ -138,24 +146,25 @@ def matches(branch: Branch, inputs: dict[str, str], last_answer: str) -> bool:
     return {"equals": a == b, "not_equals": a != b, "gt": a > b, "gte": a >= b, "lt": a < b, "lte": a <= b}[branch.op]
 
 
-def _router_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, to: Callable[[str | None], str]):
+def _router_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, to: Callable[[str | None], str],
+                 texts: Texts | None = None):
     branches = step.branches or []
     rules = [b for b in branches if b.op != "else"]
     fallback = next((b for b in branches if b.op == "else"), None)
-    choices = "\n".join(f"{n}. {b.label or b.value}" for n, b in enumerate(rules, 1))
-    system = "\n".join(p for p in [
-        profile(cfg),
-        f"You route the request. {step.text}".strip(),
-        "Pick the ONE branch that fits best:", choices,
-        "Reply with JSON only: {\"branch\": <number>, \"reason\": \"<one sentence>\"}"
-        + (" or {\"branch\": 0} when none fits." if fallback else ""),
-    ] if p)
+
+    def system() -> str:   # built on use: rule routers need no prompt text
+        choices = "\n".join(fill_prompt(prompt(texts, "agent.choice"), N=n, LABEL=b.label or b.value)
+                            for n, b in enumerate(rules, 1))
+        none_fits = " " + prompt(texts, "agent.router_none_fits") if fallback else ""
+        body = fill_lines(prompt(texts, "agent.router"), INSTRUCTION=step.text.strip(), CHOICES=choices,
+                          NONE_FITS=none_fits)
+        return "\n".join(p for p in [profile(cfg, texts), "\n".join(line.rstrip() for line in body.split("\n"))] if p)
 
     def node(state: AgentState) -> dict[str, Any]:
         inputs, usage, reason = state.get("inputs") or {}, [], ""
         last = next((r["answer"] for r in reversed(state.get("results") or []) if r["ok"]), "")
         if step.route_by == "ai" and llm is not None and rules:
-            decision, usage = _decide(chat, llm, system, _progress(state))
+            decision, usage = _decide(chat, llm, system(), _progress(state, texts))
             n, reason = decision.get("branch"), str(decision.get("reason", ""))
             chosen = rules[n - 1] if isinstance(n, int) and 1 <= n <= len(rules) else fallback
         elif step.route_by == "ai":
@@ -174,19 +183,20 @@ def _router_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, to
     return node
 
 
-def profile(cfg: AgentConfig) -> str:
+def profile(cfg: AgentConfig, texts: Texts | None) -> str:
     """The agent's role, goal and system prompt, for the prompts that speak as the agent."""
-    return "\n".join(p for p in [f"Role: {cfg.role}" if cfg.role else "", f"Goal: {cfg.goal}" if cfg.goal else "",
+    return "\n".join(p for p in [fill_prompt(prompt(texts, "agent.profile_role"), ROLE=cfg.role) if cfg.role else "",
+                                 fill_prompt(prompt(texts, "agent.profile_goal"), GOAL=cfg.goal) if cfg.goal else "",
                                  cfg.system_prompt or ""] if p)
 
 
-def _tools(cfg: AgentConfig, llm: Llm | None, db: Db | None) -> RunTool:
+def _tools(cfg: AgentConfig, llm: Llm | None, db: Db | None, texts: Texts | None = None) -> RunTool:
     """Ask Data runs in this process; every other tool is a twise agent over HTTP."""
     def run(agent: str, action: str, text: str, history: list[dict[str, str]], session_id: str):
         if agent != ASK_DATA:
             return twise.run_tool(agent, action, text, history, session_id)
         from app.askdata.runner import ask   # imported on use: needs pyodbc / sqlglot
-        return ask(text, history, mode=action, options=cfg.ask_data, db=db, llm=llm)
+        return ask(text, history, mode=action, options=cfg.ask_data, db=db, llm=llm, prompts=texts)
     return run
 
 
@@ -235,7 +245,7 @@ def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: 
     return node
 
 
-def _answer_node(cfg: AgentConfig, llm: Llm | None, chat):
+def _answer_node(cfg: AgentConfig, llm: Llm | None, chat, texts: Texts | None = None):
     def node(state: AgentState) -> dict[str, Any]:
         results = state.get("results") or []
         done = [r for r in results if r["ok"]]
@@ -249,7 +259,7 @@ def _answer_node(cfg: AgentConfig, llm: Llm | None, chat):
         if llm is None:
             return {"answer": "\n\n".join(f"**{r['question']}**\n\n{r['answer']}" for r in done), "ok": True}
         get_stream_writer()({"event": "status", "data": {"stage": "Writing the answer"}})
-        answer, tokens = chat(llm, _answer_messages(cfg, results))
+        answer, tokens = chat(llm, _answer_messages(cfg, results, texts))
         return {"answer": answer, "ok": True,
                 "usage": [{"agent": "agent_runtime.answer", "model": llm.model, "calls": 1, **tokens}]}
 
@@ -264,23 +274,22 @@ def _decide(chat, llm: Llm, system: str, user: str) -> tuple[dict[str, Any], lis
     return extract_json(text, default={}), [{"agent": "agent_runtime.answer", "model": llm.model, "calls": 1, **tokens}]
 
 
-def _progress(state: AgentState) -> str:
-    inputs = "\n".join(f"{k}: {v}" for k, v in (state.get("inputs") or {}).items())
-    done = "\n\n".join(f"[step_{r['step']}] {r['question']}\n" + (r["answer"] if r["ok"] else f"FAILED: {r['error']}")
-                        for r in state.get("results") or [])
-    return (f"INPUTS:\n{inputs}\n\n" if inputs else "") + "RESULTS SO FAR:\n" + (done or "(none yet)")
+def _progress(state: AgentState, texts: Texts | None) -> str:
+    inputs = "\n".join(fill_prompt(prompt(texts, "agent.progress_input"), NAME=k, VALUE=v)
+                       for k, v in (state.get("inputs") or {}).items())
+    done = "\n\n".join(
+        fill_prompt(prompt(texts, "agent.progress_step"), N=r["step"], QUESTION=r["question"],
+                    RESULT=r["answer"] if r["ok"] else fill_prompt(prompt(texts, "agent.progress_failed"), ERROR=r["error"]))
+        for r in state.get("results") or [])
+    return ((fill_prompt(prompt(texts, "agent.progress_inputs"), INPUTS=inputs) + "\n\n" if inputs else "")
+            + fill_prompt(prompt(texts, "agent.progress_results"), RESULTS=done or prompt(texts, "agent.progress_none")))
 
 
-def _supervisor_node(cfg: AgentConfig, llm: Llm | None, chat, names: list[str]):
-    workers = "\n".join(f"- {n}: {s.text} (tool: {(s.tool or cfg.tools[0]).agent})" for n, s in zip(names, cfg.steps))
-    system = "\n".join(p for p in [
-        profile(cfg),
-        "You are the supervisor. You coordinate these workers; each one answers its own instruction with its tool:",
-        workers,
-        "Pick the worker to run next, or FINISH when the results already answer the goal. "
-        "Do not pick a worker that already succeeded.",
-        'Reply with JSON only: {"next": "<worker name> or FINISH", "reason": "<one sentence>"}',
-    ] if p)
+def _supervisor_node(cfg: AgentConfig, llm: Llm | None, chat, names: list[str], texts: Texts | None = None):
+    def system() -> str:   # built on use: without a model the supervisor runs the steps in order, no prompt needed
+        workers = "\n".join(fill_prompt(prompt(texts, "agent.worker"), NAME=n, TEXT=s.text, TOOL=(s.tool or cfg.tools[0]).agent)
+                            for n, s in zip(names, cfg.steps))
+        return "\n".join(p for p in [profile(cfg, texts), fill_lines(prompt(texts, "agent.supervisor"), WORKERS=workers)] if p)
 
     def node(state: AgentState) -> dict[str, Any]:
         n = state.get("iterations", 0)
@@ -294,7 +303,7 @@ def _supervisor_node(cfg: AgentConfig, llm: Llm | None, chat, names: list[str]):
         elif n >= cfg.max_iterations:
             return {"next": "answer"}
         else:
-            decision, usage = _decide(chat, llm, system, _progress(state))
+            decision, usage = _decide(chat, llm, system(), _progress(state, texts))
             nxt, reason = str(decision.get("next", "")).strip(), str(decision.get("reason", "")).strip()
             if nxt not in names or nxt in succeeded:
                 nxt = "answer"
@@ -304,18 +313,15 @@ def _supervisor_node(cfg: AgentConfig, llm: Llm | None, chat, names: list[str]):
     return node
 
 
-def _loop_check_node(cfg: AgentConfig, llm: Llm | None, chat):
-    system = "\n".join(p for p in [
-        profile(cfg),
-        "You check an agent that repeats its steps. Decide whether the results now meet the goal.",
-        'Reply with JSON only: {"done": true|false, "reason": "<one sentence>"}',
-    ] if p)
+def _loop_check_node(cfg: AgentConfig, llm: Llm | None, chat, texts: Texts | None = None):
+    def system() -> str:   # built on use: without a model the loop ends, no prompt needed
+        return "\n".join(p for p in [profile(cfg, texts), prompt(texts, "agent.loop_check")] if p)
 
     def node(state: AgentState) -> dict[str, Any]:
         n = state.get("iterations", 0) + 1
         if llm is None or n >= cfg.max_iterations:
             return {"next": "answer", "iterations": n}
-        decision, usage = _decide(chat, llm, system, _progress(state))
+        decision, usage = _decide(chat, llm, system(), _progress(state, texts))
         done = decision.get("done") is True
         get_stream_writer()({"event": "decision", "data": {"by": "loop", "done": done, "reason": decision.get("reason", ""), "round": n}})
         return {"next": "answer" if done else "again", "iterations": n, "usage": usage}
@@ -323,16 +329,17 @@ def _loop_check_node(cfg: AgentConfig, llm: Llm | None, chat):
     return node
 
 
-def _answer_messages(cfg: AgentConfig, results: list[dict[str, Any]]) -> list[tuple[str, str]]:
+def _answer_messages(cfg: AgentConfig, results: list[dict[str, Any]], texts: Texts | None) -> list[tuple[str, str]]:
     system = "\n".join(p for p in [
-        f"You are {cfg.role}." if cfg.role else "",
+        fill_prompt(prompt(texts, "agent.answer_role"), ROLE=cfg.role) if cfg.role else "",
         cfg.system_prompt,
-        f"Goal: {cfg.goal}" if cfg.goal else "",
-        "Write one clear answer from the step results below. Include the key fact or number of EVERY step "
-        "result; use only their facts and numbers; say plainly when a step failed. Do not mention steps, tools or agents.",
+        fill_prompt(prompt(texts, "agent.answer_goal"), GOAL=cfg.goal) if cfg.goal else "",
+        prompt(texts, "agent.answer"),
     ] if p)
     body = "\n\n".join(
-        f"Step {r['step']}: {r['question']}\n" + (f"Result: {r['answer']}" if r["ok"] else f"Failed: {r['error']}")
+        fill_prompt(prompt(texts, "agent.answer_step"), N=r["step"], QUESTION=r["question"],
+                    RESULT=fill_prompt(prompt(texts, "agent.answer_result"), ANSWER=r["answer"]) if r["ok"]
+                    else fill_prompt(prompt(texts, "agent.answer_failed"), ERROR=r["error"]))
         for r in results)
     return [("system", system), ("user", body)]
 

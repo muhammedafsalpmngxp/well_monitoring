@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.askdata.settings import agent_settings
 from app.askdata.nodes._common import answer_steps, history_for, render_steps
-from app.askdata.prompts import current_prompts
+from app.askdata.prompts import current_prompts, msg
 from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
@@ -28,13 +28,8 @@ def synthesize_node(state: AgentState) -> dict:
 
     # 1. Nothing retrieved at all → say so plainly, never fabricate.
     if not steps and not rejected:
-        err = state.get("exec_error") or state.get("validation_error") or "no query returned data"
-        user = (
-            f"USER QUESTION: {state['question']}\n\n"
-            f"No data could be retrieved after retries. Technical detail: {err}\n\n"
-            "Tell the user honestly (1-2 sentences) that you couldn't retrieve this and suggest "
-            "rephrasing. Do NOT fabricate an answer."
-        )
+        err = state.get("exec_error") or state.get("validation_error") or msg("synth_no_data_error")
+        user = msg("synth_no_data", QUESTION=state["question"], ERROR=err)
         answer = strip_think(
             chat(current_prompts().SYNTHESIZE_SYSTEM, user, temperature=0.2, fast=state.get("mode") == "normal")
         )
@@ -49,20 +44,15 @@ def synthesize_node(state: AgentState) -> dict:
     #    rule the chart, the data table and the export use.
     usable = answer_steps(state)
 
-    parts = [history_for(state).rstrip(), f"USER QUESTION: {state['question']}"]
-    parts.append(f"\nRETRIEVED DATA:\n{render_steps(usable, max_rows=agent_settings.max_rows)}")
+    parts = [history_for(state).rstrip(), msg("synth_question", QUESTION=state["question"])]
+    parts.append("\n" + msg("synth_data", DATA=render_steps(usable, max_rows=agent_settings.max_rows)))
     if state.get("analysis"):
-        parts.append(f"\nANALYST'S FINDINGS:\n{state['analysis']}")
+        parts.append("\n" + msg("synth_analysis", ANALYSIS=state["analysis"]))
     if unverified:
         # Deliberately does NOT include the reviewer's own words: they name tables and columns,
         # which this persona is forbidden to reveal to a business user.
-        parts.append(
-            "\n⚠ THIS DATA DID NOT PASS INDEPENDENT VERIFICATION.\n"
-            "Answer using this data, but you MUST open with one short plain sentence telling the "
-            "user the figures could not be fully verified and should be treated as indicative. "
-            "Do not explain the technical reason, and do not hide the numbers."
-        )
-    parts.append("\nWrite the final answer to the user now.")
+        parts.append("\n" + msg("synth_unverified"))
+    parts.append("\n" + msg("synth_final"))
 
     answer = strip_think(
         chat(

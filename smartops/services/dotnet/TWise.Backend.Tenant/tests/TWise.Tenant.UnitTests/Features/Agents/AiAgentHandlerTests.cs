@@ -3,6 +3,7 @@ using System.Text.Json;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Agents;
+using TWise.Tenant.Application.Features.Ai;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
 
@@ -15,6 +16,14 @@ public sealed class AiAgentHandlerTests
     private readonly Mock<IAiService> _ai = new();
     private readonly Mock<IAiUsageRepository> _usage = new();
     private readonly Mock<IAiProviderRepository> _providers = new();
+    private readonly Mock<IAiPromptStore> _prompts = new();
+    private static readonly IReadOnlyDictionary<string, string> Prompts = new Dictionary<string, string>
+    {
+        ["agent.supervisor"] = "Pick the next step.", ["askdata.sql_rules"] = "Rules.", [AiPrompts.Answer] = "not for the runtime",
+    };
+
+    public AiAgentHandlerTests() =>
+        _prompts.Setup(p => p.GetAsync(It.IsAny<long>(), It.IsAny<CancellationToken>())).ReturnsAsync(Prompts);
 
     private static SaveAiAgentRequest Agent(int steps = 1, string status = "draft") => new(
         "Active Wells Analyst", "drilling data analyst", null, null, "Report active wells",
@@ -22,7 +31,7 @@ public sealed class AiAgentHandlerTests
         [new AiAgentToolDto("db_assistant", "chat")],
         [new AiAgentInputDto("cluster")], null, status);
 
-    private TestAiAgentStreamHandler TestSut => new(_runtime.Object, _repo.Object, _ai.Object, _usage.Object, new TestAiAgentStreamValidator());
+    private TestAiAgentStreamHandler TestSut => new(_runtime.Object, _repo.Object, _ai.Object, _usage.Object, new TestAiAgentStreamValidator(), _prompts.Object);
 
     [Fact]
     public async Task Create_SavesTheAgentForTheTenantAndCaller()
@@ -75,7 +84,7 @@ public sealed class AiAgentHandlerTests
         var bad = Agent() with { Name = "", Steps = [] };
         var events = await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(bad)), default));
         events.Should().ContainSingle().Which.Type.Should().Be("error");
-        _runtime.Verify(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _runtime.Verify(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -83,7 +92,7 @@ public sealed class AiAgentHandlerTests
     {
         AiAgentRun? run = null;
         _repo.Setup(r => r.AddRunAsync(It.IsAny<AiAgentRun>(), It.IsAny<CancellationToken>())).Callback<AiAgentRun, CancellationToken>((r, _) => { r.Id = 11; run = r; });
-        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), null, It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .Returns(Events(("step", "{\"step\":1,\"phase\":\"start\"}"), ("status", "{\"stage\":\"Fetching your data\"}"),
                 ("done", "{\"ok\":true,\"answer\":\"393 wells\",\"steps\":[{\"step\":1}],\"usage\":[]}")));
 
@@ -99,13 +108,29 @@ public sealed class AiAgentHandlerTests
     }
 
     [Fact]
+    public async Task Test_SendsTheTenantsRuntimePrompts_FromTheDatabase()
+    {
+        IReadOnlyDictionary<string, string>? sent = null;
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<SaveAiAgentRequest, IReadOnlyDictionary<string, string>, AgentRuntimeLlm?, string, IReadOnlyDictionary<string, string>, CancellationToken>((_, _, _, _, p, _) => sent = p)
+            .Returns(Events(("done", "{\"ok\":true,\"answer\":\"x\",\"steps\":[],\"usage\":[]}")));
+
+        await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(Agent())), default));
+
+        _prompts.Verify(p => p.GetAsync(7, It.IsAny<CancellationToken>()), Times.Once);
+        sent.Should().NotBeNull();
+        sent!.Keys.Should().BeEquivalentTo("agent.supervisor", "askdata.sql_rules");   // the AI-feature prompts stay in the Tenant API
+        sent["agent.supervisor"].Should().Be("Pick the next step.");
+    }
+
+    [Fact]
     public async Task Test_MultiStep_UsesTenantProvider_AndLogsItsUsage()
     {
         _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m" }, "key"));
         AgentRuntimeLlm? sent = null;
-        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<SaveAiAgentRequest, IReadOnlyDictionary<string, string>, AgentRuntimeLlm?, string, CancellationToken>((_, _, l, _, _) => sent = l)
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<SaveAiAgentRequest, IReadOnlyDictionary<string, string>, AgentRuntimeLlm?, string, IReadOnlyDictionary<string, string>, CancellationToken>((_, _, l, _, _, _) => sent = l)
             .Returns(Events(("done", "{\"ok\":true,\"answer\":\"x\",\"steps\":[],\"usage\":[{\"agent\":\"agent_runtime.answer\",\"model\":\"m\",\"input\":50,\"output\":9},{\"agent\":\"db_assistant.sql_author\",\"model\":\"g\",\"input\":1,\"output\":1}]}")));
 
         await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com",
@@ -121,8 +146,8 @@ public sealed class AiAgentHandlerTests
         _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m" }, "key"));
         AgentRuntimeLlm? sent = null;
-        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<SaveAiAgentRequest, IReadOnlyDictionary<string, string>, AgentRuntimeLlm?, string, CancellationToken>((_, _, l, _, _) => sent = l)
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<SaveAiAgentRequest, IReadOnlyDictionary<string, string>, AgentRuntimeLlm?, string, IReadOnlyDictionary<string, string>, CancellationToken>((_, _, l, _, _, _) => sent = l)
             .Returns(Events(("done", "{\"ok\":true,\"answer\":\"393\",\"steps\":[],\"usage\":[{\"agent\":\"askdata.sql_author\",\"model\":\"m\",\"input\":900,\"output\":40},{\"agent\":\"askdata.synthesize\",\"model\":\"m\",\"input\":300,\"output\":20}]}")));
 
         await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(
@@ -146,8 +171,8 @@ public sealed class AiAgentHandlerTests
         _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m" }, "key"));
         AgentRuntimeLlm? sent = null;
-        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<SaveAiAgentRequest, IReadOnlyDictionary<string, string>, AgentRuntimeLlm?, string, CancellationToken>((_, _, l, _, _) => sent = l)
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<SaveAiAgentRequest, IReadOnlyDictionary<string, string>, AgentRuntimeLlm?, string, IReadOnlyDictionary<string, string>, CancellationToken>((_, _, l, _, _, _) => sent = l)
             .Returns(Events(("done", "{\"ok\":true,\"answer\":\"x\",\"steps\":[],\"usage\":[]}")));
 
         await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(
@@ -276,7 +301,7 @@ public sealed class AiAgentHandlerTests
     {
         AiAgentRun? run = null;
         _repo.Setup(r => r.AddRunAsync(It.IsAny<AiAgentRun>(), It.IsAny<CancellationToken>())).Callback<AiAgentRun, CancellationToken>((r, _) => run = r);
-        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .Returns(Throwing());
 
         var events = await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(Agent())), default));
@@ -293,7 +318,7 @@ public sealed class AiAgentHandlerTests
     {
         AiAgentRun? run = null;
         _repo.Setup(r => r.AddRunAsync(It.IsAny<AiAgentRun>(), It.IsAny<CancellationToken>())).Callback<AiAgentRun, CancellationToken>((r, _) => run = r);
-        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .Returns(Throwing(failure == "config"
                 ? new InvalidOperationException("Ask Data has no database: set ConnectionStrings:AlTasnimBI or AgentRuntime:AskDataConnection.")
                 : new JsonException("bad")));
@@ -327,7 +352,7 @@ public sealed class AiAgentHandlerTests
     {
         AiAgentRun? run = null;
         _repo.Setup(r => r.AddRunAsync(It.IsAny<AiAgentRun>(), It.IsAny<CancellationToken>())).Callback<AiAgentRun, CancellationToken>((r, _) => run = r);
-        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .Returns(Events(("step", "{\"step\":1,\"phase\":\"start\"}"), ("ping", "{}"), ("done", "{\"ok\":true,\"answer\":\"x\"}")));
 
         await foreach (var _ in TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(Agent())), default))

@@ -122,6 +122,8 @@ class RunRequest(_Camel):
     llm: Llm | None = None
     db: Db | None = None
     session_id: str = "agent-runtime"
+    # The tenant's AI prompt texts {key: text} (core.AiSettings.prompts_json): agent.* and askdata.* keys.
+    prompts: dict[str, str] = {}
 
 
 class AskDataExportRequest(_Camel):
@@ -143,3 +145,4 @@ class AskDataAskRequest(_Camel):
     db: Db
     llm: Llm
     ask_data: AskDataOptions | None = None
+    prompts: dict[str, str] = {}         # the tenant's AI prompt texts (askdata.* keys)

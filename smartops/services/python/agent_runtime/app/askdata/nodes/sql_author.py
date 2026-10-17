@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from app.askdata.nodes._common import history_for
-from app.askdata.prompts import current_prompts
+from app.askdata.prompts import current_prompts, msg
 from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
@@ -30,72 +30,43 @@ def _already_gathered(steps: list[dict]) -> str:
     if not steps:
         return ""
     done = "; ".join(f"'{s.get('sub_question','')}'" for s in steps)
-    return f"\nALREADY RETRIEVED (do not repeat these): {done}\n"
+    return "\n" + msg("sql_already", DONE=done) + "\n"
 
 
 def sql_author_node(state: AgentState) -> dict:
     target = state.get("sub_question") or state["question"]
     parts = [
-        "SCHEMA (only these tables/columns exist — never use others):",
+        msg("sql_schema"),
         state.get("schema", ""),
         "",
         history_for(state),
         _already_gathered(state.get("steps", [])),
-        f"WRITE SQL FOR THIS DATA REQUEST: {target}",
+        msg("sql_request", TARGET=target),
     ]
     # Carry the orchestrator's plan (data needed + requested result size) on the single-query path.
     if not state.get("sub_question") and state.get("plan"):
-        parts.append(f"PLAN (data needed + requested result size): {state['plan']}")
+        parts.append(msg("sql_plan", PLAN=state["plan"]))
     # A chart needs a breakdown to plot; a scalar cannot be charted.
     if state.get("wants_chart"):
         # A donut/pie can only show ONE metric's share per slice. "one or more" numeric columns
         # is correct for a bar chart but was letting the model add a helpful extra column (e.g. a
         # computed percentage) for a donut request — which then forces a downgrade to a bar chart,
         # since two numeric columns can't both be plotted as one ring.
-        if state.get("chart_type") == "donut":
-            numeric_rule = (
-                "EXACTLY ONE numeric column (the value each slice represents) — do NOT add a "
-                "computed percentage/share column, the chart itself renders each slice's share"
-            )
-        else:
-            numeric_rule = "one or more NUMERIC columns (the values)"
-        parts.append(
-            "\nTHE USER ASKED FOR A CHART. Return a SHAPE THAT CAN BE PLOTTED:\n"
-            f"- exactly ONE label column first (the category or date to plot along the axis), then\n"
-            f"  {numeric_rule}.\n"
-            "- GROUP BY the label column — never return a single scalar row for a chart.\n"
-            "- Keep it small and readable: aggregate, and use TOP 20 ordered by the value for a\n"
-            "  category breakdown (a chart with hundreds of categories is unreadable).\n"
-            "- Give every column a clear alias — the aliases become the axis and legend labels."
-        )
+        numeric_rule = msg("sql_chart_numeric_donut" if state.get("chart_type") == "donut" else "sql_chart_numeric")
+        parts.append("\n" + msg("sql_chart", NUMERIC_RULE=numeric_rule))
     if state.get("validation_error"):
-        parts.append(
-            "\nYOUR PREVIOUS SQL WAS REJECTED BY THE SAFETY VALIDATOR:\n"
-            f"{state['validation_error']}\nRewrite it as a single safe SELECT."
-        )
+        parts.append("\n" + msg("sql_retry_validator", ERROR=state["validation_error"]))
     if state.get("exec_error"):
-        parts.append(
-            "\nYOUR PREVIOUS SQL FAILED WHEN RUN. Database error:\n"
-            f"{state['exec_error']}\nFix the query (check table/column names, joins, types)."
-        )
+        parts.append("\n" + msg("sql_retry_exec", ERROR=state["exec_error"]))
     if state.get("verify_feedback"):
         # Show the exact SQL being criticised. Without it the writer had to infer which query the
         # feedback referred to, and frequently re-emitted the same one.
         previous = state.get("sql", "")
-        parts.append(
-            "\nAN INDEPENDENT VERIFIER REVIEWED YOUR PREVIOUS SQL AND REJECTED IT."
-            + (f"\n\nYOUR PREVIOUS SQL WAS:\n{previous}" if previous else "")
-            + f"\n\nWHAT TO FIX:\n{state['verify_feedback']}\n"
-            "Write a DIFFERENT query that addresses this. Do NOT resubmit the same SQL — it would "
-            "return the same data and be rejected again. If you believe the previous SQL was "
-            "already correct, make the smallest change that satisfies the feedback."
-        )
+        shown = "\n\n" + msg("sql_retry_verifier_previous", SQL=previous) if previous else ""
+        parts.append("\n" + msg("sql_retry_verifier", PREVIOUS=shown, FEEDBACK=state["verify_feedback"]))
     if state.get("tried_sql"):
-        parts.append(
-            f"\nYou have already tried {len(state['tried_sql'])} quer(y/ies) this turn. Each new "
-            "attempt must be materially different from the previous ones."
-        )
-    parts.append("\nWrite the T-SQL now as ONE ```sql block.")
+        parts.append("\n" + msg("sql_tried", COUNT=len(state["tried_sql"])))
+    parts.append("\n" + msg("sql_final"))
 
     # Normal mode writes SQL on the cheap tier: measured 8/8 identical results on simple questions
     # at ~1.2s vs ~4.2s. Any other mode (including unset) keeps the main model exactly as before.

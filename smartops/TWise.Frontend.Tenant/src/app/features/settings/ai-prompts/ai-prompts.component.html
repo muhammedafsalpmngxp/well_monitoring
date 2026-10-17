@@ -1,0 +1,100 @@
+<app-page-header title="AI Prompts"
+  subtitle="Every instruction the AI follows, stored in this tenant's database. A change applies to the next question; every version is kept."
+  [breadcrumbs]="breadcrumbs">
+  <span page-header-icon class="ap-page-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white"
+      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 4h12l4 4v12H4z" /><path d="M8 12h8M8 16h5" />
+    </svg>
+  </span>
+</app-page-header>
+
+<div class="page-content ap">
+  <p *ngIf="error" class="ap__msg ap__msg--bad" role="alert">{{ error }}</p>
+  <app-loader *ngIf="loading" size="lg"></app-loader>
+
+  <div class="ap__layout" *ngIf="!loading && !error">
+    <!-- Groups and search -->
+    <nav class="ap__nav" aria-label="Prompt groups">
+      <label class="ap__search">
+        <span class="ap__sr">Search prompts</span>
+        <input type="search" [(ngModel)]="search" name="search" placeholder="Search all prompts…" />
+      </label>
+      <button type="button" class="ap__group" *ngFor="let g of groups" [class.ap__group--active]="!search && activeGroup === g.key"
+        (click)="selectGroup(g.key)" [attr.aria-current]="!search && activeGroup === g.key ? 'true' : null">
+        <span>{{ g.title }}</span>
+        <span class="ap__count">{{ count(g.key) }}<ng-container *ngIf="edited(g.key)"> · {{ edited(g.key) }} edited</ng-container></span>
+      </button>
+    </nav>
+
+    <section class="ap__list">
+      <div class="ap__list-head">
+        <h3>{{ search ? 'Search results' : groupTitle(activeGroup) }}</h3>
+        <span class="ap__hint">{{ search ? shown.length + ' prompt(s) match' : groupHint(activeGroup) }}</span>
+      </div>
+      <p class="ap__empty" *ngIf="!shown.length">No prompt matches.</p>
+
+      <article class="ap__item" *ngFor="let i of shown; trackBy: trackItem" [class.ap__item--open]="openKey === i.key">
+        <button type="button" class="ap__item-head" (click)="toggle(i)" [attr.aria-expanded]="openKey === i.key">
+          <span class="ap__item-title">
+            <strong>{{ i.name }}</strong>
+            <span class="ap__badge ap__badge--edited" *ngIf="isEdited(i)">Edited</span>
+            <span class="ap__badge" *ngIf="search">{{ groupTitle(i.group) }}</span>
+          </span>
+          <span class="ap__meta">v{{ i.version }} · {{ i.changedBy }} · {{ i.changedAt | date: 'd MMM y, HH:mm' }}</span>
+          <span class="ap__desc">{{ i.description }}</span>
+          <code class="ap__key">{{ i.key }}</code>
+        </button>
+
+        <div class="ap__editor" *ngIf="openKey === i.key">
+          <textarea [(ngModel)]="drafts[i.key]" [name]="'prompt-' + i.key" [rows]="rows(i)" spellcheck="false"
+            [attr.aria-label]="'Text of ' + i.name" [placeholder]="i.allowEmpty ? 'Empty: no extra rules' : ''"></textarea>
+          <div class="ap__rules">
+            <span class="ap__chars" [class.ap__chars--over]="(drafts[i.key] || '').length > maxLength">{{ (drafts[i.key] || '').length | number }} / {{ maxLength | number }}</span>
+            <span *ngIf="i.placeholders.length">Keep:
+              <code *ngFor="let p of i.placeholders" class="ap__token" [class.ap__token--missing]="!(drafts[i.key] || '').includes('{' + p + '}')">{{ '{' + p + '}' }}</code>
+            </span>
+            <span *ngIf="i.replyKeys.length">Reply format keys:
+              <code *ngFor="let k of i.replyKeys" class="ap__token" [class.ap__token--missing]="!(drafts[i.key] || '').includes('&quot;' + k + '&quot;')">"{{ k }}"</code>
+            </span>
+          </div>
+          <p class="ap__msg ap__msg--bad" *ngIf="isDirty(i) && missing(i).length">This text has lost {{ missing(i).join(', ') }}. The code needs them: it will not be saved.</p>
+
+          <div class="ap__actions">
+            <input type="text" class="ap__note" [(ngModel)]="notes[i.key]" [name]="'note-' + i.key" maxlength="400"
+              placeholder="What changed (optional, kept in the history)" [disabled]="!isDirty(i)" />
+            <button type="button" class="btn btn-primary" [disabled]="saving !== null || !isDirty(i)" (click)="save(i)">{{ saving === i.key ? 'Saving…' : 'Save' }}</button>
+            <button type="button" class="btn btn-secondary" [disabled]="saving !== null || !isDirty(i)" (click)="discard(i)">Discard</button>
+            <button type="button" class="btn btn-secondary" *ngIf="isEdited(i)" [disabled]="saving !== null" (click)="restore(i, 1)">Restore original</button>
+            <button type="button" class="btn btn-secondary" (click)="toggleHistory(i)" [attr.aria-expanded]="historyOpen === i.key">{{ historyOpen === i.key ? 'Hide history' : 'History' }}</button>
+          </div>
+          <p class="ap__msg" *ngIf="messages[i.key]?.text as m" [class.ap__msg--ok]="messages[i.key].ok" [class.ap__msg--bad]="!messages[i.key].ok" role="status">{{ m }}</p>
+
+          <!-- Version history -->
+          <div class="ap__history" *ngIf="historyOpen === i.key">
+            <app-loader *ngIf="historyLoading === i.key" size="sm"></app-loader>
+            <table *ngIf="history[i.key] && historyLoading !== i.key">
+              <thead><tr><th scope="col">Version</th><th scope="col">Change</th><th scope="col">By</th><th scope="col">When</th><th scope="col">Note</th><th scope="col"><span class="ap__sr">Actions</span></th></tr></thead>
+              <tbody>
+                <tr *ngFor="let v of history[i.key]; trackBy: trackVersion" [class.ap__current]="v.isCurrent">
+                  <td>v{{ v.version }}<span class="ap__badge" *ngIf="v.isCurrent">Active</span></td>
+                  <td>{{ actionLabel(v) }}</td>
+                  <td>{{ v.changedBy }}</td>
+                  <td>{{ v.changedAt | date: 'd MMM y, HH:mm' }}</td>
+                  <td>{{ v.note || '—' }}</td>
+                  <td class="ap__row-actions">
+                    <button type="button" class="ap__link" (click)="view(v)">{{ viewing?.version === v.version ? 'Hide' : 'View' }}</button>
+                    <button type="button" class="ap__link" *ngIf="!v.isCurrent" [disabled]="saving !== null" (click)="restore(i, v.version)">Restore</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <pre class="ap__view" *ngIf="viewing" [attr.aria-label]="'Text of version ' + viewing.version">{{ viewing.text || '(empty)' }}</pre>
+          </div>
+        </div>
+      </article>
+    </section>
+  </div>
+</div>
+<app-confirmation-dialog [isOpen]="!!pendingRestore" title="Restore prompt" [message]="restoreMessage" confirmLabel="Restore"
+  variant="warning" (confirmed)="confirmRestore()" (cancelled)="pendingRestore = null"></app-confirmation-dialog>

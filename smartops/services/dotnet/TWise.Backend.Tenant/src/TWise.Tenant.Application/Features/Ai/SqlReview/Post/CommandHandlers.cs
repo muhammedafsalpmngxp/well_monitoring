@@ -12,7 +12,7 @@ namespace TWise.Tenant.Application.Features.Ai.SqlReview;
 /// explains the query and proposes changes, grounded in those plan facts. The proposed SQL is
 /// passed through the same guard so a rewrite can never introduce a write.
 /// </summary>
-public sealed class ReviewSqlHandler(IDatabaseViewService views, IAiService ai, IAiAskService ask, IAiSettingsRepository settings) : IRequestHandler<ReviewSqlCommand, AiSqlReviewDto?>
+public sealed class ReviewSqlHandler(IDatabaseViewService views, IAiService ai, IAiAskService ask, IAiPromptStore store) : IRequestHandler<ReviewSqlCommand, AiSqlReviewDto?>
 {
     public const int MaxSqlLength = 60_000;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -35,7 +35,7 @@ public sealed class ReviewSqlHandler(IDatabaseViewService views, IAiService ai, 
             if (plan.MissingIndexes.Count > 0) facts.Append("Missing indexes suggested by SQL Server: ").Append(string.Join("; ", plan.MissingIndexes)).Append('\n');
             if (plan.Warnings.Count > 0) facts.Append("Optimizer warnings: ").Append(string.Join("; ", plan.Warnings)).Append('\n');
         }
-        var prompts = AiPrompts.Parse((await settings.GetAsync(c.TenantId, ct))?.PromptsJson);
+        var prompts = await store.GetAsync(c.TenantId, ct);
         var messages = new List<AiMessage>
         {
             new("system", AiPrompts.Text(AiPrompts.SqlReview, prompts) +

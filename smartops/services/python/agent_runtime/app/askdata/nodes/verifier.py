@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from app.askdata.settings import agent_settings
 from app.askdata.nodes._common import history_for, render_steps
-from app.askdata.prompts import current_prompts
+from app.askdata.prompts import current_prompts, msg
 from app.askdata.tools.sqlcheck import check as sql_concerns
 from app.askdata.state import AgentState
 from app.askdata.llm import chat
@@ -73,17 +73,14 @@ def verifier_node(state: AgentState) -> dict:
     schema = state.get("schema", "")
     parts = []
     if schema:
-        parts.append(
-            "DATABASE SCHEMA (the ONLY tables/columns that exist — judge the SQL against this):\n"
-            f"{schema}"
-        )
+        parts.append(msg("verifier_schema", SCHEMA=schema))
     history = history_for(state)
     if history:
         parts.append(history.rstrip())
-    parts.append(f"USER QUESTION: {state['question']}")
-    parts.append(f"EXECUTED SQL + RETRIEVED DATA:\n{render_steps(steps, max_rows=agent_settings.max_rows)}")
+    parts.append(msg("verifier_question", QUESTION=state["question"]))
+    parts.append(msg("verifier_data", DATA=render_steps(steps, max_rows=agent_settings.max_rows)))
     if state.get("analysis"):
-        parts.append(f"ANALYST'S FINDINGS:\n{state['analysis']}")
+        parts.append(msg("verifier_analysis", ANALYSIS=state["analysis"]))
 
     # The deterministic check used to run ONLY in the fast graph — the mode with no reviewer —
     # and its findings were thrown away. The wiring was inverted: the mode with a reviewer never
@@ -107,17 +104,9 @@ def verifier_node(state: AgentState) -> dict:
     if concerns:
         unique = list(dict.fromkeys(concerns))  # de-dup across steps, keep order
         log.info("verify: %d deterministic concern(s) handed to the reviewer", len(unique))
-        parts.append(
-            "DETERMINISTIC CONCERNS TO ADJUDICATE (derived from the schema's own foreign keys and "
-            "row-per-key markers, NOT from an opinion — decide whether each one is real for this "
-            "question, and reject only if it genuinely affects the answer):\n"
-            + "\n".join(f"- {c}" for c in unique)
-        )
+        parts.append(msg("verifier_concerns", CONCERNS="\n".join(msg("verifier_concern", TEXT=c) for c in unique)))
 
-    parts.append(
-        "Does this data (and analysis, if any) support answering the user's question? Reply "
-        "with the JSON verdict."
-    )
+    parts.append(msg("verifier_final"))
     user = "\n\n".join(parts)
     raw = chat(current_prompts().VERIFIER_SYSTEM, user, temperature=0.0)
     data = extract_json(raw, default=_UNREADABLE)
@@ -128,11 +117,7 @@ def verifier_node(state: AgentState) -> dict:
         log.warning(
             "verify: verdict unreadable (%d chars) - failing closed, not approving", len(raw or "")
         )
-        return _reject(
-            state,
-            "The automated review could not be completed. Re-check the query against the "
-            "schema and business rules and rewrite it if anything looks wrong.",
-        )
+        return _reject(state, msg("verifier_unreadable"))
 
     ok = bool(data.get("ok"))
     if ok:

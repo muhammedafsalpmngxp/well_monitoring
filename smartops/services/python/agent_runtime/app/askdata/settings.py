@@ -71,6 +71,8 @@ class AskDataRun:
     prompts: Any = None          # app.askdata.prompts.PromptSet
     llm: Any = None              # app.models.Llm (the tenant's provider)
     usage: list[dict[str, Any]] = field(default_factory=list)
+    # The tenant's prompt texts {key: text} for this run, from the Tenant API (core.AiSettings.prompts_json).
+    texts: dict[str, str] = field(default_factory=dict)
 
 
 _RUN: ContextVar[AskDataRun | None] = ContextVar("askdata_run", default=None)

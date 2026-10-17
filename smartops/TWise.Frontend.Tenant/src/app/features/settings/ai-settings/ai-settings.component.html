@@ -87,23 +87,12 @@
       </div>
     </section>
 
-    <!-- AI instructions: the wording the AI follows; the query format and data are always added by the system -->
-    <section class="ai__card ai__access" *ngIf="section === 'features' && prompts.length">
+    <!-- The AI instructions moved to Settings → AI Prompts (every prompt, with version history; admins only) -->
+    <section class="ai__card ai__access" *ngIf="section === 'features' && isAdmin">
       <div class="ai__card-head">
         <h3>AI instructions</h3>
-        <span class="ai__hint">Change how the AI words its answers, or add rules for your data. Applies to every user of this tenant. Leave a box empty for the default. Extra rules, answer style, report and alert message can also be set per dataset from Ask AI → Dataset notes.</span>
-      </div>
-      <div class="ai__prompt" *ngFor="let p of prompts">
-        <label class="ai__form">
-          <span>{{ p.name }} <span class="ai__badge" *ngIf="p.isCustom">Custom</span></span>
-          <small class="ai__hint">{{ p.description }}</small>
-          <textarea rows="4" maxlength="4000" [(ngModel)]="drafts[p.key]" [name]="'prompt-' + p.key" [placeholder]="p.defaultText || 'No extra rules'"></textarea>
-        </label>
-        <div class="ai__actions">
-          <button type="button" class="btn btn-primary" [disabled]="savingPrompt !== null || drafts[p.key] === p.text" (click)="savePrompt(p)">{{ savingPrompt === p.key ? 'Saving…' : 'Save' }}</button>
-          <button type="button" class="btn btn-secondary" *ngIf="p.isCustom" [disabled]="savingPrompt !== null" (click)="savePrompt(p, true)">Restore default</button>
-          <span class="ai__msg" *ngIf="promptMessage[p.key] as m" [class.ai__msg--ok]="m === 'Saved.' || m === 'Default restored.'" [class.ai__msg--bad]="m !== 'Saved.' && m !== 'Default restored.'" role="status">{{ m }}</span>
-        </div>
+        <span class="ai__hint">Every instruction the AI follows (AI features, Ask Data and agents) is now edited under
+          <a routerLink="/settings/ai/prompts">Settings → AI Prompts</a>, with version history.</span>
       </div>
     </section>
 

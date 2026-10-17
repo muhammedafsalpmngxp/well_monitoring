@@ -6,7 +6,7 @@ import re
 from functools import lru_cache
 
 from app.askdata.nodes._common import format_history
-from app.askdata.prompts import current_prompts
+from app.askdata.prompts import current_prompts, msg
 from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
@@ -62,7 +62,7 @@ def names_known_entity(question: str, schema: str) -> str:
 
 def orchestrator_node(state: AgentState) -> dict:
     log.info("Q: %s", state.get("question", ""))
-    user = format_history(state.get("history")) + f"Current question: {state['question']}"
+    user = msg("orchestrator", HISTORY=format_history(state.get("history")), QUESTION=state["question"])
     # Deep mode routes on the MAIN model; normal mode keeps the cheap tier. Measured over 11
     # standalone/follow-up questions asked with a prior turn in history: gpt-4o-mini 8/11 at
     # 2.2s avg, the main model 11/11 at 2.7s avg. EVERY mini miss was a STANDALONE question

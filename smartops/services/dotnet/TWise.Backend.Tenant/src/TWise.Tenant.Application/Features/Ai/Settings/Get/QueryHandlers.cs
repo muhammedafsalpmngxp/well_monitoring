@@ -45,8 +45,9 @@ public sealed class GetAiFeatureAccessHandler(IAiFeatureRoleRepository grants) :
         AiFeatureAccessMapping.ToDto(await grants.GetAsync(q.TenantId, ct));
 }
 
-public sealed class GetAiPromptsHandler(IAiSettingsRepository settings) : IRequestHandler<GetAiPromptsQuery, IReadOnlyList<AiPromptDto>>
+/// <summary>The AI-feature prompts in the shape of the former AI instructions list; DefaultText is the original (version 1).</summary>
+public sealed class GetAiPromptsHandler(IAiPromptStore prompts) : IRequestHandler<GetAiPromptsQuery, IReadOnlyList<AiPromptDto>>
 {
     public async Task<IReadOnlyList<AiPromptDto>> Handle(GetAiPromptsQuery q, CancellationToken ct) =>
-        AiPrompts.ToDtos(AiPrompts.Parse((await settings.GetAsync(q.TenantId, ct))?.PromptsJson));
+        AiPromptMapping.FeatureDtos(await prompts.ListAsync(q.TenantId, ct));
 }

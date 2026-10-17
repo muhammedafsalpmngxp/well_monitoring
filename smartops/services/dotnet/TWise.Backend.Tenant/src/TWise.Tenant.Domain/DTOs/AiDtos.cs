@@ -3,11 +3,26 @@ namespace TWise.Tenant.Domain.DTOs;
 /// <summary>Tenant-wide switches. ActiveProviderId is null until a provider is chosen.</summary>
 public record AiSettingsDto(int DailyQuota, bool IsEnabled, long? ActiveProviderId, DateTime? ModifiedAt);
 
-/// <summary>An editable AI instruction: Text is the one in use (custom or default).</summary>
+/// <summary>An editable AI instruction: Text is the one in use; DefaultText the original (or, per dataset, the tenant's).</summary>
 public record AiPromptDto(string Key, string Name, string Description, string DefaultText, string Text, bool IsCustom);
 
-/// <summary>Empty text resets to the default.</summary>
+/// <summary>Empty text restores the original.</summary>
 public record SaveAiPromptRequest(string? Text);
+
+/// <summary>
+/// One AI prompt on Settings → AI Prompts: the text in use and its version, the original (version 1), who changed it
+/// last, and what a save must keep (Placeholders the code fills, ReplyKeys of the JSON reply the code reads).
+/// </summary>
+public record AiPromptItemDto(string Key, string Group, string Name, string Description, string Text, string OriginalText,
+    int Version, string ChangedBy, DateTime ChangedAt, IReadOnlyList<string> Placeholders, IReadOnlyList<string> ReplyKeys, bool AllowEmpty);
+
+/// <summary>One saved version of a prompt. Action: seed (the original), update or restore.</summary>
+public record AiPromptVersionDto(int Version, string Action, string? Note, string ChangedBy, DateTime ChangedAt, bool IsCurrent, string Text);
+
+/// <summary>ExpectedVersion is the version the admin edited: the save is refused when someone saved in between.</summary>
+public record SaveAiPromptVersionRequest(string? Text, string? Note, int? ExpectedVersion);
+
+public record RestoreAiPromptRequest(int Version, int? ExpectedVersion, string? Note);
 
 public record SaveAiSettingsRequest(int DailyQuota, bool IsEnabled);
 

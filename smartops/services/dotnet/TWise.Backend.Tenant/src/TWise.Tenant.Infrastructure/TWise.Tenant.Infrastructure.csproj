@@ -41,6 +41,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Services\Sql\*.sql" />
+    <EmbeddedResource Include="Resources\ai-prompts.seed.json" />
   </ItemGroup>
 
   <ItemGroup>

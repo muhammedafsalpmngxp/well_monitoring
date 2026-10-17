@@ -12,6 +12,20 @@ export type AiProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'custom';
 /** An editable AI instruction; text is the one in use (custom or default). */
 export interface AiPromptDto { key: string; name: string; description: string; defaultText: string; text: string; isCustom: boolean }
 
+/** One AI prompt on Settings → AI Prompts (stored in the tenant database). group: features | askdata | askdata-messages | agents. */
+export interface AiPromptItem {
+  key: string; group: string; name: string; description: string; text: string; originalText: string;
+  version: number; changedBy: string; changedAt: string;
+  /** {NAMES} the code fills in: a save must keep them. */
+  placeholders: string[];
+  /** JSON keys of the AI's reply that the code reads: a save must keep them. */
+  replyKeys: string[];
+  allowEmpty: boolean;
+}
+
+/** One saved version of a prompt; action: seed (the original) | update | restore. */
+export interface AiPromptVersion { version: number; action: 'seed' | 'update' | 'restore'; note: string | null; changedBy: string; changedAt: string; isCurrent: boolean; text: string }
+
 export interface AiSettingsDto {
   dailyQuota: number;
   isEnabled: boolean;
@@ -272,14 +286,24 @@ export class AiService {
     return this.http.put<AiFeatureAccess>(`${this.api}${API_ENDPOINTS.AI.FEATURE_ACCESS}`, access);
   }
 
-  /** Admin: the editable AI instructions. */
-  prompts(): Observable<AiPromptDto[]> {
-    return this.http.get<AiPromptDto[]>(`${this.api}${API_ENDPOINTS.AI.PROMPTS}`);
+  /** Admin: every AI prompt of the tenant (AI features, Ask Data, agents), from the database. */
+  promptLibrary(): Observable<AiPromptItem[]> {
+    return this.http.get<AiPromptItem[]>(`${this.api}${API_ENDPOINTS.AI.PROMPT_LIBRARY}`);
   }
 
-  /** Admin: save one instruction; empty text resets it to the default. Returns every prompt. */
-  savePrompt(key: string, text: string): Observable<AiPromptDto[]> {
-    return this.http.put<AiPromptDto[]>(`${this.api}${API_ENDPOINTS.AI.PROMPT(key)}`, { text });
+  /** Admin: every saved version of one prompt, newest first. */
+  promptHistory(key: string): Observable<AiPromptVersion[]> {
+    return this.http.get<AiPromptVersion[]>(`${this.api}${API_ENDPOINTS.AI.PROMPT_LIBRARY_HISTORY(key)}`);
+  }
+
+  /** Admin: save a new version. expectedVersion = the version being edited (refused when someone saved since). */
+  savePromptVersion(key: string, text: string, note: string, expectedVersion: number): Observable<AiPromptItem> {
+    return this.http.put<AiPromptItem>(`${this.api}${API_ENDPOINTS.AI.PROMPT_LIBRARY_ITEM(key)}`, { text, note: note || null, expectedVersion });
+  }
+
+  /** Admin: make an earlier version (1 = the original) the active one, as a new version. */
+  restorePrompt(key: string, version: number, expectedVersion: number): Observable<AiPromptItem> {
+    return this.http.post<AiPromptItem>(`${this.api}${API_ENDPOINTS.AI.PROMPT_LIBRARY_RESTORE(key)}`, { version, expectedVersion });
   }
 
   datasets(): Observable<AiDataset[]> {

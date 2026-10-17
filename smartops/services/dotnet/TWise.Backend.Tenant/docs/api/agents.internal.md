@@ -45,13 +45,14 @@ New Agent page (Angular) ──► Tenant API /api/agents (CQRS) ──► core.
 
 ## Ask Data = the twise DB Assistant
 
-`app/askdata` is the DB Assistant ported unchanged (graphs, nodes, prompts, knowledge files, access and
+`app/askdata` is the DB Assistant ported unchanged (graphs, nodes, access and
 SQL checks). It runs with twise's `backend/.env` values: MAX_ROWS 500, MAX_SQL_RETRIES 2, QUERY_TIMEOUT 60,
 MAX_QUERIES 3, VERIFY_RETRIES 1, HISTORY_TURNS 3, ALLOWED_SCHEMAS well,project,ref,bridge,dbo, the 15
 EXCLUDED_TABLES and EXCLUDED_COLUMNS (`settings.py`, env `ASKDATA_*` overrides), LLM timeout 120 s with 2
-retries and the per-node reasoning table (`llm.py`). Prompts come from the files, or with
-`ASKDATA_PROMPT_STORE=db` from `<ASKDATA_PROMPT_SCHEMA>.prompt` (default `twise.prompt`), as twise's
-prompt_service. Export (`tools/export.py`, `export_formats.py`) signs the answer's SQL with
+retries and the per-node reasoning table (`llm.py`). Prompts come only from the tenant database: the Tenant API
+reads `core.AiSettings.prompts_json` (history in `core.AiPromptHistory`, edited in Settings > AI Prompts) and
+sends the `askdata.*` and `agent.*` texts with every request as `prompts`; the runtime has no built-in text
+and refuses a run that lacks one. Export (`tools/export.py`, `export_formats.py`) signs the answer's SQL with
 `ASKDATA_EXPORT_SECRET` (set it outside local development; without it links stop working on restart).
 Differences on purpose: the executor also refuses anything but one SELECT and opens read-only connections;
 the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_FAST_MODEL); an agent's
@@ -93,8 +94,7 @@ on QA) with their own OpenAI key.
 | Runtime env | `AGENT_RUNTIME_TWISE_API_KEY` | empty | twise `X-API-Key` |
 | Runtime env | `AGENT_RUNTIME_STEP_TIMEOUT` | `180` | seconds per step |
 | Runtime env | `ASKDATA_ALLOWED_SCHEMAS` | `well,project,ref,bridge,dbo` | the most an agent's Allowed schemas can read |
-| Runtime env | `ASKDATA_KNOWLEDGE_DIR` | `app/askdata/knowledge_default` | business rules / examples used when an agent leaves them blank |
-| Runtime env | `ASKDATA_ORG_NAME` | `Al-Tasnim` | the organisation the Ask Data prompts speak for (`{{ORG_NAME}}` in the prompt files) |
+| Runtime env | `ASKDATA_ORG_NAME` | `Al-Tasnim` | the organisation the Ask Data prompts speak for (`{{ORG_NAME}}` in the prompts) |
 | Runtime env | `ASKDATA_EXPORT_PREFIX` | `ask-data` | start of exported file names (`al-tasnim` gives the old names) |
 
 Set both keys outside local development: the runtime receives the tenant's decrypted AI key in the

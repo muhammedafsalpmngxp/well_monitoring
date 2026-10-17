@@ -4,6 +4,7 @@ import httpx
 from app.graph import fill
 from app.main import run_events
 from app.models import RunRequest
+from tests.seeded_prompts import runtime_texts
 
 
 def _req(steps, inputs=None, llm=None, required=("cluster",)):
@@ -16,6 +17,7 @@ def _req(steps, inputs=None, llm=None, required=("cluster",)):
         },
         "inputs": inputs if inputs is not None else {"cluster": "Nimr"},
         "llm": llm,
+        "prompts": runtime_texts(),
     })
 
 

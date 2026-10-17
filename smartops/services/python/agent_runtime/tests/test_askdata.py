@@ -14,6 +14,7 @@ from app.askdata.nodes.orchestrator import names_known_entity
 from app.askdata.nodes.sql_author import normalize_sql
 from app.askdata.nodes.verifier import _trim_feedback
 from app.askdata.prompts import build_prompts
+from tests.seeded_prompts import runtime_texts
 from app.askdata.settings import AskDataRun, AskDataSettings, DbTarget, agent_settings, run_context
 from app.askdata.tools import access, sqlcheck
 
@@ -25,7 +26,7 @@ def askdata_run():
         settings=AskDataSettings(allowed_schemas=("well", "project"), excluded_tables=("well.hidden_table",),
                                  excluded_columns=("well.well_master.location_dd",)),
         db=DbTarget(server="test", name="test", user="u", password="p"),
-        prompts=build_prompts(100, "", ""))
+        prompts=build_prompts(100, "", "", runtime_texts()), texts=runtime_texts())
     with run_context(run):
         yield run
 
@@ -304,7 +305,7 @@ def test_executor_refuses_anything_but_a_select():
 
 
 def test_knowledge_reaches_the_prompts_and_no_profile_is_added():
-    p = build_prompts(50, "RULE X", "EXAMPLE Y")
+    p = build_prompts(50, "RULE X", "EXAMPLE Y", runtime_texts())
     assert "AGENT PROFILE" not in p.SYNTHESIZE_SYSTEM   # as twise: the prompts are the DB Assistant's own
     assert "RULE X" in p.SQL_AUTHOR_SYSTEM and "EXAMPLE Y" in p.SQL_AUTHOR_SYSTEM
     assert "MAX_ROWS" not in p.VERIFIER_SYSTEM and "50" in p.VERIFIER_SYSTEM
@@ -353,7 +354,8 @@ def test_done_event_carries_an_export_token(monkeypatch):
     monkeypatch.setattr(runner, "build_value_hints", lambda: "")
     with run_context(None):   # leave the fixture's run: ask() opens its own
         events = list(runner.ask("q", [], mode="deep", options=None,
-                                 db=Db(server="s", name="n", user="u", password="p"), llm=None))
+                                 db=Db(server="s", name="n", user="u", password="p"), llm=None,
+                                 prompts=runtime_texts()))
     assert events[-1]["data"]["export_token"]
 
 

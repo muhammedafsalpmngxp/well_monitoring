@@ -1,8 +1,9 @@
 import { ChangeDetectorRef, Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { AiFeatureAccess, AiFeatureDef, AiPromptDto, AiProvider, AiProviderDto, AiService, AiSettingsDto, AiTestResultDto, AiUsageSummaryDto } from '../../../core/services/ai.service';
+import { AiFeatureAccess, AiFeatureDef, AiProvider, AiProviderDto, AiService, AiSettingsDto, AiTestResultDto, AiUsageSummaryDto } from '../../../core/services/ai.service';
 import { RoleDto, UserManagementService } from '../../../core/services/user-management.service';
+import { PermissionService } from '../../../core/services/permission.service';
 
 /** Sensible endpoint/model per provider type, applied when the admin switches type in the dialog. */
 export const PROVIDER_DEFAULTS: Record<AiProvider, { label: string; baseUrl: string; model: string; needsKey: boolean }> = {
@@ -42,11 +43,6 @@ export class AiSettingsComponent implements OnInit {
   access: Record<string, Set<string>> = {};
   savingAccess = false;
   accessMessage = '';
-  /** Editable AI instructions with the admin's unsaved text per key. */
-  prompts: AiPromptDto[] = [];
-  drafts: Record<string, string> = {};
-  promptMessage: Record<string, string> = {};
-  savingPrompt: string | null = null;
   usage: AiUsageSummaryDto | null = null;
   loading = true;
   error = '';
@@ -62,7 +58,11 @@ export class AiSettingsComponent implements OnInit {
   dialogError = '';
   savingProvider = false;
 
-  constructor(private readonly ai: AiService, private readonly users: UserManagementService, private readonly cdr: ChangeDetectorRef) {}
+  constructor(private readonly ai: AiService, private readonly users: UserManagementService, private readonly cdr: ChangeDetectorRef,
+              private readonly permissions: PermissionService) {}
+
+  /** Admins see where the AI instructions moved (Settings → AI Prompts is admin-only). */
+  get isAdmin(): boolean { return this.permissions.isAdminUser; }
 
   ngOnInit(): void {
     this.ai.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -184,23 +184,6 @@ export class AiSettingsComponent implements OnInit {
     });
   }
 
-  // ── AI instructions ────────────────────────────────────────────────────────
-
-  /** Save the draft; an empty text resets to the default. */
-  savePrompt(p: AiPromptDto, reset = false): void {
-    this.savingPrompt = p.key;
-    this.promptMessage[p.key] = '';
-    this.ai.savePrompt(p.key, reset ? '' : this.drafts[p.key]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: list => { this.applyPrompts(list); this.savingPrompt = null; this.promptMessage[p.key] = reset ? 'Default restored.' : 'Saved.'; this.cdr.markForCheck(); },
-      error: err => { this.savingPrompt = null; this.promptMessage[p.key] = err?.error?.message ?? 'The text could not be saved.'; this.cdr.markForCheck(); },
-    });
-  }
-
-  private applyPrompts(list: AiPromptDto[]): void {
-    this.prompts = list;
-    this.drafts = Object.fromEntries(list.map(p => [p.key, p.text]));
-  }
-
   private applyAccess(a: AiFeatureAccess): void {
     this.featureDefs = a.features;
     this.access = {};
@@ -208,7 +191,6 @@ export class AiSettingsComponent implements OnInit {
   }
 
   private loadAccess(): void {
-    this.ai.prompts().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: p => { this.applyPrompts(p); this.cdr.markForCheck(); }, error: () => { /* card stays empty */ } });
     this.ai.featureAccess().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: a => { this.applyAccess(a); this.cdr.markForCheck(); }, error: () => { /* card stays empty */ } });
     this.users.listRoles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: r => { this.roles = r.items.filter(x => x.isActive); this.cdr.markForCheck(); },

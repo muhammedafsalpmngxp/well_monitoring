@@ -33,7 +33,8 @@ public sealed partial class AiAskService(
     IMemoryCache cache,
     IAiViewQueryRunner viewQueries,
     IAgentRuntimeClient runtime,
-    IAiUsageRepository usage) : IAiAskService
+    IAiUsageRepository usage,
+    IAiPromptStore prompts) : IAiAskService
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private const int HistoryTurns = 6;
@@ -505,11 +506,11 @@ public sealed partial class AiAskService(
                 var repo = scope.ServiceProvider.GetRequiredService<IAiKnowledgeRepository>();
                 var known = existingNotes.Select(n => $"{n.ColumnName ?? "(dataset)"}: {n.Note}").ToList();
                 var pending = await repo.GetPendingProposalsAsync(tenantId, sourceType, sourceId, CancellationToken.None);
-                var prompts = AiPrompts.Parse((await scope.ServiceProvider.GetRequiredService<IAiSettingsRepository>().GetAsync(tenantId, CancellationToken.None))?.PromptsJson);
+                var texts = await scope.ServiceProvider.GetRequiredService<IAiPromptStore>().GetAsync(tenantId, CancellationToken.None);
                 var messages = new List<AiMessage>
                 {
                     new("system",
-                        AiPrompts.Text(AiPrompts.Extract, prompts) + " Reply with JSON only: an array of 0-3 objects " +
+                        AiPrompts.Text(AiPrompts.Extract, texts) + " Reply with JSON only: an array of 0-3 objects " +
                         "{\"column\":\"column name or null\",\"note\":\"one factual sentence\",\"confidence\":\"low|medium|high\"}. " +
                         "Return [] when nothing new was learned."),
                     new("user", $"Dataset: {sourceName}\nColumns: {string.Join(", ", columns)}\nAlready known:\n{string.Join("\n", known.Concat(pending.Select(p => $"{p.ColumnName ?? "(dataset)"}: {p.Note}")))}\nQuestion: {question}\nQuery used: {JsonSerializer.Serialize(spec, Json)}"),
@@ -572,11 +573,11 @@ public sealed partial class AiAskService(
                 await repo.AddExampleAsync(example, CancellationToken.None);
 
                 var aiSvc = scope.ServiceProvider.GetRequiredService<IAiService>();
-                var prompts = AiPrompts.Parse((await scope.ServiceProvider.GetRequiredService<IAiSettingsRepository>().GetAsync(tenantId, CancellationToken.None))?.PromptsJson);
+                var texts = await scope.ServiceProvider.GetRequiredService<IAiPromptStore>().GetAsync(tenantId, CancellationToken.None);
                 var messages = new List<AiMessage>
                 {
                     new("system",
-                        AiPrompts.Text(AiPrompts.Review, prompts) + " How the query format works: agg may be count, countDistinct, sum, avg, min or max; " +
+                        AiPrompts.Text(AiPrompts.Review, texts) + " How the query format works: agg may be count, countDistinct, sum, avg, min or max; " +
                         "count with no column counts rows (right for \"how many rows / records / jobs\"); countDistinct of an id counts distinct items " +
                         "(right for \"how many wells\"); groupBy gives one result row per value; an alias is only a label; " +
                         "grouping by a column that is also filtered only shows that value next to the number and is fine. " +
@@ -983,9 +984,8 @@ public sealed partial class AiAskService(
         return labels.Count == 0 ? null : labels;
     }
 
-    /// <summary>The tenant's custom AI instructions (Settings → AI Features); empty when none.</summary>
-    private async Task<IReadOnlyDictionary<string, string>> PromptsAsync(long tenantId, CancellationToken ct) =>
-        AiPrompts.Parse((await settings.GetAsync(tenantId, ct))?.PromptsJson);
+    /// <summary>The tenant's AI prompts (Settings → AI Prompts), from the database.</summary>
+    private Task<IReadOnlyDictionary<string, string>> PromptsAsync(long tenantId, CancellationToken ct) => prompts.GetAsync(tenantId, ct);
 
     /// <summary>The tenant's instructions with the dataset's own overrides (Ask AI → Dataset notes) on top.</summary>
     private async Task<IReadOnlyDictionary<string, string>> PromptsAsync(long tenantId, string sourceType, long sourceId, CancellationToken ct) =>

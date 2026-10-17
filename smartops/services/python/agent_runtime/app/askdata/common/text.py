@@ -54,16 +54,19 @@ def parse_json(text: str) -> dict[str, Any] | None:
 
 
 def rows_to_markdown(columns: list[str], rows: list[list[Any]], max_rows: int = 100) -> str:
-    """Render a result set as a compact markdown table (truncated for display)."""
+    """Render a result set as a compact markdown table (truncated for display). The notes for no columns, no
+    rows and a cut table are prompt texts (askdata.msg.table_*), so they come from the run's prompts."""
+    from app.askdata.prompts import msg   # imported on use: prompts imports settings, which imports nothing here
+
     if not columns:
-        return "(no columns)"
+        return msg("table_no_columns")
     if not rows:
-        return "(no rows returned)"
+        return msg("table_no_rows")
     shown = rows[:max_rows]
     header = "| " + " | ".join(str(c) for c in columns) + " |"
     sep = "| " + " | ".join("---" for _ in columns) + " |"
     body = ["| " + " | ".join("" if v is None else str(v) for v in row) + " |" for row in shown]
     table = "\n".join([header, sep, *body])
     if len(rows) > max_rows:
-        table += f"\n\n(showing first {max_rows} of {len(rows)} rows)"
+        table += "\n\n" + msg("table_more", SHOWN=max_rows, TOTAL=len(rows))
     return table

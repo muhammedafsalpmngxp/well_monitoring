@@ -25,16 +25,19 @@ public sealed class SaveAiSettingsHandler(IAiSettingsRepository settings, IAiPro
     }
 }
 
-public sealed class SaveAiPromptHandler(IAiSettingsRepository settings) : IRequestHandler<SaveAiPromptCommand, IReadOnlyList<AiPromptDto>>
+/// <summary>Saves one AI-feature prompt as a new version; empty text restores the original (except where empty is allowed).
+/// Returns every AI-feature prompt, as before.</summary>
+public sealed class SaveAiPromptHandler(IAiPromptStore prompts) : IRequestHandler<SaveAiPromptCommand, IReadOnlyList<AiPromptDto>>
 {
     public async Task<IReadOnlyList<AiPromptDto>> Handle(SaveAiPromptCommand c, CancellationToken ct)
     {
-        var s = await settings.GetAsync(c.TenantId, ct) ?? new AiSettings { TenantId = c.TenantId, CreatedBy = c.UserId };
-        s.PromptsJson = AiPrompts.Save(s.PromptsJson, c.Key, c.Text);
-        s.ModifiedBy = c.UserId;
-        s.ModifiedAt = DateTime.UtcNow;
-        await settings.UpsertAsync(s, ct);
-        return AiPrompts.ToDtos(AiPrompts.Parse(s.PromptsJson));
+        var def = AiPromptCatalog.Get(c.Key);
+        if (def.Group != AiPromptCatalog.Features) throw new InvalidOperationException($"'{c.Key}' is not an AI-feature prompt. Use Settings → AI Prompts.");
+        if (string.IsNullOrWhiteSpace(c.Text) && !def.AllowEmpty)
+            await prompts.RestoreAsync(c.TenantId, c.Key, 1, null, null, c.UserId, ct);
+        else
+            await prompts.SaveAsync(c.TenantId, c.Key, c.Text, null, null, c.UserId, ct);
+        return AiPromptMapping.FeatureDtos(await prompts.ListAsync(c.TenantId, ct));
     }
 }
 

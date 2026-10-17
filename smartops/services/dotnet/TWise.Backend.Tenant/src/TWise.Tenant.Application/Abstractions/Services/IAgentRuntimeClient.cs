@@ -24,12 +24,13 @@ public interface IAgentRuntimeClient
     Task<AskDataExportFile> ExportAskDataAsync(AskDataExportRequest request, CancellationToken ct);
 
     /// <summary>Runs one agent configuration and yields the runtime's events; the last is done or error. The Ask Data
-    /// database is attached by the client when a tool is ask_data.</summary>
+    /// database is attached by the client when a tool is ask_data. <paramref name="prompts"/> are the tenant's AI prompts
+    /// for the runtime (AiPromptCatalog.RuntimeTexts): it has no texts of its own.</summary>
     IAsyncEnumerable<AgentRuntimeEvent> RunAsync(SaveAiAgentRequest agent, IReadOnlyDictionary<string, string> inputs,
-        AgentRuntimeLlm? llm, string sessionId, CancellationToken ct);
+        AgentRuntimeLlm? llm, string sessionId, IReadOnlyDictionary<string, string> prompts, CancellationToken ct);
 
     /// <summary>Ask your data: one question on the Ask Data database with the same graph as an agent's ask_data step
     /// (deep mode). History is earlier {user, assistant} turns. Yields status / node events, then done or error.</summary>
     IAsyncEnumerable<AgentRuntimeEvent> AskDataAsync(string question, IReadOnlyList<Dictionary<string, string>> history,
-        AgentRuntimeLlm llm, CancellationToken ct);
+        AgentRuntimeLlm llm, IReadOnlyDictionary<string, string> prompts, CancellationToken ct);
 }

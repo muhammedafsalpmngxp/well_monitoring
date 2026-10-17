@@ -56,8 +56,8 @@ def test_org_name_replaces_only_its_placeholder(monkeypatch):
     from app.askdata import prompts
 
     monkeypatch.setattr(prompts, "ORG_NAME", "Acme")
-    monkeypatch.setattr(prompts, "_DB_PROMPTS", {"sql_knowledge": "Column ORG_NAME_ID; ask about {{ORG_NAME}}"})
-    assert prompts._load("sql_knowledge") == "Column ORG_NAME_ID; ask about Acme"
+    texts = {"askdata.sql_knowledge": "Column ORG_NAME_ID; ask about {{ORG_NAME}}"}
+    assert prompts._load(texts, "sql_knowledge") == "Column ORG_NAME_ID; ask about Acme"
 
 
 def test_round_trip_is_lossless():

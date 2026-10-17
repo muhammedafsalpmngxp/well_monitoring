@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from app.main import run_events
 from app.models import Branch, RunRequest
+from tests.seeded_prompts import runtime_texts
 from app.graph import matches
 
 ROUTER = {"id": "r", "text": "By age", "kind": "router", "branches": [
@@ -28,6 +29,7 @@ def _req(age, steps=STEPS, kind="sequential", llm=False):
                   "inputs": [{"name": "age"}]},
         "inputs": {"age": age},
         "llm": {"baseUrl": "http://llm", "model": "m"} if llm else None,
+        "prompts": runtime_texts(),
     })
 
 

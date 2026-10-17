@@ -36,7 +36,8 @@ from smartops_shared.app import create_app
 
 from app import twise
 from app.agentflow.convert import from_agentflow, to_agentflow
-from app.graph import build_graph, missing_inputs
+from app.graph import AGENT_KEYS, build_graph, missing_inputs
+from app.prompt_text import missing as missing_prompts
 from app.models import AskDataAskRequest, AskDataExportRequest, RunRequest
 
 API_KEY = os.environ.get("AGENT_RUNTIME_API_KEY", "")
@@ -62,8 +63,9 @@ def tools() -> dict[str, Any]:
     """The built-in Ask Data tool, then the twise agents (left out, with a message, when twise is down)."""
     try:
         return {"tools": [ASK_DATA_TOOL, *twise.list_tools()], "message": None}
-    except httpx.HTTPError:
-        log.warning("twise agent service at %s is not reachable", twise.TWISE_URL, exc_info=True)
+    except httpx.HTTPError as exc:
+        # One line, no stack trace: twise not running is an expected state (the page asks every time it opens).
+        log.warning("twise agent service at %s is not reachable (%s); only Ask Data is offered", twise.TWISE_URL, exc)
         return {"tools": [ASK_DATA_TOOL], "message": f"The extra agent tools (agent service at {twise.TWISE_URL}) are "
                                                      "offline. Ask Data still works; start that service to add the others."}
 
@@ -114,7 +116,8 @@ def askdata_events(req: AskDataAskRequest) -> Iterator[tuple[str, dict[str, Any]
     from app.askdata import runner
 
     try:
-        for ev in runner.ask(req.question, req.history, mode=req.mode, options=req.ask_data, db=req.db, llm=req.llm):
+        for ev in runner.ask(req.question, req.history, mode=req.mode, options=req.ask_data, db=req.db, llm=req.llm,
+                             prompts=req.prompts):
             data = ev["data"]
             if ev["event"] == "done":
                 # The panel has no Export button: drop the "download using the Export option" sentence.
@@ -140,9 +143,15 @@ def run_events(req: RunRequest, **graph_overrides: Any) -> Iterator[tuple[str, d
     if missing:
         yield "error", {"message": "Fill in: " + ", ".join(missing)}
         return
+    # With a model the supervisor, router, loop check and final answer speak through the tenant's prompts.
+    absent = missing_prompts(req.prompts, AGENT_KEYS) if req.llm is not None else []
+    if absent:
+        yield "error", {"message": "The agent cannot run: these AI prompts are not configured for this tenant: "
+                                   f"{', '.join(absent)}. An admin can restore them under Settings > AI Prompts."}
+        return
     started, final = time.monotonic(), {}
     try:
-        graph = build_graph(req.agent, req.llm, req.session_id, db=req.db, **graph_overrides)
+        graph = build_graph(req.agent, req.llm, req.session_id, db=req.db, prompts=req.prompts, **graph_overrides)
         for mode, chunk in graph.stream({"inputs": req.inputs, "results": [], "usage": []}, stream_mode=["custom", "values"]):
             if mode == "custom":
                 yield chunk["event"], chunk["data"]

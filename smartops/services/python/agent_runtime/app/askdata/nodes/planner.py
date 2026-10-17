@@ -6,7 +6,7 @@ from typing import Any
 
 from app.askdata.settings import agent_settings
 from app.askdata.nodes._common import history_for
-from app.askdata.prompts import current_prompts
+from app.askdata.prompts import current_prompts, msg
 from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
@@ -29,22 +29,22 @@ def _cell(value: Any) -> str:
 
 def _gathered_summary(steps: list[dict]) -> str:
     if not steps:
-        return "Nothing gathered yet."
+        return msg("planner_nothing")
     lines: list[str] = []
     for i, s in enumerate(steps, 1):
         columns = list(s.get("columns") or [])
         rows = list(s.get("rows") or [])
         # The true size stays on its own line — the sample below must never stand in for it.
-        lines.append(f"{i}. '{s.get('sub_question','')}' -> {len(rows)} rows x {len(columns)} cols")
+        lines.append(msg("planner_step", N=i, QUESTION=s.get("sub_question", ""), ROWS=len(rows), COLS=len(columns)))
         if not columns:
             continue
         shown = columns[:PREVIEW_COLS]
-        extra = f" (+{len(columns) - len(shown)} more)" if len(columns) > len(shown) else ""
-        lines.append(f"   columns: {', '.join(str(c) for c in shown)}{extra}")
+        extra = " " + msg("planner_columns_extra", COUNT=len(columns) - len(shown)) if len(columns) > len(shown) else ""
+        lines.append("   " + msg("planner_columns", COLUMNS=", ".join(str(c) for c in shown), EXTRA=extra))
         for row in rows[:PREVIEW_ROWS]:
-            lines.append("   sample:  " + " | ".join(_cell(v) for v in list(row)[:PREVIEW_COLS]))
+            lines.append("   " + msg("planner_sample", VALUES=" | ".join(_cell(v) for v in list(row)[:PREVIEW_COLS])))
         if len(rows) > PREVIEW_ROWS:
-            lines.append(f"   ... {len(rows) - PREVIEW_ROWS} more row(s) not shown")
+            lines.append("   " + msg("planner_more_rows", COUNT=len(rows) - PREVIEW_ROWS))
     return "\n".join(lines)
 
 
@@ -67,13 +67,8 @@ def planner_node(state: AgentState) -> dict:
             "verify_feedback": "",
         }
 
-    user = (
-        history_for(state)
-        + f"USER QUESTION: {state['question']}\n\n"
-        f"DATA GATHERED SO FAR:\n{_gathered_summary(steps)}\n\n"
-        f"(You have run {state.get('query_count', 0)} of max {agent_settings.max_queries} queries.)\n"
-        "Decide whether to run one more focused query or to answer now."
-    )
+    user = msg("planner", HISTORY=history_for(state), QUESTION=state["question"], GATHERED=_gathered_summary(steps),
+               COUNT=state.get("query_count", 0), MAX=agent_settings.max_queries)
     data = extract_json(chat(current_prompts().PLANNER_SYSTEM, user, temperature=0.0, fast=True), default={"action": "answer"})
     action = str(data.get("action", "answer")).lower()
 

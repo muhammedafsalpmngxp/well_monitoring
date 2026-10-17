@@ -172,6 +172,7 @@ public static class DependencyInjection
         services.AddHttpClient<IAiChatClient, OpenAiCompatibleChatClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
         services.AddSingleton<IAiKeyProtector, AiKeyProtector>();
         services.AddScoped<IAiService, AiService>();
+        services.AddScoped<IAiPromptStore, AiPromptStore>();
         services.AddScoped<IAiAskService, AiAskService>();
         services.AddScoped<IAiAlertService, AiAlertService>();
         services.AddHostedService<AiAlertWorker>();

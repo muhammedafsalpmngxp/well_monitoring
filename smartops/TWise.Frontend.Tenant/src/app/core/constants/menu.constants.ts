@@ -59,6 +59,7 @@ export const MENU_STRUCTURE: MenuGroup[] = [
           { label: 'Data Sync', icon: 'database_view', route: `/${ROUTES.SETTINGS}/data-sync`, moduleCode: 'settings.data-sync' },
           { label: 'AI Providers', icon: 'auto_awesome', route: `/${ROUTES.SETTINGS}/ai/providers`, moduleCode: 'settings.ai' },
           { label: 'AI Features', icon: 'auto_awesome', route: `/${ROUTES.SETTINGS}/ai/features`, moduleCode: 'settings.ai' },
+          { label: 'AI Prompts', icon: 'auto_awesome', route: `/${ROUTES.SETTINGS}/ai/prompts`, moduleCode: 'settings.ai', adminOnly: true },
           { label: 'AI Activity', icon: 'auto_awesome', route: `/${ROUTES.SETTINGS}/ai/activity`, moduleCode: 'settings.ai' },
           { label: 'AI Relationships', icon: 'auto_awesome', route: `/${ROUTES.SETTINGS}/ai/relations`, moduleCode: 'settings.ai' },
           { label: 'Visual Marketplace', icon: 'database_view', route: `/${ROUTES.SETTINGS}/marketplace`, moduleCode: 'settings.marketplace' },

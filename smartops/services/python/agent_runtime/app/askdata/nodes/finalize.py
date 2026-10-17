@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.askdata.prompts import current_prompts
+from app.askdata.prompts import current_prompts, msg
 from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
@@ -73,13 +73,10 @@ def chitchat_node(state: AgentState) -> dict:
     the entity names read from the live schema keeps any example concrete and correct; when no
     schema is loaded the prompt falls back to describing kinds of question instead.
     """
-    parts = [f"USER MESSAGE: {state['question']}"]
+    parts = [msg("chitchat", MESSAGE=state["question"])]
     entities = _entity_names(state.get("schema", ""))
     if entities:
-        parts.append(
-            "ENTITY NAMES IN THIS DATABASE (use these if you give an example; never invent "
-            f"others): {', '.join(entities)}"
-        )
+        parts.append(msg("chitchat_entities", ENTITIES=", ".join(entities)))
     # 0.6 rather than 0.4: the reply must not read as the same stock paragraph every time, and the
     # prompt now forbids a fixed opening — a little more variation supports that.
     answer = strip_think(chat(current_prompts().CHITCHAT_SYSTEM, "\n\n".join(parts), temperature=0.6, fast=True))

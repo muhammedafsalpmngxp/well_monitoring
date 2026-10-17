@@ -7,6 +7,7 @@ using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai.Activity;
 using TWise.Tenant.Application.Features.Ai.Alerts;
 using TWise.Tenant.Application.Features.Ai.Ask;
+using TWise.Tenant.Application.Features.Ai.PromptLibrary;
 using TWise.Tenant.Application.Features.Ai.Builder;
 using TWise.Tenant.Application.Features.Ai.Conversations;
 using TWise.Tenant.Application.Features.Ai.DatasetPrompts;
@@ -457,6 +458,40 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
     public Task<IActionResult> SavePrompt(string key, [FromBody] SaveAiPromptRequest request, CancellationToken ct) =>
         AdminAsync(async t => Ok(await sender.Send(new SaveAiPromptCommand(t, UserId(), key, request.Text), ct)));
 
+    // ── AI prompts (Settings → AI Prompts, admins only) ───────────────────────────────────────────────────────────
+
+    /// <summary>Every AI prompt of the tenant (AI features, Ask Data, agents): text in use, version, original, last change.</summary>
+    [HttpGet("prompt-library")]
+    [ProducesResponseType(typeof(IReadOnlyList<AiPromptItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> GetPromptLibrary(CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new GetAiPromptLibraryQuery(t), ct)));
+
+    /// <summary>Every saved version of one prompt, newest first.</summary>
+    [HttpGet("prompt-library/{key}/history")]
+    [ProducesResponseType(typeof(IReadOnlyList<AiPromptVersionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> GetPromptHistory(string key, CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new GetAiPromptHistoryQuery(t, key), ct)));
+
+    /// <summary>Saves a new version of one prompt. 400 with the reason when the text breaks a rule (a placeholder or the
+    /// reply format removed) or someone saved a newer version than ExpectedVersion.</summary>
+    [HttpPut("prompt-library/{key}")]
+    [ProducesResponseType(typeof(AiPromptItemDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> SavePromptVersion(string key, [FromBody] SaveAiPromptVersionRequest request, CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new SaveAiPromptVersionCommand(t, UserName(), key, request), ct)));
+
+    /// <summary>Makes an earlier version (1 = the original) the active one, as a new version.</summary>
+    [HttpPost("prompt-library/{key}/restore")]
+    [ProducesResponseType(typeof(AiPromptItemDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> RestorePrompt(string key, [FromBody] RestoreAiPromptRequest request, CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new RestoreAiPromptCommand(t, UserName(), key, request), ct)));
+
     /// <summary>All registered providers, active first.</summary>
     [HttpGet("providers")]
     [ProducesResponseType(typeof(IReadOnlyList<AiProviderDto>), StatusCodes.Status200OK)]
@@ -582,6 +617,11 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
         User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
 
     private bool TryGetUserId(out long userId) => long.TryParse(UserId(), out userId);
+
+    /// <summary>Who to show in a prompt's history: the e-mail from the token, else the user id.</summary>
+    private string UserName() =>
+        User.FindFirst(JwtRegisteredClaimNames.Email)?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+        ?? User.FindFirst("email")?.Value ?? UserId();
 
     private bool TryGetIds(out long tenantId, out long userId) => TryGetTenantId(out tenantId) & TryGetUserId(out userId);
 
