@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
-import { AiClarification, AiClarifyOption, AiConversation, AiDataset, AiDatasetNote, AiFeatures, AiAlert, AiAlertKind, AiInsightReport, AiPromptDto, AiExample, AiMetric, AiTraceStep, AiNoteProposal, AiTerm, AiQueryResult, AiQuerySpec, AiService } from '../../../core/services/ai.service';
+import { AiAskDataSql, AiClarification, AiClarifyOption, AiConversation, AiDataset, AiDatasetNote, AiFeatures, AiAlert, AiAlertKind, AiInsightReport, AiPromptDto, AiExample, AiMetric, AiTraceStep, AiNoteProposal, AiTerm, AiQueryResult, AiQuerySpec, AiService } from '../../../core/services/ai.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AskAiPanelService } from '../../../core/services/ask-ai-panel.service';
 import { Router } from '@angular/router';
@@ -14,12 +14,15 @@ import { CategoryService } from '../../../core/services/category.service';
 import { normalizeAdvancedChartType } from '../../../core/utils/advanced-chart.util';
 import { StringUtil } from '../../../core/utils/string.util';
 import { forkJoin } from 'rxjs';
+import { markdownToHtml } from '../../../core/utils/markdown.util';
 
 /** One rendered turn: the question plus what came back while it streamed. */
 interface Turn {
   question: string;
   status: string;
   spec: AiQuerySpec | null;
+  /** Ask Data answers: the SQL instead of a spec (no likes, alerts or reports then). */
+  sql?: AiAskDataSql | null;
   result: AiQueryResult | null;
   answer: string;
   error: string;
@@ -49,8 +52,9 @@ interface Turn {
 }
 
 /**
- * "Ask your data" drawer. Pick a dataset, type a question, watch the query spec, result table and
- * answer stream in. Follow-up questions reuse the conversation so the model sees earlier specs.
+ * "Ask your data" drawer. Type a question: Ask Data (the agent runtime's multi-agent graph over the Ask Data
+ * database) answers it with the query it ran, the result table and a formatted answer. Follow-up questions reuse
+ * the conversation. Conversations started on a dataset before keep using that dataset's spec engine.
  */
 @Component({
   selector: 'app-ask-ai-panel',
@@ -83,6 +87,20 @@ export class AskAiPanelComponent implements OnInit {
   features: AiFeatures = { enabled: [] };
 
   can(key: string): boolean { return this.features.enabled.includes(key); }
+
+  /** Answers as formatted HTML (tables, lists, bold); converted once per text, not on every check. */
+  private mdCache = new Map<string, string>();
+  md(text: string): string {
+    let html = this.mdCache.get(text);
+    if (html === undefined) {
+      if (this.mdCache.size > 100) this.mdCache.clear();
+      this.mdCache.set(text, (html = markdownToHtml(text)));
+    }
+    return html;
+  }
+
+  /** The open conversation is on a dataset (not Ask Data): its notes editor applies. */
+  get onDataset(): boolean { return !!this.selectedKey && !this.selectedKey.startsWith('askdata:'); }
 
   /** Admin notes editor for the current dataset (grounds the model). */
   showNotes = false;
@@ -172,16 +190,12 @@ export class AskAiPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.ai.features().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: f => { this.features = f; this.cdr.markForCheck(); }, error: () => { /* defaults */ } });
-    this.ai.datasets().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: d => { this.datasets = d; this.cdr.markForCheck(); },
-      error: err => { this.loadError = err?.status === 401 ? 'Your session has expired. Please sign in again.' : (err?.error?.message ?? 'Datasets could not be loaded.'); this.cdr.markForCheck(); },
-    });
     this.loadConversations();
     this.loadAlerts();
   }
 
   get canAsk(): boolean {
-    return !this.busy && !!this.question.trim() && (this.conversationId !== null || !!this.selectedKey);
+    return !this.busy && !!this.question.trim();
   }
 
   /** Nothing asked yet on this thread: the dataset picker is still editable. */
@@ -193,6 +207,7 @@ export class AskAiPanelComponent implements OnInit {
     this.askSub?.unsubscribe();
     this.conversationId = null;
     this.sourceName = '';
+    this.selectedKey = '';
     this.turns = [];
     this.busy = false;
     this.showHistory = false;
@@ -309,8 +324,9 @@ export class AskAiPanelComponent implements OnInit {
 
     this.askSub = this.ai.ask({
       conversationId: this.conversationId,
-      sourceType: this.conversationId ? null : (sourceType as 'view' | 'import'),
-      sourceId: this.conversationId ? null : Number(id),
+      // A new question has no dataset: Ask Data answers it. An open conversation keeps its own source.
+      sourceType: null,
+      sourceId: null,
       question,
       spec: this.takePendingSpec(),
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -318,6 +334,7 @@ export class AskAiPanelComponent implements OnInit {
         switch (ev.type) {
           case 'status': turn.status = ev.data; break;
           case 'spec': turn.spec = ev.data; turn.status = 'Running the query…'; break;
+          case 'sql': turn.sql = ev.data; break;
           case 'result':
             turn.result = ev.data; turn.status = 'Writing the answer…';
             if (turn.spec) turn.chart = this.presets.suggest(turn.spec, ev.data, question, sourceType as 'view' | 'import', Number(id), this.sourceName || this.datasets.find(d => `${d.sourceType}:${d.sourceId}` === this.selectedKey)?.name || '');

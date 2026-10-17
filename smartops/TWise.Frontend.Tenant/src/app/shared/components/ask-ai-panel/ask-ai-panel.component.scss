@@ -1,3 +1,6 @@
+@use '../../../../styles/agent-answer' as answer;
+@include answer.agent-answer;
+
 .ask {
   position: fixed;
   top: 0; right: 0; bottom: 0;
@@ -52,7 +55,9 @@
   &__a { display: grid; gap: 8px; background: #f9fafb; border: 1px solid #eaecf0; border-radius: 2px 12px 12px 12px; padding: 10px 12px; }
   &__status { margin: 0; color: #475467; display: flex; align-items: center; gap: 8px; }
   &__dot { width: 8px; height: 8px; border-radius: 50%; background: #f58220; animation: ask-pulse 1s infinite; }
-  &__answer { margin: 0; white-space: pre-wrap; }
+  &__answer { margin: 0; }
+  &__sql { margin: 0; white-space: pre-wrap; overflow-x: auto; }
+  &__intro { margin: 0; }
   &__error { margin: 0; padding: 8px 10px; border-radius: 6px; background: #fef3f2; color: #b42318; }
 
   &__result {

@@ -9,6 +9,8 @@ Endpoints:
   POST /api/agent-runtime/agentflow/export   agent -> agentflow.json v1 (AgenticUIFramework format)
   POST /api/agent-runtime/agentflow/import   agentflow.json v1 -> agent + warnings
   POST /api/agent-runtime/askdata/export   an Ask Data answer's data as xlsx / docx (signed token, no model call)
+  POST /api/agent-runtime/askdata/ask   Ask your data: one question on the Ask Data database; events:
+                                  status, node (ping when quiet), then done or error
   POST /api/agent-runtime/run     runs one agent configuration; server-sent events:
                                   step, status, node while it runs (ping every 15 s when quiet),
                                   then done or error
@@ -35,7 +37,7 @@ from smartops_shared.app import create_app
 from app import twise
 from app.agentflow.convert import from_agentflow, to_agentflow
 from app.graph import build_graph, missing_inputs
-from app.models import AskDataExportRequest, RunRequest
+from app.models import AskDataAskRequest, AskDataExportRequest, RunRequest
 
 API_KEY = os.environ.get("AGENT_RUNTIME_API_KEY", "")
 
@@ -96,6 +98,31 @@ def askdata_export(req: AskDataExportRequest) -> Response:
     except ImportError as exc:
         raise HTTPException(status_code=501, detail=f"{req.format.upper()} export is not available on this server ({exc}).") from exc
     return Response(content=body, media_type=content_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@app.post("/api/agent-runtime/askdata/ask", dependencies=[Depends(require_key)])
+def askdata_ask(req: AskDataAskRequest) -> StreamingResponse:
+    return StreamingResponse(
+        (_sse(name, data) for name, data in with_heartbeat(askdata_events(req))),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def askdata_events(req: AskDataAskRequest) -> Iterator[tuple[str, dict[str, Any]]]:
+    """The question as (event, data) pairs from the same Ask Data graph an agent's ask_data step runs; last is done or error."""
+    from app.askdata import runner
+
+    try:
+        for ev in runner.ask(req.question, req.history, mode=req.mode, options=req.ask_data, db=req.db, llm=req.llm):
+            data = ev["data"]
+            if ev["event"] == "done":
+                # The panel has no Export button: drop the "download using the Export option" sentence.
+                data = {**data, "answer": runner.without_export_hints(data.get("answer") or "")}
+            yield ev["event"], data
+    except Exception as exc:  # noqa: BLE001 - shown in the panel
+        log.exception("Ask your data failed")
+        yield "error", {"message": f"Ask Data failed: {exc}"[:1000]}
 
 
 @app.post("/api/agent-runtime/run", dependencies=[Depends(require_key)])

@@ -8,7 +8,7 @@
       <span class="ask__source" *ngIf="sourceName">· {{ sourceName }}</span>
     </div>
     <div class="ask__header-actions">
-      <button type="button" class="ask__icon" title="Dataset notes (admin)" *ngIf="isAdmin && selectedKey && can('learning')" (click)="showNotes ? showNotes = false : openNotes()" [class.ask__icon--active]="showNotes">
+      <button type="button" class="ask__icon" title="Dataset notes (admin)" *ngIf="isAdmin && onDataset && can('learning')" (click)="showNotes ? showNotes = false : openNotes()" [class.ask__icon--active]="showNotes">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h12l4 4v12H4z"/><path d="M8 12h8M8 16h8"/></svg>
       </button>
       <button type="button" class="ask__icon" title="History" (click)="showNotes = false; showHistory = !showHistory" [class.ask__icon--active]="showHistory">
@@ -164,17 +164,8 @@
   <div class="ask__body" #scroller *ngIf="!showHistory && !showNotes">
     <p *ngIf="loadError" class="ask__error">{{ loadError }}</p>
 
-    <!-- Dataset picker, shown until the first question is sent -->
-    <label class="ask__dataset" *ngIf="pickingDataset">
-      Dataset
-      <select [(ngModel)]="selectedKey" name="dataset">
-        <option value="" disabled>Choose a view or imported file…</option>
-        <option *ngFor="let d of datasets" [value]="d.sourceType + ':' + d.sourceId">
-          {{ d.name }}<ng-container *ngIf="d.rowCount"> ({{ d.rowCount | number }} rows)</ng-container> — {{ d.sourceType === 'view' ? 'view' : 'import' }}
-        </option>
-      </select>
-      <small class="ask__muted">Ask things like "total sales by region", "top 5 wells by downtime" or "how many orders in March".</small>
-    </label>
+    <!-- Before the first question: what can be asked (Ask Data reads the whole database; no dataset to pick) -->
+    <p class="ask__muted ask__intro" *ngIf="pickingDataset">Ask anything about your wells, projects, crews, tasks and employees, for example "how many wells were completed this month?", "top 5 crews by progress" or "employees who worked on well 33785".</p>
 
     <div class="ask__turn" *ngFor="let t of turns; trackBy: trackTurn">
       <div class="ask__q">{{ t.question }}</div>
@@ -191,7 +182,8 @@
           <button type="button" class="ask__chip" *ngFor="let s of t.suggestions" [disabled]="busy" (click)="askSuggestion(s)">{{ s }}</button>
         </div>
 
-        <p class="ask__answer" *ngIf="t.answer">{{ t.answer }}</p>
+        <div class="ask__answer agent-md" *ngIf="t.answer" [innerHTML]="md(t.answer)"></div>
+        <small class="ask__muted" *ngIf="t.sql">{{ t.sql.queries }} {{ t.sql.queries === 1 ? 'query' : 'queries' }} · {{ t.sql.verified ? 'figures verified' : 'figures not verified' }}</small>
         <ul class="ask__insights" *ngIf="t.insights?.length" aria-label="Key findings">
           <li *ngFor="let f of t.insights">{{ f }}</li>
         </ul>
@@ -210,16 +202,16 @@
           </small>
         </div>
 
-        <div class="ask__actions" *ngIf="t.spec || t.trace">
-          <button type="button" class="ask__like" *ngIf="t.messageId && can('learning')" (click)="toggleLike(t)" [class.ask__like--on]="t.liked"
+        <div class="ask__actions" *ngIf="t.spec || t.sql || t.trace">
+          <button type="button" class="ask__like" *ngIf="t.messageId && t.spec && can('learning')" (click)="toggleLike(t)" [class.ask__like--on]="t.liked"
             [title]="t.liked ? 'Remove from examples' : 'Good answer: keep as an example for this dataset'" aria-label="Good answer">
             <svg width="16" height="16" viewBox="0 0 24 24" [attr.fill]="t.liked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.3a2 2 0 0 0 2-1.7l1.4-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
           </button>
-          <button type="button" class="ask__like" *ngIf="t.messageId && can('learning')" (click)="toggleDislike(t)" [class.ask__like--off]="t.disliked"
+          <button type="button" class="ask__like" *ngIf="t.messageId && t.spec && can('learning')" (click)="toggleDislike(t)" [class.ask__like--off]="t.disliked"
             [title]="t.disliked ? 'Remove rating' : 'Wrong answer: never use it as an example'" aria-label="Wrong answer">
             <svg width="16" height="16" viewBox="0 0 24 24" [attr.fill]="t.disliked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
           </button>
-          <button type="button" class="ask__link" *ngIf="t.spec" (click)="t.showQuery = !t.showQuery">{{ t.showQuery ? 'Hide query' : 'Show query' }}</button>
+          <button type="button" class="ask__link" *ngIf="t.spec || t.sql" (click)="t.showQuery = !t.showQuery">{{ t.showQuery ? 'Hide query' : 'Show query' }}</button>
           <button type="button" class="ask__link" *ngIf="can('trace') && (t.trace || t.messageId)" (click)="toggleTrace(t)">{{ t.showTrace ? 'Hide steps' : 'Show steps' }}</button>
           <button type="button" class="ask__link" *ngIf="t.messageId && t.spec?.groupBy?.length && (t.result?.rows?.length || 0) >= 3" [disabled]="t.reportLoading" (click)="toggleReport(t)" title="Trend, anomalies and recommendations for this answer">{{ t.report ? 'Hide report' : t.reportLoading ? 'Building report…' : 'Insight report' }}</button>
           <button type="button" class="ask__link" *ngIf="can('alerts') && t.messageId && t.spec" (click)="toggleAlertForm(t)">Alert me</button>
@@ -228,6 +220,7 @@
           <button type="button" class="ask__link" *ngIf="t.chart && can('chart')" (click)="openAddToDashboard(t)">Add to dashboard</button>
         </div>
         <code class="ask__spec" *ngIf="t.spec && t.showQuery">{{ describe(t.spec) }}</code>
+        <pre class="ask__spec ask__sql" *ngIf="!t.spec && t.sql && t.showQuery">{{ t.sql.sql }}</pre>
 
         <!-- Insight report: trend, findings and anomalies checked in code; recommendations from the AI -->
         <small class="ask__muted" *ngIf="t.reportError">{{ t.reportError }}</small>

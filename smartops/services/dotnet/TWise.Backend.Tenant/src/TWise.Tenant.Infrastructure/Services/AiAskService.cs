@@ -19,7 +19,7 @@ namespace TWise.Tenant.Infrastructure.Services;
 /// QuerySpecEngine validates and runs it in memory, and a second streamed call phrases the answer.
 /// The model never sees connection details and never writes SQL.
 /// </summary>
-public sealed class AiAskService(
+public sealed partial class AiAskService(
     IAiService ai,
     IAiConversationRepository conversations,
     IDatabaseViewService views,
@@ -31,7 +31,9 @@ public sealed class AiAskService(
     ICurrentUserService currentUser,
     IServiceScopeFactory scopes,
     IMemoryCache cache,
-    IAiViewQueryRunner viewQueries) : IAiAskService
+    IAiViewQueryRunner viewQueries,
+    IAgentRuntimeClient runtime,
+    IAiUsageRepository usage) : IAiAskService
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private const int HistoryTurns = 6;
@@ -62,6 +64,11 @@ public sealed class AiAskService(
             conv = await conversations.GetAsync(cid, tenantId, userId.ToString(), ct);
             if (conv is null) { yield return Error("Conversation not found."); yield break; }
         }
+        else if (request.SourceType is null or AskDataSource)
+        {
+            // No dataset chosen: the question goes to Ask Data, over the whole Ask Data database.
+            conv = new AiConversation { TenantId = tenantId, UserId = userId.ToString(), SourceType = AskDataSource, SourceId = 0, SourceName = AskDataName, Title = question.Length > 120 ? question[..120] : question };
+        }
         else
         {
             if (request.SourceType is not ("view" or "import") || request.SourceId is null) { yield return Error("Choose a dataset first."); yield break; }
@@ -70,6 +77,12 @@ public sealed class AiAskService(
 
         // Every step is traced (prompts, replies, timings) and kept with the answer; shown only with the Trace feature.
         var tracing = await FeatureOnAsync(tenantId, AiFeatureCatalog.Trace, ct);
+
+        if (conv.SourceType == AskDataSource)
+        {
+            await foreach (var ev in AskDataAsync(conv, question, tracing, tenantId, userId, ct)) yield return ev;
+            yield break;
+        }
         var trace = new List<AiTraceStep>();
         var started = Stopwatch.GetTimestamp();
 

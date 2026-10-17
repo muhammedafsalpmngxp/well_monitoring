@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { Agent, AgentsService, AgentStepResult, SaveAgentRequest } from '../agents.service';
-import { markdownToHtml } from '../markdown.util';
+import { markdownToHtml } from '../../../core/utils/markdown.util';
 
 /**
  * Runs a saved agent from the AI Agents list: asks for the agent's inputs, streams the run (stage, steps,

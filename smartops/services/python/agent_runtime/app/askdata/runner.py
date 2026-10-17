@@ -104,6 +104,19 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
     yield {"event": "done", "data": response}
 
 
+def without_export_hints(answer: str) -> str:
+    """The answer without sentences pointing at an Export option (synthesize adds them), for callers that offer none."""
+    import re
+    from app.askdata.tools.export_formats import _EXPORT_HINT
+
+    lines = []
+    for line in answer.splitlines():
+        kept = " ".join(s for s in re.split(r"(?<=[.!?])\s+", line) if not _EXPORT_HINT.search(s))
+        if kept.strip() or not line.strip():
+            lines.append(kept if line.strip() else line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip() or answer
+
+
 def settings_for(options: Any) -> AskDataSettings:
     """The agent's Knowledge Source limits over the deployment's defaults. An agent can only narrow the schemas
     the deployment allows (ASKDATA_ALLOWED_SCHEMAS), never add one such as sys or INFORMATION_SCHEMA."""

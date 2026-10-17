@@ -133,3 +133,13 @@ class AskDataExportRequest(_Camel):
     verified: bool = True
     db: Db
     ask_data: AskDataOptions | None = None
+
+
+class AskDataAskRequest(_Camel):
+    """Ask your data (the top-bar panel): one question on the Ask Data database, as an agent's ask_data step asks it."""
+    question: str = Field(min_length=1, max_length=2000)
+    history: list[dict[str, str]] = []   # earlier turns: {"user": ..., "assistant": ...}
+    mode: Literal["deep", "normal"] = "deep"
+    db: Db
+    llm: Llm
+    ask_data: AskDataOptions | None = None

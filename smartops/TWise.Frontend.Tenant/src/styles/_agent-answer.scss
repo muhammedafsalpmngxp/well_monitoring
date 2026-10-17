@@ -1,4 +1,4 @@
-// An agent answer rendered from markdown (markdown.util.ts), shared by the Test panel and the Run dialog.
+// An AI answer rendered from markdown (core/utils/markdown.util.ts): agent Test panel, Run dialog, Ask your data.
 // The HTML comes in through [innerHTML], so component style encapsulation does not reach it: ::ng-deep, scoped
 // under .agent-md.
 @mixin agent-answer {

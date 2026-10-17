@@ -355,3 +355,29 @@ def test_done_event_carries_an_export_token(monkeypatch):
         events = list(runner.ask("q", [], mode="deep", options=None,
                                  db=Db(server="s", name="n", user="u", password="p"), llm=None))
     assert events[-1]["data"]["export_token"]
+
+
+def test_ask_your_data_answers_drop_the_export_hint():
+    from app.askdata.runner import without_export_hints
+    answer = "There are **12** wells.\n\nShowing the first 12 of 40 records.\n\nAll 40 can be downloaded using the Export option below."
+    assert without_export_hints(answer) == "There are **12** wells.\n\nShowing the first 12 of 40 records."
+    table = "| a | b |\n|---|---|\n| 1 | 2 |"
+    assert without_export_hints(table) == table
+
+
+def test_ask_your_data_endpoint_streams_the_ask_data_graph(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app import main
+    from app.askdata import runner
+
+    def fake_ask(question, history, **_k):
+        yield {"event": "status", "data": {"stage": "Understanding your question"}}
+        yield {"event": "done", "data": {"answer": "3 wells. They can be downloaded using the Export option below.", "steps": []}}
+    monkeypatch.setattr(runner, "ask", fake_ask)
+    monkeypatch.setattr(main, "API_KEY", "")
+    body = {"question": "how many wells?", "db": {"server": "s", "name": "n", "user": "u", "password": "p"},
+            "llm": {"baseUrl": "http://x", "model": "m"}}
+    with run_context(None):
+        text = TestClient(main.app).post("/api/agent-runtime/askdata/ask", json=body).text
+    assert "event: status" in text and "event: done" in text
+    assert '"answer": "3 wells."' in text

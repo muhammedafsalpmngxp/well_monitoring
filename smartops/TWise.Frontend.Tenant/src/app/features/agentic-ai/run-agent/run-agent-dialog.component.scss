@@ -1,4 +1,4 @@
-@use '../agent-answer' as answer;
+@use '../../../../styles/agent-answer' as answer;
 @include answer.agent-answer;
 
 // Same look as the agent builder's dialogs and Test panel: #21409A primary, #E7ECF3 borders, 6px controls.

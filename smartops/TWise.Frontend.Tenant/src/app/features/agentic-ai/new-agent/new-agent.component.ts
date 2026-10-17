@@ -5,7 +5,7 @@ import { Subscription } from 'rxjs';
 import { Agent, AgentBranch, AgentsService, AgentTool, AgentStepResult, AgentToolOption, AgentType, SaveAgentRequest } from '../agents.service';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
 import { circleAt, neverReached, stepsToSave } from '../agent-steps.util';
-import { markdownToHtml } from '../markdown.util';
+import { markdownToHtml } from '../../../core/utils/markdown.util';
 
 export interface InstructionItem {
   value: string;

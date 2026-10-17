@@ -37,6 +37,22 @@ public sealed class AgentRuntimeClient(HttpClient http, IConfiguration config) :
         {
             Content = JsonContent.Create(new { agent, inputs, llm, sessionId, db = AgentMapping.UsesAskData(agent) ? AskDataDb() : null }, options: Json),
         };
+        await foreach (var ev in EventsAsync(req, ct)) yield return ev;
+    }
+
+    public async IAsyncEnumerable<AgentRuntimeEvent> AskDataAsync(string question, IReadOnlyList<Dictionary<string, string>> history,
+        AgentRuntimeLlm llm, [EnumeratorCancellation] CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, "api/agent-runtime/askdata/ask")
+        {
+            Content = JsonContent.Create(new { question, history, mode = "deep", db = AskDataDb(), llm }, options: Json),
+        };
+        await foreach (var ev in EventsAsync(req, ct)) yield return ev;
+    }
+
+    /// <summary>Sends the request and reads the reply as server-sent events.</summary>
+    private async IAsyncEnumerable<AgentRuntimeEvent> EventsAsync(HttpRequestMessage req, [EnumeratorCancellation] CancellationToken ct)
+    {
         using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!res.IsSuccessStatusCode)
             throw new HttpRequestException($"{(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync(ct))}");

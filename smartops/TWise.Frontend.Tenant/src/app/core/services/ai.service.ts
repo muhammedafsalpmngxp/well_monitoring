@@ -153,9 +153,13 @@ export interface AiAskRequest { conversationId?: number | null; sourceType?: AiS
 export interface AiClarifyOption { label: string; spec: AiQuerySpec }
 export interface AiClarification { question: string; options: AiClarifyOption[] }
 
+/** Ask Data answers: the last query it ran, whether its verifier accepted the figures, and how many queries ran. */
+export interface AiAskDataSql { sql: string; verified: boolean; queries: number }
+
 export type AiAskEvent =
   | { type: 'status'; data: string }
   | { type: 'spec'; data: AiQuerySpec }
+  | { type: 'sql'; data: AiAskDataSql }
   | { type: 'result'; data: AiQueryResult }
   | { type: 'answer'; data: string }
   | { type: 'done'; data: { conversationId: number; sourceName: string; messageId: number } | { cached: boolean } | null }

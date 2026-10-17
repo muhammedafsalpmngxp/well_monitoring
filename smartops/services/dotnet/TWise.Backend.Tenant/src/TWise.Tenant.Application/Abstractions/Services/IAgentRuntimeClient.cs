@@ -27,4 +27,9 @@ public interface IAgentRuntimeClient
     /// database is attached by the client when a tool is ask_data.</summary>
     IAsyncEnumerable<AgentRuntimeEvent> RunAsync(SaveAiAgentRequest agent, IReadOnlyDictionary<string, string> inputs,
         AgentRuntimeLlm? llm, string sessionId, CancellationToken ct);
+
+    /// <summary>Ask your data: one question on the Ask Data database with the same graph as an agent's ask_data step
+    /// (deep mode). History is earlier {user, assistant} turns. Yields status / node events, then done or error.</summary>
+    IAsyncEnumerable<AgentRuntimeEvent> AskDataAsync(string question, IReadOnlyList<Dictionary<string, string>> history,
+        AgentRuntimeLlm llm, CancellationToken ct);
 }
