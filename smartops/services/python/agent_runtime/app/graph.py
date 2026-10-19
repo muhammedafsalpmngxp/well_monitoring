@@ -32,7 +32,7 @@ from app.models import AgentConfig, Branch, Db, Llm, Step
 from app.prompt_text import fill as fill_prompt, fill_lines, text as prompt
 
 ASK_DATA = "ask_data"   # the built-in tool: DB Assistant's graph, run in this process (app/askdata)
-# The agent-level prompt texts (core.AiSettings.prompts_json, sent with each run). Needed when the run has a model.
+# The agent-level prompt texts (core.AiPrompt, sent with each run). Needed when the run has a model.
 AGENT_KEYS = tuple(f"agent.{n}" for n in (
     "profile_role", "profile_goal", "supervisor", "worker", "loop_check", "router", "router_none_fits", "choice",
     "progress_inputs", "progress_input", "progress_results", "progress_none", "progress_step", "progress_failed",

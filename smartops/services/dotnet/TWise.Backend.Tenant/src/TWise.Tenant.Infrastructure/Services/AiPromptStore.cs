@@ -1,7 +1,5 @@
 using System.Data;
 using System.Data.Common;
-using System.Reflection;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -17,68 +15,51 @@ namespace TWise.Tenant.Infrastructure.Services;
 
 /// <summary>
 /// The tenant's AI prompts in the tenant database (see IAiPromptStore):
-///   core.AiSettings.prompts_json  the active text of every prompt, {key: text}
-///   core.AiSettings.row_ver       rowversion: the cache is refreshed when it changes (any server's save)
-///   core.AiPromptHistory          every version; version 1 of a key is its original ('seed'), is_current marks the live one
-/// Saves, restores and seeding each run in one transaction holding an update lock on the tenant's AiSettings row, so
-/// concurrent requests cannot interleave. The seed (Resources/ai-prompts.seed.json) is only copied into the database;
-/// prompts are always read from the database.
+///   core.AiPrompt          one row per prompt: its active text and live version number (row_ver refreshes the cache)
+///   core.AiPromptHistory   every version; version 1 of a key is its original ('seed'), is_current marks the live one
+/// The history decides which version is live; core.AiPrompt always holds that version's text. Saves, restores and the
+/// sync that seeds a tenant each run in one transaction holding the tenant's prompt lock (sp_getapplock), so concurrent
+/// requests cannot interleave. The seed (Resources/ai-prompts.seed.json) is only copied into the database; prompts are
+/// always read from the database. core.AiSettings.prompts_json, where prompts lived before core.AiPrompt, is only read
+/// once, to carry over a text that has neither a row nor history yet.
 /// </summary>
 public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogger<AiPromptStore> logger) : IAiPromptStore
 {
     private const string SystemUser = "system";
-    private static readonly JsonSerializerOptions JsonOut = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     private static readonly Lazy<IReadOnlyDictionary<string, string>> SeedTexts = new(LoadSeed);
 
     /// <summary>The texts every tenant starts with, from the embedded seed file. Checked against the catalog.</summary>
     public static IReadOnlyDictionary<string, string> Seed => SeedTexts.Value;
 
-    private sealed record Cached(byte[] RowVer, IReadOnlyDictionary<string, string> Texts);
-    private sealed record Current(int Version, string Body, string ChangedBy, DateTime ChangedAt);
-
-    public async Task<IReadOnlyDictionary<string, string>> GetAsync(long tenantId, CancellationToken ct)
+    /// <summary>What a cached copy was read at: core.AiPrompt's newest row_ver and row count, the newest history row.</summary>
+    private sealed record Stamp(byte[]? RowVer, int Rows, long? HistoryId)
     {
-        var key = CacheKey(tenantId);
-        var rowVer = await ScalarAsync<byte[]>("SELECT row_ver FROM core.AiSettings WHERE tenant_id = @t", null, ct, ("@t", tenantId));
-        if (rowVer is not null && cache.TryGetValue(key, out Cached? hit) && hit!.RowVer.AsSpan().SequenceEqual(rowVer))
-            return hit.Texts;
-
-        var texts = AiPrompts.Parse(await ScalarAsync<string>("SELECT prompts_json FROM core.AiSettings WHERE tenant_id = @t", null, ct, ("@t", tenantId)));
-        if (rowVer is null || AiPromptCatalog.All.Any(d => !texts.ContainsKey(d.Key)) || !await HistoryCompleteAsync(tenantId, ct))
-        {
-            await SeedAsync(tenantId, ct);
-            rowVer = await ScalarAsync<byte[]>("SELECT row_ver FROM core.AiSettings WHERE tenant_id = @t", null, ct, ("@t", tenantId));
-            texts = AiPrompts.Parse(await ScalarAsync<string>("SELECT prompts_json FROM core.AiSettings WHERE tenant_id = @t", null, ct, ("@t", tenantId)));
-        }
-        cache.Set(key, new Cached(rowVer!, texts), TimeSpan.FromMinutes(30));
-        return texts;
+        public bool Matches(Stamp other) =>
+            Rows == other.Rows && HistoryId == other.HistoryId && (RowVer ?? []).AsSpan().SequenceEqual(other.RowVer ?? []);
     }
+
+    private sealed record Current(int Version, string Body, string ChangedBy, DateTime ChangedAt);
+    private sealed record Cached(Stamp Stamp, IReadOnlyDictionary<string, string> Texts, IReadOnlyDictionary<string, Current> Live);
+
+    public async Task<IReadOnlyDictionary<string, string>> GetAsync(long tenantId, CancellationToken ct) => (await LoadAsync(tenantId, ct)).Texts;
 
     public async Task<IReadOnlyList<AiPromptItemDto>> ListAsync(long tenantId, CancellationToken ct)
     {
-        var texts = await GetAsync(tenantId, ct);
-        var current = new Dictionary<string, Current>(StringComparer.Ordinal);
+        var loaded = await LoadAsync(tenantId, ct);
         var original = new Dictionary<string, string>(StringComparer.Ordinal);
-        await ReadAsync("""
-            SELECT prompt_key, version_no, body, changed_by, changed_at, is_current FROM core.AiPromptHistory
-            WHERE tenant_id = @t AND (is_current = 1 OR version_no = 1)
-            """, null, ct, r =>
-        {
-            var k = r.GetString(0);
-            if (r.GetInt32(1) == 1) original[k] = r.GetString(2);
-            if (r.GetBoolean(5)) current[k] = new Current(r.GetInt32(1), r.GetString(2), r.GetString(3), r.GetDateTime(4));
-        }, ("@t", tenantId));
+        await ReadAsync("SELECT prompt_key, body FROM core.AiPromptHistory WHERE tenant_id = @t AND version_no = 1", null, ct,
+            r => original[r.GetString(0)] = r.GetString(1), ("@t", tenantId));
         return AiPromptCatalog.All.Select(d =>
         {
-            var c = current.TryGetValue(d.Key, out var cur) ? cur : new Current(1, texts[d.Key], SystemUser, DateTime.UtcNow);
-            return Item(d, texts[d.Key], original.TryGetValue(d.Key, out var o) ? o : texts[d.Key], c);
+            var c = loaded.Live[d.Key];
+            return Item(d, c.Body, original.TryGetValue(d.Key, out var o) ? o : c.Body, c);
         }).ToList();
     }
 
     public async Task<IReadOnlyList<AiPromptVersionDto>> HistoryAsync(long tenantId, string key, CancellationToken ct)
     {
         AiPromptCatalog.Get(key);
-        await GetAsync(tenantId, ct);
+        await LoadAsync(tenantId, ct);
         var versions = new List<AiPromptVersionDto>();
         await ReadAsync("""
             SELECT version_no, action, note, changed_by, changed_at, is_current, body FROM core.AiPromptHistory
@@ -99,23 +80,76 @@ public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogge
             "restore", string.IsNullOrWhiteSpace(note) ? (version == 1 ? "Restored the original" : $"Restored version {version}") : note,
             expectedVersion, userId, ct);
 
-    /// <summary>One new version of one prompt, atomically: history row, previous version no longer current, prompts_json.</summary>
+    /// <summary>
+    /// The live prompts, from the cache while nothing changed (one small query per call), else from core.AiPrompt.
+    /// A tenant whose rows or history are incomplete or disagree is synced first (SyncAsync).
+    /// </summary>
+    private async Task<Cached> LoadAsync(long tenantId, CancellationToken ct)
+    {
+        var key = CacheKey(tenantId);
+        var stamp = await StampAsync(tenantId, ct);
+        if (cache.TryGetValue(key, out Cached? hit) && hit!.Stamp.Matches(stamp))
+            return hit;
+
+        var live = await LiveAsync(tenantId, ct);
+        if (!await ConsistentAsync(tenantId, live, ct))
+        {
+            await SyncAsync(tenantId, ct);
+            stamp = await StampAsync(tenantId, ct);
+            live = await LiveAsync(tenantId, ct);
+        }
+        var texts = AiPromptCatalog.All.ToDictionary(d => d.Key, d => live[d.Key].Body, StringComparer.Ordinal);
+        var loaded = new Cached(stamp, texts, live);
+        cache.Set(key, loaded, TimeSpan.FromMinutes(30));
+        return loaded;
+    }
+
+    private async Task<Stamp> StampAsync(long tenantId, CancellationToken ct)
+    {
+        Stamp stamp = new(null, 0, null);
+        await ReadAsync("""
+            SELECT (SELECT MAX(row_ver) FROM core.AiPrompt WHERE tenant_id = @t),
+                   (SELECT COUNT(*) FROM core.AiPrompt WHERE tenant_id = @t),
+                   (SELECT MAX(id) FROM core.AiPromptHistory WHERE tenant_id = @t)
+            """, null, ct, r => stamp = new Stamp(r.IsDBNull(0) ? null : (byte[])r.GetValue(0), r.GetInt32(1),
+                r.IsDBNull(2) ? null : r.GetInt64(2)), ("@t", tenantId));
+        return stamp;
+    }
+
+    private async Task<Dictionary<string, Current>> LiveAsync(long tenantId, CancellationToken ct)
+    {
+        var live = new Dictionary<string, Current>(StringComparer.Ordinal);
+        await ReadAsync("SELECT prompt_key, version_no, body, modified_by, modified_at FROM core.AiPrompt WHERE tenant_id = @t", null, ct,
+            r => live[r.GetString(0)] = new Current(r.GetInt32(1), r.GetString(2), r.GetString(3), r.GetDateTime(4)), ("@t", tenantId));
+        return live;
+    }
+
+    /// <summary>Every catalog key has a row whose version is the history's live version (false sends LoadAsync to SyncAsync).</summary>
+    private async Task<bool> ConsistentAsync(long tenantId, IReadOnlyDictionary<string, Current> live, CancellationToken ct)
+    {
+        if (AiPromptCatalog.All.Any(d => !live.ContainsKey(d.Key))) return false;
+        var current = new Dictionary<string, int>(StringComparer.Ordinal);
+        await ReadAsync("SELECT prompt_key, version_no FROM core.AiPromptHistory WHERE tenant_id = @t AND is_current = 1", null, ct,
+            r => current[r.GetString(0)] = r.GetInt32(1), ("@t", tenantId));
+        return AiPromptCatalog.All.All(d => current.TryGetValue(d.Key, out var v) && v == live[d.Key].Version);
+    }
+
+    /// <summary>One new version of one prompt, atomically: history row, previous version no longer current, core.AiPrompt row.</summary>
     private async Task<AiPromptItemDto> WriteAsync(long tenantId, string key, Func<IReadOnlyDictionary<int, string>, string> newText,
         string action, string? note, int? expectedVersion, string userId, CancellationToken ct)
     {
         var def = AiPromptCatalog.Get(key);
-        await GetAsync(tenantId, ct);   // seeds the tenant first if needed
+        await LoadAsync(tenantId, ct);   // syncs the tenant first if needed
         var strategy = db.Database.CreateExecutionStrategy();
         var item = await strategy.ExecuteAsync(async () =>
         {
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
             var dbTx = tx.GetDbTransaction();
-            var texts = new Dictionary<string, string>(AiPrompts.Parse(await ScalarAsync<string>(
-                "SELECT prompts_json FROM core.AiSettings WITH (UPDLOCK, HOLDLOCK) WHERE tenant_id = @t", dbTx, ct, ("@t", tenantId))));
+            await LockAsync(dbTx, tenantId, ct);
             var versions = new Dictionary<int, string>();
             Current? current = null;
             await ReadAsync("""
-                SELECT version_no, body, changed_by, changed_at, is_current FROM core.AiPromptHistory WITH (UPDLOCK)
+                SELECT version_no, body, changed_by, changed_at, is_current FROM core.AiPromptHistory
                 WHERE tenant_id = @t AND prompt_key = @k
                 """, dbTx, ct, r =>
             {
@@ -141,9 +175,7 @@ public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogge
             await ExecAsync("UPDATE core.AiPromptHistory SET is_current = 0 WHERE tenant_id = @t AND prompt_key = @k AND is_current = 1",
                 dbTx, ct, ("@t", tenantId), ("@k", key));
             await InsertVersionAsync(dbTx, tenantId, key, next, text, action, note, userId, now, isCurrent: true, ct);
-            texts[key] = text;
-            await ExecAsync("UPDATE core.AiSettings SET prompts_json = @j, modified_by = @u, modified_at = @now WHERE tenant_id = @t",
-                dbTx, ct, ("@j", JsonSerializer.Serialize(texts, JsonOut)), ("@u", Trim(userId, 100)), ("@now", now), ("@t", tenantId));
+            await UpsertPromptAsync(dbTx, tenantId, key, new Current(next, text, userId, now), ct);
             await tx.CommitAsync(ct);
             logger.LogInformation("AI prompt {Key} saved as version {Version} ({Action}) for tenant {TenantId} by {User}", key, next, action, tenantId, userId);
             return Item(def, text, original, new Current(next, text, userId, now));
@@ -153,11 +185,12 @@ public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogge
     }
 
     /// <summary>
-    /// Copies every catalog key the tenant lacks from the seed: into prompts_json and as version 1 ('seed') in the history.
-    /// A key already in prompts_json without history (customised before history existed) keeps its text: the seed is
-    /// recorded as version 1 and the tenant's text as version 2. Creates the AiSettings row (AI off) when there is none.
+    /// Makes core.AiPrompt and the history complete and in agreement for every catalog key, in one transaction:
+    ///  * no history yet: version 1 ('seed') is the seed text; a text the tenant already had (a core.AiPrompt row, or
+    ///    else core.AiSettings.prompts_json from before core.AiPrompt) that differs from the seed becomes version 2;
+    ///  * no row, or a row that is not the history's live version: the row is written from the live version.
     /// </summary>
-    private async Task SeedAsync(long tenantId, CancellationToken ct)
+    private async Task SyncAsync(long tenantId, CancellationToken ct)
     {
         var seed = Seed;
         var strategy = db.Database.CreateExecutionStrategy();
@@ -165,65 +198,93 @@ public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogge
         {
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
             var dbTx = tx.GetDbTransaction();
-            await ExecAsync("""
-                IF NOT EXISTS (SELECT 1 FROM core.AiSettings WITH (UPDLOCK, HOLDLOCK) WHERE tenant_id = @t)
-                    INSERT INTO core.AiSettings (tenant_id, created_by, modified_by) VALUES (@t, @u, @u)
-                """, dbTx, ct, ("@t", tenantId), ("@u", SystemUser));
-            var json = await ScalarAsync<string>("SELECT prompts_json FROM core.AiSettings WITH (UPDLOCK, HOLDLOCK) WHERE tenant_id = @t",
-                dbTx, ct, ("@t", tenantId));
-            var texts = new Dictionary<string, string>(AiPrompts.Parse(json));
-            var currentBodies = new Dictionary<string, string>(StringComparer.Ordinal);
+            await LockAsync(dbTx, tenantId, ct);
+
+            var rows = new Dictionary<string, Current>(StringComparer.Ordinal);
+            await ReadAsync("SELECT prompt_key, version_no, body, modified_by, modified_at FROM core.AiPrompt WHERE tenant_id = @t", dbTx, ct,
+                r => rows[r.GetString(0)] = new Current(r.GetInt32(1), r.GetString(2), r.GetString(3), r.GetDateTime(4)), ("@t", tenantId));
             var maxVersion = new Dictionary<string, int>(StringComparer.Ordinal);
-            await ReadAsync("""
-                SELECT prompt_key, version_no, body, is_current FROM core.AiPromptHistory WITH (UPDLOCK, HOLDLOCK) WHERE tenant_id = @t
-                """, dbTx, ct, r =>
+            var live = new Dictionary<string, Current>(StringComparer.Ordinal);
+            await ReadAsync("SELECT prompt_key, version_no, body, changed_by, changed_at, is_current FROM core.AiPromptHistory WHERE tenant_id = @t",
+                dbTx, ct, r =>
             {
                 var k = r.GetString(0);
                 maxVersion[k] = Math.Max(maxVersion.GetValueOrDefault(k), r.GetInt32(1));
-                if (r.GetBoolean(3)) currentBodies[k] = r.GetString(2);
+                if (r.GetBoolean(5)) live[k] = new Current(r.GetInt32(1), r.GetString(2), r.GetString(3), r.GetDateTime(4));
             }, ("@t", tenantId));
+            IReadOnlyDictionary<string, string>? legacy = null;
 
             var now = DateTime.UtcNow;
-            var changed = false;
+            var changes = 0;
             foreach (var def in AiPromptCatalog.All)
             {
-                var hasHistory = maxVersion.ContainsKey(def.Key);
-                if (texts.TryGetValue(def.Key, out var own))
+                if (!maxVersion.ContainsKey(def.Key))
                 {
-                    if (hasHistory) continue;
+                    var own = rows.TryGetValue(def.Key, out var row) ? row.Body
+                        : (legacy ??= await LegacyTextsAsync(dbTx, tenantId, ct)).GetValueOrDefault(def.Key);
                     var seedText = seed[def.Key];
-                    await InsertVersionAsync(dbTx, tenantId, def.Key, 1, seedText, "seed", null, SystemUser, now, isCurrent: own == seedText, ct);
-                    if (own != seedText)
-                        await InsertVersionAsync(dbTx, tenantId, def.Key, 2, own, "update", "Customised before prompt history", SystemUser, now, isCurrent: true, ct);
+                    var customised = own is not null && own != seedText;
+                    await InsertVersionAsync(dbTx, tenantId, def.Key, 1, seedText, "seed", null, SystemUser, now, isCurrent: !customised, ct);
+                    live[def.Key] = new Current(1, seedText, SystemUser, now);
+                    if (customised)
+                    {
+                        await InsertVersionAsync(dbTx, tenantId, def.Key, 2, own!, "update", "Customised before prompt history", SystemUser, now, isCurrent: true, ct);
+                        live[def.Key] = new Current(2, own!, SystemUser, now);
+                    }
+                    changes++;
                 }
-                else if (hasHistory && currentBodies.TryGetValue(def.Key, out var live))
+                else if (!live.ContainsKey(def.Key))
                 {
-                    texts[def.Key] = live;   // prompts_json lost the key: put the live version back
-                    changed = true;
+                    // History without a live version (not possible through this store): the newest version becomes live.
+                    var newest = maxVersion[def.Key];
+                    await ExecAsync("UPDATE core.AiPromptHistory SET is_current = 1 WHERE tenant_id = @t AND prompt_key = @k AND version_no = @v",
+                        dbTx, ct, ("@t", tenantId), ("@k", def.Key), ("@v", newest));
+                    string body = "";
+                    string by = SystemUser;
+                    DateTime at = now;
+                    await ReadAsync("SELECT body, changed_by, changed_at FROM core.AiPromptHistory WHERE tenant_id = @t AND prompt_key = @k AND version_no = @v",
+                        dbTx, ct, r => { body = r.GetString(0); by = r.GetString(1); at = r.GetDateTime(2); }, ("@t", tenantId), ("@k", def.Key), ("@v", newest));
+                    live[def.Key] = new Current(newest, body, by, at);
+                    changes++;
                 }
-                else if (!hasHistory)
+
+                var target = live[def.Key];
+                if (!rows.TryGetValue(def.Key, out var have) || have.Version != target.Version || have.Body != target.Body)
                 {
-                    texts[def.Key] = seed[def.Key];
-                    await InsertVersionAsync(dbTx, tenantId, def.Key, 1, seed[def.Key], "seed", null, SystemUser, now, isCurrent: true, ct);
-                    changed = true;
+                    await UpsertPromptAsync(dbTx, tenantId, def.Key, target, ct);
+                    changes++;
                 }
             }
-            if (changed)
-                await ExecAsync("UPDATE core.AiSettings SET prompts_json = @j, modified_at = @now WHERE tenant_id = @t",
-                    dbTx, ct, ("@j", JsonSerializer.Serialize(texts, JsonOut)), ("@now", now), ("@t", tenantId));
             await tx.CommitAsync(ct);
+            if (changes > 0) logger.LogInformation("AI prompts synced for tenant {TenantId}: {Changes} change(s)", tenantId, changes);
         });
         cache.Remove(CacheKey(tenantId));
-        logger.LogInformation("AI prompts seeded for tenant {TenantId}", tenantId);
     }
 
-    /// <summary>Every catalog key has a live version in the history (false sends GetAsync to SeedAsync once).</summary>
-    private async Task<bool> HistoryCompleteAsync(long tenantId, CancellationToken ct)
+    /// <summary>Serialises every prompt write of one tenant until the transaction ends.</summary>
+    private Task LockAsync(DbTransaction tx, long tenantId, CancellationToken ct) =>
+        ExecAsync("""
+            DECLARE @rc int;
+            EXEC @rc = sp_getapplock @Resource = @r, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 30000;
+            IF @rc < 0 THROW 50001, 'The AI prompts are busy. Try again.', 1;
+            """, tx, ct, ("@r", $"core.AiPrompt:{tenantId}"));
+
+    /// <summary>core.AiSettings.prompts_json, where prompts lived before core.AiPrompt (empty once the column is gone).</summary>
+    private async Task<IReadOnlyDictionary<string, string>> LegacyTextsAsync(DbTransaction tx, long tenantId, CancellationToken ct)
     {
-        var live = await ScalarAsync<int?>("SELECT COUNT(DISTINCT prompt_key) FROM core.AiPromptHistory WHERE tenant_id = @t AND is_current = 1",
-            null, ct, ("@t", tenantId)) ?? 0;
-        return live >= AiPromptCatalog.All.Count;
+        var json = await ScalarAsync<string>("""
+            IF COL_LENGTH('core.AiSettings', 'prompts_json') IS NOT NULL
+                EXEC sp_executesql N'SELECT prompts_json FROM core.AiSettings WHERE tenant_id = @t', N'@t bigint', @t = @t;
+            """, tx, ct, ("@t", tenantId));
+        return AiPrompts.Parse(json);
     }
+
+    private Task UpsertPromptAsync(DbTransaction tx, long tenantId, string key, Current c, CancellationToken ct) =>
+        ExecAsync("""
+            UPDATE core.AiPrompt SET body = @b, version_no = @v, modified_by = @u, modified_at = @at WHERE tenant_id = @t AND prompt_key = @k;
+            IF @@ROWCOUNT = 0
+                INSERT INTO core.AiPrompt (tenant_id, prompt_key, body, version_no, modified_by, modified_at) VALUES (@t, @k, @b, @v, @u, @at);
+            """, tx, ct, ("@t", tenantId), ("@k", key), ("@b", c.Body), ("@v", c.Version), ("@u", Trim(c.ChangedBy, 200)), ("@at", c.ChangedAt));
 
     private Task InsertVersionAsync(DbTransaction tx, long tenantId, string key, int version, string body, string action, string? note,
         string userId, DateTime at, bool isCurrent, CancellationToken ct) =>
@@ -277,7 +338,7 @@ public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogge
     {
         await using var cmd = await CommandAsync(sql, tx, ct, args);
         var v = await cmd.ExecuteScalarAsync(ct);
-        return v is null || v is DBNull ? default : (T)(v is int i && typeof(T) == typeof(int?) ? (object)(int?)i : v);
+        return v is null || v is DBNull ? default : (T)v;
     }
 
     private async Task ExecAsync(string sql, DbTransaction? tx, CancellationToken ct, params (string, object?)[] args)

@@ -3,7 +3,7 @@ using TWise.Tenant.Domain.DTOs;
 namespace TWise.Tenant.Application.Abstractions.Services;
 
 /// <summary>
-/// The tenant's AI prompts, in the tenant database only: the active texts in core.AiSettings.prompts_json and every
+/// The tenant's AI prompts, in the tenant database only: the active texts in core.AiPrompt and every
 /// version in core.AiPromptHistory. A key the tenant does not have yet is copied from the seed (version 1, 'seed')
 /// the first time it is needed, so new tenants and new keys need no manual step. Saves and restores are atomic.
 /// </summary>

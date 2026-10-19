@@ -1,6 +1,6 @@
 """The prompt texts a tenant starts with, for tests: the Tenant API's seed file (the runtime itself has no texts).
 
-The runtime receives prompts with each request from the Tenant API, which reads them from core.AiSettings.prompts_json.
+The runtime receives prompts with each request from the Tenant API, which reads them from core.AiPrompt.
 Tests use the same seed the Tenant API copies into a new tenant's database.
 """
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """The Ask Data prompts for ONE run (twise db_assistant/src/prompts/system_prompts.py, per agent).
 
 Every text comes from the run's prompt texts (`AskDataRun.texts`), which the Tenant API sends from the tenant's
-database (core.AiSettings.prompts_json, Settings > AI Prompts):
+database (core.AiPrompt, Settings > AI Prompts):
 
   askdata.<name>       the node system prompts and their shared parts (platform_preamble, answer_rules,
                        sql_knowledge, sql_rules, <node>_system), plus business_rules and few_shots

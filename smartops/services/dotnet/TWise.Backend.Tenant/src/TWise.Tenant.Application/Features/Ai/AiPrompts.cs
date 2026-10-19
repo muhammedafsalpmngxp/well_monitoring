@@ -6,7 +6,7 @@ namespace TWise.Tenant.Application.Features.Ai;
 
 /// <summary>
 /// The AI features' prompt keys and how a feature reads its text. Every text comes from the tenant database
-/// (core.AiSettings.prompts_json, read through IAiPromptStore and edited under Settings → AI Prompts); there are no
+/// (core.AiPrompt, read through IAiPromptStore and edited under Settings → AI Prompts); there are no
 /// defaults in code. Only the wording is editable: the JSON query format, the dataset facts and the checked numbers
 /// are always added by code, so an edit cannot break parsing.
 /// </summary>
@@ -30,7 +30,7 @@ public static class AiPrompts
     /// <summary>Keys an admin may also set per dataset; the rest are tenant-wide only.</summary>
     public static readonly string[] DatasetKeys = [AskRules, Answer, Report, AlertMessage];
 
-    /// <summary>prompts_json as {key: text}; bad or missing JSON means none.</summary>
+    /// <summary>A {key: text} JSON object (core.AiSettings.prompts_json from before core.AiPrompt); bad or missing JSON means none.</summary>
     public static IReadOnlyDictionary<string, string> Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return new Dictionary<string, string>();

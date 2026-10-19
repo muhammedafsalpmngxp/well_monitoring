@@ -5,7 +5,7 @@ namespace TWise.Tenant.Application.Features.Ai;
 /// <summary>
 /// Every AI prompt a tenant has, by key: its group, name and description on Settings → AI Prompts, and what a save
 /// must keep so the code can still use it. The TEXTS are not here: they live only in the tenant database
-/// (core.AiSettings.prompts_json, history in core.AiPromptHistory), seeded once from Resources/ai-prompts.seed.json.
+/// (core.AiPrompt, history in core.AiPromptHistory), seeded once from Resources/ai-prompts.seed.json.
 ///
 /// A save must keep every {PLACEHOLDER} of the prompt's original text (the code fills them with the question, the
 /// data, the schema…) and, for the prompts whose reply the code parses, the JSON keys of that reply.

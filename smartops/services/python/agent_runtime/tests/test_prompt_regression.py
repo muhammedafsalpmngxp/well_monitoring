@@ -1,7 +1,7 @@
 """The prompts now come from the tenant's database; every message the AI receives must be exactly what it was.
 
 tests/fixtures/prompt_baseline.json was recorded from the runtime before the move (prompt files and texts written in
-the code). Built from the seed the Tenant API copies into each tenant's core.AiSettings.prompts_json, every Ask Data
+the code). Built from the seed the Tenant API copies into each tenant's core.AiPrompt, every Ask Data
 node and agent message over the scenario matrix in tests/prompt_scenarios.py must match it character for character.
 """
 from __future__ import annotations

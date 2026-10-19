@@ -1,6 +1,6 @@
 """The AI prompt texts of one request.
 
-Every text the runtime sends to a model comes from the tenant's database (core.AiSettings.prompts_json, edited
+Every text the runtime sends to a model comes from the tenant's database (core.AiPrompt, edited
 under Settings > AI Prompts). The Tenant API sends them with each request as {key: text}; nothing here has a
 built-in default. A key that is missing or empty stops the run with a message naming it.
 

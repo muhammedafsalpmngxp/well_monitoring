@@ -50,7 +50,7 @@ SQL checks). It runs with twise's `backend/.env` values: MAX_ROWS 500, MAX_SQL_R
 MAX_QUERIES 3, VERIFY_RETRIES 1, HISTORY_TURNS 3, ALLOWED_SCHEMAS well,project,ref,bridge,dbo, the 15
 EXCLUDED_TABLES and EXCLUDED_COLUMNS (`settings.py`, env `ASKDATA_*` overrides), LLM timeout 120 s with 2
 retries and the per-node reasoning table (`llm.py`). Prompts come only from the tenant database: the Tenant API
-reads `core.AiSettings.prompts_json` (history in `core.AiPromptHistory`, edited in Settings > AI Prompts) and
+reads `core.AiPrompt` (history in `core.AiPromptHistory`, edited in Settings > AI Prompts) and
 sends the `askdata.*` and `agent.*` texts with every request as `prompts`; the runtime has no built-in text
 and refuses a run that lacks one. Export (`tools/export.py`, `export_formats.py`) signs the answer's SQL with
 `ASKDATA_EXPORT_SECRET` (set it outside local development; without it links stop working on restart).

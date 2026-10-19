@@ -1202,8 +1202,8 @@ CREATE TABLE core.AiSettings (
     id                 bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiSettings PRIMARY KEY,
     tenant_id          bigint         NOT NULL CONSTRAINT UQ_core_AiSettings_tenant UNIQUE,
     is_enabled        bit            NOT NULL CONSTRAINT DF_core_AiSettings_enabled DEFAULT 0,
-    prompts_json       nvarchar(max)  NULL,       -- every AI prompt's active text (see infra/sql/add-ai-prompt-history.sql)
-    row_ver            rowversion     NOT NULL,   -- changes on every update: the Tenant API's prompt cache key
+    prompts_json       nvarchar(max)  NULL,       -- no longer used: AI prompts are in core.AiPrompt
+    row_ver            rowversion     NOT NULL,   -- changes on every update
     created_by         nvarchar(100)  NULL,
     created_at         datetime2      NOT NULL CONSTRAINT DF_core_AiSettings_created DEFAULT SYSUTCDATETIME(),
     modified_by        nvarchar(100)  NULL,
@@ -1233,6 +1233,22 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_core_AiPromptHistory_current' AND object_id = OBJECT_ID('core.AiPromptHistory'))
 CREATE UNIQUE INDEX UX_core_AiPromptHistory_current ON core.AiPromptHistory (tenant_id, prompt_key) WHERE is_current = 1;
+GO
+
+-- The active text of every AI prompt: one row per prompt, always the history's live version (version_no).
+-- Copied in by the Tenant API the first time the tenant needs the prompt (see infra/sql/add-ai-prompt-table.sql).
+IF OBJECT_ID('core.AiPrompt', 'U') IS NULL
+CREATE TABLE core.AiPrompt (
+    id                 bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiPrompt PRIMARY KEY,
+    tenant_id          bigint         NOT NULL,
+    prompt_key         nvarchar(100)  NOT NULL,
+    body               nvarchar(max)  NOT NULL,
+    version_no         int            NOT NULL,       -- the live version in core.AiPromptHistory
+    modified_by        nvarchar(200)  NOT NULL,
+    modified_at        datetime2      NOT NULL CONSTRAINT DF_core_AiPrompt_modified DEFAULT SYSUTCDATETIME(),
+    row_ver            rowversion     NOT NULL,       -- changes on every update: the Tenant API's prompt cache key
+    CONSTRAINT UQ_core_AiPrompt_key UNIQUE (tenant_id, prompt_key)
+);
 GO
 
 IF OBJECT_ID('core.AiProviders', 'U') IS NULL

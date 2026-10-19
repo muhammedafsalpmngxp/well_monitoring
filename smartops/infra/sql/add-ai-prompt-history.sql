@@ -2,13 +2,13 @@
 -- SmartOps Tenant — AI prompts in the database, with version history (add-ai-prompt-history.sql)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Every AI prompt lives in the tenant database (Settings → AI Prompts, admins only):
---   core.AiSettings.prompts_json   the ACTIVE text of every prompt, as JSON {key: text} (already nvarchar(max))
---   core.AiSettings.row_ver        changes on every update: the Tenant API refreshes its prompt cache by it
+--   core.AiPrompt                  the ACTIVE text of every prompt, one row each (add-ai-prompt-table.sql)
+--   core.AiSettings.row_ver        added by earlier versions of this script; no longer used
 --   core.AiPromptHistory           every version of every prompt: who saved it, when, why. Version 1 of each key
 --                                  is the original text ('seed'); "Restore original" restores it.
 --
 -- The texts themselves are not inserted here: the Tenant API copies any missing key from its seed
--- (TWise.Tenant.Infrastructure/Resources/ai-prompts.seed.json) into prompts_json and history the first time the
+-- (TWise.Tenant.Infrastructure/Resources/ai-prompts.seed.json) into core.AiPrompt and history the first time the
 -- tenant needs it. A tenant that had customised a prompt keeps its text (recorded as version 2, 'update').
 --
 -- Requires add-ai-settings.sql and add-ai-prompts.sql. Idempotent: safe to run more than once.
