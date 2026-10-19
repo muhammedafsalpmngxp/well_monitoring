@@ -13,7 +13,8 @@ from app.askdata.nodes.finalize import _entity_names
 from app.askdata.nodes.orchestrator import names_known_entity
 from app.askdata.nodes.sql_author import normalize_sql
 from app.askdata.nodes.verifier import _trim_feedback
-from app.askdata.prompts import build_prompts
+from app.askdata.prompts import AGENT_RULES_HEADING, build_prompts, knowledge
+from app.prompt_text import PromptMissing
 from tests.seeded_prompts import runtime_texts
 from app.askdata.settings import AskDataRun, AskDataSettings, DbTarget, agent_settings, run_context
 from app.askdata.tools import access, sqlcheck
@@ -383,3 +384,20 @@ def test_ask_your_data_endpoint_streams_the_ask_data_graph(monkeypatch):
         text = TestClient(main.app).post("/api/agent-runtime/askdata/ask", json=body).text
     assert "event: status" in text and "event: done" in text
     assert '"answer": "3 wells."' in text
+
+
+def test_agent_business_rules_are_added_after_the_tenant_rules():
+    texts = {"askdata.business_rules": "TENANT RULES", "askdata.few_shots": "TENANT EXAMPLES"}
+    combined = knowledge(texts, "business_rules", "AGENT RULES")
+    assert combined == f"TENANT RULES\n\n{AGENT_RULES_HEADING}\n\nAGENT RULES"
+    assert knowledge(texts, "business_rules", None) == "TENANT RULES"
+    assert knowledge(texts, "business_rules", "") == "TENANT RULES"
+    # The tenant's rules are required (nothing falls back), even when the agent has its own.
+    with pytest.raises(PromptMissing):
+        knowledge({**texts, "askdata.business_rules": ""}, "business_rules", "AGENT RULES")
+
+
+def test_agent_examples_replace_the_tenant_examples():
+    texts = {"askdata.business_rules": "TENANT RULES", "askdata.few_shots": "TENANT EXAMPLES"}
+    assert knowledge(texts, "few_shots", "AGENT EXAMPLES") == "AGENT EXAMPLES"
+    assert knowledge(texts, "few_shots", None) == "TENANT EXAMPLES"

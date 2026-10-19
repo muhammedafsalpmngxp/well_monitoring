@@ -8,7 +8,8 @@ database (core.AiSettings.prompts_json, Settings > AI Prompts):
   askdata.msg.<name>   the instructions each node adds to its message (retry notes, chart rules, labels)
 
 Composition is unchanged: the MAX_ROWS substitution and the business-rules / few-shots injection. An agent's own
-Knowledge Source replaces business_rules / few_shots for that agent. {{ORG_NAME}} in a prompt is ASKDATA_ORG_NAME.
+Knowledge Source business rules are added after the tenant's (both reach the model); its own examples replace the
+tenant's few_shots. {{ORG_NAME}} in a prompt is ASKDATA_ORG_NAME.
 The SQL safety checks are code (nodes/validator.py, tools/access.py), not prompts, so no edit can weaken them.
 """
 from __future__ import annotations
@@ -46,9 +47,18 @@ def _load(texts: Mapping[str, str], name: str) -> str:
     return text(texts, f"askdata.{name}").replace("{{ORG_NAME}}", ORG_NAME)   # a placeholder no column can match
 
 
+# Heads the agent's own business rules, after the tenant's, so the model knows which apply to this agent.
+AGENT_RULES_HEADING = "# BUSINESS RULES FOR THIS AGENT (they take precedence where they differ from the rules above)"
+
+
 def knowledge(texts: Mapping[str, str], name: str, own: str | None) -> str:
-    """The agent's own business_rules / few_shots when it set them, else the tenant's."""
-    return own if own else text(texts, f"askdata.{name}")
+    """business_rules: the tenant's, then the agent's own after them. few_shots: the agent's own when it set them,
+    else the tenant's."""
+    if not own:
+        return text(texts, f"askdata.{name}")
+    if name == "business_rules":
+        return f"{text(texts, 'askdata.business_rules')}\n\n{AGENT_RULES_HEADING}\n\n{own}"
+    return own
 
 
 @dataclass(frozen=True)

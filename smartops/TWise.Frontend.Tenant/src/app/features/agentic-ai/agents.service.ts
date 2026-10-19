@@ -18,7 +18,7 @@ export interface AgentStep {
 export interface AgentInput { name: string; type: string; required: boolean; description?: string | null; }
 export interface AgentOutput { name: string; type: string; description?: string | null; }
 
-/** Knowledge Source and limits for the built-in Ask Data tool; blank knowledge uses the Al Tasnim defaults. */
+/** Knowledge Source and limits for the built-in Ask Data tool: business rules are added to the tenant defaults; examples replace them (blank = defaults). */
 export interface AskDataOptions { businessRules: string | null; examples: string | null; allowedSchemas: string[]; maxRows: number; }
 
 /** Agent types: the AgenticUIFramework's LangGraph `process` values. */

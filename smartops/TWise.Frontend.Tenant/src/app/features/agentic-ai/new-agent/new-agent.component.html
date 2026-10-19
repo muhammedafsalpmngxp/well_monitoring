@@ -542,14 +542,14 @@
                     </button>
                 </div>
                 <div class="na-card__body">
-                    <p class="na-test-hint">Used by the <strong>Ask Data</strong> tool. Leave blank to use the default business rules and example queries set up for this workspace.</p>
+                    <p class="na-test-hint">Used by the <strong>Ask Data</strong> tool. The workspace's default business rules always apply; rules you add here are added after them and take precedence where they differ. Example queries replace the default examples; leave blank to keep them.</p>
                     <div class="na-field">
-                        <label class="na-label" for="ask-rules">Business rules</label>
+                        <label class="na-label" for="ask-rules">Business rules (added to the defaults)</label>
                         <textarea id="ask-rules" class="na-textarea" rows="6" [(ngModel)]="askBusinessRules"
-                            placeholder="Definitions, how tables relate, rules the answers must follow (markdown)"></textarea>
+                            placeholder="Extra rules for this agent only: definitions, how tables relate, rules the answers must follow (markdown)"></textarea>
                     </div>
                     <div class="na-field">
-                        <label class="na-label" for="ask-examples">Example queries</label>
+                        <label class="na-label" for="ask-examples">Example queries (replace the defaults)</label>
                         <textarea id="ask-examples" class="na-textarea" rows="6" [(ngModel)]="askExamples"
                             placeholder="Q: a question&#10;```sql&#10;SELECT ...&#10;```"></textarea>
                     </div>
