@@ -21,6 +21,8 @@ public class AiAgent
     public string? AskDataJson { get; set; }
     /// <summary>draft | published</summary>
     public string Status { get; set; } = "draft";
+    /// <summary>active | inactive: an admin switches an agent off (it cannot run) without deleting it.</summary>
+    public string AgentState { get; set; } = "active";
     /// <summary>sequential | parallel | supervisor | loop (the AgenticUIFramework's LangGraph process)</summary>
     public string Type { get; set; } = "sequential";
     /// <summary>Supervisor rounds / loop repeats at most.</summary>

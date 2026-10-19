@@ -1,16 +1,27 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { catchError, forkJoin, of } from 'rxjs';
 import {
   ColDef, ModuleRegistry, ClientSideRowModelModule, themeQuartz,
   RowSelectionModule, RowSelectionOptions, SelectionColumnDef,
 } from 'ag-grid-community';
-import { AgentRun, AgentsService } from '../agents.service';
+import { Agent, AgentRun, AgentsService } from '../agents.service';
 import { countText, inputTokensText, modelNames, outputTokensText, totalTokensText, usageTitle } from '../llm-usage.util';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule, RowSelectionModule]);
 
+/**
+ * The run's agent now: on AI Agents and switched on (Active) or off by an admin (Inactive), removed (Deleted), or
+ * never saved (Unsaved: a test before the first Save).
+ */
+export type AgentState = 'Active' | 'Inactive' | 'Deleted' | 'Unsaved';
+
 export interface ActivityRow {
   run: string;
+  /** The agent as shown: its current name, with (inactive) / (deleted) / (unsaved test) unless Active. */
   agent: string;
+  /** What the Agent filter matches on: the agent id (renamed agents stay together), or the name for unsaved tests. */
+  agentKey: string;
+  agentState: AgentState;
   runBy: string;
   inputSummary: string;
   verdict: string;
@@ -60,6 +71,9 @@ function textCell(text: string, style: Partial<CSSStyleDeclaration> = {}): HTMLE
   return span;
 }
 
+/** What follows an agent's name in the grid and the Agent filter when it is not Active. */
+const STATE_SUFFIX: Record<Exclude<AgentState, 'Active'>, string> = { Inactive: 'inactive', Deleted: 'deleted', Unsaved: 'unsaved test' };
+
 /** How many runs the page loads (the API returns at most 200, newest first). */
 const RUN_LIMIT = 200;
 
@@ -81,11 +95,18 @@ export class ActivityLogComponent implements OnInit {
   loading = true;
   error = '';
   private rows: ActivityRow[] = [];
+  /** False when the agent list could not be read: rows then keep the run's name and the Agent status filter is hidden. */
+  agentsKnown = false;
 
   ngOnInit(): void {
-    this.agents.runs(RUN_LIMIT).subscribe({
-      next: runs => {
-        this.rows = runs.map(r => this.toRow(r));
+    // The agents on AI Agents tell which runs belong to an agent that still exists; without them the log still loads.
+    forkJoin({ runs: this.agents.runs(RUN_LIMIT), agents: this.agents.list().pipe(catchError(() => of(null))) }).subscribe({
+      next: ({ runs, agents }) => {
+        this.agentsKnown = agents !== null;
+        const current = new Map((agents ?? []).map((a: Agent) => [a.id, a]));
+        this.rows = runs.map(r => this.toRow(r, current));
+        // Agents in use are what the log is about; deleted and unsaved ones are one choice away.
+        if (this.agentsKnown) this.filterAgentStatus = 'Active';
         this.loading = false;
         this.cdr.markForCheck();
       },
@@ -97,13 +118,21 @@ export class ActivityLogComponent implements OnInit {
     });
   }
 
-  private toRow(r: AgentRun): ActivityRow {
+  private toRow(r: AgentRun, current: Map<number, Agent>): ActivityRow {
     const started = new Date(r.startedAt.endsWith('Z') ? r.startedAt : r.startedAt + 'Z');   // stored as UTC
     const inputs = Object.entries(r.inputs ?? {}).map(([k, v]) => `${k}: ${v || '(blank)'}`).join(', ');
     const failed = r.status !== 'success';
+    const agent = r.agentId === null ? undefined : current.get(r.agentId);
+    // Unknown agent list: treat saved agents as active rather than call them deleted.
+    const state: AgentState = r.agentId === null ? 'Unsaved'
+      : agent ? (agent.agentState === 'inactive' ? 'Inactive' : 'Active')
+      : this.agentsKnown ? 'Deleted' : 'Active';
+    const name = agent?.name ?? r.agentName;
     return {
       run: `R-${r.id}`,
-      agent: r.agentName + (r.agentId === null ? ' (unsaved)' : ''),
+      agent: state === 'Active' ? name : `${name} (${STATE_SUFFIX[state]})`,
+      agentKey: r.agentId === null ? `unsaved:${r.agentName}` : `id:${r.agentId}`,
+      agentState: state,
       runBy: r.runBy,
       inputSummary: inputs || '—',
       // Answers are markdown: one plain line for the grid (the full text is in the tooltip).
@@ -127,9 +156,12 @@ export class ActivityLogComponent implements OnInit {
   showFilterPanel = true;
   filterPinned = false;
 
+  /** An agentKey ('' = all agents). */
   filterAgent = '';
   filterStatus = '';
   filterRunBy = '';
+  /** '' = all; set to Active once the agent list has loaded. */
+  filterAgentStatus: '' | AgentState = '';
   /** yyyy-mm-dd (date inputs). */
   filterFrom = '';
   filterTo = '';
@@ -139,9 +171,38 @@ export class ActivityLogComponent implements OnInit {
 
   searchTerm = '';
 
-  get agentOptions(): string[] { return [...new Set(this.rows.map(r => r.agent))].sort(); }
+  private agentOptionsKey = '';
+  private agentOptionsCache: { value: string; label: string }[] = [];
+
+  /** The agents whose runs match the Agent status filter, one entry per agent (newest run's label), by name. */
+  get agentOptions(): { value: string; label: string }[] {
+    const key = `${this.rows.length}|${this.filterAgentStatus}`;
+    if (key !== this.agentOptionsKey) {
+      const byKey = new Map<string, string>();
+      for (const r of this.rows)
+        if ((!this.filterAgentStatus || r.agentState === this.filterAgentStatus) && !byKey.has(r.agentKey)) byKey.set(r.agentKey, r.agent);
+      this.agentOptionsKey = key;
+      this.agentOptionsCache = [...byKey].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+    }
+    return this.agentOptionsCache;
+  }
+
+  trackOption = (_: number, o: { value: string }) => o.value;
+
   get runByOptions(): string[] { return [...new Set(this.rows.map(r => r.runBy))].sort(); }
   readonly statusOptions = ['Success', 'Failed'];
+  readonly agentStatusOptions: { value: AgentState; label: string }[] = [
+    { value: 'Active', label: 'Active' },
+    { value: 'Inactive', label: 'Inactive' },
+    { value: 'Deleted', label: 'Deleted' },
+    { value: 'Unsaved', label: 'Unsaved test' },
+  ];
+
+  /** A chosen agent that the new status no longer lists is cleared, so the two filters never contradict. */
+  onAgentStatusChange(): void {
+    if (this.filterAgent && !this.agentOptions.some(o => o.value === this.filterAgent)) this.filterAgent = '';
+    this.currentPage = 1;
+  }
 
   onQuickRangeChange(range: string): void {
     this.filterQuickRange = range;
@@ -158,9 +219,11 @@ export class ActivityLogComponent implements OnInit {
 
   get activeFilterChips(): FilterChip[] {
     const chips: FilterChip[] = [];
-    if (this.filterAgent)  chips.push({ key: 'agent',  label: 'Agent: ' + this.filterAgent });
+    if (this.filterAgent)  chips.push({ key: 'agent',  label: 'Agent: ' + (this.rows.find(r => r.agentKey === this.filterAgent)?.agent ?? this.filterAgent) });
     if (this.filterStatus) chips.push({ key: 'status', label: 'Status: ' + this.filterStatus });
     if (this.filterRunBy)  chips.push({ key: 'runBy',  label: 'Run by: ' + this.filterRunBy });
+    if (this.filterAgentStatus)
+      chips.push({ key: 'agentStatus', label: 'Agent state: ' +this.agentStatusOptions.find(o => o.value === this.filterAgentStatus)?.label });
     if (this.filterFrom)   chips.push({ key: 'from',   label: 'From: ' + this.filterFrom });
     if (this.filterTo)     chips.push({ key: 'to',     label: 'To: ' + this.filterTo });
     return chips;
@@ -180,6 +243,7 @@ export class ActivityLogComponent implements OnInit {
       case 'agent':  this.filterAgent = '';  break;
       case 'status': this.filterStatus = ''; break;
       case 'runBy':  this.filterRunBy = '';  break;
+      case 'agentStatus': this.filterAgentStatus = ''; break;
       case 'from':   this.filterFrom = '';  this.filterQuickRange = ''; break;
       case 'to':     this.filterTo = '';    this.filterQuickRange = ''; break;
     }
@@ -187,7 +251,8 @@ export class ActivityLogComponent implements OnInit {
   }
 
   clearFilters(): void {
-    Object.assign(this, { filterAgent: '', filterStatus: '', filterRunBy: '', filterFrom: '', filterTo: '', filterQuickRange: '', searchTerm: '' });
+    Object.assign(this, { filterAgent: '', filterStatus: '', filterRunBy: '', filterAgentStatus: '', filterFrom: '', filterTo: '',
+      filterQuickRange: '', searchTerm: '' });
     this.currentPage = 1;
   }
 
@@ -201,8 +266,8 @@ export class ActivityLogComponent implements OnInit {
   private pagedCache: ActivityRow[] = [];
 
   private get filteredRows(): ActivityRow[] {
-    const key = JSON.stringify([this.rows.length, this.filterAgent, this.filterStatus, this.filterRunBy, this.filterFrom,
-      this.filterTo, this.searchTerm]);
+    const key = JSON.stringify([this.rows.length, this.filterAgent, this.filterStatus, this.filterRunBy, this.filterAgentStatus,
+      this.filterFrom, this.filterTo, this.searchTerm]);
     if (key !== this.filteredKey) { this.filteredKey = key; this.filteredCache = this.computeFiltered(); }
     return this.filteredCache;
   }
@@ -212,9 +277,10 @@ export class ActivityLogComponent implements OnInit {
     const to = this.filterTo ? new Date(this.filterTo + 'T23:59:59.999').getTime() : Infinity;
     const q = this.searchTerm.trim().toLowerCase();
     return this.rows.filter(r =>
-      (!this.filterAgent || r.agent === this.filterAgent) &&
+      (!this.filterAgent || r.agentKey === this.filterAgent) &&
       (!this.filterStatus || r.status === this.filterStatus) &&
       (!this.filterRunBy || r.runBy === this.filterRunBy) &&
+      (!this.filterAgentStatus || r.agentState === this.filterAgentStatus) &&
       r.startedAt >= from && r.startedAt <= to &&
       (!q || [r.run, r.agent, r.runBy, r.inputSummary, r.verdict].some(v => v.toLowerCase().includes(q))));
   }

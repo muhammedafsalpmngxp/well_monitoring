@@ -92,7 +92,11 @@ public sealed record AiAgentDto(
     string CreatedBy,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    AiAgentStatsDto Stats);
+    AiAgentStatsDto Stats,
+    string AgentState = "active");
+
+/// <summary>An admin switches an agent on or off: "active" or "inactive".</summary>
+public sealed record SetAiAgentStateRequest(string AgentState);
 
 public sealed record AiAgentRunDto(
     long Id,

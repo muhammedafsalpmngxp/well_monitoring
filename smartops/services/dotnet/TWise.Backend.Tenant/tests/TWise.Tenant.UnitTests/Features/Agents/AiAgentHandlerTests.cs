@@ -58,6 +58,32 @@ public sealed class AiAgentHandlerTests
     }
 
     [Fact]
+    public async Task SetState_SwitchesTheAgentOff_AndReturnsIt()
+    {
+        var agent = new AiAgent { Id = 5, TenantId = 7, Name = "Pegging Agent" };
+        _repo.Setup(r => r.GetAsync(7, 5, default)).ReturnsAsync(agent);
+        _repo.Setup(r => r.StatsAsync(7, default)).ReturnsAsync(new Dictionary<long, AiAgentStatsDto>());
+
+        var dto = await new SetAiAgentStateHandler(_repo.Object).Handle(new SetAiAgentStateCommand(7, 5, AgentMapping.Inactive), default);
+
+        dto!.AgentState.Should().Be("inactive");
+        agent.AgentState.Should().Be("inactive");
+        _repo.Verify(r => r.SaveAsync(default), Times.Once);
+    }
+
+    [Fact]
+    public async Task Update_KeepsTheAgentState()
+    {
+        var agent = new AiAgent { Id = 5, TenantId = 7, AgentState = AgentMapping.Inactive };
+        _repo.Setup(r => r.GetAsync(7, 5, default)).ReturnsAsync(agent);
+        _repo.Setup(r => r.StatsAsync(7, default)).ReturnsAsync(new Dictionary<long, AiAgentStatsDto>());
+
+        await new UpdateAiAgentHandler(_repo.Object).Handle(new UpdateAiAgentCommand(7, 5, Agent(status: "published")), default);
+
+        agent.AgentState.Should().Be("inactive");   // saving or publishing never switches an agent back on
+    }
+
+    [Fact]
     public async Task List_AddsRunStatsPerAgent()
     {
         var agent = new AiAgent { Id = 3, TenantId = 7, Name = "A", StepsJson = "[{\"text\":\"x\"}]", ToolsJson = "[]" };
@@ -339,6 +365,20 @@ public sealed class AiAgentHandlerTests
         events.Should().ContainSingle().Which.Type.Should().Be("error");
         JsonSerializer.Serialize(events[0].Data).Should().Contain(message);
         run!.Status.Should().Be("failed");
+    }
+
+    [Fact]
+    public async Task Test_InactiveSavedAgent_IsRefused()
+    {
+        _repo.Setup(r => r.GetAsync(7, 5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AiAgent { Id = 5, TenantId = 7, AgentState = AgentMapping.Inactive });
+
+        var events = await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com",
+            new TestAiAgentRequest(Agent(), new Dictionary<string, string> { ["cluster"] = "Nimr" }, 5)), default));
+
+        events.Should().ContainSingle().Which.Type.Should().Be("error");
+        JsonSerializer.Serialize(events[0].Data).Should().Contain("inactive");
+        _runtime.Verify(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

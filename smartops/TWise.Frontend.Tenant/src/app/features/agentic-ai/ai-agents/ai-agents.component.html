@@ -85,7 +85,7 @@
 
     <!-- Agent Cards Grid -->
     <div class="aia-cards-grid">
-        <div class="aia-agent-card" *ngFor="let agent of filteredAgents">
+        <div class="aia-agent-card" *ngFor="let agent of filteredAgents" [class.aia-agent-card--inactive]="agent.state === 'Inactive'">
 
             <!-- Card Header -->
             <div class="aia-agent-card__header">
@@ -115,9 +115,11 @@
                 <div class="aia-agent-card__title-wrap">
                     <div class="aia-agent-card__name-row">
                         <a class="aia-agent-card__name" href="" (click)="$event.preventDefault(); openAgent(agent)">{{ agent.name }}</a>
-                        <span class="aia-agent-card__badge" [class.aia-agent-card__badge--draft]="agent.status === 'Draft'">
-                            <span class="aia-badge-dot"></span> {{ agent.status }}
+                        <span class="aia-agent-card__badge" [class.aia-agent-card__badge--draft]="agent.state === 'Inactive'"
+                            [title]="agent.state === 'Inactive' ? 'Deactivated by an admin: it cannot be run' : 'Active: it can be run'">
+                            <span class="aia-badge-dot"></span> {{ agent.state }}
                         </span>
+                        <span class="aia-agent-card__draft" *ngIf="agent.status === 'Draft'" title="Saved as draft, not published">Draft</span>
                     </div>
                     <span class="aia-agent-card__role">{{ agent.role }}</span>
                 </div>
@@ -137,8 +139,10 @@
                     </svg>
                 </button>
                 <div class="aia-agent-card__menu-list" role="menu" *ngIf="menuFor === agent.id" (click)="$event.stopPropagation()">
-                    <button role="menuitem" type="button" (click)="runAgent(agent)">Run</button>
+                    <button role="menuitem" type="button" (click)="runAgent(agent)" [disabled]="agent.state === 'Inactive'">Run</button>
                     <button role="menuitem" type="button" (click)="openAgent(agent)">Edit</button>
+                    <button role="menuitem" type="button" *ngIf="isAdmin" [disabled]="switching === agent.id"
+                        (click)="toggleState(agent)">{{ switching === agent.id ? 'Saving…' : agent.state === 'Active' ? 'Deactivate' : 'Activate' }}</button>
                     <button role="menuitem" type="button" class="aia-agent-card__menu-danger" [disabled]="deleting === agent.id"
                         (click)="deleteAgent(agent)">{{ deleting === agent.id ? 'Deleting…' : 'Delete' }}</button>
                 </div>
@@ -219,6 +223,8 @@
             <div class="aia-agent-card__actions">
                 <button type="button" class="aia-card-btn" (click)="openAgent(agent)">Edit</button>
                 <button type="button" class="aia-card-btn aia-card-btn--primary" (click)="runAgent(agent)"
+                    [disabled]="agent.state === 'Inactive'"
+                    [title]="agent.state === 'Inactive' ? 'Inactive: an admin must activate this agent' : ''"
                     [attr.aria-label]="'Run ' + agent.name">
                     <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden="true">
                         <path d="M3.75 3.74C3.75 3.01 3.75 2.65 3.9 2.45C4.03 2.27 4.24 2.17 4.46 2.15C4.71 2.14 5.01 2.34 5.62 2.74L13.5 8C14 8.34 14.25 8.5 14.34 8.71C14.42 8.9 14.42 9.1 14.34 9.29C14.25 9.5 14 9.66 13.5 10L5.62 15.26C5.01 15.66 4.71 15.86 4.46 15.85C4.24 15.83 4.03 15.73 3.9 15.55C3.75 15.35 3.75 14.99 3.75 14.26V3.74Z"

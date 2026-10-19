@@ -41,10 +41,19 @@ public sealed class TestAiAgentStreamHandler(
             yield break;
         }
         var r = s.Request;
-        if (r.AgentId is { } agentId && await agents.GetAsync(s.TenantId, agentId, ct) is null)
+        if (r.AgentId is { } agentId)
         {
-            yield return Error("Agent not found.");
-            yield break;
+            var saved = await agents.GetAsync(s.TenantId, agentId, ct);
+            if (saved is null)
+            {
+                yield return Error("Agent not found.");
+                yield break;
+            }
+            if (saved.AgentState == AgentMapping.Inactive)
+            {
+                yield return Error("This agent is inactive. An admin can activate it on AI Agents.");
+                yield break;
+            }
         }
 
         var inputs = r.Inputs ?? [];

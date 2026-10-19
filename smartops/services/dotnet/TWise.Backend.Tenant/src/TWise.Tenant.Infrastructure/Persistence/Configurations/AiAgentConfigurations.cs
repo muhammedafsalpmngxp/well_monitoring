@@ -23,6 +23,7 @@ public sealed class AiAgentConfiguration : IEntityTypeConfiguration<AiAgent>
         b.Property(e => e.OutputsJson).HasColumnName("outputs_json").IsRequired();
         b.Property(e => e.AskDataJson).HasColumnName("ask_data_json");
         b.Property(e => e.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+        b.Property(e => e.AgentState).HasColumnName("agent_state").HasMaxLength(20).IsRequired();
         b.Property(e => e.Type).HasColumnName("type").HasMaxLength(20).IsRequired();
         b.Property(e => e.MaxIterations).HasColumnName("max_iterations");
         b.Property(e => e.CreatedBy).HasColumnName("created_by").HasMaxLength(200).IsRequired();

@@ -71,7 +71,11 @@ export interface Agent extends SaveAgentRequest {
   createdAt: string;
   updatedAt: string;
   stats: AgentStats;
+  /** core.AiAgents.agent_state: an admin switches an agent off without deleting it; inactive agents cannot run. */
+  agentState?: AgentState;
 }
+
+export type AgentState = 'active' | 'inactive';
 
 /** A tool the Add Tool dialog offers: a twise agent and its actions. */
 export interface AgentToolOption { agent: string; title: string; description: string; capabilities: string[]; ready: boolean; }
@@ -110,6 +114,8 @@ export class AgentsService {
   create(req: SaveAgentRequest): Observable<Agent> { return this.http.post<Agent>(this.api, req); }
   update(id: number, req: SaveAgentRequest): Observable<Agent> { return this.http.put<Agent>(`${this.api}/${id}`, req); }
   delete(id: number): Observable<void> { return this.http.delete<void>(`${this.api}/${id}`); }
+  /** Admins only: switch an agent on or off. */
+  setState(id: number, agentState: AgentState): Observable<Agent> { return this.http.put<Agent>(`${this.api}/${id}/state`, { agentState }); }
 
   /** The latest test runs of every agent (newest first), for the Activity Log. */
   runs(take = 200): Observable<AgentRun[]> { return this.http.get<AgentRun[]>(`${this.api}/runs`, { params: { take } }); }

@@ -2,12 +2,15 @@ import { ChangeDetectorRef, Component, HostListener, OnInit } from '@angular/cor
 import { Router } from '@angular/router';
 import { Agent, AgentsService } from '../agents.service';
 import { modelsLine, usageLine, usageTitle } from '../llm-usage.util';
+import { PermissionService } from '../../../core/services/permission.service';
 
 export interface AgentCard {
   id: number;
   name: string;
   role: string;
   status: 'Published' | 'Draft';
+  /** Switched on or off by an admin (core.AiAgents.agent_state); an inactive agent cannot run. */
+  state: 'Active' | 'Inactive';
   description: string;
   iconBg: string;
   iconType: 'database' | 'chart' | 'mail';
@@ -29,10 +32,37 @@ export interface AgentCard {
 })
 export class AiAgentsComponent implements OnInit {
 
-  constructor(private router: Router, private agentsApi: AgentsService, private cdr: ChangeDetectorRef) {}
+  constructor(private router: Router, private agentsApi: AgentsService, private cdr: ChangeDetectorRef,
+              private permissions: PermissionService) {}
 
   loading = true;
   error = '';
+
+  /** Only admins switch agents on and off (the API checks it too). */
+  get isAdmin(): boolean { return this.permissions.isAdminUser; }
+
+  /** The agent being switched on or off. */
+  switching: number | null = null;
+
+  toggleState(agent: AgentCard): void {
+    this.menuFor = null;
+    if (this.switching !== null) return;
+    this.error = '';
+    this.switching = agent.id;
+    this.agentsApi.setState(agent.id, agent.state === 'Active' ? 'inactive' : 'active').subscribe({
+      next: updated => {
+        this.switching = null;
+        this.saved = this.saved.map(a => a.id === updated.id ? updated : a);
+        this.render();
+      },
+      error: err => {
+        this.switching = null;
+        this.error = err?.status === 403 ? 'Only an admin can activate or deactivate agents.'
+          : `Could not ${agent.state === 'Active' ? 'deactivate' : 'activate'} "${agent.name}". Try again.`;
+        this.cdr.markForCheck();
+      },
+    });
+  }
 
   createNewAgent(): void {
     this.router.navigate(['/agentic-ai/ai-agents/new']);
@@ -47,6 +77,7 @@ export class AiAgentsComponent implements OnInit {
 
   runAgent(agent: AgentCard): void {
     this.menuFor = null;
+    if (agent.state === 'Inactive') return;
     this.running = this.saved.find(a => a.id === agent.id) ?? null;
   }
 
@@ -163,6 +194,7 @@ export class AiAgentsComponent implements OnInit {
       name: a.name,
       role: a.role ?? '',
       status: a.status === 'published' ? 'Published' : 'Draft',
+      state: a.agentState === 'inactive' ? 'Inactive' : 'Active',
       description: a.description || a.goal || a.steps.map(s => s.text).join(' · '),
       // By id, not list position: the list is sorted by last update, so the icon changed after every save.
       ...AiAgentsComponent.ICONS[a.id % AiAgentsComponent.ICONS.length],
@@ -188,7 +220,7 @@ export class AiAgentsComponent implements OnInit {
     const rate = weighted(a => a.stats.successRate);
     const avg = weighted(a => a.stats.avgSeconds);
     return [
-      { label: 'Active Agents', value: String(published.length), desc: `Out of ${list.length} total`, iconBg: '#EEF8EE', iconColor: '#66BB6A', iconType: 'bot' },
+      { label: 'Active Agents', value: String(list.filter(a => a.agentState !== 'inactive').length), desc: `Out of ${list.length} total`, iconBg: '#EEF8EE', iconColor: '#66BB6A', iconType: 'bot' },
       { label: 'Total Invocations', value: String(runs), desc: 'Test runs across all agents', iconBg: '#EAF4FF', iconColor: '#2563EB', iconType: 'pulse' },
       { label: 'AVG Success Rate', value: rate === null ? '—' : `${rate.toFixed(1)}%`, desc: 'Across all published agents', iconBg: '#EAF6FF', iconColor: '#29B6F6', iconType: 'trend' },
       { label: 'AVG Run Time', value: avg === null ? '—' : `${avg.toFixed(1)}s`, desc: 'Per run, published agents', iconBg: '#FFF4E8', iconColor: '#FFA726', iconType: 'cost' },

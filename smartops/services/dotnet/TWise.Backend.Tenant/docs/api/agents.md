@@ -82,6 +82,7 @@ Responses add `id`, `createdBy`, `createdAt`, `updatedAt` and `stats` (`runs`, `
 | GET | `/api/agents/tools` | `{ tools: [{ agent, title, description, capabilities, ready }], message }`. When the agent runtime is down, `tools` is empty and `message` says why; when only the twise agent service (port 8000) is down, `tools` holds Ask Data and `message` says the extra tools are offline |
 | POST | `/api/agents` | Save a new agent. 201 with the agent |
 | PUT | `/api/agents/{id}` | Replace an agent (Save as Draft / Publish on an existing agent) |
+| PUT | `/api/agents/{id}/state` | **Admins only.** Body `{ "agentState": "active" \| "inactive" }`. Switches the agent on or off and returns it. Saving or publishing never changes the state; `POST /api/agents/test` with the `agentId` of an inactive agent is refused. Needs `add-ai-agent-state.sql` |
 | DELETE | `/api/agents/{id}` | Delete. 204. Past runs stay in the run history |
 | GET | `/api/agents/{id}/runs?take=50` | The agent's latest test runs |
 | GET | `/api/agents/runs?take=50` | Latest test runs of all agents (at most 200); the Activity Log page shows these |

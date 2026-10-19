@@ -43,7 +43,10 @@ public static class AgentMapping
         List<AiAgentStepDto>(a.StepsJson), List<AiAgentToolDto>(a.ToolsJson),
         List<AiAgentInputDto>(a.InputsJson), List<AiAgentOutputDto>(a.OutputsJson),
         a.Status, string.IsNullOrWhiteSpace(a.AskDataJson) ? null : JsonSerializer.Deserialize<AiAgentAskDataDto>(a.AskDataJson, Json),
-        a.Type, a.MaxIterations, a.CreatedBy, a.CreatedAt, a.UpdatedAt, stats ?? NoRuns);
+        a.Type, a.MaxIterations, a.CreatedBy, a.CreatedAt, a.UpdatedAt, stats ?? NoRuns, a.AgentState);
+
+    public const string Active = "active";
+    public const string Inactive = "inactive";
 
     public static AiAgentRunDto ToDto(AiAgentRun r) => new(
         r.Id, r.AgentId, r.AgentName, r.RunBy, r.Status, r.Answer, r.Error, r.Seconds, r.StartedAt,

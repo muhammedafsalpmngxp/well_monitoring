@@ -128,6 +128,23 @@ public sealed class AgentsController(ISender sender) : ControllerBase
         return await sender.Send(new UpdateAiAgentCommand(t, id, request), ct) is { } a ? Ok(a) : NotFound();
     }
 
+    /// <summary>Admins only: switches an agent on ("active") or off ("inactive"). An inactive agent cannot be run.</summary>
+    [HttpPut("{id:long}/state")]
+    [RequireModulePermission(Module, ModulePermission.Modify)]
+    [ProducesResponseType(typeof(AiAgentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetState(long id, [FromBody] SetAiAgentStateRequest request, CancellationToken ct)
+    {
+        if (!TryGetTenantId(out var t)) return Unauthorized();
+        if (!User.IsInRole("admin") && !User.IsInRole("tenant_admin")) return Forbid();
+        var state = request.AgentState?.Trim().ToLowerInvariant();
+        if (state is not (AgentMapping.Active or AgentMapping.Inactive))
+            return BadRequest(new { message = "agentState must be \"active\" or \"inactive\"." });
+        return await sender.Send(new SetAiAgentStateCommand(t, id, state), ct) is { } a ? Ok(a) : NotFound();
+    }
+
     [HttpDelete("{id:long}")]
     [RequireModulePermission(Module, ModulePermission.Modify)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

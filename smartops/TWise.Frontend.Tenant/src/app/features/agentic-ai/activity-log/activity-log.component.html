@@ -38,7 +38,7 @@
         <label for="acl-agent">Agent</label>
         <select id="acl-agent" [(ngModel)]="filterAgent" (ngModelChange)="currentPage = 1">
           <option value="">All agents</option>
-          <option *ngFor="let o of agentOptions" [value]="o">{{ o }}</option>
+          <option *ngFor="let o of agentOptions; trackBy: trackOption" [value]="o.value">{{ o.label }}</option>
         </select>
       </div>
       <div class="acl-filter-field">
@@ -53,6 +53,13 @@
         <select id="acl-runby" [(ngModel)]="filterRunBy" (ngModelChange)="currentPage = 1">
           <option value="">Anyone</option>
           <option *ngFor="let o of runByOptions" [value]="o">{{ o }}</option>
+        </select>
+      </div>
+      <div class="acl-filter-field" *ngIf="agentsKnown">
+        <label for="acl-agent-status">Agent state</label>
+        <select id="acl-agent-status" [(ngModel)]="filterAgentStatus" (ngModelChange)="onAgentStatusChange()">
+          <option value="">All</option>
+          <option *ngFor="let o of agentStatusOptions" [value]="o.value">{{ o.label }}</option>
         </select>
       </div>
     </div>
