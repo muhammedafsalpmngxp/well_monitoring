@@ -1,5 +1,9 @@
 -r ../../../shared/python/requirements-base.txt
 prophet==1.1.6
+# cmdstanpy 1.3+ rejects the CmdStan bundled with prophet 1.1.6 ("missing makefile").
+cmdstanpy==1.2.5
 pandas==2.2.3
 numpy==1.26.4
 statsmodels==0.14.4
+pyodbc==5.1.0
+scikit-learn==1.5.2
