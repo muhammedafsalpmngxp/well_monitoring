@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
+using TWise.Tenant.Application.Features.Ai.AskDataSettings;
 using TWise.Tenant.Domain.DTOs;
 
 namespace TWise.Tenant.Application.Features.Agents;
@@ -31,9 +32,11 @@ internal static class AgentFlowModel
         await providers.GetActiveAsync(tenantId, ct) is { } p ? new AgentFlowLlm(p.Provider, p.Model, p.BaseUrl) : null;
 }
 
-public sealed class ExportAskDataHandler(IAgentRuntimeClient runtime) : IRequestHandler<ExportAskDataQuery, AskDataExportFile>
+public sealed class ExportAskDataHandler(IAgentRuntimeClient runtime, IAiSettingsRepository settings) : IRequestHandler<ExportAskDataQuery, AskDataExportFile>
 {
-    public Task<AskDataExportFile> Handle(ExportAskDataQuery q, CancellationToken ct) => runtime.ExportAskDataAsync(q.Request, ct);
+    /// <summary>The export re-reads with the tenant's Ask Data settings: hidden tables and columns stay hidden.</summary>
+    public async Task<AskDataExportFile> Handle(ExportAskDataQuery q, CancellationToken ct) =>
+        await runtime.ExportAskDataAsync(q.Request, AskDataSettingsRules.ToRuntime(await settings.GetAsync(q.TenantId, ct)), ct);
 }
 
 public sealed class ImportAgentFlowHandler(IAgentRuntimeClient runtime) : IRequestHandler<ImportAgentFlowQuery, AgentFlowImportDto>

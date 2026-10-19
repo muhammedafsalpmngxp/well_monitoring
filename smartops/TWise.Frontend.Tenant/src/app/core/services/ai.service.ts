@@ -26,6 +26,35 @@ export interface AiPromptItem {
 /** One saved version of a prompt; action: seed (the original) | update | restore. */
 export interface AiPromptVersion { version: number; action: 'seed' | 'update' | 'restore'; note: string | null; changedBy: string; changedAt: string; isCurrent: boolean; text: string }
 
+/**
+ * Ask Data's settings (Settings → AI Settings): what it may read and its limits. configured is false until at least
+ * one schema is chosen; Ask Data refuses to run until then. Hidden tables are "schema.table" or "table" (every schema);
+ * hidden columns "schema.table.column", "table.column" or "column" (every table).
+ */
+export interface AskDataSettings {
+  configured: boolean;
+  allowedSchemas: string[];
+  excludedTables: string[];
+  excludedColumns: string[];
+  maxRows: number;
+  queryTimeout: number;
+  maxQueries: number;
+  sqlRetries: number;
+  verifyRetries: number;
+  historyTurns: number;
+  orgName: string | null;
+  exportPrefix: string | null;
+  /** How the Ask your data chatbot answers. Agents choose their own mode per step. */
+  chatMode: 'deep' | 'normal';
+  modifiedBy?: string | null;
+  modifiedAt?: string | null;
+}
+
+export type SaveAskDataSettings = Omit<AskDataSettings, 'configured' | 'modifiedBy' | 'modifiedAt'>;
+
+/** The Ask Data database's schemas, tables and columns (system schemas left out). */
+export interface AskDataCatalog { database: string; schemas: { name: string; tables: { name: string; columns: string[] }[] }[] }
+
 export interface AiSettingsDto {
   /** The active provider's daily call limit (saved on that provider). */
   dailyQuota: number;
@@ -302,6 +331,21 @@ export class AiService {
   /** Admin: save a new version. expectedVersion = the version being edited (refused when someone saved since). */
   savePromptVersion(key: string, text: string, note: string, expectedVersion: number): Observable<AiPromptItem> {
     return this.http.put<AiPromptItem>(`${this.api}${API_ENDPOINTS.AI.PROMPT_LIBRARY_ITEM(key)}`, { text, note: note || null, expectedVersion });
+  }
+
+  /** Admin: what Ask Data may read and its limits. */
+  askDataSettings(): Observable<AskDataSettings> {
+    return this.http.get<AskDataSettings>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_SETTINGS}`);
+  }
+
+  /** Admin: save them (the allowed schemas are checked against the Ask Data database; 400 { message } lists problems). */
+  saveAskDataSettings(settings: SaveAskDataSettings): Observable<AskDataSettings> {
+    return this.http.put<AskDataSettings>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_SETTINGS}`, settings);
+  }
+
+  /** Admin: the Ask Data database's schemas, tables and columns, to choose from. */
+  askDataCatalog(): Observable<AskDataCatalog> {
+    return this.http.get<AskDataCatalog>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_CATALOG}`);
   }
 
   /** Admin: make an earlier version (1 = the original) the active one, as a new version. */

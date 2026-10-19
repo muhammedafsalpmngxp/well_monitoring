@@ -23,6 +23,10 @@ def runtime_texts() -> dict[str, str]:
     return {k: v for k, v in seed().items() if k.startswith(("askdata.", "agent."))}
 
 
+# The organisation name the QA tenant has (Settings > AI Settings); the baseline was recorded with it.
+ORG_NAME = "Al-Tasnim"
+
+
 class SeedAdapter:
     """tests/prompt_scenarios.py adapter: prompts from the seed, as a tenant has them after seeding."""
 
@@ -33,7 +37,7 @@ class SeedAdapter:
         texts = runtime_texts()
         current_run().texts = texts
         return build_prompts(max_rows, knowledge(texts, "business_rules", business_rules),
-                             knowledge(texts, "few_shots", few_shots), texts)
+                             knowledge(texts, "few_shots", few_shots), texts, ORG_NAME)
 
     def agent_kwargs(self):
         return {"texts": runtime_texts()}

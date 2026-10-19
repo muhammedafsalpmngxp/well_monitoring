@@ -9,19 +9,19 @@ database (core.AiPrompt, Settings > AI Prompts):
 
 Composition is unchanged: the MAX_ROWS substitution and the business-rules / few-shots injection. An agent's own
 Knowledge Source business rules are added after the tenant's (both reach the model); its own examples replace the
-tenant's few_shots. {{ORG_NAME}} in a prompt is ASKDATA_ORG_NAME.
+tenant's few_shots. {{ORG_NAME}} in a prompt is the tenant's organisation name (Settings > AI Settings).
 The SQL safety checks are code (nodes/validator.py, tools/access.py), not prompts, so no edit can weaken them.
 """
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Mapping
 
 from app.askdata.settings import current_run
 from app.prompt_text import fill, text
 
-ORG_NAME = os.environ.get("ASKDATA_ORG_NAME", "Al-Tasnim")
+# {{ORG_NAME}} when the tenant has not named its organisation (Settings > AI Settings).
+NO_ORG_NAME = "the organisation"
 
 SYSTEM_NAMES = ("platform_preamble", "answer_rules", "sql_knowledge", "sql_rules", "orchestrator_system",
                 "planner_system", "sql_author_system", "analysis_system", "synthesize_system", "verifier_system",
@@ -43,8 +43,9 @@ KEYS = (tuple(f"askdata.{n}" for n in SYSTEM_NAMES + KNOWLEDGE_NAMES)
         + tuple(f"askdata.msg.{n}" for n in MESSAGE_NAMES))
 
 
-def _load(texts: Mapping[str, str], name: str) -> str:
-    return text(texts, f"askdata.{name}").replace("{{ORG_NAME}}", ORG_NAME)   # a placeholder no column can match
+def _load(texts: Mapping[str, str], name: str, org_name: str = "") -> str:
+    # {{ORG_NAME}}: a placeholder no column can match
+    return text(texts, f"askdata.{name}").replace("{{ORG_NAME}}", org_name.strip() or NO_ORG_NAME)
 
 
 # Heads the agent's own business rules, after the tenant's, so the model knows which apply to this agent.
@@ -79,28 +80,29 @@ class PromptSet:
         return "agent"
 
 
-def build_prompts(max_rows: int, business_rules: str, few_shots: str, texts: Mapping[str, str]) -> PromptSet:
+def build_prompts(max_rows: int, business_rules: str, few_shots: str, texts: Mapping[str, str],
+                  org_name: str = "") -> PromptSet:
     def limits(t: str) -> str:
         return t.replace("MAX_ROWS", str(max_rows))
 
-    preamble = _load(texts, "platform_preamble")
-    answer_rules = _load(texts, "answer_rules")
+    preamble = _load(texts, "platform_preamble", org_name)
+    answer_rules = _load(texts, "answer_rules", org_name)
     answer_tail = f"{answer_rules}\n\n{business_rules}" if business_rules else answer_rules
 
-    sql_author = _load(texts, "sql_author_system")
-    for slot, value in (("{PLATFORM_PREAMBLE}", preamble), ("{SQL_KNOWLEDGE}", limits(_load(texts, "sql_knowledge"))),
-                        ("{BUSINESS_RULES}", business_rules), ("{SQL_RULES}", _load(texts, "sql_rules")),
+    sql_author = _load(texts, "sql_author_system", org_name)
+    for slot, value in (("{PLATFORM_PREAMBLE}", preamble), ("{SQL_KNOWLEDGE}", limits(_load(texts, "sql_knowledge", org_name))),
+                        ("{BUSINESS_RULES}", business_rules), ("{SQL_RULES}", _load(texts, "sql_rules", org_name)),
                         ("{FEW_SHOTS}", few_shots)):
         sql_author = sql_author.replace(slot, value)
 
     return PromptSet(
-        ORCHESTRATOR_SYSTEM=preamble + "\n\n" + _load(texts, "orchestrator_system"),
-        PLANNER_SYSTEM=_load(texts, "planner_system"),
+        ORCHESTRATOR_SYSTEM=preamble + "\n\n" + _load(texts, "orchestrator_system", org_name),
+        PLANNER_SYSTEM=_load(texts, "planner_system", org_name),
         SQL_AUTHOR_SYSTEM=sql_author.strip(),
-        ANALYSIS_SYSTEM=preamble + "\n\n" + _load(texts, "analysis_system") + "\n\n" + answer_tail,
-        SYNTHESIZE_SYSTEM=preamble + "\n\n" + _load(texts, "synthesize_system") + "\n\n" + answer_tail,
-        VERIFIER_SYSTEM=limits(preamble + "\n\n" + _load(texts, "verifier_system") + "\n\n" + answer_tail),
-        CHITCHAT_SYSTEM=_load(texts, "chitchat_system"),
+        ANALYSIS_SYSTEM=preamble + "\n\n" + _load(texts, "analysis_system", org_name) + "\n\n" + answer_tail,
+        SYNTHESIZE_SYSTEM=preamble + "\n\n" + _load(texts, "synthesize_system", org_name) + "\n\n" + answer_tail,
+        VERIFIER_SYSTEM=limits(preamble + "\n\n" + _load(texts, "verifier_system", org_name) + "\n\n" + answer_tail),
+        CHITCHAT_SYSTEM=_load(texts, "chitchat_system", org_name),
     )
 
 

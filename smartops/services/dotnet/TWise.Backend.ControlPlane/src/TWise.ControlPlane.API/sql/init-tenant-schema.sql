@@ -1204,6 +1204,22 @@ CREATE TABLE core.AiSettings (
     is_enabled        bit            NOT NULL CONSTRAINT DF_core_AiSettings_enabled DEFAULT 0,
     prompts_json       nvarchar(max)  NULL,       -- no longer used: AI prompts are in core.AiPrompt
     row_ver            rowversion     NOT NULL,   -- changes on every update
+    -- Ask Data: what it may read and its limits (Settings → AI Settings; see infra/sql/add-ai-askdata-settings.sql).
+    -- No schemas = not set up: Ask Data refuses until an admin chooses them.
+    askdata_allowed_schemas  nvarchar(max) NULL,   -- JSON array of schema names
+    askdata_excluded_tables  nvarchar(max) NULL,   -- JSON array: schema.table | table
+    askdata_excluded_columns nvarchar(max) NULL,   -- JSON array: schema.table.column | table.column | column
+    askdata_max_rows         int           NOT NULL CONSTRAINT DF_core_AiSettings_askdata_max_rows DEFAULT 500,
+    askdata_query_timeout    int           NOT NULL CONSTRAINT DF_core_AiSettings_askdata_timeout DEFAULT 60,
+    askdata_max_queries      int           NOT NULL CONSTRAINT DF_core_AiSettings_askdata_max_queries DEFAULT 3,
+    askdata_sql_retries      int           NOT NULL CONSTRAINT DF_core_AiSettings_askdata_sql_retries DEFAULT 2,
+    askdata_verify_retries   int           NOT NULL CONSTRAINT DF_core_AiSettings_askdata_verify_retries DEFAULT 1,
+    askdata_history_turns    int           NOT NULL CONSTRAINT DF_core_AiSettings_askdata_history DEFAULT 3,
+    askdata_org_name         nvarchar(200) NULL,
+    askdata_export_prefix    nvarchar(40)  NULL,
+    askdata_chat_mode        nvarchar(10)  NOT NULL CONSTRAINT DF_core_AiSettings_askdata_chat_mode DEFAULT 'deep'
+                             CONSTRAINT CK_core_AiSettings_askdata_chat_mode CHECK (askdata_chat_mode IN ('deep', 'normal')),
+                             -- how the Ask your data chatbot answers; agents choose per step
     created_by         nvarchar(100)  NULL,
     created_at         datetime2      NOT NULL CONSTRAINT DF_core_AiSettings_created DEFAULT SYSUTCDATETIME(),
     modified_by        nvarchar(100)  NULL,

@@ -17,4 +17,4 @@ public sealed record GetAgentFlowQuery(long TenantId, long Id) : IRequest<JsonEl
 public sealed record ImportAgentFlowQuery(JsonElement Flow) : IRequest<AgentFlowImportDto>;
 
 /// <summary>The data behind an Ask Data answer as an xlsx or docx file (re-reads the answer's SQL; no model call).</summary>
-public sealed record ExportAskDataQuery(AskDataExportRequest Request) : IRequest<AskDataExportFile>;
+public sealed record ExportAskDataQuery(AskDataExportRequest Request, long TenantId) : IRequest<AskDataExportFile>;

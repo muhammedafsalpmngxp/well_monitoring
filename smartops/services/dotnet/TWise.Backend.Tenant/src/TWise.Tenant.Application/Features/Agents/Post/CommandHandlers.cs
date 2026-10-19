@@ -6,6 +6,7 @@ using MediatR;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai;
+using TWise.Tenant.Application.Features.Ai.AskDataSettings;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
 
@@ -29,7 +30,8 @@ public sealed class TestAiAgentStreamHandler(
     IAiService ai,
     IAiUsageRepository usage,
     IValidator<TestAiAgentStream> validator,
-    IAiPromptStore prompts) : IStreamRequestHandler<TestAiAgentStream, AiAskEvent>
+    IAiPromptStore prompts,
+    IAiSettingsRepository aiSettings) : IStreamRequestHandler<TestAiAgentStream, AiAskEvent>
 {
     public async IAsyncEnumerable<AiAskEvent> Handle(TestAiAgentStream s, [EnumeratorCancellation] CancellationToken ct)
     {
@@ -60,6 +62,8 @@ public sealed class TestAiAgentStreamHandler(
         var llm = await LlmAsync(s.TenantId, r.Agent, ct);
         // The runtime has no prompt texts of its own: the tenant's (Settings → AI Prompts) go with every run.
         var texts = AiPromptCatalog.RuntimeTexts(await prompts.GetAsync(s.TenantId, ct));
+        // Nor any Ask Data settings: what Ask Data may read and its limits (Settings → AI Settings) go too.
+        var askData = AskDataSettingsRules.ToRuntime(await aiSettings.GetAsync(s.TenantId, ct));
         var run = new AiAgentRun
         {
             TenantId = s.TenantId, AgentId = r.AgentId, AgentName = r.Agent.Name.Trim(), RunBy = s.UserName,
@@ -71,7 +75,7 @@ public sealed class TestAiAgentStreamHandler(
         var finished = false;
         try
         {
-            await foreach (var ev in Guarded(runtime.RunAsync(r.Agent, inputs, llm, $"agent-{s.TenantId}-{Guid.NewGuid():N}", texts, ct), e => error = e, ct))
+            await foreach (var ev in Guarded(runtime.RunAsync(r.Agent, inputs, llm, $"agent-{s.TenantId}-{Guid.NewGuid():N}", texts, askData, ct), e => error = e, ct))
             {
                 if (ev.Type == "done") done = ev.Data;
                 else if (ev.Type == "error") error = Text(ev.Data, "message") ?? "The agent failed.";

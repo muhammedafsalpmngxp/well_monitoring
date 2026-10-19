@@ -46,17 +46,20 @@ New Agent page (Angular) ──► Tenant API /api/agents (CQRS) ──► core.
 ## Ask Data = the twise DB Assistant
 
 `app/askdata` is the DB Assistant ported unchanged (graphs, nodes, access and
-SQL checks). It runs with twise's `backend/.env` values: MAX_ROWS 500, MAX_SQL_RETRIES 2, QUERY_TIMEOUT 60,
-MAX_QUERIES 3, VERIFY_RETRIES 1, HISTORY_TURNS 3, ALLOWED_SCHEMAS well,project,ref,bridge,dbo, the 15
-EXCLUDED_TABLES and EXCLUDED_COLUMNS (`settings.py`, env `ASKDATA_*` overrides), LLM timeout 120 s with 2
-retries and the per-node reasoning table (`llm.py`). Prompts come only from the tenant database: the Tenant API
+SQL checks). What it may read and its limits are the tenant's: allowed schemas, hidden tables and columns, rows per
+query, query time limit, queries per question, SQL rewrites, answer re-checks, conversation turns, organisation name
+and export file prefix live in `core.AiSettings` (`askdata_*` columns, edited in Settings > AI Settings) and the
+Tenant API sends them with every Ask Data run as `askDataSettings`. The runtime has no schema, table or column names
+of its own: a tenant with no allowed schemas is refused ("not set up"). LLM timeout 120 s with 2 retries and the
+per-node reasoning table are in `llm.py`. Prompts come only from the tenant database: the Tenant API
 reads `core.AiPrompt` (history in `core.AiPromptHistory`, edited in Settings > AI Prompts) and
 sends the `askdata.*` and `agent.*` texts with every request as `prompts`; the runtime has no built-in text
 and refuses a run that lacks one. Export (`tools/export.py`, `export_formats.py`) signs the answer's SQL with
 `ASKDATA_EXPORT_SECRET` (set it outside local development; without it links stop working on restart).
 Differences on purpose: the executor also refuses anything but one SELECT and opens read-only connections;
 the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_FAST_MODEL); an agent's
-`allowedSchemas` can only narrow `ASKDATA_ALLOWED_SCHEMAS` (`runner.settings_for`), never add `sys` & co.
+`allowedSchemas` can only narrow the tenant's allowed schemas and its `maxRows` only lower the tenant's
+(`runner.settings_for`); `sys` and `INFORMATION_SCHEMA` are never readable.
 
 **Which database:** Ask Data reads `AgentRuntime:AskDataConnection`, else `ConnectionStrings:AlTasnimBI`
 (the Tenant API sends it with each run). The twise agents (DB Assistant, Data Anomaly, Well Slippage,
@@ -93,9 +96,6 @@ on QA) with their own OpenAI key.
 | Runtime env | `AGENT_RUNTIME_TWISE_URL` | `http://localhost:8000` | twise supervisor |
 | Runtime env | `AGENT_RUNTIME_TWISE_API_KEY` | empty | twise `X-API-Key` |
 | Runtime env | `AGENT_RUNTIME_STEP_TIMEOUT` | `180` | seconds per step |
-| Runtime env | `ASKDATA_ALLOWED_SCHEMAS` | `well,project,ref,bridge,dbo` | the most an agent's Allowed schemas can read |
-| Runtime env | `ASKDATA_ORG_NAME` | `Al-Tasnim` | the organisation the Ask Data prompts speak for (`{{ORG_NAME}}` in the prompts) |
-| Runtime env | `ASKDATA_EXPORT_PREFIX` | `ask-data` | start of exported file names (`al-tasnim` gives the old names) |
 
 Set both keys outside local development: the runtime receives the tenant's decrypted AI key in the
 request body, so it must only be reachable from the Tenant API.

@@ -92,6 +92,8 @@ export const API_ENDPOINTS = {
     PROMPTS: '/ai/prompts',
     PROMPT: (key: string) => `/ai/prompts/${key}`,
     PROMPT_LIBRARY: '/ai/prompt-library',
+    ASK_DATA_SETTINGS: '/ai/settings/ask-data',
+    ASK_DATA_CATALOG: '/ai/settings/ask-data/catalog',
     PROMPT_LIBRARY_ITEM: (key: string) => `/ai/prompt-library/${encodeURIComponent(key)}`,
     PROMPT_LIBRARY_HISTORY: (key: string) => `/ai/prompt-library/${encodeURIComponent(key)}/history`,
     PROMPT_LIBRARY_RESTORE: (key: string) => `/ai/prompt-library/${encodeURIComponent(key)}/restore`,

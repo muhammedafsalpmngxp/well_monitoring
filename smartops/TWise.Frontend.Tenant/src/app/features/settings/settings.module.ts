@@ -18,6 +18,7 @@ import { AiSettingsComponent } from './ai-settings/ai-settings.component';
 import { AiActivityComponent } from './ai-activity/ai-activity.component';
 import { AiRelationsComponent } from './ai-relations/ai-relations.component';
 import { AiPromptsComponent } from './ai-prompts/ai-prompts.component';
+import { AiConfigurationComponent } from './ai-configuration/ai-configuration.component';
 import { DataSourcesComponent } from './data-sources/data-sources.component';
 import { MarketplaceComponent } from './marketplace/marketplace.component';
 import { PowerBiComponent } from './power-bi/power-bi.component';
@@ -33,7 +34,7 @@ import { DaxActionsCellRendererComponent } from './dax-model/cell-renderers/dax-
 import { DaxUsedInCellRendererComponent } from './dax-model/cell-renderers/dax-used-in-cell-renderer.component';
 
 @NgModule({
-  declarations: [SettingsComponent, DatabaseViewComponent, DatabaseViewBuilderComponent, DatabaseViewDetailComponent, DataSyncComponent, DataSourcesComponent, MarketplaceComponent, PowerBiComponent, LearnVideosComponent, DaxModelComponent, AiSettingsComponent, AiActivityComponent, AiRelationsComponent, AiPromptsComponent],
+  declarations: [SettingsComponent, DatabaseViewComponent, DatabaseViewBuilderComponent, DatabaseViewDetailComponent, DataSyncComponent, DataSourcesComponent, MarketplaceComponent, PowerBiComponent, LearnVideosComponent, DaxModelComponent, AiSettingsComponent, AiActivityComponent, AiRelationsComponent, AiPromptsComponent, AiConfigurationComponent],
   imports: [
     SharedModule,
     SettingsRoutingModule,

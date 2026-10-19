@@ -28,7 +28,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
 from app import twise
-from app.models import AgentConfig, Branch, Db, Llm, Step
+from app.models import AgentConfig, AskDataTenantSettings, Branch, Db, Llm, Step
 from app.prompt_text import fill as fill_prompt, fill_lines, text as prompt
 
 ASK_DATA = "ask_data"   # the built-in tool: DB Assistant's graph, run in this process (app/askdata)
@@ -66,9 +66,10 @@ def missing_inputs(cfg: AgentConfig, inputs: dict[str, str]) -> list[str]:
 
 def build_graph(cfg: AgentConfig, llm: Llm | None, session_id: str, run_tool: RunTool | None = None,
                 chat: Callable[[Llm, list[tuple[str, str]]], tuple[str, dict[str, int]]] | None = None,
-                db: Db | None = None, prompts: Texts | None = None):
+                db: Db | None = None, prompts: Texts | None = None,
+                ask_data_settings: AskDataTenantSettings | None = None):
     texts = prompts or {}
-    run_tool, chat = run_tool or _tools(cfg, llm, db, texts), chat or _chat
+    run_tool, chat = run_tool or _tools(cfg, llm, db, texts, ask_data_settings), chat or _chat
     g = StateGraph(AgentState)
     names = [f"step_{i}" for i in range(1, len(cfg.steps) + 1)]
     end = "check" if cfg.type == "loop" else "answer"
@@ -190,13 +191,15 @@ def profile(cfg: AgentConfig, texts: Texts | None) -> str:
                                  cfg.system_prompt or ""] if p)
 
 
-def _tools(cfg: AgentConfig, llm: Llm | None, db: Db | None, texts: Texts | None = None) -> RunTool:
+def _tools(cfg: AgentConfig, llm: Llm | None, db: Db | None, texts: Texts | None = None,
+           ask_data_settings: AskDataTenantSettings | None = None) -> RunTool:
     """Ask Data runs in this process; every other tool is a twise agent over HTTP."""
     def run(agent: str, action: str, text: str, history: list[dict[str, str]], session_id: str):
         if agent != ASK_DATA:
             return twise.run_tool(agent, action, text, history, session_id)
         from app.askdata.runner import ask   # imported on use: needs pyodbc / sqlglot
-        return ask(text, history, mode=action, options=cfg.ask_data, db=db, llm=llm, prompts=texts)
+        return ask(text, history, mode=action, options=cfg.ask_data, db=db, llm=llm, prompts=texts,
+                   tenant=ask_data_settings)
     return run
 
 

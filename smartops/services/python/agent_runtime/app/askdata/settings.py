@@ -16,33 +16,21 @@ from typing import Any, Iterator
 CACHE_ROOT = Path(os.environ.get("AGENT_RUNTIME_CACHE", Path(__file__).resolve().parents[2] / ".cache"))
 
 
-def _csv(value: str) -> tuple[str, ...]:
-    """Comma-separated setting, lowercased and blank-stripped (twise env_csv)."""
-    return tuple(x.strip().lower() for x in value.split(",") if x.strip())
-
-
-# twise backend/.env: the tables and columns the DB Assistant never shows the model.
-TWISE_EXCLUDED_TABLES = ("well.well_details,dbo.sysdiagrams,dbo.plant_description,ref.project_type,ref.well_location,"
-                         "wbs.Plant_master,wbs.WBS_master,wbs.activity_master,dbo.activity_task_plan,"
-                         "dbo.activity_taskplan_job_progress,dbo.ActivityCodesNorms,dbo.activity_master_mapping,"
-                         "well.wmr_conversion,dbo.task_daily_combined,dbo.task_daily_project")
-
-
 @dataclass(frozen=True)
 class AskDataSettings:
-    """Per-agent limits: twise's db_assistant settings with the values of twise's backend/.env."""
+    """Per-run limits and visibility: the tenant's Ask Data settings (Settings > AI Settings, sent by the Tenant API),
+    narrowed by an agent's Knowledge Source (runner.settings_for). Nothing here names a schema, table or column."""
     max_sql_retries: int = 2
     max_rows: int = 500
     query_timeout: int = 60
     max_queries: int = 3
     verify_retries: int = 1
     history_turns: int = 3
-    allowed_schemas: tuple[str, ...] = field(
-        default_factory=lambda: _csv(os.environ.get("ASKDATA_ALLOWED_SCHEMAS", "well,project,ref,bridge,dbo")))
-    excluded_tables: tuple[str, ...] = field(
-        default_factory=lambda: _csv(os.environ.get("ASKDATA_EXCLUDED_TABLES", TWISE_EXCLUDED_TABLES)))
-    excluded_columns: tuple[str, ...] = field(
-        default_factory=lambda: _csv(os.environ.get("ASKDATA_EXCLUDED_COLUMNS", "well.well_master.location_dd")))
+    allowed_schemas: tuple[str, ...] = ()
+    excluded_tables: tuple[str, ...] = ()
+    excluded_columns: tuple[str, ...] = ()
+    org_name: str = ""                 # {{ORG_NAME}} in the prompts
+    export_prefix: str = "ask-data"
     # Export (tools/export.py): full re-read of an answer's SQL, no model call.
     export_max_rows: int = 1_000_000
     export_query_timeout: int = 600

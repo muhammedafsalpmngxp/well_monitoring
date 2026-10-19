@@ -6,8 +6,24 @@ public class AiSettings : BaseEntity
     public long Id { get; set; }
     public long TenantId { get; set; }
     public bool IsEnabled { get; set; }
-    /// <summary>Admin's custom AI instructions as JSON {key: text}; missing keys use the defaults in AiPrompts.</summary>
+    /// <summary>No longer used: the AI prompts are in core.AiPrompt. Kept so the column stays mapped.</summary>
     public string? PromptsJson { get; set; }
+
+    // Ask Data: what it may read and its limits (Settings → AI Settings). The lists are JSON arrays; no allowed schemas
+    // means Ask Data is not set up and refuses to run.
+    public string? AskDataAllowedSchemas { get; set; }
+    public string? AskDataExcludedTables { get; set; }
+    public string? AskDataExcludedColumns { get; set; }
+    public int AskDataMaxRows { get; set; } = 500;
+    public int AskDataQueryTimeout { get; set; } = 60;
+    public int AskDataMaxQueries { get; set; } = 3;
+    public int AskDataSqlRetries { get; set; } = 2;
+    public int AskDataVerifyRetries { get; set; } = 1;
+    public int AskDataHistoryTurns { get; set; } = 3;
+    public string? AskDataOrgName { get; set; }
+    public string? AskDataExportPrefix { get; set; }
+    /// <summary>deep | normal: how the Ask your data chatbot (side panel) answers. Agents choose their own mode per step.</summary>
+    public string AskDataChatMode { get; set; } = "deep";
 }
 
 /// <summary>

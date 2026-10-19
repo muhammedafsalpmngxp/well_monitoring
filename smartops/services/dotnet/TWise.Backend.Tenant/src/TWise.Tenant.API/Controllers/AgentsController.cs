@@ -60,9 +60,9 @@ public sealed class AgentsController(ISender sender) : ControllerBase
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public Task<IActionResult> ExportAskData([FromBody] AskDataExportRequest request, CancellationToken ct) =>
-        RuntimeAsync(async () =>
+        !TryGetTenantId(out var tenantId) ? Task.FromResult<IActionResult>(Unauthorized()) : RuntimeAsync(async () =>
         {
-            var file = await sender.Send(new ExportAskDataQuery(request), ct);
+            var file = await sender.Send(new ExportAskDataQuery(request, tenantId), ct);
             return File(file.Body, file.ContentType, file.FileName);
         });
 

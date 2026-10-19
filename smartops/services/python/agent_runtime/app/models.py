@@ -46,6 +46,22 @@ class AgentInput(_Camel):
     required: bool = True
 
 
+class AskDataTenantSettings(_Camel):
+    """The tenant's Ask Data settings (core.AiSettings, Settings > AI Settings), sent by the Tenant API with every run that
+    uses Ask Data. The runtime has no schema, table or column names of its own: no allowed schemas = not set up."""
+    allowed_schemas: list[str] = []
+    excluded_tables: list[str] = []      # "schema.table" or "table" (that name in every schema)
+    excluded_columns: list[str] = []     # "schema.table.column", "table.column" or "column" (that name in every table)
+    max_rows: int = Field(500, ge=1, le=10_000)
+    query_timeout: int = Field(60, ge=5, le=600)
+    max_queries: int = Field(3, ge=1, le=10)
+    max_sql_retries: int = Field(2, ge=0, le=5)
+    verify_retries: int = Field(1, ge=0, le=3)
+    history_turns: int = Field(3, ge=0, le=20)
+    org_name: str = ""                   # {{ORG_NAME}} in the prompts
+    export_prefix: str = "ask-data"      # start of exported file names
+
+
 class AskDataOptions(_Camel):
     """Knowledge Source and limits for the built-in Ask Data tool. business_rules are added after the tenant's;
     examples replace the tenant's few_shots (blank = the tenant's)."""
@@ -123,6 +139,7 @@ class RunRequest(_Camel):
     llm: Llm | None = None
     db: Db | None = None
     session_id: str = "agent-runtime"
+    ask_data_settings: AskDataTenantSettings | None = None   # the tenant's, when a step uses Ask Data
     # The tenant's AI prompt texts {key: text} (core.AiPrompt): agent.* and askdata.* keys.
     prompts: dict[str, str] = {}
 
@@ -136,6 +153,7 @@ class AskDataExportRequest(_Camel):
     verified: bool = True
     db: Db
     ask_data: AskDataOptions | None = None
+    ask_data_settings: AskDataTenantSettings | None = None
 
 
 class AskDataAskRequest(_Camel):
@@ -147,3 +165,4 @@ class AskDataAskRequest(_Camel):
     llm: Llm
     ask_data: AskDataOptions | None = None
     prompts: dict[str, str] = {}         # the tenant's AI prompt texts (askdata.* keys)
+    ask_data_settings: AskDataTenantSettings | None = None

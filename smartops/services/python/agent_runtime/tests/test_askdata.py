@@ -317,34 +317,85 @@ def test_export_endpoint_refuses_a_forged_token():
     from fastapi.testclient import TestClient
     from app.main import app
 
-    body = {"token": "abc.def", "format": "xlsx", "db": {"server": "s", "name": "n", "user": "u", "password": "p"}}
+    body = {"token": "abc.def", "format": "xlsx", "db": {"server": "s", "name": "n", "user": "u", "password": "p"},
+            "askDataSettings": {"allowedSchemas": ["well"]}}
     r = TestClient(app).post("/api/agent-runtime/askdata/export", json=body)
     assert r.status_code == 400 and "export" in r.json()["detail"].lower()
 
 
-def test_exclusion_lists_are_lowercased_like_twise():
+def test_export_refuses_when_ask_data_is_not_set_up():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    body = {"token": "abc.def", "format": "xlsx", "db": {"server": "s", "name": "n", "user": "u", "password": "p"}}
+    r = TestClient(app).post("/api/agent-runtime/askdata/export", json=body)
+    assert r.status_code == 400 and "Settings > AI Settings" in r.json()["detail"]
+
+
+def test_the_runtime_has_no_schema_table_or_column_names_of_its_own():
     from app.askdata.settings import AskDataSettings
 
     s = AskDataSettings()
-    assert "dbo.activitycodesnorms" in s.excluded_tables and s.allowed_schemas[0] == "well"
+    assert s.allowed_schemas == () and s.excluded_tables == () and s.excluded_columns == () and s.org_name == ""
+
+
+def test_the_tenants_lists_are_lowercased_like_twise():
+    from app.askdata.runner import settings_for
+    from app.models import AskDataTenantSettings
+
+    s = settings_for(None, AskDataTenantSettings(allowed_schemas=["Well", " DBO ", "well"],
+                                                 excluded_tables=["dbo.ActivityCodesNorms"],
+                                                 excluded_columns=["Well.Well_Master.Location_DD"],
+                                                 max_rows=250, query_timeout=30, max_queries=2, max_sql_retries=1,
+                                                 verify_retries=0, history_turns=5, org_name=" Acme ", export_prefix="acme"))
+    assert s.allowed_schemas == ("well", "dbo")
+    assert s.excluded_tables == ("dbo.activitycodesnorms",) and s.excluded_columns == ("well.well_master.location_dd",)
+    assert (s.max_rows, s.query_timeout, s.max_queries, s.max_sql_retries, s.verify_retries, s.history_turns) == (250, 30, 2, 1, 0, 5)
+    assert s.org_name == "Acme" and s.export_prefix == "acme"
+
+
+def test_ask_data_refuses_until_the_tenant_sets_it_up():
+    from app.askdata.runner import NOT_SET_UP, settings_for
+    from app.models import AskDataTenantSettings
+
+    for tenant in (None, AskDataTenantSettings(), AskDataTenantSettings(allowed_schemas=["sys", "INFORMATION_SCHEMA", " "])):
+        with pytest.raises(ValueError, match="Settings > AI Settings"):
+            settings_for(None, tenant)
+    assert "not set up" in NOT_SET_UP
 
 
 def test_an_agent_can_only_narrow_the_allowed_schemas():
     from app.askdata.runner import settings_for
     from app.models import AskDataOptions
 
-    assert settings_for(AskDataOptions(allowed_schemas=["Well", "sys", "INFORMATION_SCHEMA"])).allowed_schemas == ("well",)
-    default = settings_for(None).allowed_schemas
-    assert settings_for(AskDataOptions(allowed_schemas=None)).allowed_schemas == default       # null from the Tenant API
-    assert settings_for(AskDataOptions(allowed_schemas=[])).allowed_schemas == default         # blank: the server's list
+    from app.models import AskDataTenantSettings
+
+    tenant = AskDataTenantSettings(allowed_schemas=["well", "project", "ref"], max_rows=500)
+    assert settings_for(AskDataOptions(allowed_schemas=["Well", "sys", "INFORMATION_SCHEMA"]), tenant).allowed_schemas == ("well",)
+    default = settings_for(None, tenant).allowed_schemas
+    assert default == ("well", "project", "ref")
+    assert settings_for(AskDataOptions(allowed_schemas=None), tenant).allowed_schemas == default   # null from the Tenant API
+    assert settings_for(AskDataOptions(allowed_schemas=[]), tenant).allowed_schemas == default     # blank: the tenant's list
     with pytest.raises(ValueError, match="can be read here"):
-        settings_for(AskDataOptions(allowed_schemas=["sys", "wel"]))   # never widened to every schema
+        settings_for(AskDataOptions(allowed_schemas=["sys", "wel"]), tenant)   # never widened to every schema
+    with pytest.raises(ValueError, match="can be read here"):
+        settings_for(AskDataOptions(allowed_schemas=["hr"]), tenant)           # nor to a schema the tenant does not allow
+
+
+def test_an_agent_can_lower_the_row_limit_but_never_raise_it():
+    from app.askdata.runner import settings_for
+    from app.models import AskDataOptions, AskDataTenantSettings
+
+    tenant = AskDataTenantSettings(allowed_schemas=["well"], max_rows=500)
+    assert settings_for(AskDataOptions(max_rows=100), tenant).max_rows == 100
+    assert settings_for(AskDataOptions(max_rows=5000), tenant).max_rows == 500
+    assert settings_for(None, tenant).max_rows == 500
 
 
 def test_done_event_carries_an_export_token(monkeypatch):
     # The response is built inside the run, so the token can be signed (it was None when built after it).
     from app.askdata import runner
-    from app.models import Db
+    from app.models import AskDataTenantSettings, Db
 
     class FakeGraph:
         def stream(self, *_a, **_k):
@@ -356,8 +407,18 @@ def test_done_event_carries_an_export_token(monkeypatch):
     with run_context(None):   # leave the fixture's run: ask() opens its own
         events = list(runner.ask("q", [], mode="deep", options=None,
                                  db=Db(server="s", name="n", user="u", password="p"), llm=None,
-                                 prompts=runtime_texts()))
+                                 prompts=runtime_texts(), tenant=AskDataTenantSettings(allowed_schemas=["well"])))
     assert events[-1]["data"]["export_token"]
+
+
+def test_the_chatbot_says_how_to_set_ask_data_up():
+    from app.askdata import runner
+    from app.models import Db
+
+    with run_context(None):
+        events = list(runner.ask("q", [], mode="deep", options=None,
+                                 db=Db(server="s", name="n", user="u", password="p"), llm=None, prompts=runtime_texts()))
+    assert events == [{"event": "error", "data": {"message": runner.NOT_SET_UP}}]
 
 
 def test_ask_your_data_answers_drop_the_export_hint():

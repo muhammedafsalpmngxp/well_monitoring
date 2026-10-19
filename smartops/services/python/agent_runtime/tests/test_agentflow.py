@@ -52,12 +52,13 @@ def test_export_names_the_tenants_model_without_its_key():
     assert anthropic["config"]["llm_provider"]["api_key_env"] == "ANTHROPIC_API_KEY"
 
 
-def test_org_name_replaces_only_its_placeholder(monkeypatch):
+def test_org_name_replaces_only_its_placeholder():
     from app.askdata import prompts
 
-    monkeypatch.setattr(prompts, "ORG_NAME", "Acme")
     texts = {"askdata.sql_knowledge": "Column ORG_NAME_ID; ask about {{ORG_NAME}}"}
-    assert prompts._load(texts, "sql_knowledge") == "Column ORG_NAME_ID; ask about Acme"
+    assert prompts._load(texts, "sql_knowledge", "Acme") == "Column ORG_NAME_ID; ask about Acme"
+    # A tenant that has not named its organisation (Settings > AI Settings) gets a neutral phrase, never a placeholder.
+    assert prompts._load(texts, "sql_knowledge", "  ") == f"Column ORG_NAME_ID; ask about {prompts.NO_ORG_NAME}"
 
 
 def test_round_trip_is_lossless():

@@ -9,6 +9,7 @@ import { AiSettingsComponent } from './ai-settings/ai-settings.component';
 import { AiActivityComponent } from './ai-activity/ai-activity.component';
 import { AiRelationsComponent } from './ai-relations/ai-relations.component';
 import { AiPromptsComponent } from './ai-prompts/ai-prompts.component';
+import { AiConfigurationComponent } from './ai-configuration/ai-configuration.component';
 import { DataSourcesComponent } from './data-sources/data-sources.component';
 import { MarketplaceComponent } from './marketplace/marketplace.component';
 import { PowerBiComponent } from './power-bi/power-bi.component';
@@ -27,6 +28,8 @@ const routes: Routes = [
   { path: 'ai',                    redirectTo: 'ai/providers', pathMatch: 'full' },
   { path: 'ai/providers',          component: AiSettingsComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai', section: 'providers' } },
   { path: 'ai/features',           component: AiSettingsComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai', section: 'features' } },
+  // How the AI works for the tenant (Ask Data: what it may read, its limits): admins only (the API checks too).
+  { path: 'ai/settings',           component: AiConfigurationComponent, canActivate: [permissionGuard, adminGuard], data: { permission: 'settings.ai' } },
   // Every AI prompt of the tenant (database), with version history: admins only (the API checks too).
   { path: 'ai/prompts',            component: AiPromptsComponent, canActivate: [permissionGuard, adminGuard], data: { permission: 'settings.ai' } },
   { path: 'ai/activity',           component: AiActivityComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai' } },

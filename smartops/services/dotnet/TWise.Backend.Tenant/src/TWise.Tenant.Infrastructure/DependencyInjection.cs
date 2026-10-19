@@ -173,6 +173,7 @@ public static class DependencyInjection
         services.AddSingleton<IAiKeyProtector, AiKeyProtector>();
         services.AddScoped<IAiService, AiService>();
         services.AddScoped<IAiPromptStore, AiPromptStore>();
+        services.AddScoped<IAskDataCatalogReader, AskDataCatalogReader>();
         services.AddScoped<IAiAskService, AiAskService>();
         services.AddScoped<IAiAlertService, AiAlertService>();
         services.AddHostedService<AiAlertWorker>();

@@ -7,6 +7,7 @@ using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai.Activity;
 using TWise.Tenant.Application.Features.Ai.Alerts;
 using TWise.Tenant.Application.Features.Ai.Ask;
+using TWise.Tenant.Application.Features.Ai.AskDataSettings;
 using TWise.Tenant.Application.Features.Ai.PromptLibrary;
 using TWise.Tenant.Application.Features.Ai.Builder;
 using TWise.Tenant.Application.Features.Ai.Conversations;
@@ -457,6 +458,31 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> SavePrompt(string key, [FromBody] SaveAiPromptRequest request, CancellationToken ct) =>
         AdminAsync(async t => Ok(await sender.Send(new SaveAiPromptCommand(t, UserId(), key, request.Text), ct)));
+
+    // ── Ask Data settings (Settings → AI Settings, admins only) ─────────────────────────────────────────────────────
+
+    /// <summary>What Ask Data may read (schemas, hidden tables and columns) and its limits.</summary>
+    [HttpGet("settings/ask-data")]
+    [ProducesResponseType(typeof(AskDataSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> GetAskDataSettings(CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new GetAskDataSettingsQuery(t), ct)));
+
+    /// <summary>Saves them. Allowed schemas must exist in the Ask Data database; 400 with { message } lists every problem.</summary>
+    [HttpPut("settings/ask-data")]
+    [ProducesResponseType(typeof(AskDataSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> SaveAskDataSettings([FromBody] SaveAskDataSettingsRequest request, CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new SaveAskDataSettingsCommand(t, UserId(), request), ct)));
+
+    /// <summary>The Ask Data database's schemas, tables and columns, to choose from. 400 when it cannot be read.</summary>
+    [HttpGet("settings/ask-data/catalog")]
+    [ProducesResponseType(typeof(AskDataCatalogDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> GetAskDataCatalog(CancellationToken ct) =>
+        AdminAsync(async _ => Ok(await sender.Send(new GetAskDataCatalogQuery(), ct)));
 
     // ── AI prompts (Settings → AI Prompts, admins only) ───────────────────────────────────────────────────────────
 

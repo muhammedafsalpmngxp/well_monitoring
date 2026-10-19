@@ -39,7 +39,7 @@ Base path: `/api/agents`
 | `inputs` | names use letters, digits and `_`, unique |
 | `status` | `draft` or `published` |
 | `type` | how the instructions run: `sequential` (one after another, the default), `parallel` (all at once, then one combined answer), `supervisor` (the AI picks which instruction runs next until the goal is answered; each instruction runs exactly as written, and none runs twice once it succeeded), `loop` (repeat until the AI judges the goal met) |
-| `askData.allowedSchemas` | narrows the schemas Ask Data may read; names outside the server's list (`ASKDATA_ALLOWED_SCHEMAS`) are ignored. Empty or null = the server's list |
+| `askData.allowedSchemas` | narrows the schemas Ask Data may read; names outside the tenant's list (Settings → AI Settings) are ignored. Empty or null = the tenant's list |
 | `maxIterations` | 1 to 20 (default 5): rounds for `supervisor` and `loop` |
 | `steps[].id` | optional, up to 64 characters; needed by routers and links. `x` / `y` are the canvas position |
 

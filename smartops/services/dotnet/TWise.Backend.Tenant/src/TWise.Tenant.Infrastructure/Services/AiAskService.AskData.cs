@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using TWise.Tenant.Application.Features.Ai;
+using TWise.Tenant.Application.Features.Ai.AskDataSettings;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
 
@@ -38,7 +39,10 @@ public sealed partial class AiAskService
         var nodes = new List<string>();
         JsonElement? done = null;
         yield return new AiAskEvent("status", "Understanding your question…");
-        await foreach (var ev in Guarded(runtime.AskDataAsync(question, history.TakeLast(HistoryTurns).ToList(), llm, AiPromptCatalog.RuntimeTexts(await prompts.GetAsync(tenantId, ct)), ct), m => failed = m, ct))
+        // What Ask Data may read and its limits come from the tenant's AI Settings; so does how much history it keeps.
+        var askData = AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct));
+        var texts = AiPromptCatalog.RuntimeTexts(await prompts.GetAsync(tenantId, ct));
+        await foreach (var ev in Guarded(runtime.AskDataAsync(question, history.TakeLast(askData.HistoryTurns).ToList(), llm, texts, askData, ct), m => failed = m, ct))
         {
             switch (ev.Type)
             {

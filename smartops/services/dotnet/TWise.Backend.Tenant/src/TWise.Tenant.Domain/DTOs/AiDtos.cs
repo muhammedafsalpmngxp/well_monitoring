@@ -65,3 +65,46 @@ public record AiUsageSummaryDto(int CallsToday, int DailyQuota, IReadOnlyList<Ai
 public record AiMessage(string Role, string Content);
 
 public record AiCompletion(string Content, int PromptTokens, int CompletionTokens);
+
+/// <summary>
+/// Ask Data's settings (Settings → AI Settings): what it may read and its limits. Configured is false until an admin
+/// has chosen at least one schema; Ask Data refuses to run until then. ChatMode (deep | normal) is how the Ask your data
+/// chatbot answers; agents choose their own mode per step.
+/// </summary>
+public record AskDataSettingsDto(
+    bool Configured,
+    IReadOnlyList<string> AllowedSchemas,
+    IReadOnlyList<string> ExcludedTables,
+    IReadOnlyList<string> ExcludedColumns,
+    int MaxRows,
+    int QueryTimeout,
+    int MaxQueries,
+    int SqlRetries,
+    int VerifyRetries,
+    int HistoryTurns,
+    string? OrgName,
+    string? ExportPrefix,
+    string ChatMode,
+    string? ModifiedBy,
+    DateTime? ModifiedAt);
+
+public record SaveAskDataSettingsRequest(
+    IReadOnlyList<string>? AllowedSchemas,
+    IReadOnlyList<string>? ExcludedTables,
+    IReadOnlyList<string>? ExcludedColumns,
+    int MaxRows,
+    int QueryTimeout,
+    int MaxQueries,
+    int SqlRetries,
+    int VerifyRetries,
+    int HistoryTurns,
+    string? OrgName,
+    string? ExportPrefix,
+    string? ChatMode = null);
+
+/// <summary>The Ask Data database's schemas, tables and columns, for choosing what Ask Data may read.</summary>
+public record AskDataCatalogDto(string Database, IReadOnlyList<AskDataCatalogSchemaDto> Schemas);
+
+public record AskDataCatalogSchemaDto(string Name, IReadOnlyList<AskDataCatalogTableDto> Tables);
+
+public record AskDataCatalogTableDto(string Name, IReadOnlyList<string> Columns);

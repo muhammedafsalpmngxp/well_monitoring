@@ -94,7 +94,8 @@ def askdata_export(req: AskDataExportRequest) -> Response:
 
     try:
         content_type, filename, body = runner.export(req.token, req.format, question=req.question, answer=req.answer,
-                                                     verified=req.verified, options=req.ask_data, db=req.db)
+                                                     verified=req.verified, options=req.ask_data, db=req.db,
+                                                     tenant=req.ask_data_settings)
     except (ExportError, ValueError) as exc:   # ValueError: the agent's schemas cannot be read here
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ImportError as exc:
@@ -117,7 +118,7 @@ def askdata_events(req: AskDataAskRequest) -> Iterator[tuple[str, dict[str, Any]
 
     try:
         for ev in runner.ask(req.question, req.history, mode=req.mode, options=req.ask_data, db=req.db, llm=req.llm,
-                             prompts=req.prompts):
+                             prompts=req.prompts, tenant=req.ask_data_settings):
             data = ev["data"]
             if ev["event"] == "done":
                 # The panel has no Export button: drop the "download using the Export option" sentence.
@@ -151,7 +152,8 @@ def run_events(req: RunRequest, **graph_overrides: Any) -> Iterator[tuple[str, d
         return
     started, final = time.monotonic(), {}
     try:
-        graph = build_graph(req.agent, req.llm, req.session_id, db=req.db, prompts=req.prompts, **graph_overrides)
+        graph = build_graph(req.agent, req.llm, req.session_id, db=req.db, prompts=req.prompts,
+                            ask_data_settings=req.ask_data_settings, **graph_overrides)
         for mode, chunk in graph.stream({"inputs": req.inputs, "results": [], "usage": []}, stream_mode=["custom", "values"]):
             if mode == "custom":
                 yield chunk["event"], chunk["data"]
