@@ -107,7 +107,8 @@
         </label>
         <label class="ai__inline"><input type="checkbox" [(ngModel)]="settings.isEnabled" name="isEnabled" /> AI features enabled for users</label>
         <div class="ai__actions">
-          <button type="submit" class="btn btn-primary" [disabled]="savingSettings || settings.dailyQuota < 0">{{ savingSettings ? 'Saving…' : 'Save' }}</button>
+          <button type="submit" class="btn btn-primary" [disabled]="!settingsLoaded || savingSettings || settings.dailyQuota < 0"
+            [title]="settingsLoaded ? '' : 'The current settings have not loaded yet'">{{ savingSettings ? 'Saving…' : 'Save' }}</button>
           <span class="ai__msg ai__msg--ok" *ngIf="settingsMessage" role="status">{{ settingsMessage }}</span>
         </div>
       </form>

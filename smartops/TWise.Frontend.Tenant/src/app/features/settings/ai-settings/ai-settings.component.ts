@@ -36,6 +36,8 @@ export class AiSettingsComponent implements OnInit {
 
   providers: AiProviderDto[] = [];
   settings = { dailyQuota: 500, isEnabled: false };
+  /** False until the tenant's settings arrive: saving the placeholder values above would switch AI off. */
+  settingsLoaded = false;
 
   /** Feature-by-role matrix; every role, including admin, is a normal column. */
   featureDefs: AiFeatureDef[] = [];
@@ -77,6 +79,7 @@ export class AiSettingsComponent implements OnInit {
   // ── Tenant settings ────────────────────────────────────────────────────────
 
   saveSettings(): void {
+    if (!this.settingsLoaded) return;
     this.savingSettings = true;
     this.settingsMessage = this.error = '';
     this.ai.saveSettings(this.settings).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -206,8 +209,8 @@ export class AiSettingsComponent implements OnInit {
 
   private loadSettings(): void {
     this.ai.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: s => { this.settings = this.pick(s); this.cdr.markForCheck(); },
-      error: err => { this.error = err?.error?.message ?? 'AI settings could not be loaded.'; this.cdr.markForCheck(); },
+      next: s => { this.settings = this.pick(s); this.settingsLoaded = true; this.cdr.markForCheck(); },
+      error: err => { this.settingsLoaded = false; this.error = err?.error?.message ?? 'AI settings could not be loaded.'; this.cdr.markForCheck(); },
     });
   }
 
