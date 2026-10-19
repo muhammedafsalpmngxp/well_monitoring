@@ -223,6 +223,128 @@ public sealed class AiAgentHandlerTests
         new SaveAiAgentRequestValidator().Validate(Agent() with { AskData = new AiAgentAskDataDto(MaxRows: 200) }).IsValid.Should().BeTrue();
     }
 
+    private static SaveAiAgentRequest SqlAgent(string? sql, string action = "table") => Agent() with
+    {
+        Steps = [new AiAgentStepDto("Recent report dates", Sql: sql)],
+        Tools = [new AiAgentToolDto(AgentMapping.SqlQueryTool, action)],
+    };
+
+    private const string ReportSql = "-- daily report\nSELECT TOP 10 report_date FROM dbo.daily_report WHERE cluster = {{cluster}}";
+
+    [Theory]
+    [InlineData(ReportSql, "table", null)]
+    [InlineData("WITH d AS (SELECT 1 AS n) SELECT n FROM d", "summary", null)]
+    [InlineData("  ", "table", "write its SQL")]
+    [InlineData("DELETE FROM dbo.daily_report", "table", "must be one SELECT")]
+    [InlineData("SELECT a FROM dbo.t WHERE w = {{well}}", "table", "{{well}}, which is not an input")]
+    [InlineData(ReportSql, "chart", "table or summary")]
+    [InlineData("SELECT a FROM dbo.t WHERE n LIKE '%{{cluster}}%'", "table", "cannot be a parameter")]
+    [InlineData("SELECT a FROM dbo.t -- for {{cluster}}", "table", "cannot be a parameter")]
+    [InlineData("SELECT a FROM dbo.t WHERE n LIKE '%' + {{cluster}} + '%' AND c = '{{cluster}}'", "table", null)]
+    public void Validator_ChecksSavedSqlSteps(string sql, string action, string? error)
+    {
+        var result = new SaveAiAgentRequestValidator().Validate(SqlAgent(sql, action));
+        result.IsValid.Should().Be(error is null);
+        if (error is not null) result.Errors.Should().Contain(e => e.ErrorMessage.Contains(error));
+    }
+
+    [Fact]
+    public void Validator_LeavesSqlOfOtherToolsAlone() =>
+        new SaveAiAgentRequestValidator().Validate(Agent() with { Steps = [new AiAgentStepDto("Q {{cluster}}", Sql: "not checked")] })
+            .IsValid.Should().BeTrue();
+
+    [Fact]
+    public void Mapping_SavedSqlStepsUseTheDatabase_AndSummaryNeedsTheModel()
+    {
+        AgentMapping.UsesDatabase(SqlAgent(ReportSql)).Should().BeTrue();
+        AgentMapping.SummarisesSql(SqlAgent(ReportSql)).Should().BeFalse();
+        AgentMapping.SummarisesSql(SqlAgent(ReportSql, "summary")).Should().BeTrue();
+        AgentMapping.UsesDatabase(Agent()).Should().BeFalse();
+        // A step with its own tool counts too, whatever the agent's first tool is.
+        AgentMapping.UsesDatabase(Agent() with
+        {
+            Steps = [new AiAgentStepDto("Q", Tool: new AiAgentToolDto(AgentMapping.SqlQueryTool, "table"), Sql: ReportSql)],
+        }).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Create_SavesTheStepSql_Trimmed()
+    {
+        AiAgent? saved = null;
+        _repo.Setup(r => r.Add(It.IsAny<AiAgent>())).Callback<AiAgent>(a => saved = a);
+        var dto = await new CreateAiAgentHandler(_repo.Object).Handle(new CreateAiAgentCommand(7, "a@b.com", SqlAgent($"  {ReportSql}  ")), default);
+        dto.Steps.Should().ContainSingle().Which.Sql.Should().Be(ReportSql);
+        saved!.StepsJson.Should().Contain("\"sql\":");
+    }
+
+    [Theory]
+    [InlineData("table", false)]
+    [InlineData("summary", true)]
+    public async Task Test_SavedSqlSingleStep_GetsTheModelOnlyToSummarise(string action, bool model)
+    {
+        _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m" }, "key"));
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeAskData>(), It.IsAny<CancellationToken>()))
+            .Returns(Events(("done", "{\"ok\":true,\"answer\":\"| report_date |\",\"steps\":[],\"usage\":[]}")));
+
+        await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(
+            SqlAgent(ReportSql, action), new Dictionary<string, string> { ["cluster"] = "Nimr" })), default));
+
+        _ai.Verify(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()), model ? Times.Once() : Times.Never());
+    }
+
+    private const string SetupSql = "SELECT wm.well_id FROM well.well_master AS wm WHERE wm.well_id = TRY_CONVERT(int, {{cluster}})";
+
+    private static SaveAiAgentRequest SetupAgent(params AiAgentStepDto[] steps) => SqlAgent(ReportSql) with { Steps = steps };
+
+    [Fact]
+    public void Validator_AcceptsASetupStepFirst()
+    {
+        var agent = SetupAgent(new AiAgentStepDto("Resolve", Kind: AgentMapping.SetupKind, Sql: SetupSql), new AiAgentStepDto("Report", Sql: ReportSql));
+        new SaveAiAgentRequestValidator().Validate(agent).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("second", "Only the first step")]
+    [InlineData("askdata", "must use Saved SQL")]
+    [InlineData("alone", "at least one step after")]
+    [InlineData("linked-back", "go back to the setup step")]
+    public void Validator_ChecksTheSetupStep(string shape, string error)
+    {
+        var setup = new AiAgentStepDto("Resolve", Kind: AgentMapping.SetupKind, Sql: SetupSql, Id: "s");
+        var agent = shape switch
+        {
+            "second" => SetupAgent(new AiAgentStepDto("Report", Sql: ReportSql), setup),
+            "askdata" => SetupAgent(setup with { Tool = new AiAgentToolDto(AgentMapping.AskDataTool, "deep") }, new AiAgentStepDto("Report", Sql: ReportSql)),
+            "alone" => SetupAgent(setup),
+            _ => SetupAgent(setup, new AiAgentStepDto("Report", Sql: ReportSql, Id: "r", Next: "s")) with { Type = "sequential" },
+        };
+        new SaveAiAgentRequestValidator().Validate(agent).Errors.Should().Contain(e => e.ErrorMessage.Contains(error));
+    }
+
+    [Theory]
+    [InlineData("slippage for well 35543", true)]
+    [InlineData("  ", false)]
+    public async Task Test_AQuestionGetsTheModel_AndItsReadingIsCounted(string question, bool model)
+    {
+        AiAgentRun? run = null;
+        _repo.Setup(r => r.AddRunAsync(It.IsAny<AiAgentRun>(), It.IsAny<CancellationToken>())).Callback<AiAgentRun, CancellationToken>((r, _) => run = r);
+        _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m", FastModel = "f" }, "key"));
+        _runtime.Setup(r => r.RunAsync(It.IsAny<SaveAiAgentRequest>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeLlm?>(), It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<AgentRuntimeAskData>(), It.IsAny<CancellationToken>()))
+            .Returns(Events(("inputs", "{\"by\":\"question\",\"values\":{\"cluster\":\"Nimr\"}}"),
+                ("done", "{\"ok\":true,\"answer\":\"x\",\"steps\":[],\"usage\":[{\"agent\":\"agent_runtime.inputs\",\"model\":\"f\",\"input\":30,\"output\":8}]}")));
+        var agent = SqlAgent(ReportSql) with { Inputs = [new AiAgentInputDto("question", Required: false), new AiAgentInputDto("cluster")] };
+
+        var events = await Collect(TestSut.Handle(new TestAiAgentStream(7, "1", "a@b.com", new TestAiAgentRequest(
+            agent, new Dictionary<string, string> { ["question"] = question })), default));
+
+        _ai.Verify(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>()), model ? Times.Once() : Times.Never());
+        events.Select(e => e.Type).Should().Equal("inputs", "done");   // "Understood as" reaches the page
+        run!.InputTokens.Should().Be(30);
+        run.OutputTokens.Should().Be(8);
+    }
+
     [Fact]
     public async Task Test_SupervisorSingleStep_StillGetsTheModel()
     {

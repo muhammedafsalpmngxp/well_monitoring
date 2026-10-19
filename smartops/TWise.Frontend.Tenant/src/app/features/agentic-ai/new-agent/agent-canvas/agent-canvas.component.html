@@ -156,6 +156,12 @@
                         @if (!tools.length) { <option ngValue="">Add a tool to the agent first</option> }
                     </select>
                 </label>
+                @if (isSqlStep(step)) {
+                    <label class="ac__panel-label" for="ac-step-sql">SQL</label>
+                    <textarea id="ac-step-sql" class="ac__sql" rows="6" spellcheck="false" [ngModel]="step.sql" (ngModelChange)="editSql($event)"
+                        [placeholder]="sqlPlaceholder"></textarea>
+                    <p class="ac__hint">One read-only SELECT, run as written with no model call. Inputs as <code ngNonBindable>{{name}}</code> are sent as parameters.</p>
+                }
                 @if (routable) {
                     <label class="ac__go">Then go to
                         <select [ngModel]="step.next ?? ''" (ngModelChange)="setNext($event)">

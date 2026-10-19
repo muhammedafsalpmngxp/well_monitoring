@@ -2049,6 +2049,28 @@
    "output": {
     "route": "answer"
    }
+  },
+  {
+   "scenario": "question/extract",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "Read the user's question and pick out the values of these inputs for one agent run. Today is 2026-10-19.\nInputs:\n- well_id (number): Well id\n- report_date (string): -\nUse only what the question states or clearly implies: a relative date such as \"yesterday\" or \"last Monday\" becomes a date written YYYY-MM-DD, and a number is written without units or thousands separators. Leave out any input the question does not give; never guess one.\nReply with JSON only: {\"values\": {\"<input name>\": \"<value>\"}, \"note\": \"<one short sentence on anything unclear, or an empty string>\"}"
+      ],
+      [
+       "user",
+       "Slippage for well 35543"
+      ]
+     ]
+    }
+   ],
+   "output": {
+    "values": {
+     "well_id": "35543"
+    }
+   }
   }
  ]
 }

@@ -71,6 +71,28 @@ and links that go round in a circle are refused (on save and on test). **Saving*
 path from the first step reaches, e.g. a router nothing links to: it would be saved but never run. A test may
 still try such a half-built flow.
 
+### Saved SQL steps, the setup step and questions
+
+A step whose tool is the built-in **Saved SQL** (`{ "agent": "sql_query", "action": "table" | "summary" }`) runs
+the SELECT in its `sql` instead of asking a model to write one; its `text` is a short label.
+
+```json
+"steps": [
+  { "text": "Resolve well {{well_id}}", "kind": "setup",
+    "sql": "SELECT wm.well_id FROM well.well_master AS wm WHERE wm.well_id = TRY_CONVERT(int, {{well_id}})" },
+  { "text": "Task delay detail for well {{well_id}}", "sql": "SELECT ... WHERE td.well_id = {{well_id}}" }
+],
+"tools": [ { "agent": "sql_query", "action": "table" } ],
+"inputs": [ { "name": "question", "required": false }, { "name": "well_id", "type": "number", "required": false } ]
+```
+
+| Field | Rules |
+|---|---|
+| `steps[].sql` | Saved SQL steps only, up to 20,000 characters: exactly one read-only `SELECT` (or `WITH … SELECT`). `{{name}}` (or `'{{name}}'`) is sent as a parameter, never pasted in; an empty input is NULL. A placeholder inside a longer quoted text or a comment is refused: write `LIKE '%' + {{name}} + '%'`. It reads only what Ask Data may read (Settings → AI Settings, narrowed by `askData.allowedSchemas`; no `SELECT *`) and runs in a transaction that is always rolled back |
+| `action` | `table`: the rows are the step's answer, no AI call. `summary`: the AI provider writes the answer from the rows (one call) |
+| `kind: "setup"` | step 1 only, Saved SQL only, at least one step after it, no link to or from it. It runs before every other step; its first row's columns named like inputs set those inputs (e.g. a blank date becomes the latest report date). No row stops the run with a message. The other steps keep their numbers (they start at 2) |
+| input `question` | an input with this name lets people ask in their own words: one call on the provider's fast model fills the agent's **blank** other inputs from it (typed values win; a number input given a non-number is left blank). No call when nothing is blank. Mark the inputs a question can supply as optional |
+
 Responses add `id`, `createdBy`, `createdAt`, `updatedAt` and `stats` (`runs`, `successRate` %, `avgSeconds`, `lastRunAt`).
 
 ## Endpoints
@@ -79,7 +101,7 @@ Responses add `id`, `createdBy`, `createdAt`, `updatedAt` and `stats` (`runs`, `
 |---|---|---|
 | GET | `/api/agents` | The tenant's agents, most recently changed first |
 | GET | `/api/agents/{id}` | One agent (404 if it is not the tenant's) |
-| GET | `/api/agents/tools` | `{ tools: [{ agent, title, description, capabilities, ready }], message }`. When the agent runtime is down, `tools` is empty and `message` says why; when only the twise agent service (port 8000) is down, `tools` holds Ask Data and `message` says the extra tools are offline |
+| GET | `/api/agents/tools` | `{ tools: [{ agent, title, description, capabilities, ready }], message }`. When the agent runtime is down, `tools` is empty and `message` says why; when only the twise agent service (port 8000) is down, `tools` holds the built-in Ask Data and Saved SQL and `message` says the extra tools are offline |
 | POST | `/api/agents` | Save a new agent. 201 with the agent |
 | PUT | `/api/agents/{id}` | Replace an agent (Save as Draft / Publish on an existing agent) |
 | PUT | `/api/agents/{id}/state` | **Admins only.** Body `{ "agentState": "active" \| "inactive" }`. Switches the agent on or off and returns it. Saving or publishing never changes the state; `POST /api/agents/test` with the `agentId` of an inactive agent is refused. Needs `add-ai-agent-state.sql` |
@@ -111,12 +133,15 @@ server-sent events:
 | `status` | `{ step, stage }`, e.g. "Fetching your data" |
 | `node` | `{ step, node }`, the part of the tool that is running |
 | `decision` | supervisor `{ by: "supervisor", next, reason, round }`, loop `{ by: "loop", done, reason, round }`, router `{ by: "router", step, router, branch, next, reason }` |
+| `inputs` | `{ by: "question" \| "setup", values: { name: value }, note }`: what the question or the setup step set (the page shows it as "Understood as") |
 | `done` | `{ runId, ok, answer, steps: [...], seconds }` |
 | `error` | `{ message, runId? }`, e.g. a required input is empty, the agent service is not reachable, or Ask Data has no database configured |
 
 A step that runs more than once (supervisor, loop) has `attempt` 1, 2, … in its `step` events.
 An Ask Data step's `end` event also carries `route` (sql, clarify, chitchat), `verified`, `needs_analysis`,
 `data` (columns and the rows shown), `chart` and `export_token` (for `POST /api/agents/askdata/export`).
+A Saved SQL step's `end` event carries `data` (columns and rows, up to the row limit) and its SQL; the setup step's
+events also carry `setup: true`.
 A `ping` event arrives every 15 s while a step is still working; ignore it.
 With one instruction the answer is the tool's answer. With several, the tenant's active AI provider
 (AI Settings → AI Providers) writes one answer from all of them, in the agent's role and goal; if AI is

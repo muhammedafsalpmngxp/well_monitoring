@@ -336,3 +336,6 @@
     color: var(--color-danger);
     font-size: 13px;
 }
+
+// Saved SQL: the step's SELECT, monospaced.
+.ac__panel textarea.ac__sql { font-family: Consolas, 'Courier New', monospace; font-size: 12px; min-height: 96px; }

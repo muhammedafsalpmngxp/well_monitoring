@@ -1,6 +1,6 @@
 import { ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { Agent, AgentLlmUsage, AgentsService, AgentStepResult, SaveAgentRequest } from '../agents.service';
+import { Agent, AgentLlmUsage, AgentsService, AgentStepResult, QUESTION_INPUT, SaveAgentRequest, understoodText } from '../agents.service';
 import { callsText, inputTokensText, modelNames, outputTokensText, totalTokensText, usageTitle } from '../llm-usage.util';
 import { markdownToHtml } from '../../../core/utils/markdown.util';
 
@@ -30,6 +30,8 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
   /** The run's LLM use on the tenant's provider; undefined until the run ends. */
   llm: AgentLlmUsage | null | undefined;
   elapsed = 0;
+  /** What the question and the setup step set during the run ("Understood as"). */
+  understood: string[] = [];
   private ran = false;
   private sub?: Subscription;
   private timer?: ReturnType<typeof setInterval>;
@@ -42,9 +44,16 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void { this.stop(); }
 
+  /** Required inputs left blank. With a question typed in, only the question is needed: it can supply the others. */
   get missing(): string[] {
-    return this.agent.inputs.filter(i => i.required && !(this.values[i.name] ?? '').trim()).map(i => i.name);
+    const blank = (name: string) => !(this.values[name] ?? '').trim();
+    if (this.asksQuestion && !blank(QUESTION_INPUT)) return [];
+    return this.agent.inputs.filter(i => i.required && blank(i.name)).map(i => i.name);
   }
+
+  get asksQuestion(): boolean { return this.agent.inputs.some(i => i.name === QUESTION_INPUT); }
+
+  isQuestion(name: string): boolean { return name === QUESTION_INPUT; }
 
   get doneSteps(): number { return this.steps.filter(s => s.phase === 'end').length; }
 
@@ -52,7 +61,8 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
     if (this.running) return;
     if (this.missing.length) { this.error = `Enter ${this.missing.join(', ')}.`; return; }
     this.sub?.unsubscribe();
-    Object.assign(this, { running: true, stage: 'Starting', steps: [], answer: '', answerHtml: '', error: '', seconds: null, llm: undefined });
+    Object.assign(this, { running: true, stage: 'Starting', steps: [], answer: '', answerHtml: '', error: '', seconds: null, llm: undefined,
+      understood: [] });
     this.startTimer();
     const values: Record<string, string> = {};
     for (const i of this.agent.inputs) values[i.name] = (this.values[i.name] ?? '').trim();
@@ -60,6 +70,7 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
     this.sub = this.agents.test(this.request(), values, this.agent.id).subscribe({
       next: ev => {
         if (ev.type === 'status') this.stage = ev.data.stage;
+        else if (ev.type === 'inputs') this.understood.push(understoodText(ev.data));
         else if (ev.type === 'decision') {
           this.stage = ev.data.by === 'router' ? `${ev.data.router}: ${ev.data.branch}`
             : ev.data.by === 'supervisor' ? (ev.data.next === 'answer' ? 'Writing the answer' : `Supervisor → ${ev.data.next}`)

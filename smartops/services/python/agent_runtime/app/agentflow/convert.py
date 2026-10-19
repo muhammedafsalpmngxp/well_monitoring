@@ -184,7 +184,7 @@ def from_agentflow(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     for i, (text, tool) in enumerate(raw, 1):
         saved = layout.get(_key(i)) or {}
         steps.append({"text": text, "tool": saved.get("tool", tool if tool and tool != tools[0] else None),
-                      "id": saved.get("id"), "x": saved.get("x"), "y": saved.get("y")})
+                      "id": saved.get("id"), "x": saved.get("x"), "y": saved.get("y"), "sql": saved.get("sql")})
     if not steps:
         raise ValueError("The flow has no tasks or agents to turn into instructions.")
 

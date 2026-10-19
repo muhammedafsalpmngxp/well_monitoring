@@ -5,15 +5,15 @@ Only the Tenant API calls this service; it owns storage, permissions and run his
 
 Endpoints:
   GET  /health
-  GET  /api/agent-runtime/tools   built-in Ask Data + twise agents and the actions each accepts
+  GET  /api/agent-runtime/tools   built-in Ask Data and Saved SQL + twise agents and the actions each accepts
   POST /api/agent-runtime/agentflow/export   agent -> agentflow.json v1 (AgenticUIFramework format)
   POST /api/agent-runtime/agentflow/import   agentflow.json v1 -> agent + warnings
   POST /api/agent-runtime/askdata/export   an Ask Data answer's data as xlsx / docx (signed token, no model call)
   POST /api/agent-runtime/askdata/ask   Ask your data: one question on the Ask Data database; events:
                                   status, node (ping when quiet), then done or error
   POST /api/agent-runtime/run     runs one agent configuration; server-sent events:
-                                  step, status, node while it runs (ping every 15 s when quiet),
-                                  then done or error
+                                  inputs (what a question or the setup step set), step, status, node
+                                  while it runs (ping every 15 s when quiet), then done or error
 """
 import json
 import logging
@@ -36,9 +36,12 @@ from smartops_shared.app import create_app
 
 from app import twise
 from app.agentflow.convert import from_agentflow, to_agentflow
-from app.graph import AGENT_KEYS, build_graph, missing_inputs
+from app.graph import RUN_KEYS, build_graph, missing_inputs
 from app.prompt_text import missing as missing_prompts
 from app.models import AskDataAskRequest, AskDataExportRequest, RunRequest
+from app import sqlstep
+from app.prepare import Prepared, asks_question, prepare
+from app.sqlstep import SQL_QUERY_TOOL
 
 API_KEY = os.environ.get("AGENT_RUNTIME_API_KEY", "")
 
@@ -60,14 +63,15 @@ ASK_DATA_TOOL = {
 
 @app.get("/api/agent-runtime/tools", dependencies=[Depends(require_key)])
 def tools() -> dict[str, Any]:
-    """The built-in Ask Data tool, then the twise agents (left out, with a message, when twise is down)."""
+    """The built-in tools (Ask Data, Saved SQL), then the twise agents (left out, with a message, when twise is down)."""
+    built_in = [ASK_DATA_TOOL, SQL_QUERY_TOOL]
     try:
-        return {"tools": [ASK_DATA_TOOL, *twise.list_tools()], "message": None}
+        return {"tools": [*built_in, *twise.list_tools()], "message": None}
     except httpx.HTTPError as exc:
         # One line, no stack trace: twise not running is an expected state (the page asks every time it opens).
-        log.warning("twise agent service at %s is not reachable (%s); only Ask Data is offered", twise.TWISE_URL, exc)
-        return {"tools": [ASK_DATA_TOOL], "message": f"The extra agent tools (agent service at {twise.TWISE_URL}) are "
-                                                     "offline. Ask Data still works; start that service to add the others."}
+        log.warning("twise agent service at %s is not reachable (%s); only the built-in tools are offered", twise.TWISE_URL, exc)
+        return {"tools": built_in, "message": f"The extra agent tools (agent service at {twise.TWISE_URL}) are offline. "
+                                              "Ask Data and Saved SQL still work; start that service to add the others."}
 
 
 @app.post("/api/agent-runtime/agentflow/export", dependencies=[Depends(require_key)])
@@ -138,23 +142,40 @@ def run(req: RunRequest) -> StreamingResponse:
     )
 
 
-def run_events(req: RunRequest, **graph_overrides: Any) -> Iterator[tuple[str, dict[str, Any]]]:
-    """The run as (event, data) pairs; the last one is done or error."""
-    missing = missing_inputs(req.agent, req.inputs)
-    if missing:
+def run_events(req: RunRequest, *, extract_chat: Any = None, **graph_overrides: Any) -> Iterator[tuple[str, dict[str, Any]]]:
+    """The run as (event, data) pairs; the last one is done or error.
+
+    A question (an input named "question") and a setup step can supply inputs, so the required inputs are checked
+    after them when the agent has either; otherwise before anything runs, as always."""
+    cfg = req.agent
+    prepares = asks_question(cfg) or cfg.steps[0].kind == "setup"
+    if not prepares and (missing := missing_inputs(cfg, req.inputs)):
         yield "error", {"message": "Fill in: " + ", ".join(missing)}
         return
     # With a model the supervisor, router, loop check and final answer speak through the tenant's prompts.
-    absent = missing_prompts(req.prompts, AGENT_KEYS) if req.llm is not None else []
+    absent = missing_prompts(req.prompts, RUN_KEYS) if req.llm is not None else []
     if absent:
         yield "error", {"message": "The agent cannot run: these AI prompts are not configured for this tenant: "
                                    f"{', '.join(absent)}. An admin can restore them under Settings > AI Prompts."}
         return
     started, final = time.monotonic(), {}
+    run_sql = graph_overrides.get("run_sql") or (
+        lambda sql, action, inputs: sqlstep.run(sql, action, inputs, db=req.db, options=cfg.ask_data,
+                                                tenant=req.ask_data_settings))
+    ready = Prepared(cfg=cfg, inputs=dict(req.inputs))
+    yield from prepare(cfg, dict(req.inputs), req.llm, req.prompts, ready, chat=extract_chat, run_sql=run_sql)
+    if ready.error:
+        yield "error", {"message": ready.error}
+        return
+    if prepares and (missing := missing_inputs(cfg, ready.inputs)):
+        hint = ", or give it in the question" if asks_question(cfg) else ""
+        yield "error", {"message": "Fill in: " + ", ".join(missing) + hint}
+        return
     try:
-        graph = build_graph(req.agent, req.llm, req.session_id, db=req.db, prompts=req.prompts,
-                            ask_data_settings=req.ask_data_settings, **graph_overrides)
-        for mode, chunk in graph.stream({"inputs": req.inputs, "results": [], "usage": []}, stream_mode=["custom", "values"]):
+        graph = build_graph(ready.cfg, req.llm, req.session_id, db=req.db, prompts=req.prompts,
+                            ask_data_settings=req.ask_data_settings, first=ready.first, **graph_overrides)
+        for mode, chunk in graph.stream({"inputs": ready.inputs, "results": [], "usage": ready.usage},
+                                        stream_mode=["custom", "values"]):
             if mode == "custom":
                 yield chunk["event"], chunk["data"]
             else:
@@ -163,8 +184,8 @@ def run_events(req: RunRequest, **graph_overrides: Any) -> Iterator[tuple[str, d
         yield "error", {"message": f"The agent failed: {exc}"[:1000]}
         return
     yield "done", {
-        "answer": final.get("answer", ""), "ok": bool(final.get("ok")), "steps": final.get("results", []),
-        "usage": final.get("usage", []), "seconds": round(time.monotonic() - started, 1),
+        "answer": final.get("answer", ""), "ok": bool(final.get("ok")), "steps": ready.steps + final.get("results", []),
+        "usage": final.get("usage", []), "seconds": round(time.monotonic() - started, 1), "inputs": ready.inputs,
     }
 
 

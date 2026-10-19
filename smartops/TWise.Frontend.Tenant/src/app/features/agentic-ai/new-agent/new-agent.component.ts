@@ -2,7 +2,8 @@ import { Location } from '@angular/common';
 import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { Agent, AgentBranch, AgentsService, AgentTool, AgentStepResult, AgentToolOption, AgentType, SaveAgentRequest } from '../agents.service';
+import { Agent, AgentBranch, AgentsService, AgentTool, AgentStepResult, AgentToolOption, AgentType, QUESTION_INPUT, SaveAgentRequest, SQL_QUERY_TOOL,
+  StepKind, understoodText } from '../agents.service';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
 import { circleAt, neverReached, stepsToSave } from '../agent-steps.util';
 import { usageLine, usageTitle } from '../llm-usage.util';
@@ -14,13 +15,16 @@ export interface InstructionItem {
   id?: string;
   x?: number;
   y?: number;
-  /** A router picks one of its branches; next = the step to run after this one (null = the following). */
-  kind?: 'step' | 'router';
+  /** A router picks one of its branches; next = the step to run after this one (null = the following).
+   *  'setup' (step 1, Saved SQL) runs first and its first row sets the inputs. */
+  kind?: StepKind;
   routeBy?: 'rules' | 'ai';
   branches?: AgentBranch[];
   next?: string | null;
   /** The step's own tool; null = the agent's first tool. */
   tool?: AgentTool | null;
+  /** Saved SQL steps: the SELECT they run. */
+  sql?: string | null;
 }
 
 const newStepId = () => 'st-' + Math.random().toString(36).slice(2, 10);
@@ -102,10 +106,13 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     const ok = (missing: string) => missing ? { status: 'warning' as const, note: missing } : { status: 'complete' as const, note: 'Complete' };
     const steps = this.goalInstructions.filter(i => i.value.trim());
     const inputNames = new Set(this.inputs.map(i => i.name.trim()).filter(Boolean));
-    const unknown = steps.flatMap(s => [...s.value.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(m => m[1])).find(n => !inputNames.has(n));
+    const unknown = steps.flatMap(s => [...`${s.value} ${this.isSqlStep(s) ? s.sql ?? '' : ''}`.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(m => m[1]))
+      .find(n => !inputNames.has(n));
+    const noSql = steps.some(s => this.isSqlStep(s) && !s.sql?.trim());
     return [
       { label: 'Identity & Role', iconType: 'identity', anchor: 'section-role', ...ok(this.agentName.trim() ? '' : 'Needs a name') },
-      { label: 'Goal & Instructions', iconType: 'goal', anchor: 'section-goal', ...ok(steps.length ? '' : 'Add an instruction') },
+      { label: 'Goal & Instructions', iconType: 'goal', anchor: 'section-goal',
+        ...ok(!steps.length ? 'Add an instruction' : noSql ? 'A Saved SQL step needs its SQL' : '') },
       { label: 'Tools & Capabilities', iconType: 'tools', anchor: 'section-tools', ...ok(this.agentToolGroups.length ? '' : 'Add a tool') },
       { label: 'Inputs & Outputs', iconType: 'inputs', anchor: 'section-io', ...ok(unknown ? `Add input "${unknown}"` : '') },
       { label: 'Knowledge Source', iconType: 'knowledge', anchor: 'section-knowledge', ...ok('') },
@@ -175,6 +182,8 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   testStage = '';
   /** Router, supervisor and loop decisions of the last test, kept after it ends. */
   testDecisions: string[] = [];
+  /** What the question and the setup step set during the last test ("Understood as"). */
+  testUnderstood: string[] = [];
   testSteps: (Partial<AgentStepResult> & { step: number; phase: 'start' | 'end' })[] = [];
   testAnswer = '';
   testError = '';
@@ -323,7 +332,8 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     this.primaryGoal = a.goal ?? '';
     this.goalInstructions = a.steps.length
       ? a.steps.map(s => ({ id: s.id ?? newStepId(), value: s.text, x: s.x ?? undefined, y: s.y ?? undefined,
-          kind: s.kind ?? 'step', routeBy: s.routeBy ?? 'rules', branches: s.branches ?? undefined, next: s.next ?? null, tool: s.tool ?? null }))
+          kind: s.kind ?? 'step', routeBy: s.routeBy ?? 'rules', branches: s.branches ?? undefined, next: s.next ?? null, tool: s.tool ?? null,
+          sql: s.sql ?? null }))
       : [{ id: newStepId(), value: '' }];
     this.agentToolGroups = [];
     for (const t of a.tools) {
@@ -354,16 +364,20 @@ export class NewAgentComponent implements OnInit, OnDestroy {
       description: blank(this.roleDescription),
       systemPrompt: blank(this.systemPrompt),
       goal: blank(this.primaryGoal),
+      // A step only stays the setup step while it is step 1 and uses Saved SQL: moved on the Canvas or given another
+      // tool, it becomes an ordinary step (its checkbox is shown only on step 1, so it could not be unticked there).
       steps: stepsToSave(this.goalInstructions.map(i => ({ text: i.value, id: i.id ?? newStepId(), x: i.x ?? null, y: i.y ?? null,
-        kind: i.kind ?? 'step', routeBy: i.routeBy ?? 'rules', branches: i.branches ?? null, next: i.next ?? null, tool: i.tool ?? null })),
-        this.agentType),
+        kind: i.kind ?? 'step', routeBy: i.routeBy ?? 'rules', branches: i.branches ?? null, next: i.next ?? null, tool: i.tool ?? null,
+        sql: this.isSqlStep(i) ? i.sql?.trim() || null : null })),
+        this.agentType).map((s, at) => s.kind === 'setup' && (at > 0 || !s.sql) ? { ...s, kind: 'step' as const } : s),
       tools: this.agentToolGroups.flatMap(g => g.actions.map(a => ({ agent: g.connectionId, action: a.name }))),
       inputs: this.inputs.filter(i => i.name.trim()).map(i => ({ name: i.name.trim(), type: (i.type || 'String').toLowerCase(), required: i.requirement !== 'Optional', description: blank(i.description) })),
       outputs: this.outputs.filter(o => o.name.trim()).map(o => ({ name: o.name.trim(), type: (o.type || 'String').toLowerCase(), description: blank(o.description) })),
       status,
       type: this.agentType,
       maxIterations: Number(this.maxIterations) || 5,
-      askData: this.agentToolGroups.some(g => g.connectionId === 'ask_data') ? {
+      // Ask Data's Knowledge Source; Saved SQL uses its row limit and allowed schemas.
+      askData: this.agentToolGroups.some(g => g.connectionId === 'ask_data' || g.connectionId === SQL_QUERY_TOOL) ? {
         businessRules: blank(this.askBusinessRules),
         examples: blank(this.askExamples),
         allowedSchemas: this.askSchemas.split(',').map(x => x.trim()).filter(Boolean),
@@ -382,8 +396,30 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     if (circle !== null)
       return `The steps go round in a circle at '${circle.slice(0, 40)}'. On the Canvas, point that link forward or to the answer.`;
     if (!r.tools.length) return 'Add at least one tool under Tools & Capabilities (for example Ask Data · deep).';
+    const noLabel = r.steps.findIndex(s => !s.text);
+    if (noLabel >= 0) return `Step ${noLabel + 1} has SQL but no instruction: give it a short label, e.g. "Recent report dates".`;
+    const noSql = r.steps.findIndex(s => s.kind !== 'router' && (s.tool ?? r.tools[0])?.agent === SQL_QUERY_TOOL && !s.sql);
+    if (noSql >= 0) return `Step ${noSql + 1} ('${r.steps[noSql].text.slice(0, 40)}') uses Saved SQL: write its SQL.`;
+    if (r.steps[0]?.kind === 'setup' && r.steps.length < 2) return 'Add at least one step after the setup step.';
     return '';
   }
+
+  /** Step 1 as the setup step: it runs before the others, and its first row's columns named like inputs set them. */
+  setSetup(item: InstructionItem, on: boolean): void { item.kind = on ? 'setup' : 'step'; if (on) item.next = null; }
+
+  /** The agent takes a question: people can ask in their own words and one fast-model call fills the other inputs. */
+  get asksQuestion(): boolean { return this.inputs.some(i => i.name.trim() === QUESTION_INPUT); }
+
+  /** The tool a step runs with: its own, else the agent's first. */
+  private toolOf(item: InstructionItem): AgentTool | null {
+    const first = this.agentToolGroups[0];
+    return item.tool ?? (first?.actions[0] ? { agent: first.connectionId, action: first.actions[0].name } : null);
+  }
+
+  readonly sqlPlaceholder = 'SELECT TOP 10 report_date, COUNT(*) AS entries\nFROM dbo.daily_report\nWHERE cluster = {{cluster}}\nGROUP BY report_date';
+
+  /** A Saved SQL step: an instruction whose tool is sql_query; the Form and Canvas show its SQL box. */
+  isSqlStep(item: InstructionItem): boolean { return item.kind !== 'router' && this.toolOf(item)?.agent === SQL_QUERY_TOOL; }
 
   /** Save-only check (a test may try a half-built flow): every step must be reachable from the start. */
   private unreachable(r: SaveAgentRequest): string {
@@ -585,7 +621,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   private refreshCanvasTools(): void {
     this.canvasTools = this.agentToolGroups.flatMap(g => g.actions.map(a => ({ id: `${g.connectionId}:${a.name}`, label: `${g.connectionName} · ${a.name}` })));
     // Only built-in tools: the twise agents are agents to be rebuilt in this builder, not tools.
-    this.paletteTools = this.availableConnections.filter(c => c.id === 'ask_data')
+    this.paletteTools = this.availableConnections.filter(c => c.id === 'ask_data' || c.id === SQL_QUERY_TOOL)
       .flatMap(c => c.actions.map(a => ({ id: `${c.id}:${a.name}`, label: `${c.name} · ${a.name}` })));
   }
 
@@ -655,7 +691,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     if (problem) { this.testError = problem; return; }
     this.testSub?.unsubscribe();
     Object.assign(this, { testing: true, testStage: 'Starting', testSteps: [], testAnswer: '', testError: '', testSeconds: null, testLlm: '', testLlmTitle: '',
-      testDecisions: [] });
+      testDecisions: [], testUnderstood: [] });
     this.startTimer();
     const values: Record<string, string> = {};
     for (const i of req.inputs) values[i.name] = this.testValues[i.name] ?? '';
@@ -664,6 +700,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     this.testSub = this.agents.test(req, values, this.agentId).subscribe({
       next: ev => {
         if (ev.type === 'status') this.testStage = ev.data.stage;
+        else if (ev.type === 'inputs') this.testUnderstood.push(understoodText(ev.data));
         else if (ev.type === 'decision') {
           this.testStage = ev.data.by === 'router'
             ? `${ev.data.router}: ${ev.data.branch}${why(ev.data.reason)}`

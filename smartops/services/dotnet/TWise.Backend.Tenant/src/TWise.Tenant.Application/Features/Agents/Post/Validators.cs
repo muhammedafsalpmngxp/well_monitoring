@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
 using TWise.Tenant.Domain.DTOs;
 
@@ -26,7 +27,9 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
         {
             s.RuleFor(x => x.Text).NotEmpty().WithMessage("An instruction is empty.").MaximumLength(2000);
             s.RuleFor(x => x.Id).MaximumLength(64);
-            s.RuleFor(x => x.Kind).Must(k => k is "step" or "router").WithMessage("A step is an instruction or a router.");
+            s.RuleFor(x => x.Sql).MaximumLength(MaxSql).WithMessage($"A step's SQL can be up to {MaxSql} characters.");
+            s.RuleFor(x => x.Kind).Must(k => k is "step" or "router" or AgentMapping.SetupKind)
+                .WithMessage("A step is an instruction, a router or the setup step.");
             s.RuleFor(x => x.RouteBy).Must(r => r is "rules" or "ai").WithMessage("A router routes by rules or by AI.");
             s.RuleFor(x => x.Branches).NotEmpty().When(x => x.Kind == "router").WithMessage("A router needs at least one branch.")
                 .Must(b => b is null || b.Count <= 10).WithMessage("A router can have up to 10 branches.");
@@ -46,6 +49,13 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
         });
         RuleFor(x => x.Tools).NotEmpty().WithMessage("Add at least one tool.");
         RuleForEach(x => x.Tools).ChildRules(t => t.RuleFor(x => x.Agent).NotEmpty().MaximumLength(100));
+        RuleForEach(x => x.Tools).Must(t => t.Agent != AgentMapping.SqlQueryTool || AgentMapping.SqlQueryActions.Contains(t.Action))
+            .WithMessage("Saved SQL runs as table or summary.");
+        RuleFor(x => x).Custom((r, ctx) =>
+        {
+            foreach (var problem in SqlProblems(r)) ctx.AddFailure("Steps", problem);
+            if (SetupProblem(r) is { } setup) ctx.AddFailure("Steps", setup);
+        });
         RuleForEach(x => x.Inputs).ChildRules(i => i.RuleFor(x => x.Name).Matches("^[A-Za-z_][A-Za-z0-9_]{0,49}$")
             .WithMessage("Input names use letters, digits and _ (they are used as {{name}} in instructions)."));
         RuleFor(x => x.AskData!.MaxRows).InclusiveBetween(1, 1000).When(x => x.AskData is not null)
@@ -56,6 +66,72 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
         RuleFor(x => x.AskData!.Examples).MaximumLength(30000).When(x => x.AskData is not null);
         RuleFor(x => x.Inputs).Must(i => i is null || i.Select(x => x.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() == i.Count)
             .WithMessage("Input names must be unique.");
+    }
+
+    public const int MaxSql = 20000;
+    private static readonly Regex SqlComment = new(@"--[^\n]*|/\*.*?\*/", RegexOptions.Singleline | RegexOptions.Compiled);
+    private static readonly Regex SqlPlaceholder = new(@"\{\{\s*(\w+)\s*\}\}", RegexOptions.Compiled);
+
+    /// <summary>
+    /// What stops a Saved SQL step from running: no SQL, not a SELECT, or an {{input}} the agent does not have. The
+    /// agent runtime checks the rest before it runs (one SELECT only, no writes, only tables Ask Data may read).
+    /// </summary>
+    public static IEnumerable<string> SqlProblems(SaveAiAgentRequest r)
+    {
+        if (r.Steps is null) yield break;
+        var inputs = (r.Inputs ?? []).Select(i => i.Name).ToHashSet(StringComparer.Ordinal);
+        for (var i = 0; i < r.Steps.Count; i++)
+        {
+            var s = r.Steps[i];
+            if (s is null || s.Kind == "router" || AgentMapping.ToolOf(r, s)?.Agent != AgentMapping.SqlQueryTool) continue;
+            var text = s.Text ?? "";
+            var at = $"Step {i + 1} ('{(text.Length <= 40 ? text : text[..40])}') uses Saved SQL:";
+            var sql = SqlComment.Replace(s.Sql ?? "", " ").Trim();
+            if (sql.Length == 0) { yield return $"{at} write its SQL."; continue; }
+            var first = sql.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries)[0].TrimStart('(').ToUpperInvariant();
+            if (first is not ("SELECT" or "WITH")) yield return $"{at} its SQL must be one SELECT (or WITH ... SELECT).";
+            var unknown = SqlPlaceholder.Matches(sql).Select(m => m.Groups[1].Value).Where(n => !inputs.Contains(n)).Distinct().ToList();
+            if (unknown.Count > 0)
+                yield return $"{at} its SQL uses {string.Join(", ", unknown.Select(n => "{{" + n + "}}"))}, which is not an input. Add it under Inputs & Outputs.";
+            if (HiddenPlaceholders(s.Sql ?? "") > 0)
+                yield return $"{at} an {{{{input}}}} inside a longer quoted text or a comment cannot be a parameter. Write it outside the quotes, e.g. LIKE '%' + {{{{name}}}} + '%', and remove it from comments.";
+        }
+    }
+
+    private static readonly Regex QuotedPlaceholder = new(@"'\{\{\s*\w+\s*\}\}'|\{\{\s*\w+\s*\}\}", RegexOptions.Compiled);
+    private static readonly Regex SqlString = new(@"'(?:[^']|'')*'", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Placeholders inside a longer quoted text ('%{{name}}%') or a comment: the runtime would turn each into a ? that SQL
+    /// Server does not see as a parameter, so every run would fail. Same check as the runtime's sqlstep.hidden_placeholders;
+    /// a placeholder that is the whole quoted text ('{{name}}') is a parameter and is not counted.
+    /// </summary>
+    public static int HiddenPlaceholders(string sql)
+    {
+        const string mark = " __placeholder__ ";
+        var marked = QuotedPlaceholder.Replace(sql, mark);
+        var all = Regex.Matches(marked, "__placeholder__").Count;
+        var visible = Regex.Matches(SqlString.Replace(SqlComment.Replace(marked, " "), " '' "), "__placeholder__").Count;
+        return all - visible;
+    }
+
+    /// <summary>
+    /// Same rules as the runtime (models.py _check_setup): the setup step is the first step, there is one, it uses Saved
+    /// SQL, links nowhere, nothing links back to it, and at least one step follows it.
+    /// </summary>
+    public static string? SetupProblem(SaveAiAgentRequest r)
+    {
+        if (r.Steps is null) return null;
+        var setups = r.Steps.Select((s, i) => (s, i)).Where(p => p.s?.Kind == AgentMapping.SetupKind).Select(p => p.i).ToList();
+        if (setups.Count == 0) return null;
+        if (setups is not [0]) return "Only the first step can be the setup step, and there can be one.";
+        var setup = r.Steps[0];
+        if (AgentMapping.ToolOf(r, setup)?.Agent != AgentMapping.SqlQueryTool) return "The setup step must use Saved SQL.";
+        if (setup.Next is not null) return "The setup step always runs first; it cannot link to another step.";
+        if (r.Steps.Count < 2) return "Add at least one step after the setup step.";
+        if (setup.Id is { } id && r.Steps.Any(s => s.Next == id || (s.Branches ?? []).Any(b => b.Target == id)))
+            return "No step or branch can go back to the setup step.";
+        return null;
     }
 
     /// <summary>Same checks as the runtime: routing only where steps run in order, and every target exists.</summary>

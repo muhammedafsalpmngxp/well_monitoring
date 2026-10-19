@@ -7,10 +7,12 @@ export const routes = (type: AgentType) => type === 'sequential' || type === 'lo
  * The steps as they are saved: blank instructions are dropped and links to them go to the following step / the answer
  * (as when a step is removed on the Canvas). Agents whose steps do not run in order keep no `next` links: the Canvas
  * hides them there, so a link left from an earlier Sequential layout would block saving with nothing to remove.
+ * A step with SQL is never dropped, even without a label: its SQL would be lost silently; the editor asks for a label.
  */
 export function stepsToSave(steps: AgentStep[], type: AgentType): AgentStep[] {
-  const kept = steps.filter(s => s.text.trim());
-  const dropped = new Set(steps.filter(s => !s.text.trim() && s.id).map(s => s.id!));
+  const blank = (s: AgentStep) => !s.text.trim() && !s.sql?.trim();
+  const kept = steps.filter(s => !blank(s));
+  const dropped = new Set(steps.filter(s => blank(s) && s.id).map(s => s.id!));
   const live = (target?: string | null) => (target && dropped.has(target) ? null : target ?? null);
   return kept.map(s => ({
     ...s,

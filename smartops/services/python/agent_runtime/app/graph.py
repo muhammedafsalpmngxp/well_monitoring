@@ -11,10 +11,10 @@ In sequential and loop agents a router step picks one of its branches (rules in 
 that branch's step; a step's `next` overrides "the following step", so branches can join again. Steps no branch
 reaches do not run.
 
-Built in memory on every run (no code generation). Each step node runs its tool (built-in Ask Data or a
-twise agent) with the earlier answers as history. The answer node returns a single result as-is, or has
-the tenant's AI provider write one answer from all of them. Progress goes out through LangGraph's custom
-stream ("step", "status", "node", "decision" events).
+Built in memory on every run (no code generation). Each step node runs its tool (built-in Ask Data, built-in
+Saved SQL or a twise agent) with the earlier answers as history. The answer node returns a single result as-is
+(a Saved SQL step with the "summary" action excepted), or has the tenant's AI provider write one answer from all
+of them. Progress goes out through LangGraph's custom stream ("step", "status", "node", "decision" events).
 """
 from __future__ import annotations
 
@@ -27,18 +27,24 @@ import httpx
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
-from app import twise
+from app import sqlstep, twise
 from app.models import AgentConfig, AskDataTenantSettings, Branch, Db, Llm, Step
 from app.prompt_text import fill as fill_prompt, fill_lines, text as prompt
 
 ASK_DATA = "ask_data"   # the built-in tool: DB Assistant's graph, run in this process (app/askdata)
-# The agent-level prompt texts (core.AiPrompt, sent with each run). Needed when the run has a model.
-AGENT_KEYS = tuple(f"agent.{n}" for n in (
+SQL_QUERY = sqlstep.SQL_QUERY   # the built-in tool that runs a step's own SELECT (app/sqlstep.py)
+# The agent-level prompt texts (core.AiPrompt, sent with each run). RUN_KEYS are needed by every run that has a model;
+# EXTRACT_KEYS only when a question is read (app/prepare.py checks them then), so a runtime deployed before the Tenant
+# API has seeded them still runs every other agent. AGENT_KEYS is all of them.
+RUN_KEYS = tuple(f"agent.{n}" for n in (
     "profile_role", "profile_goal", "supervisor", "worker", "loop_check", "router", "router_none_fits", "choice",
     "progress_inputs", "progress_input", "progress_results", "progress_none", "progress_step", "progress_failed",
     "answer", "answer_role", "answer_goal", "answer_step", "answer_result", "answer_failed"))
+EXTRACT_KEYS = ("agent.extract_inputs", "agent.extract_input")
+AGENT_KEYS = RUN_KEYS + EXTRACT_KEYS
 Texts = Mapping[str, str]
 RunTool = Callable[[str, str, str, list[dict[str, str]], str], Iterator[dict[str, Any]]]
+RunSql = Callable[[str, str, dict[str, str]], Iterator[dict[str, Any]]]   # (sql, action, inputs) -> events
 _PLACEHOLDER = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 
@@ -67,20 +73,25 @@ def missing_inputs(cfg: AgentConfig, inputs: dict[str, str]) -> list[str]:
 def build_graph(cfg: AgentConfig, llm: Llm | None, session_id: str, run_tool: RunTool | None = None,
                 chat: Callable[[Llm, list[tuple[str, str]]], tuple[str, dict[str, int]]] | None = None,
                 db: Db | None = None, prompts: Texts | None = None,
-                ask_data_settings: AskDataTenantSettings | None = None):
+                ask_data_settings: AskDataTenantSettings | None = None, run_sql: RunSql | None = None, first: int = 1):
+    """`first` is the number of the first step: 2 when a setup step already ran as step 1 (app/prepare.py), so the
+    steps keep the numbers the editor shows. Saved SQL reads under the same tenant settings as Ask Data."""
     texts = prompts or {}
+    check_sql_steps(cfg, first)
     run_tool, chat = run_tool or _tools(cfg, llm, db, texts, ask_data_settings), chat or _chat
+    run_sql = run_sql or (lambda sql, action, inputs: sqlstep.run(sql, action, inputs, db=db, options=cfg.ask_data,
+                                                                  tenant=ask_data_settings))
     g = StateGraph(AgentState)
-    names = [f"step_{i}" for i in range(1, len(cfg.steps) + 1)]
+    names = [f"step_{i}" for i in range(first, first + len(cfg.steps))]
     end = "check" if cfg.type == "loop" else "answer"
     node_of = {s.id: n for n, s in zip(names, cfg.steps) if s.id}
 
     def to(target: str | None) -> str:
         return end if not target or target == "answer" else node_of[target]
 
-    for i, (name, step) in enumerate(zip(names, cfg.steps), start=1):
+    for i, (name, step) in enumerate(zip(names, cfg.steps), start=first):
         g.add_node(name, _router_node(i, step, cfg, llm, chat, to, texts=texts) if step.kind == "router"
-                   else _step_node(i, step, cfg, session_id, run_tool))
+                   else _step_node(i, step, cfg, session_id, run_tool, run_sql))
     g.add_node("answer", _answer_node(cfg, llm, chat, texts=texts))
     g.add_edge("answer", END)
 
@@ -128,6 +139,19 @@ def _check_no_cycle(first: str, nxt: dict[str, list[str]], text: dict[str, str])
         state[n] = 2
 
     visit(first)
+
+
+def check_sql_steps(cfg: AgentConfig, first: int = 1) -> None:
+    """Every Saved SQL step has one read-only SELECT using only the agent's inputs; raises ValueError naming the step
+    by the number the editor shows (`first` is 2 when the setup step was taken off the front)."""
+    names = {i.name for i in cfg.inputs}
+    for i, step in enumerate(cfg.steps, start=first):
+        tool = step.tool or cfg.tools[0]
+        if step.kind == "router" or tool.agent != SQL_QUERY:
+            continue
+        found = sqlstep.problems(step.sql, tool.action, names)
+        if found:
+            raise ValueError(f"Step {i} ('{step.text[:40]}') uses Saved SQL: " + "; ".join(found) + ".")
 
 
 def matches(branch: Branch, inputs: dict[str, str], last_answer: str) -> bool:
@@ -203,7 +227,7 @@ def _tools(cfg: AgentConfig, llm: Llm | None, db: Db | None, texts: Texts | None
     return run
 
 
-def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: RunTool):
+def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: RunTool, run_sql: RunSql):
     tool = step.tool or cfg.tools[0]
 
     def node(state: AgentState) -> dict[str, Any]:
@@ -217,7 +241,10 @@ def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: 
         history = [{"user": r["question"], "assistant": r["answer"]} for r in state.get("results") or [] if r["ok"]]
         started, answer, sql, usage, error, extra = time.monotonic(), "", [], [], None, {}
         try:
-            for ev in run_tool(tool.agent, tool.action, text, history, session_id):
+            # Saved SQL runs the step's own SELECT with the run's inputs as parameters; the instruction is its label.
+            events = (run_sql(step.sql or "", tool.action, state.get("inputs") or {}) if tool.agent == SQL_QUERY
+                      else run_tool(tool.agent, tool.action, text, history, session_id))
+            for ev in events:
                 name, data = ev["event"], ev.get("data") or {}
                 if name == "status" and data.get("stage"):
                     write({"event": "status", "data": {"step": i, "stage": data["stage"], "seconds": data.get("seconds")}})
@@ -228,8 +255,10 @@ def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: 
                     sql = [s["sql"] for s in data.get("steps") or [] if isinstance(s, dict) and s.get("sql")]
                     usage = [u for u in data.get("usage") or [] if isinstance(u, dict)]
                     error = data.get("error")
-                    # Ask Data also returns its verdict, result table and chart for the Test panel.
-                    extra = {k: data[k] for k in ("verified", "route", "needs_analysis", "data", "chart", "export_token") if k in data}
+                    # Ask Data also returns its verdict, result table and chart for the Test panel; Saved SQL its
+                    # rows, and whether the answer node should summarise them.
+                    extra = {k: data[k] for k in ("verified", "route", "needs_analysis", "data", "chart", "export_token",
+                                                  "summarize") if k in data}
                 elif name == "error":
                     error = data.get("message") or "The tool failed."
         except httpx.HTTPError as exc:
@@ -257,12 +286,13 @@ def _answer_node(cfg: AgentConfig, llm: Llm | None, chat, texts: Texts | None = 
                     else "No step ran: a router sent the run straight to the answer.", "ok": False}
         if not done:
             return {"answer": "No step produced an answer. " + "; ".join(r["error"] or "" for r in results), "ok": False}
-        if len(results) == 1:
+        # One result is the answer as it is, unless it is Saved SQL rows asking for a summary (and a model is there).
+        if len(results) == 1 and not (llm is not None and done[0].get("summarize")):
             return {"answer": done[0]["answer"], "ok": True}
         if llm is None:
             return {"answer": "\n\n".join(f"**{r['question']}**\n\n{r['answer']}" for r in done), "ok": True}
         get_stream_writer()({"event": "status", "data": {"stage": "Writing the answer"}})
-        answer, tokens = chat(llm, _answer_messages(cfg, results, texts))
+        answer, tokens = chat(llm, _answer_messages(cfg, results, texts, state.get("inputs") or {}))
         return {"answer": answer, "ok": True,
                 "usage": [{"agent": "agent_runtime.answer", "model": llm.model, "calls": 1, **tokens}]}
 
@@ -332,11 +362,13 @@ def _loop_check_node(cfg: AgentConfig, llm: Llm | None, chat, texts: Texts | Non
     return node
 
 
-def _answer_messages(cfg: AgentConfig, results: list[dict[str, Any]], texts: Texts | None) -> list[tuple[str, str]]:
+def _answer_messages(cfg: AgentConfig, results: list[dict[str, Any]], texts: Texts | None,
+                     inputs: dict[str, str] | None = None) -> list[tuple[str, str]]:
+    # The goal's {{inputs}} are filled, so a goal such as "Answer: {{question}}" carries the user's own words.
     system = "\n".join(p for p in [
         fill_prompt(prompt(texts, "agent.answer_role"), ROLE=cfg.role) if cfg.role else "",
         cfg.system_prompt,
-        fill_prompt(prompt(texts, "agent.answer_goal"), GOAL=cfg.goal) if cfg.goal else "",
+        fill_prompt(prompt(texts, "agent.answer_goal"), GOAL=fill(cfg.goal, inputs or {})) if cfg.goal else "",
         prompt(texts, "agent.answer"),
     ] if p)
     body = "\n\n".join(

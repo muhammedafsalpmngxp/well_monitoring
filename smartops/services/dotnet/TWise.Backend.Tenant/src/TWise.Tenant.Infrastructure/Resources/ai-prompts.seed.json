@@ -95,6 +95,8 @@
     "agent.answer_goal": "Goal: {GOAL}",
     "agent.answer_step": "Step {N}: {QUESTION}\n{RESULT}",
     "agent.answer_result": "Result: {ANSWER}",
-    "agent.answer_failed": "Failed: {ERROR}"
+    "agent.answer_failed": "Failed: {ERROR}",
+    "agent.extract_inputs": "Read the user's question and pick out the values of these inputs for one agent run. Today is {TODAY}.\nInputs:\n{INPUTS}\nUse only what the question states or clearly implies: a relative date such as \"yesterday\" or \"last Monday\" becomes a date written YYYY-MM-DD, and a number is written without units or thousands separators. Leave out any input the question does not give; never guess one.\nReply with JSON only: {\"values\": {\"<input name>\": \"<value>\"}, \"note\": \"<one short sentence on anything unclear, or an empty string>\"}",
+    "agent.extract_input": "- {NAME} ({TYPE}): {DESCRIPTION}"
   }
 }

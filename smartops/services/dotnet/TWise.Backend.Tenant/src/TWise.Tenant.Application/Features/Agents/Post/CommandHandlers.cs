@@ -59,7 +59,7 @@ public sealed class TestAiAgentStreamHandler(
         }
 
         var inputs = r.Inputs ?? [];
-        var llm = await LlmAsync(s.TenantId, r.Agent, ct);
+        var llm = await LlmAsync(s.TenantId, r.Agent, inputs, ct);
         // The runtime has no prompt texts of its own: the tenant's (Settings → AI Prompts) go with every run.
         var texts = AiPromptCatalog.RuntimeTexts(await prompts.GetAsync(s.TenantId, ct));
         // Nor any Ask Data settings: what Ask Data may read and its limits (Settings → AI Settings) go too.
@@ -133,10 +133,14 @@ public sealed class TestAiAgentStreamHandler(
     /// The tenant's AI provider: Ask Data runs every step on it, and it writes a multi-step answer. Without one
     /// (AI off, none active, over quota) Ask Data reports that, and the step answers are joined.
     /// </summary>
-    private async Task<AgentRuntimeLlm?> LlmAsync(long tenantId, SaveAiAgentRequest agent, CancellationToken ct)
+    private async Task<AgentRuntimeLlm?> LlmAsync(long tenantId, SaveAiAgentRequest agent, IReadOnlyDictionary<string, string> inputs,
+        CancellationToken ct)
     {
-        // Supervisor and loop decide with the model; Ask Data runs on it; several answers are combined by it.
-        var needsModel = agent.Steps.Count > 1 || AgentMapping.UsesAskData(agent) || agent.Type is "supervisor" or "loop";
+        // Supervisor and loop decide with the model; Ask Data runs on it; several answers are combined by it, and so
+        // are a Saved SQL step's rows with the summary action. A lone Saved SQL step with the table action needs none.
+        // A question typed in is read with one call on the fast model.
+        var needsModel = agent.Steps.Count > 1 || AgentMapping.UsesAskData(agent) || AgentMapping.SummarisesSql(agent)
+            || agent.Type is "supervisor" or "loop" || AgentMapping.HasQuestion(agent, inputs);
         if (!needsModel) return null;
         try
         {
@@ -147,11 +151,12 @@ public sealed class TestAiAgentStreamHandler(
     }
 
     /// <summary>The model calls the runtime made with the tenant's provider: Ask Data's nodes, router / supervisor / loop
-    /// decisions and the multi-step answer (the twise agents use their own provider).</summary>
+    /// decisions, the multi-step answer and reading a question (the twise agents use their own provider).</summary>
     private static List<(string Model, int Prompt, int Completion)> ProviderCalls(JsonElement done) =>
         done.TryGetProperty("usage", out var rows) && rows.ValueKind == JsonValueKind.Array
             ? rows.EnumerateArray()
-                .Where(u => Text(u, "agent") is { } a && (a == "agent_runtime.answer" || a.StartsWith("askdata.", StringComparison.Ordinal)))
+                .Where(u => Text(u, "agent") is { } a
+                    && (a.StartsWith("agent_runtime.", StringComparison.Ordinal) || a.StartsWith("askdata.", StringComparison.Ordinal)))
                 .Select(u => (Text(u, "model") ?? "", Int(u, "input"), Int(u, "output"))).ToList()
             : [];
 

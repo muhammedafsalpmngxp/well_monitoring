@@ -202,4 +202,14 @@ def _agents(adapter, graph) -> list[dict[str, Any]]:
             result = graph._router_node(1, step, c, llm, rec, lambda target: target or "answer", **kw)(dict(state))
             out.append({"scenario": f"router/{'else' if fallback else 'no-else'}/{tag}", "calls": rec.calls,
                         "output": {"route": result.get("route")}})
+
+    # A question filling the other inputs (app/prepare.py): one call, the inputs listed with type and description.
+    from app.prepare import extract
+    asking = AgentConfig.model_validate({
+        "name": "Well slippage", "steps": [{"text": "x"}], "tools": [{"agent": "sql_query", "action": "table"}],
+        "inputs": [{"name": "question"}, {"name": "well_id", "type": "number", "required": False, "description": "Well id"},
+                   {"name": "report_date", "required": False}]})
+    rec = AgentRecorder('{"values": {"well_id": "35543"}, "note": ""}')
+    values, _, _ = extract(asking, "Slippage for well 35543", llm, kw["texts"], chat=rec, today="2026-10-19")
+    out.append({"scenario": "question/extract", "calls": rec.calls, "output": {"values": values}})
     return out

@@ -35,13 +35,14 @@ public sealed class AgentRuntimeClient(HttpClient http, IConfiguration config) :
         AgentRuntimeLlm? llm, string sessionId, IReadOnlyDictionary<string, string> prompts, AgentRuntimeAskData askData,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var usesAskData = AgentMapping.UsesAskData(agent);
+        // Ask Data and Saved SQL steps read the Ask Data database (its login), under the tenant's Ask Data settings.
+        var usesDatabase = AgentMapping.UsesDatabase(agent);
         using var req = new HttpRequestMessage(HttpMethod.Post, "api/agent-runtime/run")
         {
             Content = JsonContent.Create(new
             {
-                agent, inputs, llm, sessionId, db = usesAskData ? AskDataDb() : null, prompts,
-                askDataSettings = usesAskData ? askData : null,
+                agent, inputs, llm, sessionId, db = usesDatabase ? AskDataDb() : null, prompts,
+                askDataSettings = usesDatabase ? askData : null,
             }, options: Json),
         };
         await foreach (var ev in EventsAsync(req, ct)) yield return ev;
