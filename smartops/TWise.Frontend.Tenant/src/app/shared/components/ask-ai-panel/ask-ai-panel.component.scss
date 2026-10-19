@@ -57,7 +57,10 @@
   &__dot { width: 8px; height: 8px; border-radius: 50%; background: #f58220; animation: ask-pulse 1s infinite; }
   &__answer { margin: 0; }
   &__sql { margin: 0; white-space: pre-wrap; overflow-x: auto; }
-  &__intro { margin: 0; }
+  &__body--empty { align-content: center; }
+  &__welcome { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 24px 12px; }
+  &__welcome-title { margin: 0; font-size: 18px; font-weight: 600; color: #101828; }
+  &__welcome-text { margin: 0; font-size: 13px; color: #667085; }
   &__error { margin: 0; padding: 8px 10px; border-radius: 6px; background: #fef3f2; color: #b42318; }
 
   &__result {

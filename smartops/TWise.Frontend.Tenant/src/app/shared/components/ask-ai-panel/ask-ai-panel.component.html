@@ -161,11 +161,14 @@
     </div>
   </div>
 
-  <div class="ask__body" #scroller *ngIf="!showHistory && !showNotes">
+  <div class="ask__body" #scroller *ngIf="!showHistory && !showNotes" [class.ask__body--empty]="!turns.length && !loadError">
     <p *ngIf="loadError" class="ask__error">{{ loadError }}</p>
 
-    <!-- Before the first question: what can be asked (Ask Data reads the whole database; no dataset to pick) -->
-    <p class="ask__muted ask__intro" *ngIf="pickingDataset">Ask anything about your wells, projects, crews, tasks and employees, for example "how many wells were completed this month?", "top 5 crews by progress" or "employees who worked on well 33785".</p>
+    <!-- Before the first question -->
+    <div class="ask__welcome" *ngIf="!turns.length && !loadError">
+      <p class="ask__welcome-title">How can I help you today?</p>
+      <p class="ask__welcome-text">Ask me anything about your data.</p>
+    </div>
 
     <div class="ask__turn" *ngFor="let t of turns; trackBy: trackTurn">
       <div class="ask__q">{{ t.question }}</div>
@@ -297,7 +300,7 @@
 
   <footer class="ask__footer" *ngIf="!showHistory && !showNotes">
     <textarea [(ngModel)]="question" name="question" rows="2" [readonly]="busy"
-      [placeholder]="pickingDataset && !selectedKey ? 'Choose a dataset first' : 'Ask a question about this data…'"
+      [placeholder]="pickingDataset && !selectedKey ? '' : 'Ask a question about this data…'"
       (keydown.enter)="onEnter($event)"></textarea>
     <button type="button" class="btn btn-primary" [disabled]="!canAsk" (click)="ask()">{{ busy ? 'Working…' : 'Ask' }}</button>
   </footer>
