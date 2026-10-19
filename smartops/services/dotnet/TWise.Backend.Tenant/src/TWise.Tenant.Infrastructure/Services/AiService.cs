@@ -39,11 +39,10 @@ public sealed class AiService(IAiSettingsRepository settings, IAiProviderReposit
         return (p, apiKey);
     }
 
-    /// <summary>Quota still applies (a test is a real call) but the enabled flag and active choice do not.</summary>
+    /// <summary>The tested provider's quota still applies (a test is a real call) but the enabled flag and active choice do not.</summary>
     public async Task<AiCompletion> TestProviderAsync(long tenantId, string? userId, AiProvider provider, CancellationToken ct)
     {
-        var s = await settings.GetAsync(tenantId, ct);
-        await CheckQuotaAsync(tenantId, s, ct);
+        await CheckQuotaAsync(tenantId, provider, ct);
         var log = new AiUsageLog { TenantId = tenantId, UserId = userId, Purpose = "test", Model = provider.Model };
         return await RunAsync(provider, Key(provider), log, [new AiMessage("user", "Reply with the single word OK.")], ct);
     }
@@ -94,14 +93,16 @@ public sealed class AiService(IAiSettingsRepository settings, IAiProviderReposit
         if (s is null || !s.IsEnabled) throw new InvalidOperationException("AI is turned off for this tenant. An admin can enable it under Settings → AI.");
         var p = await providers.GetActiveAsync(tenantId, ct)
             ?? throw new InvalidOperationException("No AI provider is active. An admin can add one under Settings → AI.");
-        await CheckQuotaAsync(tenantId, s, ct);
+        await CheckQuotaAsync(tenantId, p, ct);
         return (p, Key(p), new AiUsageLog { TenantId = tenantId, UserId = userId, Purpose = purpose, Model = p.Model });
     }
 
-    private async Task CheckQuotaAsync(long tenantId, AiSettings? s, CancellationToken ct)
+    /// <summary>The limit is the provider's; the count is every AI call the tenant made today (so switching provider
+    /// changes the limit, not the count).</summary>
+    private async Task CheckQuotaAsync(long tenantId, AiProvider p, CancellationToken ct)
     {
-        if (s is { DailyQuota: > 0 } && await usage.CountTodayAsync(tenantId, ct) >= s.DailyQuota)
-            throw new InvalidOperationException($"The daily AI quota of {s.DailyQuota} calls has been reached. It resets at midnight UTC.");
+        if (p.DailyQuota > 0 && await usage.CountTodayAsync(tenantId, ct) >= p.DailyQuota)
+            throw new InvalidOperationException($"The daily AI quota of {p.DailyQuota} calls has been reached. It resets at midnight UTC.");
     }
 
     private string? Key(AiProvider p) => string.IsNullOrEmpty(p.ApiKeyEncrypted) ? null : keys.Unprotect(p.ApiKeyEncrypted);

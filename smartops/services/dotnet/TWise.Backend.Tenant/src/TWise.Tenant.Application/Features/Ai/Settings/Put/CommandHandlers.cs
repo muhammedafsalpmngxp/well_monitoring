@@ -15,13 +15,21 @@ public sealed class SaveAiSettingsHandler(IAiSettingsRepository settings, IAiPro
         if (c.Request.IsEnabled && active is null)
             throw new InvalidOperationException("Add a provider and mark it active before enabling AI.");
 
+        // The daily limit lives on the provider: the Limits card edits the active one's.
+        if (active is not null && active.DailyQuota != c.Request.DailyQuota)
+        {
+            active.DailyQuota = c.Request.DailyQuota;
+            active.ModifiedBy = c.UserId;
+            active.ModifiedAt = DateTime.UtcNow;
+            await providers.SaveAsync(ct);
+        }
+
         var s = await settings.GetAsync(c.TenantId, ct) ?? new AiSettings { TenantId = c.TenantId, CreatedBy = c.UserId };
-        s.DailyQuota = c.Request.DailyQuota;
         s.IsEnabled = c.Request.IsEnabled;
         s.ModifiedBy = c.UserId;
         s.ModifiedAt = DateTime.UtcNow;
         await settings.UpsertAsync(s, ct);
-        return AiMapping.ToDto(s, active?.Id);
+        return AiMapping.ToDto(s, active);
     }
 }
 

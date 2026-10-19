@@ -1,12 +1,10 @@
 namespace TWise.Tenant.Domain.Entities;
 
-/// <summary>Tenant-wide AI switches: on/off and the daily call quota. Which model to use is an AiProvider row.</summary>
+/// <summary>Tenant-wide AI switches: on/off. Which model to use, and its daily call quota, is an AiProvider row.</summary>
 public class AiSettings : BaseEntity
 {
     public long Id { get; set; }
     public long TenantId { get; set; }
-    /// <summary>Max AI calls per tenant per UTC day; 0 = unlimited.</summary>
-    public int DailyQuota { get; set; } = 500;
     public bool IsEnabled { get; set; }
     /// <summary>Admin's custom AI instructions as JSON {key: text}; missing keys use the defaults in AiPrompts.</summary>
     public string? PromptsJson { get; set; }
@@ -29,5 +27,7 @@ public class AiProvider : BaseEntity
     /// <summary>Optional cheaper model for routing / planning steps (Ask Data). Null = Model.</summary>
     public string? FastModel { get; set; }
     public string? ApiKeyEncrypted { get; set; }
+    /// <summary>Max AI calls per tenant per UTC day while this provider is active; 0 = unlimited.</summary>
+    public int DailyQuota { get; set; } = 500;
     public bool IsActive { get; set; }
 }

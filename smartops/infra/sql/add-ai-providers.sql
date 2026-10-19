@@ -53,3 +53,17 @@ END
 -- NULL = the main model.
 IF COL_LENGTH('core.AiProviders', 'fast_model') IS NULL
     ALTER TABLE core.AiProviders ADD fast_model NVARCHAR(100) NULL;
+
+-- Daily quota (moved from core.AiSettings.daily_quota): max AI calls per tenant per UTC day while this provider
+-- is the active one; 0 = unlimited. The tenant's old quota is copied onto its existing providers once.
+-- core.AiSettings.daily_quota is no longer read and can be dropped later.
+IF COL_LENGTH('core.AiProviders', 'daily_quota') IS NULL
+BEGIN
+    ALTER TABLE core.AiProviders ADD daily_quota INT NOT NULL CONSTRAINT DF_AiProviders_quota DEFAULT 500;
+    IF COL_LENGTH('core.AiSettings', 'daily_quota') IS NOT NULL
+        EXEC('
+            UPDATE p SET daily_quota = s.daily_quota
+            FROM core.AiProviders p
+            JOIN core.AiSettings s ON s.tenant_id = p.tenant_id AND s.is_deleted = 0;
+        ');
+END

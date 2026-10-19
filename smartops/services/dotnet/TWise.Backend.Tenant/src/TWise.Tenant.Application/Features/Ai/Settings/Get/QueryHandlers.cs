@@ -9,7 +9,7 @@ namespace TWise.Tenant.Application.Features.Ai.Settings;
 public sealed class GetAiSettingsHandler(IAiSettingsRepository settings, IAiProviderRepository providers) : IRequestHandler<GetAiSettingsQuery, AiSettingsDto>
 {
     public async Task<AiSettingsDto> Handle(GetAiSettingsQuery q, CancellationToken ct) =>
-        AiMapping.ToDto(await settings.GetAsync(q.TenantId, ct), (await providers.GetActiveAsync(q.TenantId, ct))?.Id);
+        AiMapping.ToDto(await settings.GetAsync(q.TenantId, ct), await providers.GetActiveAsync(q.TenantId, ct));
 }
 
 public sealed class ListAiProvidersHandler(IAiProviderRepository providers) : IRequestHandler<ListAiProvidersQuery, IReadOnlyList<AiProviderDto>>
@@ -18,13 +18,13 @@ public sealed class ListAiProvidersHandler(IAiProviderRepository providers) : IR
         (await providers.ListAsync(q.TenantId, ct)).Select(AiMapping.ToDto).ToList();
 }
 
-public sealed class GetAiUsageHandler(IAiSettingsRepository settings, IAiUsageRepository usage) : IRequestHandler<GetAiUsageQuery, AiUsageSummaryDto>
+public sealed class GetAiUsageHandler(IAiProviderRepository providers, IAiUsageRepository usage) : IRequestHandler<GetAiUsageQuery, AiUsageSummaryDto>
 {
     public async Task<AiUsageSummaryDto> Handle(GetAiUsageQuery q, CancellationToken ct)
     {
         var days = Math.Clamp(q.Days, 1, 90);
-        var s = await settings.GetAsync(q.TenantId, ct);
-        return new AiUsageSummaryDto(await usage.CountTodayAsync(q.TenantId, ct), s?.DailyQuota ?? 0, await usage.GetDailyAsync(q.TenantId, days, ct));
+        var active = await providers.GetActiveAsync(q.TenantId, ct);
+        return new AiUsageSummaryDto(await usage.CountTodayAsync(q.TenantId, ct), active?.DailyQuota ?? 0, await usage.GetDailyAsync(q.TenantId, days, ct));
     }
 }
 

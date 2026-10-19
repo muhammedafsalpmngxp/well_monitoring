@@ -43,6 +43,7 @@
             <span><b>Model</b> {{ p.model }}<ng-container *ngIf="p.fastModel"> · fast {{ p.fastModel }}</ng-container></span>
             <span class="ai__url"><b>Endpoint</b> {{ p.baseUrl }}</span>
             <span><b>Key</b> {{ p.hasApiKey ? 'stored' : 'none' }}</span>
+            <span><b>Daily limit</b> {{ p.dailyQuota > 0 ? (p.dailyQuota | number) + ' calls' : 'unlimited' }}</span>
           </div>
           <p class="ai__msg" *ngIf="testResults.get(p.id) as r" [class.ai__msg--ok]="r.success" [class.ai__msg--bad]="!r.success" role="status">
             {{ r.message }} <span *ngIf="r.latencyMs">({{ r.latencyMs }} ms)</span>
@@ -165,6 +166,10 @@
         <label>Fast model (optional)
           <input type="text" [(ngModel)]="form.fastModel" name="fastModel" placeholder="Blank: use the model above" />
           <small class="ai__hint">A cheaper model for quick routing and planning steps (Ask Data), e.g. gpt-4o-mini.</small>
+        </label>
+        <label>Daily call limit
+          <input type="number" min="0" step="1" [(ngModel)]="form.dailyQuota" name="dailyQuota" required />
+          <small class="ai__hint">AI calls per day for the whole tenant while this provider is active, counted from midnight UTC. 0 means unlimited.</small>
         </label>
         <label *ngIf="needsKey">API key
           <input type="password" [(ngModel)]="form.apiKey" name="apiKey" autocomplete="off"

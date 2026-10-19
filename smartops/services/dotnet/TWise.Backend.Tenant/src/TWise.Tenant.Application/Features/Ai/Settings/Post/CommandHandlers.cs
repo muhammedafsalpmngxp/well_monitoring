@@ -23,6 +23,7 @@ public sealed class SaveAiProviderHandler(IAiProviderRepository providers, IAiKe
         if (model.Length is 0 or > 100) throw new InvalidOperationException("Model name is required (max 100 characters).");
         var fastModel = string.IsNullOrWhiteSpace(r.FastModel) ? null : r.FastModel.Trim();
         if (fastModel is { Length: > 100 }) throw new InvalidOperationException("Fast model name is max 100 characters.");
+        if (r.DailyQuota < 0) throw new InvalidOperationException("Daily quota cannot be negative.");
 
         AiProvider p;
         if (c.Id is { } id)
@@ -39,6 +40,7 @@ public sealed class SaveAiProviderHandler(IAiProviderRepository providers, IAiKe
         p.BaseUrl = baseUri.ToString().TrimEnd('/');
         p.Model = model;
         p.FastModel = fastModel;
+        if (r.DailyQuota is { } quota) p.DailyQuota = quota;
         if (!string.IsNullOrWhiteSpace(r.ApiKey)) p.ApiKeyEncrypted = keys.Protect(r.ApiKey.Trim());
         if (kind != "ollama" && string.IsNullOrEmpty(p.ApiKeyEncrypted))
             throw new InvalidOperationException("An API key is required for this provider.");

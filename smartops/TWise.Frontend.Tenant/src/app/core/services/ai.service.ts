@@ -27,6 +27,7 @@ export interface AiPromptItem {
 export interface AiPromptVersion { version: number; action: 'seed' | 'update' | 'restore'; note: string | null; changedBy: string; changedAt: string; isCurrent: boolean; text: string }
 
 export interface AiSettingsDto {
+  /** The active provider's daily call limit (saved on that provider). */
   dailyQuota: number;
   isEnabled: boolean;
   activeProviderId?: number | null;
@@ -58,10 +59,12 @@ export interface AiProviderDto {
   hasApiKey: boolean;
   isActive: boolean;
   modifiedAt: string;
+  /** Max AI calls per tenant per UTC day while this provider is active; 0 = unlimited. */
+  dailyQuota: number;
 }
 
-/** apiKey empty keeps the stored key on update. */
-export interface SaveAiProviderRequest { name: string; provider: AiProvider; baseUrl: string; model: string; apiKey?: string | null; fastModel?: string | null }
+/** apiKey empty keeps the stored key on update; dailyQuota null keeps the stored quota. */
+export interface SaveAiProviderRequest { name: string; provider: AiProvider; baseUrl: string; model: string; apiKey?: string | null; fastModel?: string | null; dailyQuota?: number | null }
 
 export interface AiTestResultDto { success: boolean; message: string; latencyMs: number }
 

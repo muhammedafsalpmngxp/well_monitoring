@@ -14,10 +14,10 @@ export const PROVIDER_DEFAULTS: Record<AiProvider, { label: string; baseUrl: str
   custom:    { label: 'Other OpenAI-compatible', baseUrl: 'https://',                      model: '',               needsKey: true },
 };
 
-interface ProviderForm { name: string; provider: AiProvider; baseUrl: string; model: string; fastModel: string; apiKey: string }
+interface ProviderForm { name: string; provider: AiProvider; baseUrl: string; model: string; fastModel: string; apiKey: string; dailyQuota: number }
 
 /**
- * Admin page: the tenant's registered LLM providers (one active), the daily call quota, the on/off
+ * Admin page: the tenant's registered LLM providers (one active, each with its daily call quota), the on/off
  * switch, and usage. Providers are added or edited in a dialog; the key is write-only.
  */
 @Component({
@@ -65,10 +65,7 @@ export class AiSettingsComponent implements OnInit {
   get isAdmin(): boolean { return this.permissions.isAdminUser; }
 
   ngOnInit(): void {
-    this.ai.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: s => { this.settings = this.pick(s); this.cdr.markForCheck(); },
-      error: err => { this.error = err?.error?.message ?? 'AI settings could not be loaded.'; this.cdr.markForCheck(); },
-    });
+    this.loadSettings();
     this.loadProviders();
     if (this.section === 'providers') this.loadUsage(); else this.loadAccess();
   }
@@ -83,7 +80,9 @@ export class AiSettingsComponent implements OnInit {
     this.savingSettings = true;
     this.settingsMessage = this.error = '';
     this.ai.saveSettings(this.settings).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: s => { this.settings = this.pick(s); this.ai.refreshFeatures(); this.savingSettings = false; this.settingsMessage = 'Saved.'; this.cdr.markForCheck(); },
+      // The limit is saved on the active provider: refresh its card and the usage line too.
+      next: s => { this.settings = this.pick(s); this.ai.refreshFeatures(); this.savingSettings = false; this.settingsMessage = 'Saved.';
+        this.loadProviders(); this.loadUsage(); this.cdr.markForCheck(); },
       error: err => { this.savingSettings = false; this.error = err?.error?.message ?? 'The settings could not be saved.'; this.cdr.markForCheck(); },
     });
   }
@@ -98,7 +97,7 @@ export class AiSettingsComponent implements OnInit {
 
   openEdit(p: AiProviderDto): void {
     this.editing = p;
-    this.form = { name: p.name, provider: p.provider, baseUrl: p.baseUrl, model: p.model, fastModel: p.fastModel ?? '', apiKey: '' };
+    this.form = { name: p.name, provider: p.provider, baseUrl: p.baseUrl, model: p.model, fastModel: p.fastModel ?? '', apiKey: '', dailyQuota: p.dailyQuota };
     this.dialogError = '';
   }
 
@@ -118,7 +117,8 @@ export class AiSettingsComponent implements OnInit {
   get canSaveProvider(): boolean {
     const f = this.form;
     const keyOk = !this.needsKey || !!f.apiKey.trim() || !!this.editing?.hasApiKey;
-    return !!f.name.trim() && !!f.baseUrl.trim() && !!f.model.trim() && keyOk && !this.savingProvider;
+    const quotaOk = Number.isInteger(f.dailyQuota) && f.dailyQuota >= 0;
+    return !!f.name.trim() && !!f.baseUrl.trim() && !!f.model.trim() && keyOk && quotaOk && !this.savingProvider;
   }
 
   saveProvider(): void {
@@ -126,10 +126,11 @@ export class AiSettingsComponent implements OnInit {
     this.savingProvider = true;
     this.dialogError = '';
     const req = { name: this.form.name.trim(), provider: this.form.provider, baseUrl: this.form.baseUrl.trim(), model: this.form.model.trim(),
-      fastModel: this.form.fastModel.trim() || null, apiKey: this.form.apiKey.trim() || null };
+      fastModel: this.form.fastModel.trim() || null, apiKey: this.form.apiKey.trim() || null, dailyQuota: this.form.dailyQuota };
     const call$ = this.editing ? this.ai.updateProvider(this.editing.id, req) : this.ai.addProvider(req);
     call$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => { this.savingProvider = false; this.editing = undefined; this.loadProviders(); },
+      // Limits and Usage show the active provider's quota, which this save may have changed.
+      next: () => { this.savingProvider = false; this.editing = undefined; this.loadProviders(); this.loadSettings(); this.loadUsage(); },
       error: err => { this.savingProvider = false; this.dialogError = err?.error?.message ?? 'The provider could not be saved.'; this.cdr.markForCheck(); },
     });
   }
@@ -137,7 +138,7 @@ export class AiSettingsComponent implements OnInit {
   activate(p: AiProviderDto): void {
     this.busyId = p.id;
     this.ai.activateProvider(p.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => { this.busyId = null; this.loadProviders(); },
+      next: () => { this.busyId = null; this.loadProviders(); this.loadSettings(); this.loadUsage(); },
       error: err => { this.busyId = null; this.error = err?.error?.message ?? 'The provider could not be activated.'; this.cdr.markForCheck(); },
     });
   }
@@ -200,7 +201,14 @@ export class AiSettingsComponent implements OnInit {
 
   private blankForm(): ProviderForm {
     const d = PROVIDER_DEFAULTS.openai;
-    return { name: '', provider: 'openai', baseUrl: d.baseUrl, model: d.model, fastModel: '', apiKey: '' };
+    return { name: '', provider: 'openai', baseUrl: d.baseUrl, model: d.model, fastModel: '', apiKey: '', dailyQuota: 500 };
+  }
+
+  private loadSettings(): void {
+    this.ai.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: s => { this.settings = this.pick(s); this.cdr.markForCheck(); },
+      error: err => { this.error = err?.error?.message ?? 'AI settings could not be loaded.'; this.cdr.markForCheck(); },
+    });
   }
 
   private loadProviders(): void {

@@ -13,7 +13,6 @@ public sealed class AiSettingsConfiguration : IEntityTypeConfiguration<AiSetting
         b.HasKey(e => e.Id);
         b.Property(e => e.Id).HasColumnName("id");
         b.Property(e => e.TenantId).HasColumnName("tenant_id");
-        b.Property(e => e.DailyQuota).HasColumnName("daily_quota");
         b.Property(e => e.IsEnabled).HasColumnName("is_enabled");
         b.Property(e => e.PromptsJson).HasColumnName("prompts_json");
         b.Property(e => e.CreatedBy).HasColumnName("created_by");
@@ -55,6 +54,7 @@ public sealed class AiProviderConfiguration : IEntityTypeConfiguration<AiProvide
         b.Property(e => e.Model).HasColumnName("model").HasMaxLength(100).IsRequired();
         b.Property(e => e.FastModel).HasColumnName("fast_model").HasMaxLength(100);
         b.Property(e => e.ApiKeyEncrypted).HasColumnName("api_key_encrypted").HasMaxLength(1000);
+        b.Property(e => e.DailyQuota).HasColumnName("daily_quota");
         b.Property(e => e.IsActive).HasColumnName("is_active");
         b.Property(e => e.CreatedBy).HasColumnName("created_by");
         b.Property(e => e.CreatedAt).HasColumnName("created_at");

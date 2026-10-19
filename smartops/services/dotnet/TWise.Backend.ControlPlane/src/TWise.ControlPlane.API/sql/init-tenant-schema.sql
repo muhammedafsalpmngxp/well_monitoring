@@ -1201,8 +1201,7 @@ IF OBJECT_ID('core.AiSettings', 'U') IS NULL
 CREATE TABLE core.AiSettings (
     id                 bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiSettings PRIMARY KEY,
     tenant_id          bigint         NOT NULL CONSTRAINT UQ_core_AiSettings_tenant UNIQUE,
-    daily_quota        int            NOT NULL CONSTRAINT DF_core_AiSettings_quota DEFAULT 500,
-    is_enabled         bit            NOT NULL CONSTRAINT DF_core_AiSettings_enabled DEFAULT 0,
+    is_enabled        bit            NOT NULL CONSTRAINT DF_core_AiSettings_enabled DEFAULT 0,
     prompts_json       nvarchar(max)  NULL,       -- every AI prompt's active text (see infra/sql/add-ai-prompt-history.sql)
     row_ver            rowversion     NOT NULL,   -- changes on every update: the Tenant API's prompt cache key
     created_by         nvarchar(100)  NULL,
@@ -1245,6 +1244,7 @@ CREATE TABLE core.AiProviders (
     base_url           nvarchar(500)  NOT NULL,
     model              nvarchar(100)  NOT NULL,
     api_key_encrypted  nvarchar(1000) NULL,
+    daily_quota        int            NOT NULL CONSTRAINT DF_core_AiProviders_quota DEFAULT 500,  -- calls per UTC day while active; 0 = unlimited
     is_active          bit            NOT NULL CONSTRAINT DF_core_AiProviders_active DEFAULT 0,
     created_by         nvarchar(100)  NULL,
     created_at         datetime2      NOT NULL CONSTRAINT DF_core_AiProviders_created DEFAULT SYSUTCDATETIME(),
