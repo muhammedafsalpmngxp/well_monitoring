@@ -130,6 +130,108 @@ Default users (seeded on first boot):
 | `khalid.albalushi@smartops.local`    | `password` | manager |
 | `viewer@smartops.local`              | `password` | viewer  |
 
+### Option C — TWise local dev (4 terminals, QA databases)
+
+How the team runs TWise day to day on Windows: the four services run on the host and use the QA SQL Server.
+Each service gets its own **Command Prompt** that stays open. `set` lines only last for that window: if you close it,
+run all its lines again. Replace `<server>` and `<password>` with the QA SQL Server address and SA password (ask the
+team; never commit them).
+
+| Database | Used for |
+|---|---|
+| `smartops_control_plane_qa` | Control Plane: users, logins, tenants, permissions, notifications |
+| `smartops_tenant_TNT-1000` | Tenant API's own data: agents, runs, AI settings / prompts / providers, dashboards, views, conversations, Agentic Features |
+| `AlTasnimBI` | Business data: Ask Data, agents, Agentic Features (Slippage, Daily Report, Data Anomaly), Data Quality |
+| `AppMasterDB_UAT` | Legacy data: Crew Calendar only |
+
+**Once, after pulling database changes** (e.g. the Agentic Features tables and permissions). Both scripts are
+idempotent, so running them again is safe. Without `sqlcmd`, use the Python helper (needs `pyodbc`):
+
+```bat
+conda activate mycuda
+cd /d <repo>\smartops\infra\sql
+set SA_PWD=<password>
+python apply_agentic_features.py
+```
+
+It must end with `Tenant tables missing: none | AiSettings columns missing: none | permission modules: 4/4`.
+(With `sqlcmd`: run `add-agentic-features.sql` on the tenant database and `add-agentic-features-permission.sql` on
+`smartops_control_plane_qa`.)
+
+**Start the services in this order: A, B, C, D.**
+
+Window A — Control Plane API (port 7007)
+
+```bat
+set PATH=C:\Program Files\dotnet;%PATH%
+cd /d <repo>\smartops\services\dotnet\TWise.Backend.ControlPlane\src\TWise.ControlPlane.API
+set "ConnectionStrings__ControlPlane=Server=<server>,1433;Database=smartops_control_plane_qa;User ID=SA;Password=<password>;TrustServerCertificate=True;"
+set "ConnectionStrings__LegacyDirectory=Server=<server>,1433;Database=AlTasnimBI;User ID=SA;Password=<password>;TrustServerCertificate=True;"
+dotnet run
+```
+
+Wait for `Now listening on: http://localhost:7007`.
+
+Window B — Tenant API (port 5069)
+
+```bat
+set PATH=C:\Program Files\dotnet;%PATH%
+cd /d <repo>\smartops\services\dotnet\TWise.Backend.Tenant\src\TWise.Tenant.API
+set "ConnectionStrings__TenantDb=Server=<server>,1433;Database=smartops_tenant_TNT-1000;User ID=SA;Password=<password>;TrustServerCertificate=True;"
+set "ConnectionStrings__LegacyWellsDb=Server=<server>,1433;Database=AppMasterDB_UAT;User ID=SA;Password=<password>;TrustServerCertificate=True;"
+set "ConnectionStrings__AlTasnimBI=Server=<server>,1433;Database=AlTasnimBI;User ID=SA;Password=<password>;TrustServerCertificate=True;"
+set ControlPlane__BaseUrl=http://localhost:7007/
+set Refresh__Enabled=false
+dotnet run
+```
+
+Wait for `Now listening on: http://localhost:5069`. It also runs the Data Anomaly job worker (compile / run /
+discover).
+
+Window C — Agent runtime (port 8006): Ask Data, agents and the Agentic Features engines
+
+```bat
+conda activate mycuda
+cd /d <repo>\smartops\services\python\agent_runtime
+set ASKDATA_EXPORT_SECRET=<any long random text, the same on every runtime instance>
+python -m uvicorn app.main:app --port 8006
+```
+
+Wait for `Uvicorn running on http://127.0.0.1:8006`. `ASKDATA_EXPORT_SECRET` keeps Ask Data export links valid
+across restarts.
+
+Window D — Frontend (port 4200)
+
+```bat
+cd /d <repo>\smartops\TWise.Frontend.Tenant
+npm start -- --port 4200
+```
+
+Wait for `Local: http://localhost:4200/`, then open <http://localhost:4200> and sign in with your test account.
+
+**After a pull**
+
+* Backend change (.NET): restart window B (and A if the Control Plane changed): `Ctrl+C`, then `dotnet run`.
+* Runtime change (Python): restart window C.
+* Frontend change: window D rebuilds by itself; if not, restart it. Press `Ctrl+F5` in the browser.
+* New permissions: log out and log in again.
+
+**First use of the Agentic Features** (admins): Settings → AI Settings → Slippage / Daily Report / Data Anomaly:
+check the tables or schemas each may read and **Save**. Prompts are under Settings → AI Prompts (one group per
+feature). Then Agentic AI → Agentic Features. Data Anomaly needs a **Compile** before its first **Run**. Details:
+[docs/ai/Agentic-Features.md](docs/ai/Agentic-Features.md).
+
+**Troubleshooting**
+
+| You see | Meaning / fix |
+|---|---|
+| "port … already in use" | That service is still running from before: use it, or `Ctrl+C` in its old window first. |
+| `Invalid object name 'core.AiFeatureJob'` / `Invalid column name …settings_json` in window B | The database scripts were not applied: run `apply_agentic_features.py` (above), then restart B. |
+| "The server could not be reached" on a page | Window B (5069) is down or restarting. |
+| "The agent service is not reachable" / "had an unexpected error" | Window C (8006) is down, or failed: read the last lines of window C. |
+| "… is not set up yet" on a feature | An admin has not saved its tables under Settings → AI Settings. |
+| Menu item missing | Permissions script not applied, or log out and log in again. |
+
 ## URL convention
 
 Every route through the gateway:
