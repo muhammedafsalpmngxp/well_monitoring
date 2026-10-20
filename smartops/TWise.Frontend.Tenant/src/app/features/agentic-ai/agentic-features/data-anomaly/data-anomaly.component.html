@@ -1,2 +1,633 @@
-<app-page-header title="Data Anomaly" [breadcrumbs]="breadcrumbs"></app-page-header>
-<div class="page-content"></div>
+<app-page-header title="Data Anomaly"
+  subtitle="Checks your operations data against business rules, scores its quality and proposes new rules."
+  [breadcrumbs]="breadcrumbs"></app-page-header>
+
+<div class="page-content da">
+  <!-- Setup / AI banners -->
+  <ng-container *ngIf="overview.data as o">
+    <div class="da__banner da__banner--warn" *ngIf="!o.configured" role="status">
+      <strong>Not set up.</strong> An admin chooses the schemas Data Anomaly may read before it can compile, run or discover.
+      <a *ngIf="isAdmin" class="da__link" routerLink="/settings/ai/settings" [queryParams]="{ section: 'anomaly' }">Open AI Settings</a>
+    </div>
+    <div class="da__banner da__banner--info" *ngIf="o.configured && !o.aiEnabled" role="status">
+      <strong>AI is off.</strong> Runs use the checks already compiled; compile and discover need AI.
+      <a *ngIf="isAdmin" class="da__link" routerLink="/settings/ai/settings" [queryParams]="{ section: 'anomaly' }">Open AI Settings</a>
+    </div>
+  </ng-container>
+  <p *ngIf="overview.error" class="da__msg da__msg--bad" role="alert">{{ overview.error }}
+    <button type="button" class="da__link" (click)="loadOverview()">Try again</button>
+  </p>
+
+  <!-- Job control -->
+  <section class="da__card da__jobs" aria-labelledby="da-jobs-title">
+    <header class="da__card-head">
+      <h2 id="da-jobs-title">Jobs</h2>
+      <span class="da__hint">One job runs at a time.</span>
+    </header>
+
+    <div class="da__job-actions" *ngIf="canCreate || canModify; else noJobRights">
+      <fieldset class="da__job" *ngIf="canModify">
+        <legend>Compile</legend>
+        <p class="da__hint">The AI writes and checks each rule's SQL.</p>
+        <label class="da__check"><input type="checkbox" [(ngModel)]="compileOpts.retryFailed" [disabled]="jobRunning" /> Only retry failed checks</label>
+        <label class="da__check"><input type="checkbox" [(ngModel)]="compileOpts.force" [disabled]="jobRunning" /> Force recompile</label>
+        <button type="button" class="btn btn-secondary" [disabled]="!canStart('compile')" (click)="startCompile()">
+          {{ starting === 'compile' ? 'Starting…' : 'Compile' }}
+        </button>
+      </fieldset>
+      <fieldset class="da__job" *ngIf="canCreate">
+        <legend>Run</legend>
+        <p class="da__hint">Runs the compiled checks and scores the data.</p>
+        <label class="da__check"><input type="checkbox" [(ngModel)]="runFormats.xlsx" [disabled]="jobRunning" /> Excel report</label>
+        <label class="da__check"><input type="checkbox" [(ngModel)]="runFormats.docx" [disabled]="jobRunning" /> Word report</label>
+        <button type="button" class="btn btn-primary" [disabled]="!canStart('run')" (click)="startRun()">
+          {{ starting === 'run' ? 'Starting…' : 'Run' }}
+        </button>
+      </fieldset>
+      <fieldset class="da__job" *ngIf="canModify">
+        <legend>Discover</legend>
+        <p class="da__hint">The AI proposes new rules from the data.</p>
+        <label class="da__field da__field--inline" for="da-max-proposals">Max proposals
+          <input id="da-max-proposals" type="number" min="1" max="50" step="1" [(ngModel)]="maxProposals" [disabled]="jobRunning" />
+        </label>
+        <button type="button" class="btn btn-secondary" [disabled]="!canStart('discover')" (click)="startDiscover()">
+          {{ starting === 'discover' ? 'Starting…' : 'Discover' }}
+        </button>
+      </fieldset>
+    </div>
+    <ng-template #noJobRights><p class="da__hint">You can view results; starting jobs needs more access.</p></ng-template>
+
+    <p *ngIf="jobError" class="da__msg da__msg--bad" role="alert">{{ jobError }}</p>
+
+    <div class="da__progress" aria-live="polite">
+      <ng-container *ngIf="job as j">
+        <div class="da__progress-head">
+          <strong>{{ label(j.kind) }} {{ j.status === 'queued' ? 'queued' : 'running' }}</strong>
+          <span class="da__muted" *ngIf="j.progress?.stage">· {{ label(j.progress?.stage) }}</span>
+          <span class="da__muted" *ngIf="j.progress?.label">· {{ j.progress?.label }}</span>
+          <span class="da__muted" *ngIf="j.progress?.total">· {{ j.progress?.done ?? 0 | number }} / {{ j.progress?.total | number }}</span>
+          <button *ngIf="canCreate || canModify" type="button" class="btn btn-secondary da__btn-sm" [disabled]="cancelling"
+            (click)="confirmCancel = true">Cancel job</button>
+        </div>
+        <div class="da__bar" role="progressbar" aria-label="Job progress" aria-valuemin="0" aria-valuemax="100"
+          [attr.aria-valuenow]="jobPercent(j)" [class.da__bar--indeterminate]="jobPercent(j) === null">
+          <span [style.width.%]="jobPercent(j) ?? 100"></span>
+        </div>
+        <p class="da__hint">Started by {{ j.requestedBy }} {{ j.createdAt | date: 'medium' }}</p>
+      </ng-container>
+
+      <div class="da__outcome" *ngIf="!job && lastJob as lj">
+        <span class="da__pill" [attr.data-tone]="statusTone(lj.status)">{{ label(lj.status) }}</span>
+        <span>Last job: <strong>{{ label(lj.kind) }}</strong>
+          <ng-container *ngIf="lj.finishedAt"> finished {{ lj.finishedAt | date: 'medium' }}</ng-container>
+          by {{ lj.requestedBy }}</span>
+        <span class="da__kv" *ngFor="let o of jobOutcome(lj)">{{ o.label }}: <strong>{{ o.value }}</strong></span>
+        <p class="da__msg da__msg--bad da__outcome-full" *ngIf="lj.error">{{ lj.error }}</p>
+        <ul class="da__errlist da__outcome-full" *ngIf="jobErrors(lj).length">
+          <li *ngFor="let e of jobErrors(lj)">{{ e }}</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <div class="da__tabs" role="tablist" aria-label="Data Anomaly sections">
+    <button *ngFor="let t of tabs" type="button" role="tab" class="da__tab" [class.da__tab--on]="tab === t.id"
+      [attr.aria-selected]="tab === t.id" [attr.aria-controls]="'da-panel-' + t.id" [id]="'da-tab-' + t.id" (click)="setTab(t.id)">
+      {{ t.label }}
+      <span class="da__count" *ngIf="t.id === 'proposals' && overview.data?.pendingProposals">{{ overview.data?.pendingProposals }}</span>
+    </button>
+  </div>
+
+  <!-- ═══ Overview ═══ -->
+  <section *ngIf="tab === 'overview'" class="da__panel" role="tabpanel" id="da-panel-overview" aria-labelledby="da-tab-overview">
+    <app-loader *ngIf="overview.loading && !overview.data" size="lg"></app-loader>
+    <ng-container *ngIf="overview.data as o">
+      <p class="da__empty" *ngIf="!o.latestRun">No run yet. Compile the rules, then start a run to score the data.</p>
+
+      <div class="da__grid da__grid--top" *ngIf="o.latestRun as lr">
+        <article class="da__card da__score">
+          <h3>Data-quality score</h3>
+          <app-loader *ngIf="run.loading" size="sm"></app-loader>
+          <highcharts-chart *ngIf="scoreChart && isLatestRun" class="da__chart" [options]="scoreChart"></highcharts-chart>
+          <p class="da__big" *ngIf="!scoreChart || !isLatestRun">{{ lr.score != null ? (lr.score | number: '1.0-1') : '—' }}</p>
+          <p class="da__hint" *ngIf="result?.score_basis && isLatestRun" [title]="result?.score_basis">{{ result?.score_basis }}</p>
+          <p class="da__hint">Run {{ lr.startedAt | date: 'medium' }} by {{ lr.startedBy }}
+            <span class="da__pill" [attr.data-tone]="statusTone(lr.status)">{{ label(lr.status) }}</span></p>
+          <p class="da__msg da__msg--bad" *ngIf="lr.error">{{ lr.error }}</p>
+        </article>
+
+        <div class="da__stats">
+          <div class="da__stat"><span>Records examined</span><strong>{{ (isLatestRun ? result?.totals?.records_examined : null) ?? lr.recordsExamined | number }}</strong></div>
+          <div class="da__stat da__stat--bad"><span>Records flagged</span><strong>{{ (isLatestRun ? result?.totals?.records_flagged : null) ?? lr.recordsFlagged | number }}</strong></div>
+          <div class="da__stat"><span>Checks run</span><strong>{{ (isLatestRun ? result?.totals?.probes_run : null) ?? lr.probesRun | number }}</strong></div>
+          <ng-container *ngIf="isLatestRun && result?.totals as t">
+            <div class="da__stat da__stat--warn"><span>Checks with findings</span><strong>{{ t.probes_with_findings ?? 0 | number }}</strong></div>
+            <div class="da__stat" [class.da__stat--bad]="t.probes_failed"><span>Checks failed</span><strong>{{ t.probes_failed ?? 0 | number }}</strong></div>
+            <div class="da__stat"><span>Not running</span><strong>{{ t.not_running ?? 0 | number }}</strong></div>
+          </ng-container>
+          <button type="button" class="da__stat da__stat--btn" (click)="setTab('proposals')">
+            <span>Pending proposals</span><strong>{{ o.pendingProposals | number }}</strong>
+          </button>
+        </div>
+      </div>
+
+      <div class="da__grid" *ngIf="o.latestRun && isLatestRun && result">
+        <article class="da__card">
+          <h3>Checks with findings by severity</h3>
+          <highcharts-chart *ngIf="severityChart" class="da__chart" [options]="severityChart"></highcharts-chart>
+          <p class="da__empty da__empty--flat" *ngIf="!severityChart">No findings.</p>
+        </article>
+        <article class="da__card">
+          <h3>Records flagged by category</h3>
+          <highcharts-chart *ngIf="categoryChart" class="da__chart" [options]="categoryChart"></highcharts-chart>
+          <p class="da__empty da__empty--flat" *ngIf="!categoryChart">No findings.</p>
+        </article>
+      </div>
+
+      <article class="da__card" *ngIf="isLatestRun && summaryBlocks.length">
+        <h3>Executive summary</h3>
+        <div class="da__prose">
+          <ng-container *ngFor="let b of summaryBlocks">
+            <h4 *ngIf="b.kind === 'h'"><ng-container *ngTemplateOutlet="parts; context: { $implicit: b.parts }"></ng-container></h4>
+            <p *ngIf="b.kind === 'p'"><ng-container *ngTemplateOutlet="parts; context: { $implicit: b.parts }"></ng-container></p>
+            <ul *ngIf="b.kind === 'ul'">
+              <li *ngFor="let item of b.items"><ng-container *ngTemplateOutlet="parts; context: { $implicit: item }"></ng-container></li>
+            </ul>
+          </ng-container>
+        </div>
+      </article>
+
+      <div class="da__grid">
+        <article class="da__card">
+          <h3>Rules by status</h3>
+          <ul class="da__counts" *ngIf="countEntries(o.rulesByStatus).length; else noRules">
+            <li *ngFor="let c of countEntries(o.rulesByStatus)">
+              <span class="da__pill" [attr.data-tone]="statusTone(c.key)">{{ label(c.key) }}</span><strong>{{ c.value | number }}</strong>
+            </li>
+          </ul>
+          <ng-template #noRules><p class="da__hint">No rules yet.</p></ng-template>
+        </article>
+        <article class="da__card">
+          <h3>Compiled checks by status</h3>
+          <ul class="da__counts" *ngIf="countEntries(o.probesByStatus).length; else noProbes">
+            <li *ngFor="let c of countEntries(o.probesByStatus)">
+              <span class="da__pill" [attr.data-tone]="statusTone(c.key)">{{ label(c.key) }}</span><strong>{{ c.value | number }}</strong>
+            </li>
+          </ul>
+          <ng-template #noProbes><p class="da__hint">Nothing compiled yet.</p></ng-template>
+        </article>
+      </div>
+    </ng-container>
+  </section>
+
+  <!-- ═══ Findings ═══ -->
+  <section *ngIf="tab === 'findings'" class="da__panel" role="tabpanel" id="da-panel-findings" aria-labelledby="da-tab-findings" aria-live="polite">
+    <p class="da__empty" *ngIf="!selectedRunId && !run.loading">No run yet. Start a run to see findings.</p>
+    <app-loader *ngIf="run.loading" size="lg"></app-loader>
+    <p *ngIf="run.error" class="da__msg da__msg--bad" role="alert">{{ run.error }}
+      <button *ngIf="selectedRunId" type="button" class="da__link" (click)="selectRun(selectedRunId!)">Try again</button>
+    </p>
+
+    <ng-container *ngIf="!run.loading && run.data as rd">
+      <article class="da__card da__run-head">
+        <div>
+          <h3>{{ isLatestRun ? 'Latest run' : 'Run' }} · {{ rd.run.startedAt | date: 'medium' }}</h3>
+          <p class="da__hint">
+            <span class="da__pill" [attr.data-tone]="statusTone(rd.run.status)">{{ label(rd.run.status) }}</span>
+            by {{ rd.run.startedBy }}
+            <ng-container *ngIf="rd.run.databaseName"> · {{ rd.run.databaseName }}</ng-container>
+            <ng-container *ngIf="result?.seconds != null"> · {{ result?.seconds | number: '1.0-1' }} s</ng-container>
+            · Score <strong>{{ rd.run.score != null ? (rd.run.score | number: '1.0-1') : '—' }}</strong>
+          </p>
+        </div>
+        <div class="da__row-actions">
+          <button type="button" class="btn btn-secondary da__btn-sm" *ngIf="hasReport(rd.run, 'xlsx')"
+            [disabled]="downloading === rd.run.runId + ':xlsx'" (click)="download(rd.run.runId, 'xlsx')">Excel report</button>
+          <button type="button" class="btn btn-secondary da__btn-sm" *ngIf="hasReport(rd.run, 'docx')"
+            [disabled]="downloading === rd.run.runId + ':docx'" (click)="download(rd.run.runId, 'docx')">Word report</button>
+        </div>
+        <p *ngIf="downloadError" class="da__msg da__msg--bad da__outcome-full" role="alert">{{ downloadError }}</p>
+      </article>
+
+      <p class="da__msg da__msg--bad" *ngIf="rd.run.error || result?.error" role="alert">{{ rd.run.error || result?.error }}</p>
+      <p class="da__msg da__msg--warn" *ngIf="result?.catalog_stale || result?.catalog_note">
+        <strong *ngIf="result?.catalog_stale">Some compiled checks are out of date. </strong>{{ result?.catalog_note }}
+      </p>
+      <div class="da__msg da__msg--warn" *ngIf="result?.staleProbes?.length">
+        <strong>Checks that no longer match the database:</strong>
+        <ul class="da__errlist">
+          <li *ngFor="let s of result?.staleProbes">
+            <button type="button" class="da__link" (click)="openRule(s.ruleId)">{{ s.title || s.ruleId }}</button>
+            <span *ngIf="s.reason"> — {{ s.reason }}</span>
+            <span *ngIf="s.rebuilt"> (rebuilt)</span>
+          </li>
+        </ul>
+      </div>
+
+      <p class="da__empty" *ngIf="!result">This run has no stored result.</p>
+
+      <ng-container *ngIf="result as r">
+        <article class="da__card">
+          <h3>Findings <span class="da__muted">({{ r.ranked?.length ?? 0 | number }})</span></h3>
+          <ng-container *ngTemplateOutlet="findingTable; context: { $implicit: r.ranked ?? [], group: 'ranked', contribution: true }"></ng-container>
+          <p class="da__empty da__empty--flat" *ngIf="!r.ranked?.length">No active check flagged anything.</p>
+        </article>
+
+        <article class="da__card" *ngIf="r.discovered_ranked?.length || r.discovered_totals?.probes_run">
+          <h3>On probation <span class="da__muted">({{ r.discovered_ranked?.length ?? 0 | number }})</span></h3>
+          <p class="da__hint">Rules on trial run and are reported here, apart: they do not count towards the score.
+            <ng-container *ngIf="r.discovered_totals as dt">
+              {{ dt.probes_run ?? 0 | number }} checks run, {{ dt.records_flagged ?? 0 | number }} of {{ dt.records_examined ?? 0 | number }} records flagged.
+            </ng-container>
+          </p>
+          <ng-container *ngTemplateOutlet="findingTable; context: { $implicit: r.discovered_ranked ?? [], group: 'probation', contribution: false }"></ng-container>
+        </article>
+
+        <div class="da__grid">
+          <article class="da__card" *ngIf="r.failed?.length">
+            <h3>Failed checks <span class="da__muted">({{ r.failed?.length | number }})</span></h3>
+            <ul class="da__list">
+              <li *ngFor="let f of r.failed">
+                <button type="button" class="da__link" (click)="openRule(f.rule_id)">{{ f.rule_id }}</button>
+                <span class="da__err" *ngIf="f.error">{{ f.error }}</span>
+              </li>
+            </ul>
+          </article>
+          <article class="da__card" *ngIf="r.not_running?.length">
+            <h3>Not running <span class="da__muted">({{ r.not_running?.length | number }})</span></h3>
+            <ul class="da__list">
+              <li *ngFor="let n of r.not_running">
+                <button type="button" class="da__link" (click)="openRule(n.rule_id)">{{ n.title || n.rule_id }}</button>
+                <span class="da__pill" *ngIf="n.status" [attr.data-tone]="statusTone(n.status)">{{ label(n.status) }}</span>
+                <span class="da__muted" *ngIf="n.reason">{{ n.reason }}</span>
+              </li>
+            </ul>
+          </article>
+          <article class="da__card" *ngIf="r.empty_scope?.length">
+            <h3>Nothing to check <span class="da__muted">({{ r.empty_scope?.length | number }})</span></h3>
+            <p class="da__hint">These checks found no records in scope.</p>
+            <ul class="da__chips">
+              <li *ngFor="let id of r.empty_scope"><button type="button" class="da__chip" (click)="openRule(id)">{{ id }}</button></li>
+            </ul>
+          </article>
+        </div>
+      </ng-container>
+    </ng-container>
+  </section>
+
+  <!-- ═══ Runs ═══ -->
+  <section *ngIf="tab === 'runs'" class="da__panel" role="tabpanel" id="da-panel-runs" aria-labelledby="da-tab-runs">
+    <article class="da__card">
+      <header class="da__card-head">
+        <h3>Run history</h3>
+        <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="runs.loading" (click)="loadRuns()">Refresh</button>
+      </header>
+      <app-loader *ngIf="runs.loading" size="md"></app-loader>
+      <p *ngIf="runs.error" class="da__msg da__msg--bad" role="alert">{{ runs.error }}</p>
+      <p *ngIf="downloadError" class="da__msg da__msg--bad" role="alert">{{ downloadError }}</p>
+      <p class="da__empty da__empty--flat" *ngIf="!runs.loading && !runs.error && !runs.data?.length">No runs yet.</p>
+      <div class="da__table-wrap" *ngIf="runs.data?.length">
+        <table class="da__table">
+          <caption class="da__sr">Data Anomaly runs, newest first</caption>
+          <thead>
+            <tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col" class="da__num">Score</th>
+              <th scope="col" class="da__num">Checks</th><th scope="col" class="da__num">Flagged / examined</th>
+              <th scope="col">By</th><th scope="col"><span class="da__sr">Actions</span></th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of runs.data; trackBy: trackRun" [class.da__row--on]="r.runId === selectedRunId">
+              <td>{{ r.startedAt | date: 'medium' }}
+                <div class="da__muted" *ngIf="r.error" [title]="r.error">{{ r.error }}</div></td>
+              <td><span class="da__pill" [attr.data-tone]="statusTone(r.status)">{{ label(r.status) }}</span></td>
+              <td class="da__num">{{ r.score != null ? (r.score | number: '1.0-1') : '—' }}</td>
+              <td class="da__num">{{ r.probesRun ?? '—' }}</td>
+              <td class="da__num">{{ r.recordsFlagged ?? 0 | number }} / {{ r.recordsExamined ?? 0 | number }}</td>
+              <td>{{ r.startedBy }}</td>
+              <td class="da__row-actions">
+                <button type="button" class="btn btn-secondary da__btn-sm" (click)="selectRun(r.runId)">View findings</button>
+                <button type="button" class="btn btn-secondary da__btn-sm" *ngIf="hasReport(r, 'xlsx')"
+                  [disabled]="downloading === r.runId + ':xlsx'" [attr.aria-label]="'Excel report of the run of ' + (r.startedAt | date: 'medium')"
+                  (click)="download(r.runId, 'xlsx')">Excel</button>
+                <button type="button" class="btn btn-secondary da__btn-sm" *ngIf="hasReport(r, 'docx')"
+                  [disabled]="downloading === r.runId + ':docx'" [attr.aria-label]="'Word report of the run of ' + (r.startedAt | date: 'medium')"
+                  (click)="download(r.runId, 'docx')">Word</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <!-- ═══ Rules ═══ -->
+  <section *ngIf="tab === 'rules'" class="da__panel" role="tabpanel" id="da-panel-rules" aria-labelledby="da-tab-rules">
+    <article class="da__card">
+      <header class="da__card-head">
+        <h3>Rules <span class="da__muted" *ngIf="rules.data">({{ filteredRules.length | number }} of {{ rules.data.length | number }})</span></h3>
+        <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="rules.loading" (click)="loadRules()">Refresh</button>
+      </header>
+      <div class="da__filters">
+        <label class="da__field" for="da-rule-search">Search
+          <input id="da-rule-search" type="search" placeholder="Id, title, text…" [(ngModel)]="ruleSearch" (ngModelChange)="filterRules()" />
+        </label>
+        <label class="da__field" for="da-rule-cat">Category
+          <select id="da-rule-cat" [(ngModel)]="ruleCategory" (ngModelChange)="filterRules()">
+            <option value="">All</option>
+            <option *ngFor="let c of ruleCategories" [value]="c">{{ c }}</option>
+          </select>
+        </label>
+        <label class="da__field" for="da-rule-sev">Severity
+          <select id="da-rule-sev" [(ngModel)]="ruleSeverity" (ngModelChange)="filterRules()">
+            <option value="">All</option>
+            <option *ngFor="let s of severities" [value]="s">{{ label(s) }}</option>
+          </select>
+        </label>
+        <label class="da__field" for="da-rule-status">Status
+          <select id="da-rule-status" [(ngModel)]="ruleStatus" (ngModelChange)="filterRules()">
+            <option value="">All</option>
+            <option *ngFor="let s of ruleStatuses" [value]="s">{{ label(s) }}</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </label>
+        <label class="da__field" for="da-rule-probe">Check
+          <select id="da-rule-probe" [(ngModel)]="ruleProbe" (ngModelChange)="filterRules()">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="failed">Failed</option>
+            <option value="not_applicable">Not applicable</option>
+            <option value="disabled">Disabled</option>
+            <option value="none">Not compiled</option>
+          </select>
+        </label>
+        <button type="button" class="da__link" (click)="clearRuleFilters()">Clear</button>
+      </div>
+
+      <app-loader *ngIf="rules.loading" size="md"></app-loader>
+      <p *ngIf="rules.error" class="da__msg da__msg--bad" role="alert">{{ rules.error }}</p>
+      <p class="da__empty da__empty--flat" *ngIf="rules.data && !filteredRules.length">
+        {{ rules.data.length ? 'No rule matches the filters.' : 'No rules yet.' }}</p>
+
+      <div class="da__table-wrap" *ngIf="filteredRules.length">
+        <table class="da__table">
+          <caption class="da__sr">Data Anomaly rules</caption>
+          <thead>
+            <tr><th scope="col">Severity</th><th scope="col">Rule</th><th scope="col">Category</th><th scope="col">Status</th>
+              <th scope="col">Check</th><th scope="col">Compiled</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of filteredRules; trackBy: trackRule" [class.da__row--on]="r.ruleId === selectedRule?.ruleId">
+              <td><span class="da__sev" [attr.data-sev]="sevClass(r.severity)">{{ label(r.severity) }}</span></td>
+              <td>
+                <button type="button" class="da__link da__link--title" (click)="selectRule(r)">{{ r.title }}</button>
+                <div class="da__muted da__mono">{{ r.ruleId }}<ng-container *ngIf="r.source !== 'declared'"> · {{ label(r.source) }}</ng-container>
+                  <ng-container *ngIf="r.edited"> · edited</ng-container></div>
+              </td>
+              <td>{{ r.category || '—' }}</td>
+              <td><span class="da__pill" [attr.data-tone]="statusTone(r.status)">{{ label(r.status) }}</span></td>
+              <td>
+                <span class="da__pill" [attr.data-tone]="statusTone(r.probeStatus)">{{ r.probeStatus ? label(r.probeStatus) : 'Not compiled' }}</span>
+                <div class="da__muted" *ngIf="r.probes > 1">{{ r.probes | number }} checks<ng-container *ngIf="r.failedProbes">, {{ r.failedProbes | number }} failed</ng-container></div>
+              </td>
+              <td>{{ r.compiledAt ? (r.compiledAt | date: 'short') : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <!-- ═══ Proposals ═══ -->
+  <section *ngIf="tab === 'proposals'" class="da__panel" role="tabpanel" id="da-panel-proposals" aria-labelledby="da-tab-proposals">
+    <article class="da__card">
+      <header class="da__card-head">
+        <h3>Proposed rules</h3>
+        <div class="da__filters da__filters--inline">
+          <label class="da__field da__field--inline" for="da-prop-status">Show
+            <select id="da-prop-status" [(ngModel)]="proposalFilter" (ngModelChange)="loadProposals()">
+              <option *ngFor="let s of proposalStatuses" [value]="s">{{ label(s) }}</option>
+              <option value="">All</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="proposals.loading" (click)="loadProposals()">Refresh</button>
+        </div>
+      </header>
+      <p class="da__hint">Discover proposes rules from the data. An accepted proposal becomes a rule; a rejected one is not proposed again.</p>
+      <app-loader *ngIf="proposals.loading" size="md"></app-loader>
+      <p *ngIf="proposals.error" class="da__msg da__msg--bad" role="alert">{{ proposals.error }}</p>
+      <p class="da__empty da__empty--flat" *ngIf="!proposals.loading && proposals.data && !proposals.data.length">
+        No {{ proposalFilter ? label(proposalFilter).toLowerCase() + ' ' : '' }}proposals.</p>
+    </article>
+
+    <article class="da__card da__proposal" *ngFor="let p of proposals.data; trackBy: trackProposal">
+      <header class="da__proposal-head">
+        <span class="da__sev" *ngIf="p.proposal?.severity" [attr.data-sev]="sevClass(p.proposal?.severity)">{{ label(p.proposal?.severity) }}</span>
+        <h4>{{ p.title || p.proposal?.title }}</h4>
+        <span class="da__pill" [attr.data-tone]="statusTone(p.status)">{{ label(p.status) }}</span>
+      </header>
+      <p class="da__hint">
+        <ng-container *ngIf="p.proposal?.category">{{ p.proposal?.category }} · </ng-container>
+        <ng-container *ngIf="p.proposal?.entity">{{ p.proposal?.entity }} · </ng-container>
+        <ng-container *ngIf="p.proposal?.confidence != null">Confidence {{ p.proposal?.confidence }} · </ng-container>
+        Proposed {{ p.createdAt | date: 'medium' }}
+      </p>
+      <dl class="da__dl">
+        <ng-container *ngIf="p.proposal?.what_is_wrong"><dt>What is wrong</dt><dd>{{ p.proposal?.what_is_wrong }}</dd></ng-container>
+        <ng-container *ngIf="p.proposal?.why_it_matters"><dt>Why it matters</dt><dd>{{ p.proposal?.why_it_matters }}</dd></ng-container>
+        <ng-container *ngIf="p.proposal?.how_to_detect"><dt>How to detect</dt><dd>{{ p.proposal?.how_to_detect }}</dd></ng-container>
+        <ng-container *ngIf="p.proposal?.do_not_flag"><dt>Do not flag</dt><dd>{{ p.proposal?.do_not_flag }}</dd></ng-container>
+        <ng-container *ngIf="p.proposal?.observation_fact"><dt>Observed</dt><dd>{{ p.proposal?.observation_fact }}</dd></ng-container>
+        <ng-container *ngIf="p.proposal?.tables?.length"><dt>Tables</dt><dd class="da__mono">{{ p.proposal?.tables?.join(', ') }}</dd></ng-container>
+        <ng-container *ngIf="evidenceText(p)"><dt>Evidence</dt><dd><pre class="da__pre">{{ evidenceText(p) }}</pre></dd></ng-container>
+      </dl>
+      <p class="da__hint" *ngIf="p.status !== 'pending'">
+        <ng-container *ngIf="p.decidedBy">{{ label(p.status) }} by {{ p.decidedBy }} {{ p.decidedAt | date: 'medium' }}.</ng-container>
+        <ng-container *ngIf="p.ruleId"> Rule <button type="button" class="da__link da__mono" (click)="openRule(p.ruleId!)">{{ p.ruleId }}</button>.</ng-container>
+        <ng-container *ngIf="p.reason"> Reason: {{ p.reason }}</ng-container>
+      </p>
+
+      <div class="da__decide" *ngIf="p.status === 'pending' && canModify">
+        <div class="da__decide-group">
+          <label class="da__field" [for]="'da-acc-id-' + p.id">Rule id (optional)
+            <input [id]="'da-acc-id-' + p.id" type="text" maxlength="60" [ngModel]="acceptOf(p).ruleId" (ngModelChange)="setAccept(p, 'ruleId', $event)" placeholder="Generated if empty" />
+          </label>
+          <label class="da__field" [for]="'da-acc-st-' + p.id">As
+            <select [id]="'da-acc-st-' + p.id" [ngModel]="acceptOf(p).status" (ngModelChange)="setAccept(p, 'status', $event)">
+              <option value="probation">Probation</option>
+              <option value="active">Active</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-primary da__btn-sm" [disabled]="deciding === p.id" (click)="accept(p)">
+            {{ deciding === p.id ? 'Saving…' : 'Accept' }}</button>
+        </div>
+        <div class="da__decide-group">
+          <label class="da__field" [for]="'da-rej-' + p.id">Reject reason (optional)
+            <input [id]="'da-rej-' + p.id" type="text" maxlength="500" [ngModel]="reasonOf(p)" (ngModelChange)="setReason(p, $event)" />
+          </label>
+          <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="deciding === p.id" (click)="confirmReject = p">Reject</button>
+        </div>
+      </div>
+      <p class="da__msg da__msg--bad" *ngIf="decideError.get(p.id) as e" role="alert">{{ e }}</p>
+    </article>
+  </section>
+
+  <!-- ═══ Schema ═══ -->
+  <section *ngIf="tab === 'schema'" class="da__panel" role="tabpanel" id="da-panel-schema" aria-labelledby="da-tab-schema">
+    <article class="da__card">
+      <header class="da__card-head">
+        <h3>What Data Anomaly may read</h3>
+        <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="schema.loading" (click)="loadSchema(true)">Re-read database</button>
+      </header>
+      <app-loader *ngIf="schema.loading" size="md"></app-loader>
+      <p *ngIf="schema.error" class="da__msg da__msg--bad" role="alert">{{ schema.error }}</p>
+      <ng-container *ngIf="!schema.loading && schema.data as s">
+        <div class="da__stats da__stats--row">
+          <div class="da__stat"><span>Tables</span><strong>{{ s.tables ?? 0 | number }}</strong></div>
+          <div class="da__stat"><span>Empty tables</span><strong>{{ s.emptyTables ?? 0 | number }}</strong></div>
+          <div class="da__stat"><span>Foreign keys</span><strong>{{ s.foreignKeys ?? 0 | number }}</strong></div>
+          <div class="da__stat"><span>Tables with statistics</span><strong>{{ s.tablesWithStats ?? 0 | number }}</strong></div>
+        </div>
+        <p class="da__hint">Fingerprint <span class="da__mono">{{ s.fingerprint || '—' }}</span> ·
+          {{ s.fromCache ? 'from the cache' : 'read fresh from the database' }}</p>
+        <ul class="da__errlist" *ngIf="s.notes?.length"><li *ngFor="let n of s.notes">{{ asText(n) }}</li></ul>
+        <details *ngIf="s.tableList?.length" class="da__details">
+          <summary>Tables ({{ s.tableList?.length | number }})</summary>
+          <div class="da__table-wrap">
+            <table class="da__table">
+              <caption class="da__sr">Tables Data Anomaly may read</caption>
+              <thead><tr><th scope="col">Table</th><th scope="col" class="da__num">Rows</th><th scope="col" class="da__num">Columns</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let t of s.tableList"><td class="da__mono">{{ t.name }}</td>
+                  <td class="da__num">{{ t.rows != null ? (t.rows | number) : '—' }}</td><td class="da__num">{{ t.columns | number }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </ng-container>
+    </article>
+  </section>
+</div>
+
+<!-- Rule detail drawer -->
+<div class="da__backdrop" *ngIf="selectedRule" (click)="closeRule()"></div>
+<aside *ngIf="selectedRule as r" class="da__drawer" role="dialog" aria-modal="true" aria-labelledby="da-rule-title"
+  appDialog (dialogClose)="closeRule()">
+  <header class="da__drawer-head">
+    <div>
+      <h2 id="da-rule-title">{{ r.title }}</h2>
+      <p class="da__muted da__mono">{{ r.ruleId }}</p>
+    </div>
+    <button type="button" class="da__close" aria-label="Close rule details" (click)="closeRule()">×</button>
+  </header>
+  <div class="da da__drawer-body">
+    <p class="da__tags">
+      <span class="da__sev" [attr.data-sev]="sevClass(r.severity)">{{ label(r.severity) }}</span>
+      <span class="da__pill" [attr.data-tone]="statusTone(r.status)">{{ label(r.status) }}</span>
+      <span class="da__pill" [attr.data-tone]="statusTone(r.probeStatus)">Check: {{ r.probeStatus ? label(r.probeStatus) : 'not compiled' }}</span>
+      <span class="da__pill" data-tone="neutral">{{ label(r.source) }}</span>
+    </p>
+    <dl class="da__dl">
+      <ng-container *ngIf="r.category"><dt>Category</dt><dd>{{ r.category }}</dd></ng-container>
+      <ng-container *ngIf="r.definition?.entity"><dt>Entity</dt><dd>{{ r.definition?.entity }}</dd></ng-container>
+      <ng-container *ngIf="r.definition?.method"><dt>Method</dt><dd>{{ label(r.definition?.method) }}</dd></ng-container>
+      <ng-container *ngIf="r.definition?.tags?.length"><dt>Tags</dt><dd>{{ r.definition?.tags?.join(', ') }}</dd></ng-container>
+      <ng-container *ngIf="r.definition?.expandsOver"><dt>Expands over</dt><dd class="da__mono">{{ asText(r.definition?.expandsOver) }}</dd></ng-container>
+      <dt>Checks</dt><dd>{{ r.probes | number }}<ng-container *ngIf="r.failedProbes">, {{ r.failedProbes | number }} failed</ng-container>
+        <ng-container *ngIf="r.compiledAt"> · compiled {{ r.compiledAt | date: 'medium' }}</ng-container></dd>
+      <dt>Modified</dt><dd>{{ r.modifiedAt | date: 'medium' }} by {{ r.modifiedBy }}<ng-container *ngIf="r.edited"> (edited)</ng-container></dd>
+    </dl>
+
+    <h3>Rule</h3>
+    <p class="da__body">{{ r.definition?.body || 'No rule text.' }}</p>
+
+    <p class="da__msg da__msg--bad" *ngIf="r.probeError"><strong>Check error:</strong> {{ r.probeError }}</p>
+
+    <ng-container *ngIf="r.definition?.summarySql">
+      <h3 id="da-sql-summary">Summary SQL</h3>
+      <pre class="da__pre da__sql" tabindex="0" aria-labelledby="da-sql-summary">{{ r.definition?.summarySql }}</pre>
+    </ng-container>
+    <ng-container *ngIf="r.definition?.detailSql">
+      <h3 id="da-sql-detail">Detail SQL</h3>
+      <pre class="da__pre da__sql" tabindex="0" aria-labelledby="da-sql-detail">{{ r.definition?.detailSql }}</pre>
+    </ng-container>
+    <p class="da__hint" *ngIf="!r.definition?.summarySql && !r.definition?.detailSql">No SQL compiled for this rule yet.</p>
+
+    <div class="da__drawer-actions" *ngIf="canModify">
+      <label class="da__field" for="da-rule-new-status">Status
+        <select id="da-rule-new-status" [(ngModel)]="ruleNewStatus" [disabled]="ruleSaving">
+          <option *ngFor="let s of ruleStatuses" [value]="s">{{ label(s) }}</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-primary da__btn-sm" [disabled]="ruleSaving || ruleNewStatus === r.status" (click)="saveRuleStatus()">
+        {{ ruleSaving ? 'Saving…' : 'Save status' }}</button>
+      <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="!canStart('compile')" (click)="compileRule(r)"
+        [title]="aiEnabled ? 'Recompile this rule' : 'Compile needs AI'">Compile this rule</button>
+    </div>
+    <div aria-live="polite">
+      <p class="da__msg da__msg--ok" *ngIf="ruleMessage">{{ ruleMessage }}</p>
+      <p class="da__msg da__msg--bad" *ngIf="ruleError" role="alert">{{ ruleError }}</p>
+      <p class="da__msg da__msg--bad" *ngIf="jobError && canModify">{{ jobError }}</p>
+      <p class="da__hint" *ngIf="job?.kind === 'compile'">A compile is running: see Jobs above.</p>
+    </div>
+  </div>
+</aside>
+
+<app-confirmation-dialog [isOpen]="confirmCancel" title="Cancel job"
+  [message]="'Cancel the ' + (job?.kind ?? '') + ' in progress? Work done so far may be lost.'" confirmLabel="Cancel job" cancelLabel="Keep running"
+  variant="warning" [busy]="cancelling" (confirmed)="cancelJob()" (cancelled)="confirmCancel = false"></app-confirmation-dialog>
+
+<app-confirmation-dialog [isOpen]="!!confirmReject" title="Reject proposal" [message]="rejectMessage" confirmLabel="Reject"
+  variant="danger" [busy]="deciding === confirmReject?.id" (confirmed)="reject()" (cancelled)="confirmReject = null"></app-confirmation-dialog>
+
+<!-- Safe inline text: model text is interpolated, never bound as HTML. -->
+<ng-template #parts let-parts>
+  <ng-container *ngFor="let part of parts"><strong *ngIf="part.kind === 'strong'">{{ part.text }}</strong><code
+    *ngIf="part.kind === 'code'">{{ part.text }}</code><ng-container *ngIf="part.kind === 'text'">{{ part.text }}</ng-container></ng-container>
+</ng-template>
+
+<!-- Ranked findings table (active rules and probation rules). -->
+<ng-template #findingTable let-rows let-group="group" let-contribution="contribution">
+  <div class="da__table-wrap" *ngIf="rows.length">
+    <table class="da__table">
+      <caption class="da__sr">Findings ranked worst first</caption>
+      <thead>
+        <tr><th scope="col"><span class="da__sr">Details</span></th><th scope="col">Severity</th><th scope="col">Rule</th>
+          <th scope="col">Category</th><th scope="col" class="da__num">Flagged / in scope</th><th scope="col" class="da__num">%</th>
+          <th scope="col" class="da__num" *ngIf="contribution">Score impact</th></tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let f of rows; trackBy: trackFinding">
+          <tr>
+            <td>
+              <button type="button" class="da__expand" [attr.aria-expanded]="isOpen(f, group)"
+                [attr.aria-label]="(isOpen(f, group) ? 'Hide' : 'Show') + ' details of ' + f.title" (click)="toggleFinding(f, group)">
+                {{ isOpen(f, group) ? '−' : '+' }}</button>
+            </td>
+            <td><span class="da__sev" [attr.data-sev]="sevClass(f.severity)">{{ label(f.severity) }}</span></td>
+            <td>
+              <button type="button" class="da__link da__link--title" (click)="openRule(f.rule_id)">{{ f.title }}</button>
+              <div class="da__muted da__mono">{{ f.rule_id }}<ng-container *ngIf="f.status"> · {{ label(f.status) }}</ng-container></div>
+            </td>
+            <td>{{ f.category }}</td>
+            <td class="da__num"><strong>{{ f.anomaly_count | number }}</strong> / {{ f.scope_total | number }}</td>
+            <td class="da__num">
+              {{ f.anomaly_pct | number: '1.0-2' }}%
+              <span class="da__minibar" aria-hidden="true"><span [style.width.%]="f.share * 100" [attr.data-sev]="sevClass(f.severity)"></span></span>
+            </td>
+            <td class="da__num" *ngIf="contribution">{{ f.contribution ?? 0 | number: '1.0-4' }}</td>
+          </tr>
+          <tr *ngIf="isOpen(f, group)" class="da__detail-row">
+            <td [attr.colspan]="contribution ? 7 : 6">
+              <p class="da__hint" *ngIf="f.detail_total != null">{{ f.detail_total | number }} detail rows behind the count.</p>
+              <ng-container *ngIf="f.concerns?.length; else noConcerns">
+                <strong>Concerns about this check</strong>
+                <ul class="da__errlist"><li *ngFor="let c of f.concerns">{{ c }}</li></ul>
+              </ng-container>
+              <ng-template #noConcerns><p class="da__hint">No concerns were raised about this check.</p></ng-template>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+</ng-template>
