@@ -177,8 +177,19 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
             lastBeat = now;
             lastProgress = progress ?? lastProgress;
             var stored = lastProgress;
-            var alive = await db.AiFeatureJobs.Where(j => j.Id == jobId && j.Status == AiFeatureJobStatus.Running)
-                .ExecuteUpdateAsync(x => x.SetProperty(j => j.HeartbeatAt, now).SetProperty(j => j.ProgressJson, stored), CancellationToken.None);
+            int alive;
+            try
+            {
+                alive = await db.AiFeatureJobs.Where(j => j.Id == jobId && j.Status == AiFeatureJobStatus.Running)
+                    .ExecuteUpdateAsync(x => x.SetProperty(j => j.HeartbeatAt, now).SetProperty(j => j.ProgressJson, stored), CancellationToken.None);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // A database hiccup on a heartbeat must not end a long job: the next beat tries again (a job that is
+                // really gone is still caught by the stale check after StaleJobMinutes).
+                logger.LogWarning("Data Anomaly job {JobId}: heartbeat not saved ({Error}); the job continues.", jobId, ex.GetType().Name);
+                return;
+            }
             if (alive == 0)
             {
                 abandoned = true;   // cancelled by a user, or marked failed as stale: stop the runtime too
