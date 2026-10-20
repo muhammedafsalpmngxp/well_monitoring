@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,20 +53,33 @@ public sealed class AgenticJobWorker(IServiceScopeFactory scopes, IAgenticJobSig
         var maxParallel = Setting("AgenticFeatures:MaxParallelJobs", 2, 1, 16);
         var stale = TimeSpan.FromMinutes(Setting("AgenticFeatures:StaleJobMinutes", 5, 2, 120));
 
+        var missingTables = false;
         while (!stoppingToken.IsCancellationRequested)
         {
+            var wait = poll;
             try
             {
                 await FailStaleAsync(stale, stoppingToken);
                 while (_running.Count < maxParallel && await ClaimAsync(stoppingToken) is { } id)
                     _running[id] = Task.Run(() => RunAsync(id, stoppingToken), CancellationToken.None);
+                if (missingTables) logger.LogInformation("Agentic Features: the job queue table is there now; jobs run again.");
+                missingTables = false;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (SqlException ex) when (ex.Number == 208)
+            {
+                // core.AiFeatureJob does not exist yet: say so once, then look again every minute (no log flood).
+                if (!missingTables)
+                    logger.LogWarning("Agentic Features: the tenant database has no core.AiFeatureJob table yet. Run " +
+                        "smartops/infra/sql/add-agentic-features.sql on it; Data Anomaly jobs start once it exists.");
+                missingTables = true;
+                wait = TimeSpan.FromMinutes(1);
+            }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Agentic Features: could not read the job queue");
             }
-            try { await signal.WaitAsync(poll, stoppingToken); }
+            try { await signal.WaitAsync(wait, stoppingToken); }
             catch (OperationCanceledException) { break; }
         }
         await Task.WhenAll(_running.Values);   // each running job puts itself back in the queue
