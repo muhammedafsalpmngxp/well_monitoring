@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import logging
 import time
+
+from app import trace
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -314,6 +316,7 @@ def run_tool(env: ToolEnv, name: str, args: Optional[Dict[str, Any]] = None) -> 
         return ToolResult(name, args, ok=False, error=env.refuse("unknown_tool", TOOL=repr(name)).args[0])
     try:
         result, audit = tool.fn(env, args)
+        trace.node("Daily Report agent", f"tool {name}", f"{time.perf_counter() - started:.1f}s")
         return ToolResult(name, args, ok=True, result=result, audit=audit, duration_s=time.perf_counter() - started)
     except ToolError as exc:
         return ToolResult(name, args, ok=False, error=str(exc), duration_s=time.perf_counter() - started)

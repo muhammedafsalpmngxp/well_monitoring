@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+from app import trace
 from app.askdata.settings import agent_settings
 from app.askdata.common.connection import get_connection
 from app.askdata.common.readonly import assert_read_only
@@ -30,6 +31,7 @@ def executor_node(state: AgentState) -> dict:
         rows = fetched[: agent_settings.max_rows]
         elapsed = time.perf_counter() - start
         log.info("exec ok: %d rows%s in %.2fs", len(rows), " (truncated)" if truncated else "", elapsed)
+        trace.sql("askdata.executor", len(rows), elapsed, sql, truncated=truncated)
 
         step = {
             "sub_question": state.get("sub_question") or state.get("question", ""),

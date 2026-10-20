@@ -5,6 +5,7 @@ log it against the tenant's quota."""
 from __future__ import annotations
 
 from app.askdata.llm import invoke
+from app import trace
 from app.features.common.context import current
 
 
@@ -22,8 +23,9 @@ def chat(system: str, user: str, *, agent: str, temperature: float | None = 0.0,
     llm = run.request.llm
     if llm is None:
         raise AiUnavailable("No AI provider is active for this tenant. An admin can add one under Settings > AI Providers.")
-    model, reply = invoke(llm, [("system", system), ("user", user)], temperature, fast, effort, verbosity,
-                          max_tokens, json_mode)
+    with trace.label(f"{run.feature}.{agent}"):
+        model, reply = invoke(llm, [("system", system), ("user", user)], temperature, fast, effort, verbosity,
+                              max_tokens, json_mode)
     meta = getattr(reply, "usage_metadata", None) or {}
     run.usage.append({"agent": f"{run.feature}.{agent}", "model": model, "calls": 1,
                       "input": int(meta.get("input_tokens", 0)), "output": int(meta.get("output_tokens", 0))})

@@ -11,9 +11,12 @@ is recorded in the run's usage, labelled by node (orchestrator, sql_author, ...)
 """
 from __future__ import annotations
 
+import time
+
 from functools import lru_cache
 
 from app.askdata.settings import current_run
+from app import trace
 
 LLM_TIMEOUT = 120
 LLM_MAX_RETRIES = 2
@@ -71,16 +74,20 @@ def invoke(llm, messages: list[tuple[str, str]], temperature: float | None, fast
         if (model, name) in _REJECTED:
             sent[name] = None if name == "temperature" else ("" if name != "response_format" else False)
 
+    started = time.perf_counter()
     while True:
         try:
-            return model, chat_model(llm.provider, llm.base_url, model, llm.api_key, sent["temperature"],
-                                     sent["reasoning_effort"], sent["verbosity"], max_tokens,
-                                     bool(sent["response_format"])).invoke(messages)
+            reply = chat_model(llm.provider, llm.base_url, model, llm.api_key, sent["temperature"],
+                               sent["reasoning_effort"], sent["verbosity"], max_tokens,
+                               bool(sent["response_format"])).invoke(messages)
+            trace.llm(model, time.perf_counter() - started, getattr(reply, "usage_metadata", None), fast=fast)
+            return model, reply
         except Exception as exc:  # noqa: BLE001
             text = str(exc).lower()
             rejected = next((name for name, words in _OPTIONAL
                              if sent[name] not in (None, "", False) and any(w in text for w in words)), None)
             if rejected is None:
+                trace.llm(model, time.perf_counter() - started, None, fast=fast, error=exc)
                 raise
             _REJECTED.add((model, rejected))
             sent[rejected] = None if rejected == "temperature" else ("" if rejected != "response_format" else False)
@@ -92,7 +99,8 @@ def chat(system: str, user: str, temperature: float | None = 0.0, fast: bool = F
         raise RuntimeError("No AI provider is active for this tenant. An admin can add one under AI Settings → AI Providers.")
     label = run.prompts.label(system)
     effort, verbosity = AGENT_TUNING.get(label, ("", ""))
-    model, reply = invoke(run.llm, [("system", system), ("user", user)], temperature, fast, effort, verbosity)
+    with trace.label(f"askdata.{label}"):
+        model, reply = invoke(run.llm, [("system", system), ("user", user)], temperature, fast, effort, verbosity)
     meta = getattr(reply, "usage_metadata", None) or {}
     run.usage.append({"agent": f"askdata.{label}", "model": model, "calls": 1,
                       "input": int(meta.get("input_tokens", 0)), "output": int(meta.get("output_tokens", 0))})

@@ -71,7 +71,10 @@ def extract(cfg: AgentConfig, question: str, llm: Llm, texts: Texts, chat: Chat 
 def _fast_chat(llm: Llm, messages: list[tuple[str, str]]) -> tuple[str, dict[str, int]]:
     from app.askdata.llm import invoke
 
-    _, reply = invoke(llm, messages, temperature=0.0, fast=True)
+    from app import trace
+
+    with trace.label("agent.inputs"):
+        _, reply = invoke(llm, messages, temperature=0.0, fast=True)
     meta = getattr(reply, "usage_metadata", None) or {}
     return str(reply.content), {"input": int(meta.get("input_tokens", 0)), "output": int(meta.get("output_tokens", 0))}
 

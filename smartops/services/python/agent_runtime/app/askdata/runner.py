@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import Any, Iterator, Mapping
 
 from app.askdata.graph_deep import build_graph
+from app import trace
 from app.askdata.graph_fast import build_fast_graph
 from app.askdata.nodes._common import answer_steps
 from app.askdata.prompts import KEYS as PROMPT_KEYS, build_prompts, knowledge
@@ -110,6 +111,7 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
                 config={"recursion_limit": RECURSION_LIMIT}, stream_mode=["updates", "values"]):
             if kind == "updates" and isinstance(chunk, dict):
                 for node in chunk:
+                    trace.node(f"Ask Data ({mode})", node)
                     yield {"event": "node", "data": {"phase": "start", "node": node}}
                     if node in STAGE_LABELS:
                         yield {"event": "status", "data": {"stage": STAGE_LABELS[node]}}

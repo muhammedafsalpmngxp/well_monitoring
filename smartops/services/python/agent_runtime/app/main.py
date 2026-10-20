@@ -34,6 +34,7 @@ from smartops_shared.app import create_app
 from app import twise
 from app.agentflow.convert import from_agentflow, to_agentflow
 from app.errors import user_message
+from app import trace
 from app.graph import RUN_KEYS, build_graph, missing_inputs
 from app.prompt_text import missing as missing_prompts
 from app.models import AskDataAskRequest, AskDataExportRequest, RunRequest
@@ -49,6 +50,18 @@ API_KEY = os.environ.get("AGENT_RUNTIME_API_KEY", "")
 
 app = create_app(title="SmartOps Agent Runtime", service_name="agent-runtime")
 log = logging.getLogger("agent_runtime")
+# Terminal logs (rich): each request, graph node, agent step, AI call and SQL query (app/trace.py).
+trace.setup()
+
+
+@app.middleware("http")
+async def _log_request(request, call_next):
+    """One line per runtime request: method, path, status, seconds (a stream is timed until its headers)."""
+    started = time.monotonic()
+    response = await call_next(request)
+    if request.url.path.startswith("/api/agent-runtime"):
+        trace.request_done(request.method, request.url.path, response.status_code, time.monotonic() - started)
+    return response
 
 
 def require_key(x_api_key: str | None = Header(default=None)) -> None:
@@ -188,6 +201,7 @@ def run_events(req: RunRequest, *, extract_chat: Any = None, **graph_overrides: 
         for mode, chunk in graph.stream({"inputs": ready.inputs, "results": [], "usage": ready.usage},
                                         stream_mode=["custom", "values"]):
             if mode == "custom":
+                trace.event(f"Agent {cfg.name}", chunk["event"], chunk["data"])
                 yield chunk["event"], chunk["data"]
             else:
                 final = chunk

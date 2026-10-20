@@ -14,6 +14,8 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+
+from app import trace
 from typing import Any, Callable, Iterator, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -142,6 +144,7 @@ def _events(req: FeatureRequest, settings: AnomalySettings, operation: str, work
     def emit(stage: str, done: int, total: int, label: str) -> None:
         if stop.is_set():
             raise Cancelled()
+        trace.node("Data Anomaly", stage, f"{done}/{total} {label}".strip())
         events.put(("progress", {"stage": stage, "done": done, "total": total, "label": label}))
 
     def worker() -> None:

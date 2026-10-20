@@ -382,6 +382,9 @@ def _answer_messages(cfg: AgentConfig, results: list[dict[str, Any]], texts: Tex
 def _chat(llm: Llm, messages: list[tuple[str, str]]) -> tuple[str, dict[str, int]]:
     from app.askdata.llm import invoke
 
-    _, reply = invoke(llm, messages, temperature=0.2)
+    from app import trace
+
+    with trace.label(trace.current_label() or "agent"):
+        _, reply = invoke(llm, messages, temperature=0.2)
     meta = getattr(reply, "usage_metadata", None) or {}
     return str(reply.content), {"input": int(meta.get("input_tokens", 0)), "output": int(meta.get("output_tokens", 0))}

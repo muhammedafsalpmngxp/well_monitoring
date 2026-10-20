@@ -8,12 +8,14 @@ from __future__ import annotations
 import datetime
 import decimal
 import math
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Sequence
 
 from app.askdata.common.connection import _DRIVER_CANDIDATES, _SQL_SS_TIMESTAMPOFFSET, _decode_datetimeoffset
 from app.askdata.common.readonly import assert_read_only
+from app import trace
 from app.features.common import access
 from app.features.common.context import current
 from app.models import Db
@@ -115,12 +117,18 @@ def query(sql: str, params: Sequence[Any] = (), *, feature_title: str, label: st
         rows = [dict(zip(cols, r)) for r in (raw[:max_rows] if truncated else raw)]
         return QueryResult(cols, rows, truncated)
 
+    started = time.perf_counter()
+    who = f"{current().feature}.{label}"
     try:
         if conn is not None:
-            return run(conn)
-        with connection(timeout=timeout, **conn_kwargs) as c:
-            return run(c)
+            result = run(conn)
+        else:
+            with connection(timeout=timeout, **conn_kwargs) as c:
+                result = run(c)
+        trace.sql(who, len(result.rows), time.perf_counter() - started, sql, truncated=result.truncated)
+        return result
     except pyodbc.Error as exc:
+        trace.sql(who, None, time.perf_counter() - started, sql, error=exc)
         message = str(exc.args[1] if len(exc.args) > 1 else exc)
         hint = (" The database structure has probably changed since this query was verified."
                 if "invalid column" in message.lower() or "invalid object" in message.lower() else "")

@@ -12,3 +12,5 @@ sqlglot==30.22.0
 openpyxl==3.1.5
 python-docx==1.2.0
 pytest==8.3.3
+# Terminal logs of requests, graph nodes, agent steps, AI calls and SQL (app/trace.py)
+rich==15.0.0
