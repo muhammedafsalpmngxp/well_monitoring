@@ -48,6 +48,14 @@
 
     <app-loader *ngIf="!catalog && !catalogError" size="sm"></app-loader>
     <ng-container *ngIf="catalog">
+      <div class="ac__schemas" role="group" aria-label="Schemas whose tables are listed">
+        <label class="ac__schema" *ngFor="let s of catalog.schemas; trackBy: trackName" [class.ac__schema--on]="isShown(s.name)">
+          <input type="checkbox" [checked]="isShown(s.name)" (change)="toggleShown(s.name)" />
+          <span class="ac__schema-name">{{ s.name }}</span>
+          <span class="ac__schema-count">{{ s.tables.length }} table{{ s.tables.length === 1 ? '' : 's' }}</span>
+        </label>
+      </div>
+      <p class="ac__hint" *ngIf="!shownSchemas.size">Tick a schema to list its tables.</p>
       <div class="fs__filter">
         <label class="ac__search">
           <span class="ac__sr">Search tables</span>
@@ -62,7 +70,7 @@
           <span class="fs__tag" *ngIf="isQueryTable(r.full)" title="Its verified queries read this table">needed</span>
           <span class="ac__muted" *ngIf="!isQueryTable(r.full)">{{ r.columns }} col</span>
         </label>
-        <p class="ac__empty" *ngIf="!tableRows.length">No table matches.</p>
+        <p class="ac__empty" *ngIf="!tableRows.length && shownSchemas.size">No table matches.</p>
       </div>
       <p class="ac__hint" *ngIf="tableRows.length > tableListMax">Showing {{ tableListMax }} of {{ tableRows.length }}: search to find the others.</p>
     </ng-container>

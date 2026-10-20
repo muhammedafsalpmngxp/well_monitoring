@@ -7,6 +7,8 @@ interface MapRow { name: string; value: number | null }
 
 /** Lowercase, for comparing database names. */
 const low = (s: string) => s.trim().toLowerCase();
+/** The schema of a schema.table, lower case. */
+const schemaOf = (full: string) => low(full.split('.')[0]);
 
 /**
  * One Agentic Feature's section of Settings → AI Settings: every setting it has (from its definitions: no field is
@@ -44,6 +46,9 @@ export class FeatureSettingsComponent implements OnChanges {
   customTable = '';
   customColumn = '';
   columnTable = '';
+  /** Tables mode: the schemas whose tables are listed (lower case). Not saved: it starts as the schemas of the ticked
+   *  tables and of the tables its queries read. */
+  shownSchemas = new Set<string>();
   /** Groups shown open; the first group starts open. */
   open = new Set<string>();
 
@@ -66,6 +71,7 @@ export class FeatureSettingsComponent implements OnChanges {
       if (d.type === 'map') this.mapRows[d.key] = Object.entries(v ?? {}).map(([name, value]) => ({ name, value: value as number }));
     }
     this.access = structuredClone(s.access);
+    this.shownSchemas = new Set([...this.access.includedTables, ...s.queryTables].map(schemaOf));
   }
 
   get groups(): { name: string; defs: FeatureSettingDefinition[] }[] {
@@ -175,7 +181,19 @@ export class FeatureSettingsComponent implements OnChanges {
   }
 
   tickQueryTables(): void {
-    for (const t of this.missingQueryTables) this.access.includedTables = [...this.access.includedTables, this.catalogName(t) ?? t];
+    for (const t of this.missingQueryTables) {
+      this.access.includedTables = [...this.access.includedTables, this.catalogName(t) ?? t];
+      this.shownSchemas.add(schemaOf(t));
+    }
+  }
+
+  isShown(schema: string): boolean { return this.shownSchemas.has(low(schema)); }
+
+  /** Lists or stops listing a schema's tables. Stopping also unticks them, so no ticked table is out of sight. */
+  toggleShown(schema: string): void {
+    const s = low(schema);
+    if (!this.shownSchemas.delete(s)) { this.shownSchemas.add(s); return; }
+    this.access.includedTables = this.access.includedTables.filter(t => schemaOf(t) !== s);
   }
 
   /** The database's spelling of a schema.table, when it has it. */
@@ -190,7 +208,8 @@ export class FeatureSettingsComponent implements OnChanges {
   get tableRows(): { full: string; schema: string; table: string; columns: number }[] {
     const words = low(this.tableSearch).split(/\s+/).filter(Boolean);
     return this.allTables
-      .filter(t => (!this.onlyTicked || this.isIncluded(t.full) || this.isQueryTable(t.full)) && words.every(w => low(t.full).includes(w)))
+      .filter(t => this.isShown(t.schema) && (!this.onlyTicked || this.isIncluded(t.full) || this.isQueryTable(t.full))
+        && words.every(w => low(t.full).includes(w)))
       // The tables its queries read first, then the ticked ones, then the rest.
       .sort((a, b) => Number(this.isQueryTable(b.full)) - Number(this.isQueryTable(a.full))
         || Number(this.isIncluded(b.full)) - Number(this.isIncluded(a.full)) || a.full.localeCompare(b.full));
