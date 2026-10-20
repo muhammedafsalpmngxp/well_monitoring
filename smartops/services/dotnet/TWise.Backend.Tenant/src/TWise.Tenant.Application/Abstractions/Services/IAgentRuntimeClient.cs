@@ -57,4 +57,17 @@ public interface IAgentRuntimeClient
     /// (deep mode). History is earlier {user, assistant} turns. Yields status / node events, then done or error.</summary>
     IAsyncEnumerable<AgentRuntimeEvent> AskDataAsync(string question, IReadOnlyList<Dictionary<string, string>> history,
         AgentRuntimeLlm llm, IReadOnlyDictionary<string, string> prompts, AgentRuntimeAskData askData, CancellationToken ct);
+
+    /// <summary>An Agentic Feature endpoint (POST /api/agent-runtime/features/{feature}/{path}) with the envelope and
+    /// <paramref name="body"/>'s fields; the Ask Data database is attached. Throws AgentRuntimeException with the
+    /// runtime's status and message when it refuses, HttpRequestException when it is down.</summary>
+    Task<JsonElement> FeatureCallAsync(string feature, string path, AgenticFeatureEnvelope envelope, object? body, CancellationToken ct);
+
+    /// <summary>A feature endpoint that returns a file (e.g. Daily Report's Excel export).</summary>
+    Task<AskDataExportFile> FeatureFileAsync(string feature, string path, AgenticFeatureEnvelope envelope, object? body, CancellationToken ct);
+
+    /// <summary>A long feature operation as server-sent events (progress…, then result or error). No time limit:
+    /// it ends when the runtime finishes or <paramref name="ct"/> is cancelled.</summary>
+    IAsyncEnumerable<AgentRuntimeEvent> FeatureStreamAsync(string feature, string path, AgenticFeatureEnvelope envelope, object? body,
+        CancellationToken ct);
 }

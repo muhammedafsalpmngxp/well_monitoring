@@ -12,7 +12,7 @@ export type AiProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'custom';
 /** An editable AI instruction; text is the one in use (custom or default). */
 export interface AiPromptDto { key: string; name: string; description: string; defaultText: string; text: string; isCustom: boolean }
 
-/** One AI prompt on Settings → AI Prompts (stored in the tenant database). group: features | askdata | askdata-messages | agents. */
+/** One AI prompt on Settings → AI Prompts (stored in the tenant database). group: features | askdata | askdata-messages | agents, or an Agentic Feature key (slippage | dailyreport | anomaly). */
 export interface AiPromptItem {
   key: string; group: string; name: string; description: string; text: string; originalText: string;
   version: number; changedBy: string; changedAt: string;
@@ -54,6 +54,28 @@ export type SaveAskDataSettings = Omit<AskDataSettings, 'configured' | 'modified
 
 /** The Ask Data database's schemas, tables and columns (system schemas left out). */
 export interface AskDataCatalog { database: string; schemas: { name: string; tables: { name: string; columns: string[] }[] }[] }
+
+/** The tables an Agentic Feature may read: listed tables, or (when none are listed) every table of the allowed schemas, minus the hidden ones. */
+export interface FeatureAccess { allowedSchemas: string[]; includedTables: string[]; excludedTables: string[]; excludedColumns: string[] }
+
+/** One setting of an Agentic Feature. type: int | decimal | bool | enum | text | list | map (map = named numbers). */
+export interface FeatureSettingDefinition {
+  key: string; label: string; help: string; group: string;
+  type: 'int' | 'decimal' | 'bool' | 'enum' | 'text' | 'list' | 'map';
+  default: any; min: number | null; max: number | null; options: string[];
+}
+
+/**
+ * An Agentic Feature's section of Settings → AI Settings (core.AiSettings): its settings with the values in use
+ * (defaults filled in) and what it may read. accessMode "tables": the admin ticks tables (its verified SQL reads
+ * queryTables); "schemas": the admin chooses schemas and hidden tables / columns, as for Ask Data.
+ */
+export interface AgenticFeatureSettings {
+  feature: string; title: string; description: string; accessMode: 'tables' | 'schemas';
+  definitions: FeatureSettingDefinition[]; values: Record<string, any>;
+  access: FeatureAccess; defaultAccess: FeatureAccess; queryTables: string[];
+  customized: boolean; modifiedBy: string | null; modifiedAt: string | null;
+}
 
 export interface AiSettingsDto {
   /** The active provider's daily call limit (saved on that provider). */
@@ -346,6 +368,21 @@ export class AiService {
   /** Admin: the Ask Data database's schemas, tables and columns, to choose from. */
   askDataCatalog(): Observable<AskDataCatalog> {
     return this.http.get<AskDataCatalog>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_CATALOG}`);
+  }
+
+  /** Admin: every Agentic Feature's settings (Slippage, Daily Report, Data Anomaly). */
+  featureSettings(): Observable<AgenticFeatureSettings[]> {
+    return this.http.get<AgenticFeatureSettings[]>(`${this.api}${API_ENDPOINTS.AI.FEATURE_SETTINGS}`);
+  }
+
+  /** Admin: save one feature's settings and tables (400 { message } lists every problem). */
+  saveFeatureSettings(feature: string, body: { values: Record<string, any>; access: FeatureAccess }): Observable<AgenticFeatureSettings> {
+    return this.http.put<AgenticFeatureSettings>(`${this.api}${API_ENDPOINTS.AI.FEATURE_SETTING(feature)}`, body);
+  }
+
+  /** Admin: restore one feature's default settings and tables. */
+  resetFeatureSettings(feature: string): Observable<AgenticFeatureSettings> {
+    return this.http.delete<AgenticFeatureSettings>(`${this.api}${API_ENDPOINTS.AI.FEATURE_SETTING(feature)}`);
   }
 
   /** Admin: make an earlier version (1 = the original) the active one, as a new version. */

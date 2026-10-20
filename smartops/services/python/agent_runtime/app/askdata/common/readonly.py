@@ -41,6 +41,8 @@ _WRITE_NODES = tuple(
 _COMMENT_BLOCK = re.compile(r"/\*.*?\*/", re.DOTALL)
 _COMMENT_LINE = re.compile(r"--[^\n]*")
 _STRING_LITERAL = re.compile(r"'(?:[^']|'')*'", re.DOTALL)
+# [Last Update] / "Create Date": quoted identifiers are names, never keywords (the parse below still checks structure).
+_QUOTED_NAME = re.compile(r'\[(?:[^\]]|\]\])*\]|"(?:[^"]|"")*"')
 
 
 class ReadOnlyViolation(RuntimeError):
@@ -48,9 +50,9 @@ class ReadOnlyViolation(RuntimeError):
 
 
 def strip_noise(sql: str) -> str:
-    """Remove comments and string literals so keyword scanning is meaningful."""
+    """Remove comments, string literals and quoted names so keyword scanning is meaningful."""
     without_comments = _COMMENT_LINE.sub(" ", _COMMENT_BLOCK.sub(" ", sql))
-    return _STRING_LITERAL.sub(" '' ", without_comments)
+    return _QUOTED_NAME.sub(" [x] ", _STRING_LITERAL.sub(" '' ", without_comments))
 
 
 def function_name(func: exp.Expression) -> str:

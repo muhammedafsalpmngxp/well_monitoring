@@ -1,8 +1,9 @@
 import { ChangeDetectorRef, Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { AiService, AskDataCatalog, AskDataSettings, SaveAskDataSettings } from '../../../core/services/ai.service';
+import { AgenticFeatureSettings, AiService, AskDataCatalog, AskDataSettings, SaveAskDataSettings } from '../../../core/services/ai.service';
 
-/** The sections of Settings → AI Settings. Ask Data is the first; more AI settings join here. */
+/** The fixed sections of Settings → AI Settings. Ask Data is the first; each Agentic Feature adds its own (from the API). */
 export const AI_SETTINGS_SECTIONS: { key: string; title: string; hint: string }[] = [
   { key: 'ask-data', title: 'Ask Data', hint: 'What Ask your data and agent Ask Data steps may read, and their limits.' },
 ];
@@ -45,14 +46,18 @@ const low = (s: string) => s.trim().toLowerCase();
 export class AiConfigurationComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly sections = AI_SETTINGS_SECTIONS;
+  /** Ask Data, then one section per Agentic Feature (Slippage, Daily Report, Data Anomaly), as the API lists them. */
+  sections = [...AI_SETTINGS_SECTIONS];
   readonly limits = ASK_DATA_LIMITS;
   readonly chatModes = CHAT_MODES;
   readonly breadcrumbs = [{ label: 'Home' }, { label: 'Settings', route: '/settings' }, { label: 'AI Settings' }];
   /** Tables listed at once in the hidden-tables picker; the search narrows the rest. */
   readonly tableListMax = 200;
 
-  activeSection = AI_SETTINGS_SECTIONS[0].key;
+  activeSection = inject(ActivatedRoute).snapshot.queryParamMap.get('section') ?? AI_SETTINGS_SECTIONS[0].key;
+  /** The Agentic Features' settings; each renders its own section (kept alive, so switching sections keeps drafts). */
+  features: AgenticFeatureSettings[] = [];
+  featuresError = '';
   loading = true;
   error = '';
   catalog: AskDataCatalog | null = null;
@@ -88,6 +93,37 @@ export class AiConfigurationComponent implements OnInit {
       },
     });
     this.loadCatalog();
+    this.loadFeatures();
+  }
+
+  loadFeatures(): void {
+    this.featuresError = '';
+    this.ai.featureSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: f => {
+        this.features = f;
+        this.sections = [...AI_SETTINGS_SECTIONS, ...f.map(x => ({ key: x.feature, title: x.title, hint: this.featureHint(x) }))];
+        if (!this.sections.some(s => s.key === this.activeSection)) this.activeSection = AI_SETTINGS_SECTIONS[0].key;
+        this.cdr.markForCheck();
+      },
+      error: err => { this.featuresError = err?.error?.message ?? 'The Agentic Features settings could not be loaded.'; this.cdr.markForCheck(); },
+    });
+  }
+
+  private featureHint(f: AgenticFeatureSettings): string {
+    return f.accessMode === 'tables' ? 'The tables its verified queries may read, and its settings.' : 'The schemas its AI checks may read, and its settings.';
+  }
+
+  feature(key: string): AgenticFeatureSettings | undefined { return this.features.find(f => f.feature === key); }
+
+  /** Set up: Ask Data has a schema; a feature has its tables (or schemas) chosen. */
+  isConfigured(key: string): boolean {
+    if (key === 'ask-data') return !!this.saved?.configured;
+    const f = this.feature(key);
+    return !!f && (f.access.includedTables.length > 0 || (f.accessMode === 'schemas' && f.access.allowedSchemas.length > 0));
+  }
+
+  onFeatureSaved(s: AgenticFeatureSettings): void {
+    this.features = this.features.map(f => (f.feature === s.feature ? s : f));
   }
 
   loadCatalog(): void {
@@ -291,6 +327,8 @@ export class AiConfigurationComponent implements OnInit {
     if (this.saved) this.apply(this.saved);
     this.message = null;
   }
+
+  trackFeature(_: number, f: AgenticFeatureSettings): string { return f.feature; }
 
   trackName(_: number, x: { name: string } | string): string { return typeof x === 'string' ? x : x.name; }
   trackRow(_: number, r: { schema: string; table: string }): string { return `${r.schema}.${r.table}`; }

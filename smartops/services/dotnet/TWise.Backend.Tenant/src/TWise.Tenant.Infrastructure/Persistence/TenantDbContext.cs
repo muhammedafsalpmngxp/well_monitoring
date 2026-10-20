@@ -27,6 +27,13 @@ public class TenantDbContext(DbContextOptions<TenantDbContext> options) : DbCont
     public DbSet<ImportedDataRow> ImportedDataRows => Set<ImportedDataRow>();
     public DbSet<AiSettings> AiSettings => Set<AiSettings>();
     public DbSet<AiProvider> AiProviders => Set<AiProvider>();
+    public DbSet<AiFeatureQuery> AiFeatureQueries => Set<AiFeatureQuery>();
+    public DbSet<AiFeatureJob> AiFeatureJobs => Set<AiFeatureJob>();
+    public DbSet<AnomalyRule> AnomalyRules => Set<AnomalyRule>();
+    public DbSet<AnomalyProbe> AnomalyProbes => Set<AnomalyProbe>();
+    public DbSet<AnomalyRun> AnomalyRuns => Set<AnomalyRun>();
+    public DbSet<AnomalyRunReport> AnomalyRunReports => Set<AnomalyRunReport>();
+    public DbSet<AnomalyProposal> AnomalyProposals => Set<AnomalyProposal>();
     public DbSet<AiFeatureRole> AiFeatureRoles => Set<AiFeatureRole>();
     public DbSet<AiUsageLog> AiUsageLogs => Set<AiUsageLog>();
     public DbSet<AiConversation> AiConversations => Set<AiConversation>();

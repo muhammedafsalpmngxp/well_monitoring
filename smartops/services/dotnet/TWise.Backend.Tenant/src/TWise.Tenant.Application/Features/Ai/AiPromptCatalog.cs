@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using TWise.Tenant.Application.Features.Ai.AgenticFeatures;
 
 namespace TWise.Tenant.Application.Features.Ai;
 
@@ -20,16 +21,23 @@ public static partial class AiPromptCatalog
     /// <summary>Longest text a prompt may have (the largest original, the Ask Data business rules, is about 13,000).</summary>
     public const int MaxLength = 100_000;
 
+    /// <summary>The groups of Settings → AI Prompts: the built-in ones, then one per Agentic Feature (its key).</summary>
     public static readonly IReadOnlyList<(string Key, string Title)> Groups =
     [
         (Features, "AI features"),
         (AskData, "Ask Data: prompts and knowledge"),
         (AskDataMessages, "Ask Data: message templates"),
         (Agents, "Agents"),
+        .. AgenticFeatureCatalog.All.Values.Select(f => (f.Key, f.Title)),
     ];
 
+    /// <summary>Every prompt: the built-in ones below, then each Agentic Feature's from agentic-features.seed.json
+    /// (group = the feature key, e.g. "slippage"; keys start with the feature key and a dot).</summary>
     public static readonly IReadOnlyList<AiPromptDefinition> All =
     [
+        .. AgenticFeatureCatalog.All.Values.SelectMany(f => f.Prompts.Select(p =>
+            new AiPromptDefinition(p.Key, f.Key, p.Name, p.Description, p.ReplyKeys, p.AllowEmpty))),
+
         // ── AI features (Tenant API) ──────────────────────────────────────────────────────────────────────────
         F(AiPrompts.AskRules, "Extra rules for questions", "Added to the instructions that turn a question into a query on a dataset, e.g. \"A year means the fiscal year starting 1 April\". Leave empty for none.", allowEmpty: true),
         F(AiPrompts.Answer, "Answer style", "How the AI words an answer from the result rows (Ask your data on a dataset)."),
@@ -144,6 +152,12 @@ public static partial class AiPromptCatalog
     /// <summary>The prompts the agent runtime uses (askdata.* and agent.*), as it receives them with each request.</summary>
     public static IReadOnlyDictionary<string, string> RuntimeTexts(IReadOnlyDictionary<string, string> texts) =>
         texts.Where(kv => ByKey.TryGetValue(kv.Key, out var d) && d.Group is AskData or AskDataMessages or Agents)
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+
+    /// <summary>One Agentic Feature's prompts (group = the feature key), as the agent runtime receives them with each
+    /// request of that feature.</summary>
+    public static IReadOnlyDictionary<string, string> FeatureTexts(IReadOnlyDictionary<string, string> texts, string feature) =>
+        texts.Where(kv => ByKey.TryGetValue(kv.Key, out var d) && d.Group == feature)
             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
 
     /// <summary>The {PLACEHOLDER} names in a text, in order of first use. {{ORG_NAME}} is optional and not one of them.</summary>

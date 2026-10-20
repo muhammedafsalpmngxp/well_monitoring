@@ -45,11 +45,16 @@ _SCHEMAS: dict[tuple, str] = {}
 def _schema(run: AskDataRun) -> str:
     s = run.settings
     key = (run.db.server, run.db.port, run.db.name, s.allowed_schemas, s.excluded_tables, s.excluded_columns)
-    if key not in _SCHEMAS:
-        schema = build_schema_text()
-        hints = build_value_hints()
-        _SCHEMAS[key] = schema + (("\n\n" + hints) if hints else "")
-    return _SCHEMAS[key]
+    if key in _SCHEMAS:
+        return _SCHEMAS[key]
+    schema = build_schema_text()
+    hints = build_value_hints()
+    full = schema + (("\n\n" + hints) if hints else "")
+    # An empty schema (nothing readable, or the database briefly unreachable) is not kept: the next question reads it
+    # again instead of answering from nothing until the service restarts.
+    if schema.strip():
+        _SCHEMAS[key] = full
+    return full
 
 
 @lru_cache(maxsize=1)
@@ -184,10 +189,13 @@ def _response(result: dict[str, Any], mode: str, elapsed: float, usage: list[dic
         "mode": mode,
         "seconds": round(elapsed, 2),
         "export_token": export_svc.make_token(last.get("sql", "")) if last else None,
-        # Every attempt, rejected ones included, so the SQL view shows what was tried (twise build_response).
+        # The query the answer and the data below come from (never a rejected attempt).
+        "sql": last.get("sql", "") if last else None,
+        # Every attempt, rejected ones included and marked, so the SQL view shows what was tried (twise build_response).
         "steps": [{"sub_question": s.get("sub_question", ""), "sql": s.get("sql", ""),
-                   "row_count": len(s.get("rows") or []), "truncated": bool(s.get("truncated"))}
-                  for s in (result.get("steps") or []) + (result.get("rejected_steps") or [])],
+                   "row_count": len(s.get("rows") or []), "truncated": bool(s.get("truncated")), "rejected": rejected}
+                  for rejected, group in ((False, result.get("steps") or []), (True, result.get("rejected_steps") or []))
+                  for s in group],
         "data": {"columns": list(last.get("columns") or []), "rows": [list(r) for r in last.get("rows") or []],
                  "truncated": bool(last.get("truncated"))} if last else None,
         "chart": result.get("chart") or None,

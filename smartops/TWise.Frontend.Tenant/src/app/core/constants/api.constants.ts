@@ -73,6 +73,14 @@ export const API_ENDPOINTS = {
   AGENTIC_AI: {
     BASE: '/agentic-ai',
   },
+  /** Agentic AI → Agentic Features (Slippage, Daily Report, Data Anomaly). */
+  AGENTIC_FEATURES: {
+    LIST: '/agentic-features',
+    QUERIES: (feature: string) => `/agentic-features/${feature}/queries`,
+    SLIPPAGE: '/agentic-features/slippage',
+    DAILY_REPORT: '/agentic-features/daily-report',
+    DATA_ANOMALY: '/agentic-features/data-anomaly',
+  },
   AI: {
     SETTINGS: '/ai/settings',
     PROVIDERS: '/ai/providers',
@@ -94,6 +102,8 @@ export const API_ENDPOINTS = {
     PROMPT_LIBRARY: '/ai/prompt-library',
     ASK_DATA_SETTINGS: '/ai/settings/ask-data',
     ASK_DATA_CATALOG: '/ai/settings/ask-data/catalog',
+    FEATURE_SETTINGS: '/ai/settings/features',
+    FEATURE_SETTING: (feature: string) => `/ai/settings/features/${encodeURIComponent(feature)}`,
     PROMPT_LIBRARY_ITEM: (key: string) => `/ai/prompt-library/${encodeURIComponent(key)}`,
     PROMPT_LIBRARY_HISTORY: (key: string) => `/ai/prompt-library/${encodeURIComponent(key)}/history`,
     PROMPT_LIBRARY_RESTORE: (key: string) => `/ai/prompt-library/${encodeURIComponent(key)}/restore`,

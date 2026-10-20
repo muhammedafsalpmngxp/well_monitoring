@@ -24,6 +24,12 @@ public class AiSettings : BaseEntity
     public string? AskDataExportPrefix { get; set; }
     /// <summary>deep | normal: how the Ask your data chatbot (side panel) answers. Agents choose their own mode per step.</summary>
     public string AskDataChatMode { get; set; } = "deep";
+
+    // Agentic Features (Agentic AI → Agentic Features): each feature's settings and the tables it may read, as JSON
+    // {"values": {...}, "access": {...}, "modifiedBy", "modifiedAt"} (Settings → AI Settings). Null = the defaults.
+    public string? SlippageSettingsJson { get; set; }
+    public string? DailyReportSettingsJson { get; set; }
+    public string? AnomalySettingsJson { get; set; }
 }
 
 /// <summary>

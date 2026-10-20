@@ -187,6 +187,16 @@ public static class DependencyInjection
             if (configuration["AgentRuntime:ApiKey"] is { Length: > 0 } key) client.DefaultRequestHeaders.Add("X-API-Key", key);
         });
 
+        // Agentic AI → Agentic Features (Slippage, Daily Report, Data Anomaly): engines in the agent runtime, the
+        // tenant's prompts, settings, verified SQL and Data Anomaly's rules and runs in the tenant database.
+        services.AddScoped<IAiFeatureQueryStore, AiFeatureQueryStore>();
+        services.AddScoped<IAgenticFeatureContext, AgenticFeatureContext>();
+        services.AddScoped<IAgenticFeatureGateway, AgenticFeatureGateway>();
+        services.AddScoped<IDataAnomalyService, DataAnomalyService>();
+        services.AddSingleton<IAgenticJobSignal, AgenticJobSignal>();
+        services.AddScoped<AgenticJobRunner>();
+        services.AddHostedService<AgenticJobWorker>();
+
         services.AddScoped<ReportDataFetcher>();
 
         return services;

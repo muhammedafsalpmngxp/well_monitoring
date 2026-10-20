@@ -16,6 +16,11 @@
     <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="180.107.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The Agentic Features every tenant starts with (AgenticFeatureCatalog). -->
+    <EmbeddedResource Include="Resources\agentic-features.seed.json" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

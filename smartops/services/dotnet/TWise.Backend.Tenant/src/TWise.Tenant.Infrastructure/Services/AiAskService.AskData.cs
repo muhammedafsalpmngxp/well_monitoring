@@ -68,10 +68,13 @@ public sealed partial class AiAskService
         trace.Add(new("ask", Ms(started), $"Ask Data (route {Str(d, "route") ?? "sql"}): {string.Join(" → ", nodes)}"
             + (verified ? "" : " — the verifier did not accept the figures")));
         foreach (var s in steps)
-            trace.Add(new("query", 0, $"{Str(s, "sql")}\n{(s.TryGetProperty("row_count", out var rc) ? rc.ToString() : "?")} rows"));
+            trace.Add(new("query", 0, $"{Str(s, "sql")}\n{(s.TryGetProperty("row_count", out var rc) ? rc.ToString() : "?")} rows"
+                + (Rejected(s) ? " (rejected, not used for the answer)" : "")));
 
-        var sql = steps.Count > 0 ? Str(steps[^1], "sql") : null;
-        if (!string.IsNullOrWhiteSpace(sql)) yield return new AiAskEvent("sql", new { sql, verified, queries = steps.Count });
+        // The query the answer was built from. steps also lists the rejected attempts (marked), so its last may not be it.
+        var accepted = steps.Where(s => !Rejected(s)).ToList();
+        var sql = Str(d, "sql") ?? (accepted.Count > 0 ? Str(accepted[^1], "sql") : null);
+        if (!string.IsNullOrWhiteSpace(sql)) yield return new AiAskEvent("sql", new { sql, verified, queries = accepted.Count });
         if (Result(d) is { } result) yield return new AiAskEvent("result", result);
         var answer = Str(d, "answer") ?? "";
         if (!verified) answer += "\n\n_The figures could not be verified: treat them as indicative._";
@@ -165,6 +168,10 @@ public sealed partial class AiAskService
 
     private static string? Str(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    /// <summary>An attempt the validator or verifier refused (Ask Data lists them after the accepted ones).</summary>
+    private static bool Rejected(JsonElement step) =>
+        step.ValueKind == JsonValueKind.Object && step.TryGetProperty("rejected", out var r) && r.ValueKind == JsonValueKind.True;
 
     private static int Int(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : 0;

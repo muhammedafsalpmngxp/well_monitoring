@@ -1,8 +1,9 @@
 import { ChangeDetectorRef, Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AiPromptItem, AiPromptVersion, AiService } from '../../../core/services/ai.service';
 
-/** The prompt groups, in the order the API lists them. */
+/** The built-in prompt groups, in the order the API lists them. Each Agentic Feature adds its own group (from the API). */
 export const PROMPT_GROUPS: { key: string; title: string; hint: string }[] = [
   { key: 'features', title: 'AI features', hint: 'Chart and dashboard explanations, filter and chart suggestions, alerts, SQL review, slide decks.' },
   { key: 'askdata', title: 'Ask Data', hint: 'The multi-agent engine behind Ask your data and agent Ask Data steps: its system prompts, business rules and examples.' },
@@ -27,14 +28,15 @@ interface Message { ok: boolean; text: string }
 export class AiPromptsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly groups = PROMPT_GROUPS;
+  /** The built-in groups, then one per Agentic Feature (Slippage, Daily Report, Data Anomaly), as the API lists them. */
+  groups = [...PROMPT_GROUPS];
   readonly breadcrumbs = [{ label: 'Home' }, { label: 'Settings', route: '/settings' }, { label: 'AI Prompts' }];
   readonly maxLength = 100_000;
 
   items: AiPromptItem[] = [];
   loading = true;
   error = '';
-  activeGroup = PROMPT_GROUPS[0].key;
+  activeGroup = inject(ActivatedRoute).snapshot.queryParamMap.get('group') ?? PROMPT_GROUPS[0].key;
   search = '';
   openKey: string | null = null;
   drafts: Record<string, string> = {};
@@ -48,7 +50,30 @@ export class AiPromptsComponent implements OnInit {
 
   constructor(private readonly ai: AiService, private readonly cdr: ChangeDetectorRef) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.load();
+    this.loadFeatureGroups();
+  }
+
+  /** Each Agentic Feature's prompts are a group of their own, titled and described as the feature is. */
+  private loadFeatureGroups(): void {
+    this.ai.featureSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: features => {
+        const extra = features.map(f => ({ key: f.feature, title: f.title,
+          hint: `${f.description} Keep the {PLACEHOLDERS}: the feature's data goes there.` }));
+        this.groups = [...PROMPT_GROUPS, ...extra, ...this.groups.filter(g => !PROMPT_GROUPS.some(p => p.key === g.key) && !extra.some(e => e.key === g.key))];
+        this.cdr.markForCheck();
+      },
+      error: () => { /* the groups found in the prompts themselves are shown */ },
+    });
+  }
+
+  /** A group the prompts use that no list names yet (shown under its key until the features load). */
+  private addMissingGroups(): void {
+    for (const g of new Set(this.items.map(i => i.group)))
+      if (!this.groups.some(x => x.key === g)) this.groups = [...this.groups, { key: g, title: g, hint: '' }];
+    if (!this.groups.some(g => g.key === this.activeGroup)) this.activeGroup = PROMPT_GROUPS[0].key;
+  }
 
   load(): void {
     this.loading = true;
@@ -56,6 +81,7 @@ export class AiPromptsComponent implements OnInit {
     this.ai.promptLibrary().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: items => {
         this.items = items;
+        this.addMissingGroups();
         this.drafts = Object.fromEntries(items.map(i => [i.key, i.text]));
         this.loading = false;
         this.cdr.markForCheck();
@@ -77,8 +103,8 @@ export class AiPromptsComponent implements OnInit {
 
   count(group: string): number { return this.items.filter(i => i.group === group).length; }
   edited(group: string): number { return this.items.filter(i => i.group === group && this.isEdited(i)).length; }
-  groupTitle(key: string): string { return PROMPT_GROUPS.find(g => g.key === key)?.title ?? key; }
-  groupHint(key: string): string { return PROMPT_GROUPS.find(g => g.key === key)?.hint ?? ''; }
+  groupTitle(key: string): string { return this.groups.find(g => g.key === key)?.title ?? key; }
+  groupHint(key: string): string { return this.groups.find(g => g.key === key)?.hint ?? ''; }
 
   isEdited(i: AiPromptItem): boolean { return i.text !== i.originalText; }
   isDirty(i: AiPromptItem): boolean { return (this.drafts[i.key] ?? '') !== i.text; }

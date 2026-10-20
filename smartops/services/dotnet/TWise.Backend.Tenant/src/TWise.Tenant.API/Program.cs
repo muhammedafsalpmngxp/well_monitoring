@@ -192,10 +192,20 @@ builder.Services.AddCors(options =>
 
 // ─── Encryption ───────────────────────────────────────────────────────────────
 var encryptionKey = RequireSecret(builder.Configuration, "DatabaseConnections:EncryptionKey");
-ConnectionPasswordHelper.Initialize(encryptionKey);
+// Older keys still accepted for reading, so the key can be changed without breaking stored secrets.
+var previousEncryptionKeys = builder.Configuration.GetSection("DatabaseConnections:PreviousEncryptionKeys").Get<string[]>() ?? [];
+ConnectionPasswordHelper.Initialize(encryptionKey, previousEncryptionKeys);
 
 // ─── Build ────────────────────────────────────────────────────────────────────
 var app = builder.Build();
+
+// The key's fingerprint (never the key): servers sharing a database must log the same one.
+app.Logger.LogInformation("Encryption key fingerprint {KeyId}; older keys accepted for reading: {PreviousKeyIds}",
+    ConnectionPasswordHelper.KeyId, ConnectionPasswordHelper.PreviousKeyIds.Count == 0 ? "none" : string.Join(", ", ConnectionPasswordHelper.PreviousKeyIds));
+if (encryptionKey.StartsWith("CHANGE_ME", StringComparison.Ordinal))
+    app.Logger.LogWarning("DatabaseConnections:EncryptionKey is the CHANGE_ME placeholder from the repository: anyone with the " +
+        "code can read the secrets this server encrypts. Set a private key (environment variable or user-secrets) on every " +
+        "server that shares this database.");
 
 // ─── Middleware Pipeline (order matters) ──────────────────────────────────────
 app.UseExceptionHandler(error => error.Run(async context =>

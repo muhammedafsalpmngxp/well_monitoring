@@ -105,6 +105,7 @@ export const MENU_STRUCTURE: MenuGroup[] = [
         children: [
           { label: 'AI Agents',    icon: 'database_view', route: `/${ROUTES.AGENTIC_AI}/ai-agents`,    moduleCode: 'agentic-ai.agents' },
           { label: 'Activity Log', icon: 'database_view', route: `/${ROUTES.AGENTIC_AI}/activity-log`, moduleCode: 'agentic-ai.activity-log' },
+          { label: 'Agentic Features', icon: 'database_view', route: `/${ROUTES.AGENTIC_AI}/features`, moduleCode: 'agentic-ai.features' },
         ],
       },
     ],

@@ -1,0 +1,53 @@
+// Same look as the other Agentic AI and AI settings pages: white cards, #e4e7ec borders, #21409a accents.
+.afh {
+  display: grid;
+  gap: 16px;
+
+  &__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+  &__card {
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    gap: 12px;
+    padding: 18px;
+    background: var(--color-bg-card, #fff);
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(16, 24, 40, 0.04);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    &:hover { border-color: #b2c0e8; box-shadow: 0 6px 18px rgba(33, 64, 154, 0.08); }
+  }
+  &__head { display: flex; align-items: center; gap: 12px; }
+  &__icon {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 44px; height: 44px; border-radius: 10px; color: #21409a; background: #eef2ff;
+  }
+  &__card[data-feature='dailyreport'] &__icon { color: #067647; background: #ecfdf3; }
+  &__card[data-feature='anomaly'] &__icon { color: #b54708; background: #fffaeb; }
+  &__title {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    h3 { margin: 0; font-size: 16px; font-weight: 600; color: #101828; }
+  }
+  &__pill {
+    font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px;
+    &--ok { color: #067647; background: #ecfdf3; }
+    &--warn { color: #b54708; background: #fffaeb; }
+  }
+  &__desc { margin: 0; font-size: 13px; line-height: 1.5; color: #475467; }
+  &__notes {
+    margin: 0; padding: 8px 10px 8px 26px; border-radius: 6px; background: #fffaeb; color: #93370d; font-size: 12px; line-height: 1.45;
+    li + li { margin-top: 4px; }
+  }
+  &__foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; a.btn { text-decoration: none; } }
+  &__link {
+    padding: 0; border: 0; background: none; color: #21409a; font: inherit; font-size: 13px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    &:hover { text-decoration: underline; }
+    &:focus-visible { outline: 2px solid #21409a; outline-offset: 2px; }
+  }
+  &__empty { margin: 0; padding: 32px; text-align: center; color: #667085; font-size: 13px; background: #fff; border: 1px solid #e4e7ec; border-radius: 8px; }
+  &__msg {
+    margin: 0; padding: 8px 12px; border-radius: 6px; font-size: 13px;
+    &--bad { color: #b42318; background: #fef3f2; }
+  }
+}

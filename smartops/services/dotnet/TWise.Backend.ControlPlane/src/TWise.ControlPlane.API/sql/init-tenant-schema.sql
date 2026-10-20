@@ -1220,6 +1220,10 @@ CREATE TABLE core.AiSettings (
     askdata_chat_mode        nvarchar(10)  NOT NULL CONSTRAINT DF_core_AiSettings_askdata_chat_mode DEFAULT 'deep'
                              CONSTRAINT CK_core_AiSettings_askdata_chat_mode CHECK (askdata_chat_mode IN ('deep', 'normal')),
                              -- how the Ask your data chatbot answers; agents choose per step
+    -- Agentic Features: each feature's settings and the tables it may read (Settings → AI Settings). NULL = defaults.
+    slippage_settings_json    nvarchar(max) NULL,
+    dailyreport_settings_json nvarchar(max) NULL,
+    anomaly_settings_json     nvarchar(max) NULL,
     created_by         nvarchar(100)  NULL,
     created_at         datetime2      NOT NULL CONSTRAINT DF_core_AiSettings_created DEFAULT SYSUTCDATETIME(),
     modified_by        nvarchar(100)  NULL,
@@ -1265,6 +1269,149 @@ CREATE TABLE core.AiPrompt (
     row_ver            rowversion     NOT NULL,       -- changes on every update: the Tenant API's prompt cache key
     CONSTRAINT UQ_core_AiPrompt_key UNIQUE (tenant_id, prompt_key)
 );
+GO
+
+-- Agentic Features (Agentic AI → Agentic Features): verified SQL, Data Anomaly rules / probes / runs / reports /
+-- proposals, and long operations (see infra/sql/add-agentic-features.sql).
+IF OBJECT_ID('core.AiFeatureQuery', 'U') IS NULL
+    CREATE TABLE core.AiFeatureQuery (
+        id           bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiFeatureQuery PRIMARY KEY,
+        tenant_id    bigint         NOT NULL,
+        feature      nvarchar(40)   NOT NULL,
+        query_key    nvarchar(80)   NOT NULL,
+        label        nvarchar(200)  NOT NULL,
+        description  nvarchar(1000) NULL,
+        sql_text     nvarchar(max)  NOT NULL,
+        params_json  nvarchar(1000) NOT NULL CONSTRAINT DF_core_AiFeatureQuery_params DEFAULT N'[]',
+        columns_json nvarchar(max)  NOT NULL CONSTRAINT DF_core_AiFeatureQuery_columns DEFAULT N'[]',
+        seed_hash    char(64)       NULL,
+        modified_by  nvarchar(200)  NOT NULL,
+        modified_at  datetime2      NOT NULL CONSTRAINT DF_core_AiFeatureQuery_modified DEFAULT SYSUTCDATETIME(),
+        row_ver      rowversion     NOT NULL,
+        CONSTRAINT UQ_core_AiFeatureQuery_key UNIQUE (tenant_id, feature, query_key)
+    );
+GO
+
+IF OBJECT_ID('core.AnomalyRule', 'U') IS NULL
+    CREATE TABLE core.AnomalyRule (
+        id              bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AnomalyRule PRIMARY KEY,
+        tenant_id       bigint         NOT NULL,
+        rule_id         nvarchar(80)   NOT NULL,
+        title           nvarchar(400)  NOT NULL,
+        category        nvarchar(100)  NULL,
+        severity        nvarchar(20)   NOT NULL,
+        status          nvarchar(20)   NOT NULL,       -- active | probation | draft | disabled | rejected
+        source          nvarchar(20)   NOT NULL,       -- declared | discovered
+        definition_json nvarchar(max)  NOT NULL,       -- the whole rule (prose, method, parameters, tags…)
+        seed_hash       char(64)       NULL,
+        created_by      nvarchar(200)  NOT NULL,
+        created_at      datetime2      NOT NULL CONSTRAINT DF_core_AnomalyRule_created DEFAULT SYSUTCDATETIME(),
+        modified_by     nvarchar(200)  NOT NULL,
+        modified_at     datetime2      NOT NULL CONSTRAINT DF_core_AnomalyRule_modified DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT UQ_core_AnomalyRule_rule UNIQUE (tenant_id, rule_id),
+        CONSTRAINT CK_core_AnomalyRule_status CHECK (status IN ('active', 'probation', 'draft', 'disabled', 'rejected')),
+        CONSTRAINT CK_core_AnomalyRule_severity CHECK (severity IN ('critical', 'high', 'medium', 'low'))
+    );
+GO
+
+IF OBJECT_ID('core.AnomalyProbe', 'U') IS NULL
+    CREATE TABLE core.AnomalyProbe (
+        id           bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AnomalyProbe PRIMARY KEY,
+        tenant_id    bigint         NOT NULL,
+        probe_id     nvarchar(200)  NOT NULL,          -- the rule id, or rule id + family member
+        rule_id      nvarchar(80)   NOT NULL,
+        status       nvarchar(20)   NOT NULL,          -- active | failed | not_applicable
+        probe_json   nvarchar(max)  NOT NULL,          -- summary / detail SQL, fingerprints, reviewer notes…
+        compiled_at  datetime2      NOT NULL,
+        CONSTRAINT UQ_core_AnomalyProbe_probe UNIQUE (tenant_id, probe_id)
+    );
+GO
+
+IF OBJECT_ID('core.AnomalyRun', 'U') IS NULL
+    CREATE TABLE core.AnomalyRun (
+        id                   bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AnomalyRun PRIMARY KEY,
+        tenant_id            bigint         NOT NULL,
+        run_id               nvarchar(40)   NOT NULL,
+        status               nvarchar(20)   NOT NULL,  -- succeeded | failed
+        database_name        nvarchar(200)  NULL,
+        started_at           datetime2      NOT NULL,
+        finished_at          datetime2      NULL,
+        score                decimal(6, 2)  NULL,
+        probes_run           int            NULL,
+        records_examined     bigint         NULL,
+        records_flagged      bigint         NULL,
+        rule_set_fingerprint nvarchar(40)   NULL,
+        result_json          nvarchar(max)  NULL,       -- totals, ranked findings, coverage gaps, AI summary…
+        error                nvarchar(4000) NULL,
+        started_by           nvarchar(200)  NOT NULL,
+        CONSTRAINT UQ_core_AnomalyRun_run UNIQUE (tenant_id, run_id)
+    );
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AnomalyRun_started' AND object_id = OBJECT_ID('core.AnomalyRun'))
+    CREATE INDEX IX_core_AnomalyRun_started ON core.AnomalyRun (tenant_id, started_at DESC);
+GO
+
+IF OBJECT_ID('core.AnomalyRunReport', 'U') IS NULL
+    CREATE TABLE core.AnomalyRunReport (
+        id          bigint          IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AnomalyRunReport PRIMARY KEY,
+        tenant_id   bigint          NOT NULL,
+        run_id      nvarchar(40)    NOT NULL,
+        format      nvarchar(10)    NOT NULL,          -- xlsx | docx
+        file_name   nvarchar(200)   NOT NULL,
+        content     varbinary(max)  NOT NULL,
+        size_bytes  bigint          NOT NULL,
+        created_at  datetime2       NOT NULL CONSTRAINT DF_core_AnomalyRunReport_created DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT UQ_core_AnomalyRunReport UNIQUE (tenant_id, run_id, format),
+        CONSTRAINT CK_core_AnomalyRunReport_format CHECK (format IN ('xlsx', 'docx'))
+    );
+GO
+
+IF OBJECT_ID('core.AnomalyProposal', 'U') IS NULL
+    CREATE TABLE core.AnomalyProposal (
+        id             bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AnomalyProposal PRIMARY KEY,
+        tenant_id      bigint         NOT NULL,
+        proposal_hash  nvarchar(64)   NOT NULL,
+        status         nvarchar(20)   NOT NULL,        -- pending | dropped | accepted | rejected
+        title          nvarchar(400)  NOT NULL,
+        proposal_json  nvarchar(max)  NOT NULL,
+        rule_id        nvarchar(80)   NULL,            -- the rule it became when accepted
+        reason         nvarchar(1000) NULL,
+        decided_by     nvarchar(200)  NULL,
+        decided_at     datetime2      NULL,
+        created_at     datetime2      NOT NULL CONSTRAINT DF_core_AnomalyProposal_created DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT UQ_core_AnomalyProposal_hash UNIQUE (tenant_id, proposal_hash),
+        CONSTRAINT CK_core_AnomalyProposal_status CHECK (status IN ('pending', 'dropped', 'accepted', 'rejected'))
+    );
+GO
+
+IF OBJECT_ID('core.AiFeatureJob', 'U') IS NULL
+    CREATE TABLE core.AiFeatureJob (
+        id            bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiFeatureJob PRIMARY KEY,
+        tenant_id     bigint         NOT NULL,
+        feature       nvarchar(40)   NOT NULL,
+        kind          nvarchar(40)   NOT NULL,         -- compile | run | discover
+        status        nvarchar(20)   NOT NULL,         -- queued | running | succeeded | failed | cancelled
+        request_json  nvarchar(max)  NULL,             -- options (rule ids, force, formats…)
+        progress_json nvarchar(max)  NULL,             -- latest {stage, done, total, label}
+        result_json   nvarchar(max)  NULL,             -- short outcome (ids, counts, run id)
+        error         nvarchar(4000) NULL,
+        requested_by  nvarchar(200)  NOT NULL,
+        created_at    datetime2      NOT NULL CONSTRAINT DF_core_AiFeatureJob_created DEFAULT SYSUTCDATETIME(),
+        started_at    datetime2      NULL,
+        finished_at   datetime2      NULL,
+        heartbeat_at  datetime2      NULL,
+        CONSTRAINT CK_core_AiFeatureJob_status CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled'))
+    );
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_core_AiFeatureJob_active' AND object_id = OBJECT_ID('core.AiFeatureJob'))
+    CREATE UNIQUE INDEX UX_core_AiFeatureJob_active ON core.AiFeatureJob (tenant_id, feature)
+        WHERE status IN ('queued', 'running');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiFeatureJob_recent' AND object_id = OBJECT_ID('core.AiFeatureJob'))
+    CREATE INDEX IX_core_AiFeatureJob_recent ON core.AiFeatureJob (tenant_id, feature, created_at DESC);
 GO
 
 IF OBJECT_ID('core.AiProviders', 'U') IS NULL

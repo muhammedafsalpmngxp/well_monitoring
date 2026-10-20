@@ -20,12 +20,14 @@
         (click)="activeSection = s.key" [attr.aria-current]="activeSection === s.key ? 'true' : null">
         <span class="ac__section-title">
           {{ s.title }}
-          <span class="ac__pill" *ngIf="s.key === 'ask-data'" [class.ac__pill--ok]="saved?.configured" [class.ac__pill--warn]="!saved?.configured">
-            {{ saved?.configured ? 'Set up' : 'Not set up' }}
+          <span class="ac__pill" [class.ac__pill--ok]="isConfigured(s.key)" [class.ac__pill--warn]="!isConfigured(s.key)">
+            {{ isConfigured(s.key) ? 'Set up' : 'Not set up' }}
           </span>
         </span>
         <span class="ac__section-hint">{{ s.hint }}</span>
       </button>
+      <p class="ac__msg ac__msg--bad" *ngIf="featuresError">{{ featuresError }}
+        <button type="button" class="ac__link" (click)="loadFeatures()">Try again</button></p>
     </nav>
 
     <section class="ac__body" *ngIf="activeSection === 'ask-data'">
@@ -224,5 +226,10 @@
         </div>
       </div>
     </section>
+
+    <!-- Agentic Features: one section each, built from the feature's own setting definitions -->
+    <app-feature-settings *ngFor="let f of features; trackBy: trackFeature" [hidden]="activeSection !== f.feature"
+      [settings]="f" [catalog]="catalog" [catalogError]="catalogError" (saved)="onFeatureSaved($event)" (reloadCatalog)="loadCatalog()">
+    </app-feature-settings>
   </div>
 </div>

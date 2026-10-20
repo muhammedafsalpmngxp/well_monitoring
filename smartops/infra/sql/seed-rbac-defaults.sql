@@ -77,6 +77,10 @@ BEGIN
     ('admin', 'data-quality.lineage',       1,1,1,1),
     ('admin', 'agentic-ai.agents',          1,1,1,1),
     ('admin', 'agentic-ai.activity-log',    1,1,1,1),
+    ('admin', 'agentic-ai.features',        1,1,1,1),
+    ('admin', 'agentic-ai.slippage',        1,1,1,1),
+    ('admin', 'agentic-ai.daily-report',    1,1,1,1),
+    ('admin', 'agentic-ai.data-anomaly',    1,1,1,1),
     ('admin', 'user-management.users',      1,1,1,1),
     ('admin', 'user-management.roles',      1,1,1,1),
     ('admin', 'settings.database-view',     1,1,1,1);

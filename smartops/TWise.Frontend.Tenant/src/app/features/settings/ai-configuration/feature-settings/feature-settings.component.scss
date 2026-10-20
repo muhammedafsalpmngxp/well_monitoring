@@ -1,0 +1,47 @@
+// Builds on ../ai-configuration.component.scss (same cards, chips, fields and save bar).
+:host:not([hidden]) { display: block; min-width: 0; }
+
+.fs {
+  &__prompts { margin: 0; text-decoration: none; white-space: nowrap; }
+
+  &__needed { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  &__needed-label { font-size: 12px; font-weight: 600; color: #344054; }
+  &__chip--missing { border-color: #fecdca !important; background: #fef3f2 !important; }
+
+  &__filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; .ac__search { flex: 1 1 260px; } }
+  &__only { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #344054; white-space: nowrap; input { accent-color: #21409a; } }
+
+  &__table input { accent-color: #21409a !important; }
+  &__table--on { background: #f5f7ff; color: #21409a; }
+  &__tag { font-size: 10px; font-weight: 600; color: #21409a; background: #eef2ff; border-radius: 999px; padding: 0 6px; }
+
+  &__group { gap: 0; }
+  &__group-head {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 0; border: 0; background: none; font: inherit;
+    text-align: left; cursor: pointer;
+    h3 { margin: 0; font-size: 15px; font-weight: 600; color: #101828; }
+    &:focus-visible { outline: 2px solid #21409a; outline-offset: 4px; border-radius: 4px; }
+  }
+  &__chev { margin-left: auto; color: #667085; transition: transform 0.15s; &--open { transform: rotate(180deg); } }
+  &__fields { margin-top: 14px; }
+  &__field--wide { grid-column: 1 / -1; }
+  &__field textarea {
+    width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid #d0d5dd; border-radius: 6px;
+    font: inherit; font-size: 13px; line-height: 1.45; color: #101828; resize: vertical;
+    &:focus-visible { outline: 2px solid #21409a; outline-offset: 1px; }
+  }
+  &__changed { margin-left: 6px; font-size: 10px; font-weight: 600; color: #21409a; background: #eef2ff; border-radius: 999px; padding: 0 6px; }
+  &__bad { color: #b42318 !important; }
+
+  &__switch {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 36px; font-size: 13px; color: #344054; cursor: pointer;
+    input { width: 16px; height: 16px; margin: 0; accent-color: #21409a; }
+  }
+
+  &__map { display: grid; gap: 6px; }
+  &__map-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) 140px auto; gap: 8px; align-items: center;
+    input { min-height: 32px; padding: 4px 8px; border: 1px solid #d0d5dd; border-radius: 6px; font: inherit; font-size: 13px; }
+  }
+  &__map-add { justify-self: start; margin: 0; }
+}

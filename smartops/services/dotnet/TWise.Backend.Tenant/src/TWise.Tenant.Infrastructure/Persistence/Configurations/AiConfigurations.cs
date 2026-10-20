@@ -27,6 +27,9 @@ public sealed class AiSettingsConfiguration : IEntityTypeConfiguration<AiSetting
         b.Property(e => e.AskDataOrgName).HasColumnName("askdata_org_name").HasMaxLength(200);
         b.Property(e => e.AskDataExportPrefix).HasColumnName("askdata_export_prefix").HasMaxLength(40);
         b.Property(e => e.AskDataChatMode).HasColumnName("askdata_chat_mode").HasMaxLength(10);
+        b.Property(e => e.SlippageSettingsJson).HasColumnName("slippage_settings_json");
+        b.Property(e => e.DailyReportSettingsJson).HasColumnName("dailyreport_settings_json");
+        b.Property(e => e.AnomalySettingsJson).HasColumnName("anomaly_settings_json");
         b.Property(e => e.CreatedBy).HasColumnName("created_by");
         b.Property(e => e.CreatedAt).HasColumnName("created_at");
         b.Property(e => e.ModifiedBy).HasColumnName("modified_by");

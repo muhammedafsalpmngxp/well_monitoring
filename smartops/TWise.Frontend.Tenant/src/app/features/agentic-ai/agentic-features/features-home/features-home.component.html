@@ -1,0 +1,50 @@
+<app-page-header title="Agentic Features"
+  subtitle="AI features that work on your operations data: each reads only the tables an admin allows."
+  [breadcrumbs]="breadcrumbs">
+</app-page-header>
+
+<div class="page-content afh">
+  <p *ngIf="error" class="afh__msg afh__msg--bad" role="alert">{{ error }}
+    <button type="button" class="afh__link" (click)="load()">Try again</button>
+  </p>
+  <app-loader *ngIf="loading" size="lg"></app-loader>
+
+  <p class="afh__empty" *ngIf="!loading && !error && !features.length">
+    No Agentic Feature is available to you. Ask an admin for access.
+  </p>
+
+  <div class="afh__grid" *ngIf="!loading && features.length">
+    <article class="afh__card" *ngFor="let f of features; trackBy: trackFeature" [attr.data-feature]="f.feature">
+      <header class="afh__head">
+        <span class="afh__icon" [ngSwitch]="f.feature" aria-hidden="true">
+          <!-- Slippage: a clock behind schedule -->
+          <svg *ngSwitchCase="'slippage'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M9 2h6M12 2v3" /></svg>
+          <!-- Daily Report: a dated sheet -->
+          <svg *ngSwitchCase="'dailyreport'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18M8 14h8M8 18h5" /></svg>
+          <!-- Data Anomaly: a shield with a check -->
+          <svg *ngSwitchDefault width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>
+        </span>
+        <div class="afh__title">
+          <h3>{{ f.title }}</h3>
+          <span class="afh__pill" [class.afh__pill--ok]="f.configured && f.aiEnabled" [class.afh__pill--warn]="!f.configured || !f.aiEnabled">
+            {{ f.configured && f.aiEnabled ? 'Ready' : (f.configured ? 'AI off' : 'Not set up') }}
+          </span>
+        </div>
+      </header>
+      <p class="afh__desc">{{ f.description }}</p>
+      <ul class="afh__notes" *ngIf="notes(f).length">
+        <li *ngFor="let n of notes(f)">{{ n }}</li>
+      </ul>
+      <footer class="afh__foot">
+        <a class="btn btn-primary" [routerLink]="['/agentic-ai/features', f.route]">Open {{ f.title }}</a>
+        <ng-container *ngIf="isAdmin">
+          <a class="afh__link" routerLink="/settings/ai/settings" [queryParams]="{ section: f.feature }">Settings</a>
+          <a class="afh__link" routerLink="/settings/ai/prompts" [queryParams]="{ group: f.feature }">Prompts</a>
+        </ng-container>
+      </footer>
+    </article>
+  </div>
+</div>

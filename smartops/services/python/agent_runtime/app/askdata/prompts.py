@@ -14,6 +14,7 @@ The SQL safety checks are code (nodes/validator.py, tools/access.py), not prompt
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -45,7 +46,17 @@ KEYS = (tuple(f"askdata.{n}" for n in SYSTEM_NAMES + KNOWLEDGE_NAMES)
 
 def _load(texts: Mapping[str, str], name: str, org_name: str = "") -> str:
     # {{ORG_NAME}}: a placeholder no column can match
-    return text(texts, f"askdata.{name}").replace("{{ORG_NAME}}", org_name.strip() or NO_ORG_NAME)
+    return with_org_name(text(texts, f"askdata.{name}"), org_name)
+
+
+def with_org_name(body: str, org_name: str) -> str:
+    """{{ORG_NAME}} -> the tenant's organisation name; without one, "the organisation" (and "the {{ORG_NAME}}"
+    becomes "the organisation", not "the the organisation")."""
+    name = org_name.strip()
+    if not name:
+        rest = NO_ORG_NAME.removeprefix("the ")
+        body = re.sub(r"\b([Tt]he)\s+\{\{ORG_NAME\}\}", lambda m: f"{m.group(1)} {rest}", body)
+    return body.replace("{{ORG_NAME}}", name or NO_ORG_NAME)
 
 
 # Heads the agent's own business rules, after the tenant's, so the model knows which apply to this agent.

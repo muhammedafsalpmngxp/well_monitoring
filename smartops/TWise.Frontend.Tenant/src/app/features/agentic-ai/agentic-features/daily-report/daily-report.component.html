@@ -1,0 +1,816 @@
+<app-page-header title="Daily Report"
+  subtitle="The day's entries checked against plan, task activity per well, lifecycle deadlines and AI briefs checked against the data."
+  [breadcrumbs]="breadcrumbs">
+</app-page-header>
+
+<div class="page-content dr">
+
+  <!-- ── Header controls ─────────────────────────────────────────────────────────────────────────────────────── -->
+  <section class="dr__card dr__toolbar" aria-label="Report date and actions">
+    <div class="dr__field">
+      <label for="dr-date">Report date</label>
+      <input id="dr-date" type="date" [value]="reportDate" (change)="onDateInput($event)">
+    </div>
+    <div class="dr__field">
+      <label for="dr-recent">Recent dates with entries</label>
+      <select id="dr-recent" [value]="isRecentDate ? reportDate : ''" (change)="onRecentPick($event)"
+        [disabled]="dates.loading || !dates.data?.length">
+        <option value="">{{ dates.loading ? 'Loading…' : (dates.data?.length ? 'Jump to…' : 'None found') }}</option>
+        <option *ngFor="let d of dates.data" [value]="d.report_date">
+          {{ d.report_date | date:'EEE d MMM y' }} · {{ d.well_count | number }} wells · {{ d.row_count | number }} entries
+        </option>
+      </select>
+    </div>
+    <div class="dr__toolbar-actions">
+      <button type="button" class="btn btn-secondary" (click)="refresh()" [disabled]="!reportDate || summary.loading"
+        title="Reload this date's data from the database (also drops its saved AI answers)">
+        {{ summary.loading ? 'Loading…' : 'Refresh' }}
+      </button>
+      <button type="button" class="btn btn-primary" (click)="exportExcel()" [disabled]="!reportDate || exporting">
+        {{ exporting ? 'Exporting…' : 'Export to Excel' }}
+      </button>
+    </div>
+    <p class="dr__meta" *ngIf="summary.data">Loaded {{ summary.data.generated_at | date:'medium' }}</p>
+    <div class="dr__toolbar-msgs" aria-live="polite">
+      <p class="dr__msg dr__msg--bad" *ngIf="exportError" role="alert">{{ exportError }}</p>
+      <p class="dr__msg dr__msg--warn" *ngIf="dates.error">{{ dates.error }} Pick a date above.</p>
+    </div>
+  </section>
+
+  <div class="dr__layout">
+    <div class="dr__main">
+
+      <!-- ── Day overview ────────────────────────────────────────────────────────────────────────────────────── -->
+      <section class="dr__card" aria-labelledby="dr-overview-h">
+        <header class="dr__card-head">
+          <div>
+            <h2 id="dr-overview-h">Day overview</h2>
+            <p *ngIf="reportDate">Entries reported on {{ reportDate | date:'fullDate' }}. Select a figure to see the wells and tasks behind it.</p>
+          </div>
+        </header>
+
+        <div aria-live="polite">
+          <app-loader *ngIf="summary.loading" message="Loading the day's entries…"></app-loader>
+          <div class="dr__msg dr__msg--bad" *ngIf="summary.error" role="alert">
+            {{ summary.error }}
+            <button type="button" class="dr__link" (click)="selectDate(reportDate)">Try again</button>
+          </div>
+        </div>
+
+        <ng-container *ngIf="summary.data as s">
+          <div class="dr__tiles">
+            <button type="button" class="dr__tile" (click)="openGroup(null)" [disabled]="!s.totals.task_count"
+              title="Every task reported on this date">
+              <span class="dr__tile-value">{{ s.totals.task_count | number }}</span>
+              <span class="dr__tile-label">Tasks reported</span>
+            </button>
+            <div class="dr__tile dr__tile--static">
+              <span class="dr__tile-value">{{ s.totals.well_count | number }}</span>
+              <span class="dr__tile-label">Wells reporting</span>
+            </div>
+            <button type="button" *ngFor="let k of statusCountKeys; trackBy: trackKey" class="dr__tile"
+              [attr.data-tone]="statusTone(k)" (click)="openGroup(k)" [disabled]="!s.totals.status_counts[k]" [title]="statusHint(k)">
+              <span class="dr__tile-value">{{ s.totals.status_counts[k] | number }}</span>
+              <span class="dr__tile-label">{{ codeLabel(k) }}</span>
+            </button>
+          </div>
+
+          <details class="dr__details" [open]="s.data_quality.affected_task_count > 0">
+            <summary>
+              Data quality ·
+              <strong [class.dr__text-warn]="s.data_quality.affected_task_count > 0">{{ s.data_quality.affected_task_count | number }}</strong>
+              task{{ s.data_quality.affected_task_count === 1 ? '' : 's' }} flagged
+            </summary>
+            <dl class="dr__kv">
+              <div><dt>Rows read</dt><dd>{{ s.data_quality.raw_row_count | number }}</dd></div>
+              <div><dt>Logical tasks</dt><dd>{{ s.data_quality.logical_task_count | number }}</dd></div>
+              <div><dt>Superseded rows</dt><dd>{{ s.data_quality.superseded_row_count | number }}</dd></div>
+              <div><dt>Tasks on several rows</dt><dd>{{ s.data_quality.multi_row_task_count | number }}</dd></div>
+              <div><dt>Duplicate actual entries</dt><dd>{{ s.data_quality.duplicate_actual_task_count | number }}</dd></div>
+              <div><dt>Unreadable daily JSON rows</dt><dd>{{ s.data_quality.invalid_json_row_count | number }}</dd></div>
+              <div><dt>Unparseable actual rows</dt><dd>{{ s.data_quality.unparseable_actual_row_count | number }}</dd></div>
+            </dl>
+            <div class="dr__chips" *ngIf="flagKeys.length">
+              <span class="dr__chip" *ngFor="let f of flagKeys; trackBy: trackKey">
+                {{ codeLabel(f) }} <strong>{{ s.data_quality.flag_counts[f] | number }}</strong>
+              </span>
+            </div>
+            <p class="dr__hint">These conditions are reported separately; they do not change the planned or actual quantities.</p>
+          </details>
+
+          <p class="dr__empty" *ngIf="!s.totals.task_count">
+            No daily task was reported on this date. Pick another date, or see the wells' open work below.
+          </p>
+
+          <!-- Grouped: status → WBS → activity -->
+          <ng-container *ngIf="s.totals.task_count && s.view_mode !== 'detail'">
+            <div class="dr__subhead">
+              <h3>By status, WBS and activity</h3>
+              <div class="dr__inline-actions">
+                <button type="button" class="dr__link" (click)="expandAll(true)">Expand all</button>
+                <button type="button" class="dr__link" (click)="expandAll(false)">Collapse all</button>
+              </div>
+            </div>
+            <div class="dr__table-wrap">
+              <table class="dr__table dr__tree">
+                <caption class="dr__sr">Tasks of the day grouped by status, WBS and activity</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Group</th>
+                    <th scope="col" class="dr__num">Wells</th>
+                    <th scope="col" class="dr__num">Tasks</th>
+                    <th scope="col" class="dr__num">Planned</th>
+                    <th scope="col" class="dr__num">Actual</th>
+                    <th scope="col" class="dr__num">Data issues</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <ng-container *ngFor="let g of s.status_groups; trackBy: trackStatus">
+                    <tr class="dr__tree-status">
+                      <th scope="row">
+                        <button type="button" class="dr__toggle" (click)="toggleStatus(g)" [attr.aria-expanded]="openStatuses.has(g.status)">
+                          <span class="dr__chev" aria-hidden="true">{{ openStatuses.has(g.status) ? '▾' : '▸' }}</span>
+                          <span class="dr__pill" [attr.data-tone]="statusTone(g.status)" [title]="statusHint(g.status)">{{ codeLabel(g.status) }}</span>
+                        </button>
+                      </th>
+                      <td class="dr__num">{{ g.well_count | number }}</td>
+                      <td class="dr__num"><button type="button" class="dr__fig" (click)="openGroup(g.status)"
+                        [attr.aria-label]="'Show the ' + g.task_count + ' ' + codeLabel(g.status) + ' tasks'">{{ g.task_count | number }}</button></td>
+                      <ng-container *ngTemplateOutlet="qtyCells; context: { $implicit: g }"></ng-container>
+                    </tr>
+                    <ng-container *ngIf="openStatuses.has(g.status)">
+                      <ng-container *ngFor="let w of g.wbs_groups; trackBy: trackWbs">
+                        <tr class="dr__tree-wbs">
+                          <th scope="row">
+                            <button type="button" class="dr__toggle dr__indent-1" (click)="toggleWbs(g, w)" [attr.aria-expanded]="openWbs.has(wbsKey(g, w))">
+                              <span class="dr__chev" aria-hidden="true">{{ openWbs.has(wbsKey(g, w)) ? '▾' : '▸' }}</span>
+                              <span [class.dr__missing]="!w.wbs">{{ w.wbs || 'No WBS' }}</span>
+                            </button>
+                          </th>
+                          <td class="dr__num">{{ w.well_count | number }}</td>
+                          <td class="dr__num"><button type="button" class="dr__fig" (click)="openGroup(g.status, w.wbs)"
+                            [attr.aria-label]="'Show the ' + w.task_count + ' tasks of ' + (w.wbs || 'no WBS')">{{ w.task_count | number }}</button></td>
+                          <ng-container *ngTemplateOutlet="qtyCells; context: { $implicit: w }"></ng-container>
+                        </tr>
+                        <ng-container *ngIf="openWbs.has(wbsKey(g, w))">
+                          <tr class="dr__tree-act" *ngFor="let a of w.activities">
+                            <th scope="row">
+                              <span class="dr__indent-2">
+                                <span [class.dr__missing]="!a.activity_description && !a.activity_code">{{ a.activity_description || a.activity_code || 'Activity not mapped' }}</span>
+                                <code *ngIf="a.activity_code && a.activity_description" class="dr__code">{{ a.activity_code }}</code>
+                              </span>
+                            </th>
+                            <td class="dr__num">{{ a.well_count | number }}</td>
+                            <td class="dr__num"><button type="button" class="dr__fig" (click)="openGroup(g.status, w.wbs, a.activity_code, a.activity_description)"
+                              [attr.aria-label]="'Show the ' + a.task_count + ' tasks of ' + (a.activity_description || a.activity_code || 'this activity')">{{ a.task_count | number }}</button></td>
+                            <ng-container *ngTemplateOutlet="qtyCells; context: { $implicit: a }"></ng-container>
+                          </tr>
+                        </ng-container>
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </tbody>
+              </table>
+            </div>
+          </ng-container>
+
+          <!-- Detail: a small day lists every task as a card -->
+          <ng-container *ngIf="s.totals.task_count && s.view_mode === 'detail'">
+            <div class="dr__subhead">
+              <h3>Every task of the day</h3>
+              <span class="dr__hint">Shown as cards because the day has at most {{ s.detail_view_task_threshold | number }} tasks.</span>
+            </div>
+            <div class="dr__cards">
+              <article class="dr__taskcard" *ngFor="let t of s.tasks; trackBy: trackTask">
+                <header>
+                  <button type="button" class="dr__link" (click)="selectWell(t.well_id)">Well {{ t.well_id }}</button>
+                  <span class="dr__pill" [attr.data-tone]="statusTone(t.quantity_status)" [title]="statusHint(t.quantity_status)">{{ codeLabel(t.quantity_status) }}</span>
+                </header>
+                <p class="dr__taskcard-title" [class.dr__missing]="!t.activity_description">{{ t.activity_description || 'Activity description not mapped' }}</p>
+                <p class="dr__taskcard-sub">
+                  <code class="dr__code" *ngIf="t.task_code">{{ t.task_code }}</code>
+                  <span *ngIf="t.wbs">{{ t.wbs }}</span>
+                </p>
+                <ng-container *ngTemplateOutlet="qtyTrio; context: { $implicit: t }"></ng-container>
+                <div class="dr__chips" *ngIf="t.data_quality_flags.length">
+                  <span class="dr__chip dr__chip--warn" *ngFor="let f of t.data_quality_flags">{{ codeLabel(f) }}</span>
+                </div>
+              </article>
+            </div>
+          </ng-container>
+        </ng-container>
+      </section>
+
+      <!-- ── The wells and tasks behind one figure ───────────────────────────────────────────────────────────── -->
+      <section class="dr__card" *ngIf="groupFilter" #groupPanel tabindex="-1" aria-labelledby="dr-group-h">
+        <header class="dr__card-head">
+          <div>
+            <h2 id="dr-group-h">Behind the figure: {{ groupFilter.title }}</h2>
+            <p *ngIf="group.data">{{ group.data.task_count | number }} task{{ group.data.task_count === 1 ? '' : 's' }} on
+              {{ group.data.well_count | number }} well{{ group.data.well_count === 1 ? '' : 's' }}</p>
+          </div>
+          <button type="button" class="btn btn-secondary" (click)="closeGroup()">Close</button>
+        </header>
+        <div aria-live="polite">
+          <app-loader *ngIf="group.loading" size="sm"></app-loader>
+          <p class="dr__msg dr__msg--bad" *ngIf="group.error" role="alert">{{ group.error }}</p>
+        </div>
+        <ng-container *ngIf="group.data as gd">
+          <p class="dr__empty" *ngIf="!gd.task_count">No task matches this figure.</p>
+          <div class="dr__table-wrap" *ngIf="gd.wells.length">
+            <table class="dr__table">
+              <caption class="dr__sr">Wells behind the figure</caption>
+              <thead>
+                <tr><th scope="col">Well</th><th scope="col" class="dr__num">Tasks</th><th scope="col">Status</th>
+                  <th scope="col" class="dr__num">Planned</th><th scope="col" class="dr__num">Actual</th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let w of gd.wells; trackBy: trackWell">
+                  <th scope="row"><button type="button" class="dr__link" (click)="selectWell(w.well_id)">Well {{ w.well_id }}</button></th>
+                  <td class="dr__num">{{ w.task_count | number }}</td>
+                  <td><span class="dr__pill dr__pill--sm" *ngFor="let k of orderedKeys(w.status_counts)" [attr.data-tone]="statusTone(k)"
+                    [title]="statusHint(k)">{{ w.status_counts[k] | number }} {{ codeLabel(k) }}</span></td>
+                  <td class="dr__num"><ng-container *ngTemplateOutlet="qty; context: { $implicit: w.planned_quantity, uom: w.uom_code }"></ng-container></td>
+                  <td class="dr__num"><ng-container *ngTemplateOutlet="qty; context: { $implicit: w.actual_quantity, uom: w.uom_code }"></ng-container></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <details class="dr__details" *ngIf="gd.tasks.length">
+            <summary>The {{ gd.tasks.length | number }} task{{ gd.tasks.length === 1 ? '' : 's' }}</summary>
+            <ng-container *ngTemplateOutlet="dailyTaskTable; context: { $implicit: gd.tasks, showWell: true }"></ng-container>
+          </details>
+        </ng-container>
+      </section>
+
+      <!-- ── Well task activity ──────────────────────────────────────────────────────────────────────────────── -->
+      <section class="dr__card" aria-labelledby="dr-wells-h">
+        <header class="dr__card-head">
+          <div>
+            <h2 id="dr-wells-h">Well task activity</h2>
+            <p>Each live well's open work as of this date. Open = incomplete + ongoing. Select a well for its tasks.</p>
+          </div>
+        </header>
+
+        <div class="dr__wells-bar">
+          <div class="dr__field dr__field--inline">
+            <label for="dr-well-search">Find a well</label>
+            <input id="dr-well-search" type="search" inputmode="numeric" placeholder="Well ID" [(ngModel)]="wellSearch" (ngModelChange)="applyWellFilter()">
+          </div>
+          <div class="dr__seg" role="group" aria-label="Which wells to list">
+            <button type="button" [class.dr__seg--on]="wellScope === 'active'" [attr.aria-pressed]="wellScope === 'active'" (click)="setScope('active')"
+              title="Wells that reported a task on this date, or still have open tasks">Reporting or open work <strong>{{ scopeCounts.active | number }}</strong></button>
+            <button type="button" [class.dr__seg--on]="wellScope === 'reported'" [attr.aria-pressed]="wellScope === 'reported'" (click)="setScope('reported')"
+              title="Only wells that reported at least one task on this date">Reported on this date <strong>{{ scopeCounts.reported | number }}</strong></button>
+            <button type="button" [class.dr__seg--on]="wellScope === 'all'" [attr.aria-pressed]="wellScope === 'all'" (click)="setScope('all')"
+              title="Every live well with any task record on or before this date">All <strong>{{ scopeCounts.all | number }}</strong></button>
+          </div>
+        </div>
+
+        <div aria-live="polite">
+          <app-loader *ngIf="activity.loading || dayWells.loading" size="sm" message="Loading the wells…"></app-loader>
+          <p class="dr__msg dr__msg--bad" *ngIf="dayWells.error" role="alert">{{ dayWells.error }}</p>
+          <p class="dr__msg dr__msg--warn" *ngIf="activity.error">{{ activity.error }} The day's own task counts are unaffected.</p>
+        </div>
+
+        <p class="dr__empty" *ngIf="!activity.loading && !dayWells.loading && !filteredCount && !dayWells.error">
+          {{ wellSearch ? 'No well matches “' + wellSearch + '”.' : 'No well to list for this date.' }}
+        </p>
+
+        <div class="dr__table-wrap" *ngIf="visibleRows.length">
+          <table class="dr__table dr__wells">
+            <caption class="dr__sr">Wells with their task activity on the report date</caption>
+            <thead>
+              <tr>
+                <th scope="col">Well</th>
+                <th scope="col">Activity today</th>
+                <th scope="col">Status today</th>
+                <th scope="col" class="dr__num" title="Every task not recorded as completed">Open</th>
+                <th scope="col" class="dr__num" title="Open tasks that are not ongoing">Incomplete</th>
+                <th scope="col" class="dr__num" title="Open tasks with an actual start and no actual end">Ongoing</th>
+                <th scope="col" class="dr__num" title="Tasks the well reported on the report date">Reported today</th>
+                <th scope="col" title="The latest date the well appears in the task records, on or before the report date">Last task date</th>
+              </tr>
+            </thead>
+            <ng-container *ngFor="let r of visibleRows; trackBy: trackWell">
+              <tbody class="dr__well-group" [class.dr__well-group--selected]="selectedWellId === r.well_id">
+                <tr>
+                  <th scope="row">
+                    <button type="button" class="dr__link" (click)="selectWell(r.well_id)" [attr.aria-pressed]="selectedWellId === r.well_id">Well {{ r.well_id }}</button>
+                  </th>
+                  <td>
+                    <ng-container *ngIf="r.task_count; else noTask">
+                      <span [class.dr__missing]="!r.topActivity">{{ r.topActivity || 'Activity not mapped' }}</span>
+                      <span class="dr__muted" *ngIf="r.activityKinds > 1"> +{{ r.activityKinds - 1 }} more</span>
+                    </ng-container>
+                    <ng-template #noTask><span class="dr__missing">No task reported on this date</span></ng-template>
+                  </td>
+                  <td>
+                    <span class="dr__pill dr__pill--sm" *ngFor="let k of orderedKeys(r.status_counts)" [attr.data-tone]="statusTone(k)"
+                      [title]="statusHint(k)">{{ r.status_counts[k] | number }} {{ codeLabel(k) }}</span>
+                    <span class="dr__missing" *ngIf="!r.task_count">—</span>
+                  </td>
+                  <td class="dr__num" *ngFor="let m of ['open', 'incomplete', 'ongoing', 'today']">
+                    <ng-container *ngIf="metricCount(r, $any(m)) !== null; else noFig">
+                      <button type="button" class="dr__fig" [class.dr__fig--strong]="m === 'open'" [class.dr__fig--on]="isExpanded(r, $any(m))"
+                        [disabled]="!metricCount(r, $any(m))" [attr.aria-expanded]="isExpanded(r, $any(m))"
+                        [attr.aria-label]="metricTitle($any(m), r.well_id) + ': ' + metricCount(r, $any(m))"
+                        (click)="toggleMetric(r, $any(m))">{{ metricCount(r, $any(m)) | number }}</button>
+                    </ng-container>
+                    <ng-template #noFig><span class="dr__missing">—</span></ng-template>
+                  </td>
+                  <td>
+                    <span *ngIf="r.activity?.last_task_date; else noDate">{{ r.activity?.last_task_date | date:'mediumDate' }}</span>
+                    <ng-template #noDate><span class="dr__missing">Not recorded</span></ng-template>
+                  </td>
+                </tr>
+                <tr *ngIf="expanded?.wellId === r.well_id" class="dr__expansion">
+                  <td colspan="8">
+                    <div class="dr__expansion-head">
+                      <strong>{{ metricTitle(expanded!.metric, r.well_id) }}</strong>
+                      <button type="button" class="dr__link" (click)="expanded = null">Close</button>
+                    </div>
+                    <div aria-live="polite">
+                      <ng-container *ngIf="expanded!.metric === 'today'; else openWork">
+                        <ng-container *ngTemplateOutlet="dailyTaskTable; context: { $implicit: todaysTasks(r.well_id), showWell: false }"></ng-container>
+                        <p class="dr__empty" *ngIf="!todaysTasks(r.well_id).length">No task to show here.</p>
+                      </ng-container>
+                      <ng-template #openWork>
+                        <app-loader *ngIf="rowTasks.loading" size="sm"></app-loader>
+                        <p class="dr__msg dr__msg--bad" *ngIf="rowTasks.error" role="alert">{{ rowTasks.error }}</p>
+                        <ng-container *ngIf="rowTasks.data">
+                          <ng-container *ngTemplateOutlet="openTaskTable; context: { $implicit: expandedOpenTasks }"></ng-container>
+                        </ng-container>
+                      </ng-template>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </ng-container>
+          </table>
+        </div>
+        <div class="dr__more" *ngIf="filteredCount > visibleRows.length">
+          <span class="dr__hint">Showing {{ visibleRows.length | number }} of {{ filteredCount | number }} wells</span>
+          <button type="button" class="btn btn-secondary" (click)="showMoreWells()">Show more</button>
+        </div>
+      </section>
+
+      <!-- ── One well ────────────────────────────────────────────────────────────────────────────────────────── -->
+      <section class="dr__card" *ngIf="selectedWellId !== null" #wellPanel tabindex="-1" aria-labelledby="dr-well-h">
+        <header class="dr__card-head">
+          <div>
+            <h2 id="dr-well-h">Well {{ selectedWellId }}</h2>
+            <p *ngIf="well.data as w">
+              {{ w.report_date | date:'fullDate' }} ·
+              {{ w.task_count | number }} daily task{{ w.task_count === 1 ? '' : 's' }}<ng-container *ngIf="w.task_count > 1">, each listed separately</ng-container>
+            </p>
+          </div>
+          <div class="dr__inline-actions">
+            <button type="button" class="btn btn-secondary" (click)="generateBrief('well', selectedWellId)"
+              [disabled]="!well.data || brief('well', selectedWellId)?.loading">AI brief of this well</button>
+            <button type="button" class="btn btn-secondary" (click)="closeWell()">Close</button>
+          </div>
+        </header>
+
+        <ng-container *ngTemplateOutlet="briefSlot; context: { $implicit: brief('well', selectedWellId), scope: 'well', wellId: selectedWellId, title: 'AI brief · well ' + selectedWellId }"></ng-container>
+
+        <div aria-live="polite">
+          <app-loader *ngIf="well.loading" message="Loading the well's tasks…"></app-loader>
+          <p class="dr__msg dr__msg--bad" *ngIf="well.error" role="alert">{{ well.error }}</p>
+        </div>
+
+        <ng-container *ngIf="well.data as w">
+          <!-- No entry on the date: the well's open work instead -->
+          <ng-container *ngIf="!w.task_count && w.activity as act">
+            <div class="dr__msg dr__msg--info">
+              <strong>No daily task reported on this date.</strong> Well {{ w.well_id }} is a live well with open work; its task activity as of this date is below.
+            </div>
+            <dl class="dr__kv">
+              <div><dt>Open tasks</dt><dd>{{ act.open_task_count | number }}</dd></div>
+              <div><dt>Incomplete (not ongoing)</dt><dd>{{ act.incomplete_task_count | number }}</dd></div>
+              <div><dt>Ongoing</dt><dd>{{ act.ongoing_task_count | number }}</dd></div>
+              <div><dt>Not started</dt><dd>{{ act.not_started_task_count | number }}</dd></div>
+              <div><dt>Ended, not completed</dt><dd>{{ act.ended_not_completed_task_count | number }}</dd></div>
+              <div><dt>Completed</dt><dd>{{ act.completed_task_count | number }}</dd></div>
+              <div><dt>Last task date</dt><dd>{{ act.last_task_date ? (act.last_task_date | date:'mediumDate') : 'Not recorded' }}</dd></div>
+            </dl>
+            <h3 class="dr__h3" *ngIf="w.open_tasks.length">Open tasks</h3>
+            <ng-container *ngTemplateOutlet="openTaskTable; context: { $implicit: w.open_tasks }"></ng-container>
+          </ng-container>
+
+          <article class="dr__task" *ngFor="let t of w.tasks; trackBy: trackTask">
+            <header class="dr__task-head">
+              <h3 [class.dr__missing]="!t.activity_description">{{ t.activity_description || 'Activity description not mapped' }}</h3>
+              <div class="dr__inline-actions">
+                <span class="dr__pill" [attr.data-tone]="statusTone(t.quantity_status)" [title]="statusHint(t.quantity_status)">{{ codeLabel(t.quantity_status) }}</span>
+                <button type="button" class="btn btn-secondary" (click)="generateBrief('task', t.well_id, t.task_daily_id)"
+                  [disabled]="brief('task', t.well_id, t.task_daily_id)?.loading">AI brief of this task</button>
+              </div>
+            </header>
+            <dl class="dr__kv dr__kv--grid">
+              <div><dt>Date</dt><dd>{{ t.action_on | date:'mediumDate' }}</dd></div>
+              <div><dt>Task code</dt><dd><code class="dr__code" *ngIf="t.task_code; else nr">{{ t.task_code }}</code></dd></div>
+              <div><dt>Activity ID</dt><dd><code class="dr__code" *ngIf="t.activity_id; else nd">{{ t.activity_id }}</code></dd></div>
+              <div><dt>Activity code</dt><dd><code class="dr__code" *ngIf="t.activity_code; else nm">{{ t.activity_code }}</code></dd></div>
+              <div><dt>WBS</dt><dd>{{ t.wbs || 'Not mapped' }}</dd></div>
+              <div><dt>Crew (WBS)</dt><dd>{{ t.crew_code || 'Not mapped' }}</dd></div>
+              <div><dt>Crew ID (assigned)</dt><dd>{{ t.crew_id ?? 'No crew recorded' }}</dd></div>
+              <div><dt>UOM</dt><dd>{{ t.uom_code || (t.activity_uom ? 'Not recorded (activity master: ' + t.activity_uom + ')' : 'Not recorded') }}</dd></div>
+              <div *ngIf="t.activity_uom"><dt>Activity master UOM</dt><dd>{{ t.activity_uom }}</dd></div>
+              <div><dt>Daily completed</dt><dd>{{ yesNo(t.daily_completed) ?? 'Not recorded' }}</dd></div>
+              <div><dt>PH name</dt><dd>{{ t.ph_name || 'Not recorded' }}</dd></div>
+              <div><dt>Schedule ID</dt><dd>{{ t.schedule_id ?? 'Not recorded' }}</dd></div>
+              <div><dt>Mapping</dt><dd>{{ codeLabel(t.mapping_status) }}</dd></div>
+              <div><dt>Crew match</dt><dd>{{ codeLabel(t.crew_match_status) }}</dd></div>
+              <div><dt>Start date</dt><dd>{{ codeLabel(t.start_date_status) }}</dd></div>
+              <div><dt>End date</dt><dd>{{ codeLabel(t.end_date_status) }}</dd></div>
+              <div><dt>Planned start / end</dt><dd>{{ t.planned_start ? (t.planned_start | date:'mediumDate') : '—' }} → {{ t.planned_end ? (t.planned_end | date:'mediumDate') : '—' }}</dd></div>
+              <div><dt>Actual start / end</dt><dd>{{ t.actual_start ? (t.actual_start | date:'mediumDate') : '—' }} → {{ t.actual_end ? (t.actual_end | date:'mediumDate') : '—' }}</dd></div>
+            </dl>
+            <ng-template #nr><span class="dr__missing">Not recorded</span></ng-template>
+            <ng-template #nd><span class="dr__missing">Not derivable</span></ng-template>
+            <ng-template #nm><span class="dr__missing">Not mapped</span></ng-template>
+
+            <ng-container *ngTemplateOutlet="qtyTrio; context: { $implicit: t }"></ng-container>
+
+            <div class="dr__crew" *ngIf="t.crew_id !== null || t.crew_type_name || t.crew_supervisor || t.crew_employees.length">
+              <p class="dr__crew-path">
+                <span>Well {{ t.well_id }}</span><span aria-hidden="true">›</span>
+                <span>{{ t.wbs || 'Not mapped' }}</span><span aria-hidden="true">›</span>
+                <span>{{ t.activity_code || 'Unmapped' }}</span><span aria-hidden="true">›</span>
+                <span>{{ t.crew_id !== null ? 'Crew ' + t.crew_id : 'Crew not recorded' }}</span><span aria-hidden="true">›</span>
+                <span>{{ t.crew_type_name || 'Crew type not recorded' }}</span><span aria-hidden="true">›</span>
+                <strong>{{ t.crew_supervisor || 'Supervisor not recorded' }}</strong>
+              </p>
+              <p class="dr__crew-people"><span class="dr__muted">Employees:</span>
+                {{ t.crew_employees.length ? t.crew_employees.join(', ') : 'No roster on file' }}</p>
+            </div>
+
+            <div class="dr__msg dr__msg--warn" *ngIf="t.data_quality_flags.length">
+              <strong>Data quality on this task:</strong>
+              <span class="dr__chips dr__chips--inline"><span class="dr__chip dr__chip--warn" *ngFor="let f of t.data_quality_flags">{{ codeLabel(f) }}</span></span>
+              <span class="dr__hint">These do not change the quantities above.<ng-container *ngIf="t.group_row_count > 1"> Recorded on {{ t.group_row_count | number }} rows; one was taken as authoritative.</ng-container></span>
+            </div>
+
+            <ng-container *ngTemplateOutlet="briefSlot; context: { $implicit: brief('task', t.well_id, t.task_daily_id), scope: 'task', wellId: t.well_id, taskId: t.task_daily_id, title: 'AI brief · task ' + (t.task_code || t.task_daily_id) }"></ng-container>
+          </article>
+        </ng-container>
+      </section>
+    </div>
+
+    <aside class="dr__side">
+      <!-- ── AI ──────────────────────────────────────────────────────────────────────────────────────────────── -->
+      <section class="dr__card" aria-labelledby="dr-ai-h">
+        <header class="dr__card-head">
+          <div>
+            <h2 id="dr-ai-h">AI brief and questions</h2>
+            <p>Every figure in an answer is checked against the data before it is shown.</p>
+          </div>
+        </header>
+        <div class="dr__inline-actions">
+          <button type="button" class="btn btn-primary" (click)="generateBrief('day')" [disabled]="!reportDate || brief('day')?.loading">
+            {{ brief('day')?.data ? 'Brief the day again' : 'Generate day brief' }}
+          </button>
+          <button type="button" class="btn btn-secondary" *ngIf="selectedWellId !== null" (click)="generateBrief('well', selectedWellId)"
+            [disabled]="brief('well', selectedWellId)?.loading">Brief well {{ selectedWellId }}</button>
+        </div>
+        <ng-container *ngTemplateOutlet="briefSlot; context: { $implicit: brief('day'), scope: 'day', title: 'AI brief · ' + (reportDate | date:'mediumDate') }"></ng-container>
+
+        <form class="dr__ask" (ngSubmit)="ask()">
+          <label for="dr-question">Ask the agent about this date</label>
+          <textarea id="dr-question" name="question" rows="3" [(ngModel)]="question" [attr.maxlength]="askRule?.max ?? null"
+            [attr.aria-invalid]="!!questionProblem" aria-describedby="dr-question-hint"
+            placeholder="e.g. Which wells did not report but still have open work?"></textarea>
+          <div class="dr__ask-foot">
+            <span id="dr-question-hint" class="dr__hint" [class.dr__text-bad]="questionProblem">
+              {{ questionProblem || (askRule ? questionLength + ' / ' + askRule.max : 'Read-only: the agent can only look the data up.') }}
+            </span>
+            <button type="submit" class="btn btn-primary" [disabled]="askState.loading || !questionLength || !!questionProblem || !reportDate">
+              {{ askState.loading ? 'Asking…' : 'Ask' }}
+            </button>
+          </div>
+        </form>
+        <div aria-live="polite">
+          <app-loader *ngIf="askState.loading" size="sm" message="Planning, looking up the data and checking the answer…"></app-loader>
+          <p class="dr__msg dr__msg--bad" *ngIf="askState.error" role="alert">{{ askState.error }}</p>
+          <div class="dr__answer" *ngIf="askState.data as r">
+            <div class="dr__answer-head">
+              <h3>{{ asked }}</h3>
+              <button type="button" class="dr__link" (click)="clearAsk()">Clear</button>
+            </div>
+            <ng-container *ngTemplateOutlet="answerTpl; context: { $implicit: r }"></ng-container>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Milestones ──────────────────────────────────────────────────────────────────────────────────────── -->
+      <section class="dr__card" aria-labelledby="dr-ms-h">
+        <header class="dr__card-head">
+          <div>
+            <h2 id="dr-ms-h">Lifecycle milestones</h2>
+            <p *ngIf="milestones.data as m">Live wells within {{ m.window_days | number }} day{{ m.window_days === 1 ? '' : 's' }} of a deadline, counted from today (not the report date).</p>
+          </div>
+        </header>
+        <div aria-live="polite">
+          <app-loader *ngIf="milestones.loading" size="sm"></app-loader>
+          <div class="dr__msg dr__msg--bad" *ngIf="milestones.error" role="alert">
+            {{ milestones.error }} <button type="button" class="dr__link" (click)="loadMilestones()">Try again</button>
+          </div>
+        </div>
+        <ng-container *ngIf="milestones.data as m">
+          <div class="dr__ms-stats">
+            <div class="dr__stat-box" data-tone="info"><strong>{{ m.upcoming.length | number }}</strong><span>upcoming</span></div>
+            <div class="dr__stat-box" [attr.data-tone]="m.overdue_count ? 'bad' : 'neutral'"><strong>{{ m.overdue_count | number }}</strong><span>overdue</span></div>
+          </div>
+          <p class="dr__empty" *ngIf="!m.upcoming.length">No live well is inside the {{ m.window_days | number }}-day window.</p>
+          <ul class="dr__ms-list" *ngIf="m.upcoming.length">
+            <ng-container *ngFor="let a of upcomingShown; trackBy: trackMilestone">
+              <ng-container *ngTemplateOutlet="milestoneRow; context: { $implicit: a }"></ng-container>
+            </ng-container>
+          </ul>
+          <button type="button" class="dr__link" *ngIf="m.upcoming.length > upcomingPreview" (click)="showAllUpcoming = !showAllUpcoming">
+            {{ showAllUpcoming ? 'Show fewer' : 'Show all ' + m.upcoming.length + ' upcoming' }}
+          </button>
+          <ng-container *ngIf="m.overdue_count">
+            <button type="button" class="dr__toggle dr__toggle--block" (click)="showOverdue = !showOverdue" [attr.aria-expanded]="showOverdue">
+              <span class="dr__chev" aria-hidden="true">{{ showOverdue ? '▾' : '▸' }}</span>
+              {{ m.overdue_count | number }} already overdue (past the deadline, not yet reached)
+            </button>
+            <ul class="dr__ms-list" *ngIf="showOverdue">
+              <ng-container *ngFor="let a of m.overdue; trackBy: trackMilestone">
+                <ng-container *ngTemplateOutlet="milestoneRow; context: { $implicit: a }"></ng-container>
+              </ng-container>
+            </ul>
+            <p class="dr__hint" *ngIf="showOverdue && m.overdue.length < m.overdue_count">
+              {{ m.overdue_count - m.overdue.length | number }} more overdue, not listed.
+            </p>
+          </ng-container>
+        </ng-container>
+      </section>
+
+      <!-- ── Verified SQL ────────────────────────────────────────────────────────────────────────────────────── -->
+      <section class="dr__card" aria-labelledby="dr-sql-h">
+        <details class="dr__details dr__details--flat" (toggle)="onSqlToggle($event)">
+          <summary><span id="dr-sql-h" class="dr__summary-title">Show SQL</span>
+            <span class="dr__hint">The verified, read-only queries this page runs.</span></summary>
+          <div aria-live="polite">
+            <app-loader *ngIf="queries.loading" size="sm"></app-loader>
+            <p class="dr__msg dr__msg--bad" *ngIf="queries.error" role="alert">{{ queries.error }}
+              <button type="button" class="dr__link" (click)="loadQueries()">Try again</button></p>
+          </div>
+          <p class="dr__empty" *ngIf="queries.data && !queries.data.length">No verified query is stored.</p>
+          <div class="dr__sql" *ngFor="let q of queries.data; trackBy: trackQuery">
+            <div class="dr__sql-head">
+              <strong>{{ q.label }}</strong>
+              <code class="dr__code">{{ q.key }}</code>
+              <span class="dr__pill dr__pill--sm" data-tone="warn" *ngIf="q.edited">Edited</span>
+            </div>
+            <p class="dr__hint" *ngIf="q.description">{{ q.description }}</p>
+            <p class="dr__hint" *ngIf="q.params.length">Parameters: {{ q.params.join(', ') }}</p>
+            <pre class="dr__pre">{{ q.sql }}</pre>
+            <p class="dr__hint">Changed {{ q.modifiedAt | date:'medium' }}</p>
+          </div>
+        </details>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<!-- ── Templates ────────────────────────────────────────────────────────────────────────────────────────────── -->
+
+<ng-template #qtyCells let-g>
+  <ng-container *ngIf="g.quantities_summable; else mixed">
+    <td class="dr__num"><ng-container *ngTemplateOutlet="qty; context: { $implicit: g.planned_quantity, uom: g.uom_code }"></ng-container></td>
+    <td class="dr__num"><ng-container *ngTemplateOutlet="qty; context: { $implicit: g.actual_quantity, uom: g.uom_code }"></ng-container></td>
+  </ng-container>
+  <ng-template #mixed>
+    <td class="dr__num dr__muted" colspan="2" [title]="'Units: ' + g.uom_codes.join(', ')">Mixed units ({{ g.uom_codes.length }})</td>
+  </ng-template>
+  <td class="dr__num">
+    <span *ngIf="dqTotal(g.data_quality_counts) as n; else zero" class="dr__text-warn">{{ n | number }}</span>
+    <ng-template #zero><span class="dr__muted">0</span></ng-template>
+  </td>
+</ng-template>
+
+<ng-template #qty let-v let-uom="uom">
+  <ng-container *ngIf="v !== null && v !== undefined && v !== ''; else none">{{ v | number:'1.0-6' }}<span class="dr__muted" *ngIf="uom"> {{ uom }}</span></ng-container>
+  <ng-template #none><span class="dr__missing">—</span></ng-template>
+</ng-template>
+
+<ng-template #qtyTrio let-t>
+  <div class="dr__trio">
+    <div><span>Planned</span><strong><ng-container *ngTemplateOutlet="qty; context: { $implicit: t.planned, uom: t.uom_code }"></ng-container></strong></div>
+    <div><span>Actual</span><strong>
+      <ng-container *ngIf="t.actual_quantity !== null; else noActual"><ng-container *ngTemplateOutlet="qty; context: { $implicit: t.actual_quantity, uom: t.uom_code }"></ng-container></ng-container>
+      <ng-template #noActual><span class="dr__missing">No actual entry</span></ng-template>
+    </strong></div>
+    <div><span>Progress</span><strong><ng-container *ngTemplateOutlet="qty; context: { $implicit: t.progress }"></ng-container></strong></div>
+  </div>
+</ng-template>
+
+<ng-template #dailyTaskTable let-tasks let-showWell="showWell">
+  <div class="dr__table-wrap" *ngIf="tasks.length">
+    <table class="dr__table dr__table--compact">
+      <thead>
+        <tr>
+          <th scope="col" *ngIf="showWell">Well</th><th scope="col">Task</th><th scope="col">Activity</th><th scope="col">WBS</th>
+          <th scope="col">Status</th><th scope="col" class="dr__num">Planned</th><th scope="col" class="dr__num">Actual</th><th scope="col">Flags</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let t of tasks; trackBy: trackTask">
+          <td *ngIf="showWell"><button type="button" class="dr__link" (click)="selectWell(t.well_id)">Well {{ t.well_id }}</button></td>
+          <td><code class="dr__code" *ngIf="t.task_code; else nrc">{{ t.task_code }}</code><ng-template #nrc><span class="dr__missing">Not recorded</span></ng-template></td>
+          <td [class.dr__missing]="!t.activity_description && !t.activity_code">{{ t.activity_description || t.activity_code || 'Not mapped' }}</td>
+          <td>{{ t.wbs || '—' }}</td>
+          <td><span class="dr__pill dr__pill--sm" [attr.data-tone]="statusTone(t.quantity_status)" [title]="statusHint(t.quantity_status)">{{ codeLabel(t.quantity_status) }}</span></td>
+          <td class="dr__num"><ng-container *ngTemplateOutlet="qty; context: { $implicit: t.planned, uom: t.uom_code }"></ng-container></td>
+          <td class="dr__num"><ng-container *ngTemplateOutlet="qty; context: { $implicit: t.actual_quantity, uom: t.uom_code }"></ng-container></td>
+          <td>{{ t.data_quality_flags.length ? (t.data_quality_flags.length | number) : '' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</ng-template>
+
+<ng-template #openTaskTable let-tasks>
+  <p class="dr__empty" *ngIf="!tasks.length">No task to show here.</p>
+  <div class="dr__table-wrap" *ngIf="tasks.length">
+    <table class="dr__table dr__table--compact">
+      <thead>
+        <tr><th scope="col">Task</th><th scope="col">Activity</th><th scope="col">Schedule</th><th scope="col">State</th>
+          <th scope="col">Actual start</th><th scope="col">Actual end</th><th scope="col">Last task date</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let t of tasks">
+          <td><code class="dr__code" *ngIf="t.task_code; else nro">{{ t.task_code }}</code><ng-template #nro><span class="dr__missing">Not recorded</span></ng-template></td>
+          <td [class.dr__missing]="!t.activity_description && !t.activity_code">{{ t.activity_description || t.activity_code || 'Not mapped' }}</td>
+          <td>{{ t.schedule_id ?? '—' }}</td>
+          <td><span class="dr__pill dr__pill--sm" [attr.data-tone]="taskStateTone(t.task_state)">{{ codeLabel(t.task_state) }}</span></td>
+          <td>{{ t.actual_start ? (t.actual_start | date:'mediumDate') : '—' }}</td>
+          <td>{{ t.actual_end ? (t.actual_end | date:'mediumDate') : '—' }}</td>
+          <td>{{ t.last_task_date ? (t.last_task_date | date:'mediumDate') : '—' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</ng-template>
+
+<ng-template #milestoneRow let-a>
+  <li class="dr__ms" [class.dr__ms--overdue]="a.overdue">
+    <button type="button" class="dr__ms-sum" (click)="toggleMilestone(a)" [attr.aria-expanded]="openMilestone === milestoneKey(a)">
+      <span class="dr__ms-well">Well {{ a.well_id }}</span>
+      <span class="dr__ms-label">{{ a.milestone_label }}</span>
+      <span class="dr__ms-due" [class.dr__text-bad]="a.overdue">{{ dueText(a.days_remaining, a.overdue) }}</span>
+    </button>
+    <div class="dr__ms-detail" *ngIf="openMilestone === milestoneKey(a)">
+      <dl class="dr__kv">
+        <div><dt>Deadline</dt><dd>{{ a.deadline_date | date:'mediumDate' }}</dd></div>
+        <div><dt>Pegging sheet</dt><dd>{{ a.pegged_date ? (a.pegged_date | date:'mediumDate') : 'Not yet issued' }}</dd></div>
+        <div><dt>FLAF</dt><dd>{{ a.flaf_issue_date ? (a.flaf_issue_date | date:'mediumDate') : 'Not yet issued' }}</dd></div>
+        <div><dt>Expected rig-on</dt><dd>{{ a.ex_rig_on_date ? (a.ex_rig_on_date | date:'mediumDate') : 'Not recorded' }}</dd></div>
+        <div><dt>Actual rig-on</dt><dd>{{ a.rig_on_date ? (a.rig_on_date | date:'mediumDate') : 'Not yet on' }}</dd></div>
+        <div><dt>Expected rig-off</dt><dd>{{ a.ex_rig_off_date ? (a.ex_rig_off_date | date:'mediumDate') : 'Not recorded' }}</dd></div>
+        <div><dt>Actual rig-off</dt><dd>{{ a.rig_off_date ? (a.rig_off_date | date:'mediumDate') : 'Not yet off' }}</dd></div>
+      </dl>
+      <button type="button" class="dr__link" (click)="selectWell(a.well_id)">Open well {{ a.well_id }} on the report date</button>
+    </div>
+  </li>
+</ng-template>
+
+<!-- One brief's slot: loading / error (e.g. AI off) / the answer. -->
+<ng-template #briefSlot let-b let-scope="scope" let-wellId="wellId" let-taskId="taskId" let-title="title">
+  <div aria-live="polite" class="dr__brief-slot">
+    <div class="dr__answer" *ngIf="b">
+      <div class="dr__answer-head">
+        <h3>{{ title }}</h3>
+        <button type="button" class="dr__link" (click)="closeBrief(scope, wellId, taskId)">Close</button>
+      </div>
+      <app-loader *ngIf="b.loading" size="sm" message="Looking up the data and writing the brief…"></app-loader>
+      <p class="dr__msg dr__msg--bad" *ngIf="b.error" role="alert">{{ b.error }}</p>
+      <ng-container *ngIf="b.data as r"><ng-container *ngTemplateOutlet="answerTpl; context: { $implicit: r }"></ng-container></ng-container>
+    </div>
+  </div>
+</ng-template>
+
+<!-- An agent answer: text rendered as plain blocks (never HTML), the verifier's verdict, and the drawers. -->
+<ng-template #answerTpl let-r>
+  <div class="dr__msg dr__msg--warn" *ngIf="!r.available">
+    <strong>The AI could not answer.</strong> {{ r.error }} The figures on this page are unaffected.
+  </div>
+
+  <ng-container *ngIf="r.available">
+    <div class="dr__prose">
+      <ng-container *ngFor="let blk of blocks(r)">
+        <p *ngIf="blk.kind === 'p'"><ng-container *ngTemplateOutlet="inlineParts; context: { $implicit: blk.parts }"></ng-container></p>
+        <p *ngIf="blk.kind === 'h'" class="dr__prose-h"><ng-container *ngTemplateOutlet="inlineParts; context: { $implicit: blk.parts }"></ng-container></p>
+        <ul *ngIf="blk.kind === 'ul'"><li *ngFor="let item of blk.items"><ng-container *ngTemplateOutlet="inlineParts; context: { $implicit: item }"></ng-container></li></ul>
+        <p *ngIf="blk.kind === 'row'" class="dr__prose-row">{{ blk.text }}</p>
+      </ng-container>
+    </div>
+
+    <div class="dr__verdict" *ngIf="r.verification && r.verification.passed !== undefined" [attr.data-tone]="r.verification.passed ? 'ok' : 'warn'">
+      <ng-container *ngIf="r.verification.passed">
+        Verified: {{ r.verification.checked_numbers ?? 0 | number }} figure{{ r.verification.checked_numbers === 1 ? '' : 's' }} checked against the data<ng-container
+          *ngIf="r.revisions"> after {{ r.revisions }} revision{{ r.revisions === 1 ? '' : 's' }}</ng-container>.
+      </ng-container>
+      <ng-container *ngIf="!r.verification.passed">
+        <strong>Not verified.</strong> The verifier still found:
+        <ul><li *ngFor="let issue of r.verification.issues">{{ issue }}</li></ul>
+      </ng-container>
+    </div>
+    <p class="dr__answer-meta">
+      <span class="dr__pill dr__pill--sm" data-tone="ok" *ngIf="r.cached" title="Nothing behind this answer changed since it was written, so no new AI call was made">Reused answer</span>
+      <span *ngIf="r.model">{{ r.model }}</span>
+      <span *ngIf="r.duration_s !== undefined">{{ r.duration_s | number:'1.0-2' }} s</span>
+    </p>
+  </ng-container>
+
+  <!-- Crew suggestion (task brief), stated from the evidence beside the prose. -->
+  <div class="dr__crew-card" *ngIf="r.evidence?.crew_suggestion as cs">
+    <ng-container *ngIf="cs.suggested_crew || cs.consult_crew || cs.current_crew?.recorded || cs.no_suggestion_reason">
+      <h4>{{ cs.suggested_crew ? 'Possible alternative crew' : (cs.consult_crew ? 'Crew with experience of this activity' : 'Crew') }}</h4>
+      <dl class="dr__kv">
+        <div><dt>On this task</dt><dd>
+          <ng-container *ngIf="cs.current_crew?.recorded && cs.current_crew?.crew_id !== null; else noCrew">
+            Crew ID {{ cs.current_crew.crew_id }}<ng-container *ngIf="cs.current_crew.crew_type"> · {{ cs.current_crew.crew_type }}</ng-container><ng-container
+              *ngIf="cs.current_crew.supervisor"> · {{ cs.current_crew.supervisor }}</ng-container>
+          </ng-container>
+          <ng-template #noCrew><span class="dr__missing">No crew recorded on this task</span></ng-template>
+        </dd></div>
+        <div *ngIf="cs.suggested_crew || cs.consult_crew as c"><dt>{{ cs.suggested_crew ? 'Suggested crew' : 'Worth asking' }}</dt><dd>
+          Crew ID {{ c.crew_id }}<ng-container *ngIf="c.crew_type"> · {{ c.crew_type }}</ng-container><ng-container *ngIf="c.supervisor"> · {{ c.supervisor }}</ng-container>
+        </dd></div>
+      </dl>
+      <p class="dr__hint" *ngIf="cs.suggested_crew || cs.consult_crew as c">
+        Completed this activity {{ c.historical_completed_task_count | number }} time{{ c.historical_completed_task_count === 1 ? '' : 's' }}
+        on {{ c.distinct_completed_well_count | number }} well{{ c.distinct_completed_well_count === 1 ? '' : 's' }}<ng-container
+          *ngIf="c.typical_completion_days !== null && c.typical_completion_days !== undefined">, typically in {{ c.typical_completion_days | number:'1.0-1' }} days (median)</ng-container><ng-container
+          *ngIf="c.most_recent_success_date">, most recently on {{ c.most_recent_success_date | date:'mediumDate' }}</ng-container>.
+        Advisory only: nothing here assigns or reassigns a crew.
+      </p>
+      <p class="dr__hint" *ngIf="!cs.suggested_crew && !cs.consult_crew && cs.no_suggestion_reason">{{ cs.no_suggestion_reason }}</p>
+    </ng-container>
+  </div>
+
+  <details class="dr__details" *ngIf="r.trace?.length">
+    <summary>Agent steps · {{ r.trace.length }} step{{ r.trace.length === 1 ? '' : 's' }}</summary>
+    <p class="dr__hint" *ngIf="models(r)">Models: {{ models(r) }}</p>
+    <ol class="dr__steps">
+      <li *ngFor="let st of r.trace" [class.dr__steps-failed]="st.ok === false">
+        <span class="dr__steps-node">{{ st.tool || st.node }}</span>
+        <code class="dr__code" *ngIf="st.args && (st.args | keyvalue)?.length">{{ st.args | json }}</code>
+        <span class="dr__steps-detail">{{ traceDetail(st) }}</span>
+        <span class="dr__muted" *ngIf="st.duration_s !== undefined">{{ st.duration_s | number:'1.0-3' }} s</span>
+      </li>
+    </ol>
+  </details>
+
+  <details class="dr__details" *ngIf="hasEvidence(r)">
+    <summary>Evidence given to the AI</summary>
+    <p class="dr__hint" *ngIf="r.evidence_withheld_from_model?.length">Shown for audit but not sent to the model: {{ r.evidence_withheld_from_model.join(', ') }}.</p>
+    <pre class="dr__pre">{{ r.evidence | json }}</pre>
+  </details>
+
+  <details class="dr__details" *ngIf="r.sql_sources?.length">
+    <summary>SQL behind these figures</summary>
+    <p class="dr__hint">As executed; parameters are bound, never spliced into the text.</p>
+    <div class="dr__sql" *ngFor="let src of r.sql_sources">
+      <div class="dr__sql-head"><strong>{{ src.label }}</strong><code class="dr__code">{{ src.file }}</code></div>
+      <p class="dr__hint" *ngIf="src.parameters?.length">{{ src.parameters.join(' · ') }}</p>
+      <pre class="dr__pre">{{ src.sql }}</pre>
+    </div>
+  </details>
+
+  <details class="dr__details" *ngIf="r.proof?.length">
+    <summary>Proof · the {{ r.proof.length | number }} open task{{ r.proof.length === 1 ? '' : 's' }} behind these counts</summary>
+    <p class="dr__hint">Each task not recorded as completed, and which figure it counts toward (they do not overlap). {{ r.proof_note || '' }}</p>
+    <div class="dr__table-wrap">
+      <table class="dr__table dr__table--compact">
+        <thead>
+          <tr><th scope="col">Well</th><th scope="col">Task</th><th scope="col">Description</th><th scope="col">Counts as</th>
+            <th scope="col">Actual start</th><th scope="col">Actual end</th><th scope="col">Last task date</th></tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let p of r.proof">
+            <tr>
+              <td>{{ p.well_id }}</td>
+              <td><code class="dr__code">{{ p.task_code || '—' }}</code></td>
+              <td>{{ p.description || p.activity_code || 'Not mapped' }}</td>
+              <td>{{ p.counts_as_ongoing ? 'Ongoing' : 'Incomplete' }}</td>
+              <td>{{ p.actual_start ? (p.actual_start | date:'mediumDate') : '—' }}</td>
+              <td>{{ p.actual_end ? (p.actual_end | date:'mediumDate') : '—' }}</td>
+              <td>{{ p.last_task_date ? (p.last_task_date | date:'mediumDate') : '—' }}</td>
+            </tr>
+            <tr class="dr__proof-why"><td colspan="7">{{ p.reason }}</td></tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </details>
+</ng-template>
+
+<ng-template #inlineParts let-parts>
+  <ng-container *ngFor="let part of parts"><strong *ngIf="part.kind === 'strong'">{{ part.text }}</strong><em
+    *ngIf="part.kind === 'value'" class="dr__value">{{ part.text }}</em><ng-container *ngIf="part.kind === 'text'">{{ part.text }}</ng-container></ng-container>
+</ng-template>

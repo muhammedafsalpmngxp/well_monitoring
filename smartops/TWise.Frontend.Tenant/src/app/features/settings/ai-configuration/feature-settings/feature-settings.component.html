@@ -1,0 +1,256 @@
+<div class="ac__body">
+  <div class="ac__alert ac__alert--warn" *ngIf="!configured" role="status">
+    <strong>{{ settings.title }} is not set up.</strong>
+    <ng-container *ngIf="settings.accessMode === 'tables'"> It stays off until you tick the tables it may read below and save.</ng-container>
+    <ng-container *ngIf="settings.accessMode === 'schemas'"> It stays off until you choose at least one schema below and save.</ng-container>
+  </div>
+  <div class="ac__alert ac__alert--bad" *ngIf="catalogError" role="alert">
+    {{ catalogError }}
+    <button type="button" class="ac__link" (click)="reloadCatalog.emit()">Try again</button>
+  </div>
+
+  <!-- What the feature does -->
+  <article class="ac__card">
+    <header class="ac__card-head">
+      <div>
+        <h3>{{ settings.title }}</h3>
+        <p>{{ settings.description }}</p>
+      </div>
+      <a class="ac__link fs__prompts" routerLink="/settings/ai/prompts" [queryParams]="{ group: settings.feature }">Edit its prompts →</a>
+    </header>
+  </article>
+
+  <!-- ── Access: tables mode ─────────────────────────────────────────────────────────────────────── -->
+  <article class="ac__card" *ngIf="settings.accessMode === 'tables'">
+    <header class="ac__card-head">
+      <div>
+        <h3>What {{ settings.title }} can read</h3>
+        <p>{{ settings.title }} runs fixed, verified queries. Tick the tables they may read{{ catalog ? ' in ' + catalog.database : '' }};
+          a query on a table that is not ticked is refused.</p>
+      </div>
+      <span class="ac__stat"><strong>{{ access.includedTables.length }}</strong> ticked</span>
+    </header>
+
+    <div class="fs__needed" *ngIf="settings.queryTables.length">
+      <span class="fs__needed-label">Its queries read:</span>
+      <span class="ac__chip" *ngFor="let t of settings.queryTables; trackBy: trackName" [class.fs__chip--missing]="!isIncluded(t)">
+        <code>{{ t }}</code><span class="ac__chip-note" *ngIf="!isIncluded(t)">not ticked</span>
+      </span>
+      <button type="button" class="btn btn-secondary" *ngIf="missingQueryTables.length" (click)="tickQueryTables()">Tick all of them</button>
+    </div>
+    <p class="ac__msg ac__msg--bad" *ngIf="missingQueryTables.length && access.includedTables.length">
+      Not ticked: {{ missingQueryTables.join(', ') }}. The parts of {{ settings.title }} that read them will be refused.
+    </p>
+    <p class="ac__msg ac__msg--bad" *ngIf="unknownIncluded.length">
+      Not in the database: {{ unknownIncluded.join(', ') }}.
+      <button type="button" class="ac__link" *ngFor="let t of unknownIncluded" (click)="toggleIncluded(t)">Remove {{ t }}</button>
+    </p>
+
+    <app-loader *ngIf="!catalog && !catalogError" size="sm"></app-loader>
+    <ng-container *ngIf="catalog">
+      <div class="fs__filter">
+        <label class="ac__search">
+          <span class="ac__sr">Search tables</span>
+          <input type="search" [(ngModel)]="tableSearch" name="tableSearch" placeholder="Search tables…" />
+        </label>
+        <label class="fs__only"><input type="checkbox" [(ngModel)]="onlyTicked" name="onlyTicked" /> Ticked and needed only</label>
+      </div>
+      <div class="ac__tables" role="group" [attr.aria-label]="'Tables ' + settings.title + ' may read'">
+        <label class="ac__table fs__table" *ngFor="let r of tableRows.slice(0, tableListMax); trackBy: trackFull" [class.fs__table--on]="isIncluded(r.full)">
+          <input type="checkbox" [checked]="isIncluded(r.full)" (change)="toggleIncluded(r.full)" />
+          <span class="ac__table-name"><span class="ac__muted">{{ r.schema }}.</span>{{ r.table }}</span>
+          <span class="fs__tag" *ngIf="isQueryTable(r.full)" title="Its verified queries read this table">needed</span>
+          <span class="ac__muted" *ngIf="!isQueryTable(r.full)">{{ r.columns }} col</span>
+        </label>
+        <p class="ac__empty" *ngIf="!tableRows.length">No table matches.</p>
+      </div>
+      <p class="ac__hint" *ngIf="tableRows.length > tableListMax">Showing {{ tableListMax }} of {{ tableRows.length }}: search to find the others.</p>
+    </ng-container>
+  </article>
+
+  <!-- ── Access: schemas mode ────────────────────────────────────────────────────────────────────── -->
+  <ng-container *ngIf="settings.accessMode === 'schemas'">
+    <article class="ac__card">
+      <header class="ac__card-head">
+        <div>
+          <h3>What {{ settings.title }} can read</h3>
+          <p>{{ settings.title }} writes its own checks. Only the schemas you tick are described to the AI and can be
+            checked{{ catalog ? ' in ' + catalog.database : '' }}.</p>
+        </div>
+        <span class="ac__stat" *ngIf="catalog"><strong>{{ visibleCount | number }}</strong> tables visible</span>
+      </header>
+      <app-loader *ngIf="!catalog && !catalogError" size="sm"></app-loader>
+      <div class="ac__schemas" *ngIf="catalog">
+        <label class="ac__schema" *ngFor="let s of catalog.schemas; trackBy: trackName" [class.ac__schema--on]="isAllowed(s.name)">
+          <input type="checkbox" [checked]="isAllowed(s.name)" (change)="toggleSchema(s.name)" />
+          <span class="ac__schema-name">{{ s.name }}</span>
+          <span class="ac__schema-count">{{ s.tables.length }} table{{ s.tables.length === 1 ? '' : 's' }}</span>
+        </label>
+      </div>
+      <p class="ac__msg ac__msg--bad" *ngIf="missingSchemas.length">
+        Not in the database any more: {{ missingSchemas.join(', ') }}.
+        <button type="button" class="ac__link" *ngFor="let m of missingSchemas" (click)="toggleSchema(m)">Remove {{ m }}</button>
+      </p>
+    </article>
+
+    <article class="ac__card">
+      <header class="ac__card-head">
+        <div>
+          <h3>Hidden tables</h3>
+          <p>Ticked tables are left out: the AI never sees them and a check that names them is refused.</p>
+        </div>
+        <span class="ac__stat"><strong>{{ access.excludedTables.length }}</strong> hidden</span>
+      </header>
+      <div class="ac__chips" *ngIf="access.excludedTables.length">
+        <span class="ac__chip" *ngFor="let t of access.excludedTables; trackBy: trackName">
+          <code>{{ t }}</code><span class="ac__chip-note" *ngIf="!t.includes('.')">every schema</span>
+          <button type="button" class="ac__chip-x" (click)="removeHiddenTable(t)" [attr.aria-label]="'Show ' + t + ' again'">×</button>
+        </span>
+      </div>
+      <ng-container *ngIf="catalog && allowedCatalog.length">
+        <label class="ac__search">
+          <span class="ac__sr">Search tables</span>
+          <input type="search" [(ngModel)]="tableSearch" name="hiddenSearch" placeholder="Search tables in the allowed schemas…" />
+        </label>
+        <div class="ac__tables" role="group" aria-label="Tables">
+          <label class="ac__table" *ngFor="let r of hiddenRows.slice(0, tableListMax); trackBy: trackFull"
+            [class.ac__table--hidden]="isTableHidden(r.schema, r.table)"
+            [title]="hiddenByName(r.table) ? 'Hidden by name in every schema: remove ' + r.table + ' above to show it' : ''">
+            <input type="checkbox" [checked]="isTableHidden(r.schema, r.table)" [disabled]="hiddenByName(r.table)" (change)="toggleHidden(r.schema, r.table)" />
+            <span class="ac__table-name"><span class="ac__muted">{{ r.schema }}.</span>{{ r.table }}</span>
+            <span class="ac__muted">{{ r.columns }} col</span>
+          </label>
+          <p class="ac__empty" *ngIf="!hiddenRows.length">No table matches.</p>
+        </div>
+        <p class="ac__hint" *ngIf="hiddenRows.length > tableListMax">Showing {{ tableListMax }} of {{ hiddenRows.length }}: search to find the others.</p>
+      </ng-container>
+      <p class="ac__hint" *ngIf="catalog && !allowedCatalog.length">Choose a schema above to list its tables.</p>
+      <form class="ac__add" (ngSubmit)="addCustomTable()">
+        <input type="text" [(ngModel)]="customTable" name="customTable" maxlength="257"
+          placeholder="Hide by name: schema.table, or table for every schema" aria-label="Table to hide" />
+        <button type="submit" class="btn btn-secondary" [disabled]="!customTable.trim()">Hide</button>
+      </form>
+    </article>
+
+    <article class="ac__card">
+      <header class="ac__card-head">
+        <div>
+          <h3>Hidden columns</h3>
+          <p>Columns the AI never sees, for example personal data.</p>
+        </div>
+        <span class="ac__stat"><strong>{{ access.excludedColumns.length }}</strong> hidden</span>
+      </header>
+      <div class="ac__chips" *ngIf="access.excludedColumns.length">
+        <span class="ac__chip" *ngFor="let c of access.excludedColumns; trackBy: trackName">
+          <code>{{ c }}</code>
+          <span class="ac__chip-note" *ngIf="c.split('.').length === 1">every table</span>
+          <span class="ac__chip-note" *ngIf="c.split('.').length === 2">every schema</span>
+          <button type="button" class="ac__chip-x" (click)="removeHiddenColumn(c)" [attr.aria-label]="'Show ' + c + ' again'">×</button>
+        </span>
+      </div>
+      <div class="ac__picker" *ngIf="catalog && allowedCatalog.length">
+        <label class="ac__field">
+          <span>Table</span>
+          <select [(ngModel)]="columnTable" name="columnTable">
+            <option value="">Choose a table to pick its columns…</option>
+            <option *ngFor="let t of columnTableOptions" [value]="t">{{ t }}</option>
+          </select>
+        </label>
+        <div class="ac__columns" *ngIf="pickedColumns as p" role="group" [attr.aria-label]="'Columns of ' + p.schema + '.' + p.table">
+          <label class="ac__column" *ngFor="let col of p.columns" [class.ac__table--hidden]="isColumnHidden(p.schema, p.table, col)"
+            [title]="columnHiddenWider(p.table, col) ? 'Hidden by a wider entry above: remove it to show this column' : ''">
+            <input type="checkbox" [checked]="isColumnHidden(p.schema, p.table, col)" [disabled]="columnHiddenWider(p.table, col)"
+              (change)="toggleColumn(p.schema, p.table, col)" />
+            <span>{{ col }}</span>
+          </label>
+        </div>
+      </div>
+      <form class="ac__add" (ngSubmit)="addCustomColumn()">
+        <input type="text" [(ngModel)]="customColumn" name="customColumn" maxlength="386"
+          placeholder="Hide by name: schema.table.column, table.column, or column for every table" aria-label="Column to hide" />
+        <button type="submit" class="btn btn-secondary" [disabled]="!customColumn.trim()">Hide</button>
+      </form>
+    </article>
+  </ng-container>
+
+  <!-- ── Settings, one card per group ────────────────────────────────────────────────────────────── -->
+  <article class="ac__card fs__group" *ngFor="let g of groups; trackBy: trackName">
+    <button type="button" class="fs__group-head" (click)="toggleGroup(g.name)" [attr.aria-expanded]="open.has(g.name)">
+      <h3>{{ g.name }}</h3>
+      <span class="ac__muted">{{ g.defs.length }} setting{{ g.defs.length === 1 ? '' : 's' }}</span>
+      <svg class="fs__chev" [class.fs__chev--open]="open.has(g.name)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+    </button>
+    <div class="ac__grid fs__fields" *ngIf="open.has(g.name)">
+      <div class="ac__field fs__field" *ngFor="let d of g.defs; trackBy: trackDef" [class.fs__field--wide]="d.type === 'list' || d.type === 'map' || (d.type === 'text' && (d.max ?? 0) > 200)">
+        <span>
+          {{ d.label }}
+          <span class="fs__changed" *ngIf="isChanged(d)" title="Differs from the default">changed</span>
+        </span>
+
+        <input *ngIf="d.type === 'int' || d.type === 'decimal'" type="number" [(ngModel)]="values[d.key]" [name]="d.key"
+          [step]="d.type === 'int' ? 1 : 'any'" [attr.min]="d.min" [attr.max]="d.max" [class.ac__input--bad]="problem(d)" />
+
+        <label *ngIf="d.type === 'bool'" class="fs__switch">
+          <input type="checkbox" [(ngModel)]="values[d.key]" [name]="d.key" />
+          <span>{{ values[d.key] ? 'On' : 'Off' }}</span>
+        </label>
+
+        <select *ngIf="d.type === 'enum'" [(ngModel)]="values[d.key]" [name]="d.key" [class.ac__input--bad]="problem(d)">
+          <option *ngFor="let o of d.options" [value]="o">{{ o }}</option>
+        </select>
+
+        <ng-container *ngIf="d.type === 'text'">
+          <textarea *ngIf="(d.max ?? 0) > 200; else shortText" [(ngModel)]="values[d.key]" [name]="d.key" rows="4" [attr.maxlength]="d.max"
+            [class.ac__input--bad]="problem(d)"></textarea>
+          <ng-template #shortText>
+            <input type="text" [(ngModel)]="values[d.key]" [name]="d.key" [attr.maxlength]="d.max" [class.ac__input--bad]="problem(d)" />
+          </ng-template>
+        </ng-container>
+
+        <textarea *ngIf="d.type === 'list'" [(ngModel)]="listText[d.key]" [name]="d.key" rows="5" spellcheck="false"
+          placeholder="One per line" [class.ac__input--bad]="problem(d)"></textarea>
+
+        <div *ngIf="d.type === 'map'" class="fs__map">
+          <div class="fs__map-row" *ngFor="let r of mapRows[d.key]; let i = index">
+            <input type="text" [(ngModel)]="r.name" [name]="d.key + '-n-' + i" maxlength="100" aria-label="Name" />
+            <input type="number" [(ngModel)]="r.value" [name]="d.key + '-v-' + i" step="any" [attr.min]="d.min" [attr.max]="d.max" aria-label="Value" />
+            <button type="button" class="ac__chip-x" (click)="removeMapRow(d.key, i)" aria-label="Remove">×</button>
+          </div>
+          <button type="button" class="ac__link fs__map-add" (click)="addMapRow(d.key)">+ Add</button>
+        </div>
+
+        <small>
+          {{ d.help }}
+          <ng-container *ngIf="d.min != null || d.max != null"> {{ d.min ?? '…' }}–{{ d.max ?? '…' }}.</ng-container>
+          <span class="ac__muted"> Default: {{ defaultText(d) }}.</span>
+        </small>
+        <small class="fs__bad" *ngIf="problem(d) as p">{{ d.label }} {{ p }}</small>
+      </div>
+    </div>
+  </article>
+
+  <!-- Save bar -->
+  <div class="ac__bar" [class.ac__bar--dirty]="dirty">
+    <div class="ac__bar-info">
+      <ul class="ac__problems" *ngIf="dirty && problems.length">
+        <li *ngFor="let p of problems">{{ p }}</li>
+      </ul>
+      <span *ngIf="!(dirty && problems.length)">
+        <ng-container *ngIf="dirty">Unsaved changes.</ng-container>
+        <ng-container *ngIf="!dirty && settings.modifiedAt">Last saved {{ settings.modifiedAt | date: 'd MMM y, HH:mm' }}<ng-container *ngIf="settings.modifiedBy"> by {{ settings.modifiedBy }}</ng-container>.</ng-container>
+        <ng-container *ngIf="!dirty && !settings.customized">Using the defaults.</ng-container>
+      </span>
+      <p class="ac__msg" *ngIf="message" [class.ac__msg--ok]="message.ok" [class.ac__msg--bad]="!message.ok" role="status">{{ message.text }}</p>
+    </div>
+    <div class="ac__bar-actions">
+      <button type="button" class="btn btn-secondary" *ngIf="settings.customized" [disabled]="saving" (click)="confirmReset = true">Restore defaults</button>
+      <button type="button" class="btn btn-secondary" [disabled]="saving || !dirty" (click)="discard()">Discard</button>
+      <button type="button" class="btn btn-primary" [disabled]="saving || !dirty || problems.length > 0" (click)="save()">{{ saving ? 'Saving…' : 'Save' }}</button>
+    </div>
+  </div>
+</div>
+
+<app-confirmation-dialog [isOpen]="confirmReset" title="Restore defaults"
+  [message]="'Restore the default settings and tables of ' + settings.title + '? Your changes to this section are lost.'"
+  confirmLabel="Restore" variant="warning" (confirmed)="reset()" (cancelled)="confirmReset = false"></app-confirmation-dialog>

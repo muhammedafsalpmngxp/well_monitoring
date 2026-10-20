@@ -15,12 +15,9 @@ Endpoints:
                                   step, status, node while it runs (ping every 15 s when quiet),
                                   then done or error
 """
-import json
 import logging
 import os
-import queue
 import sys
-import threading
 import time
 from pathlib import Path
 from typing import Any, Iterator
@@ -36,9 +33,14 @@ from smartops_shared.app import create_app
 
 from app import twise
 from app.agentflow.convert import from_agentflow, to_agentflow
+from app.errors import user_message
 from app.graph import AGENT_KEYS, build_graph, missing_inputs
 from app.prompt_text import missing as missing_prompts
 from app.models import AskDataAskRequest, AskDataExportRequest, RunRequest
+from app.features.anomaly.api import router as anomaly_router
+from app.features.dailyreport.api import router as dailyreport_router
+from app.features.slippage.api import router as slippage_router
+from app.streaming import sse as _sse, with_heartbeat  # noqa: F401  (with_heartbeat: imported by tests)
 
 API_KEY = os.environ.get("AGENT_RUNTIME_API_KEY", "")
 
@@ -49,6 +51,15 @@ log = logging.getLogger("agent_runtime")
 def require_key(x_api_key: str | None = Header(default=None)) -> None:
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing X-API-Key")
+
+
+# Agentic AI → Agentic Features (app/features): each feature's endpoints, behind the same key. The Tenant API sends
+# every request's database, AI provider, prompts, settings, readable tables and verified SQL.
+_FEATURES = "/api/agent-runtime/features"
+app.include_router(slippage_router, prefix=f"{_FEATURES}/slippage", dependencies=[Depends(require_key)], tags=["Slippage"])
+app.include_router(dailyreport_router, prefix=f"{_FEATURES}/dailyreport", dependencies=[Depends(require_key)],
+                   tags=["Daily Report"])
+app.include_router(anomaly_router, prefix=f"{_FEATURES}/anomaly", dependencies=[Depends(require_key)], tags=["Data Anomaly"])
 
 
 ASK_DATA_TOOL = {
@@ -124,9 +135,9 @@ def askdata_events(req: AskDataAskRequest) -> Iterator[tuple[str, dict[str, Any]
                 # The panel has no Export button: drop the "download using the Export option" sentence.
                 data = {**data, "answer": runner.without_export_hints(data.get("answer") or "")}
             yield ev["event"], data
-    except Exception as exc:  # noqa: BLE001 - shown in the panel
+    except Exception as exc:  # noqa: BLE001 - shown in the panel: a safe message, the details in the log
         log.exception("Ask your data failed")
-        yield "error", {"message": f"Ask Data failed: {exc}"[:1000]}
+        yield "error", {"message": user_message(exc, "Ask Data")}
 
 
 @app.post("/api/agent-runtime/run", dependencies=[Depends(require_key)])
@@ -159,53 +170,14 @@ def run_events(req: RunRequest, **graph_overrides: Any) -> Iterator[tuple[str, d
                 yield chunk["event"], chunk["data"]
             else:
                 final = chunk
-    except Exception as exc:  # noqa: BLE001 - reported to the caller, who records the failed run
-        yield "error", {"message": f"The agent failed: {exc}"[:1000]}
+    except Exception as exc:  # noqa: BLE001 - reported to the caller, who records the failed run (details in the log)
+        log.exception("Agent run failed")
+        yield "error", {"message": user_message(exc, "The agent")}
         return
     yield "done", {
         "answer": final.get("answer", ""), "ok": bool(final.get("ok")), "steps": final.get("results", []),
         "usage": final.get("usage", []), "seconds": round(time.monotonic() - started, 1),
     }
-
-
-def with_heartbeat(events: Iterator[tuple[str, dict[str, Any]]], every: float = 15.0) -> Iterator[tuple[str, dict[str, Any]]]:
-    """Runs the events on a thread and sends "ping" when nothing came for `every` seconds: a step can wait minutes
-    on the AI provider, and an idle stream is cut by proxies and browsers.
-    When the caller stops reading (the page closed, the Tenant API cancelled the test), the run stops at its next
-    event instead of going on calling the model, the database and twise for nobody."""
-    items: queue.Queue = queue.Queue()
-    end = object()
-    stop = threading.Event()
-
-    def pump() -> None:
-        try:
-            for item in events:
-                if stop.is_set():
-                    break
-                items.put(item)
-        finally:
-            close = getattr(events, "close", None)
-            if close:
-                close()   # GeneratorExit inside run_events ends graph.stream: no further steps start
-            items.put(end)
-
-    threading.Thread(target=pump, daemon=True).start()
-    try:
-        while True:
-            try:
-                item = items.get(timeout=every)
-            except queue.Empty:
-                yield "ping", {}
-                continue
-            if item is end:
-                return
-            yield item
-    finally:
-        stop.set()
-
-
-def _sse(name: str, data: dict[str, Any]) -> str:
-    return f"event: {name}\ndata: {json.dumps(data, default=str)}\n\n"
 
 
 if __name__ == "__main__":

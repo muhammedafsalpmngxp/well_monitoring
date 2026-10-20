@@ -8,6 +8,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai;
+using TWise.Tenant.Application.Features.Ai.AgenticFeatures;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Infrastructure.Persistence;
 
@@ -309,6 +310,9 @@ public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogge
         using var stream = asm.GetManifestResourceStream(name)!;
         using var doc = JsonDocument.Parse(stream);
         var seed = doc.RootElement.GetProperty("prompts").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString() ?? "", StringComparer.Ordinal);
+        // The Agentic Features' prompts come with their own seed (agentic-features.seed.json).
+        foreach (var p in AgenticFeatureCatalog.All.Values.SelectMany(f => f.Prompts))
+            seed[p.Key] = p.Text;
         var missing = AiPromptCatalog.All.Where(d => !seed.ContainsKey(d.Key)).Select(d => d.Key).ToList();
         if (missing.Count > 0) throw new InvalidOperationException($"The AI prompt seed lacks: {string.Join(", ", missing)}.");
         return seed;

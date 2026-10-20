@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai.Activity;
+using TWise.Tenant.Application.Features.Ai.AgenticFeatures;
 using TWise.Tenant.Application.Features.Ai.Alerts;
 using TWise.Tenant.Application.Features.Ai.Ask;
 using TWise.Tenant.Application.Features.Ai.AskDataSettings;
@@ -483,6 +484,39 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> GetAskDataCatalog(CancellationToken ct) =>
         AdminAsync(async _ => Ok(await sender.Send(new GetAskDataCatalogQuery(), ct)));
+
+    // ── Agentic Features settings (Settings → AI Settings, admins only) ──────────────────────────────────────────────
+
+    /// <summary>Every Agentic Feature (Slippage, Daily Report, Data Anomaly) with its setting definitions, values in use
+    /// (defaults filled in), the tables it may read and, for verified-SQL features, the tables its queries read.</summary>
+    [HttpGet("settings/features")]
+    [ProducesResponseType(typeof(IReadOnlyList<AgenticFeatureSettingsDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> GetAgenticFeatureSettings(CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new GetAgenticFeatureSettingsQuery(t), ct)));
+
+    /// <summary>Saves one feature's settings and tables. Values not sent keep theirs; tables and schemas must exist in the
+    /// Ask Data database; 400 with { message } lists every problem.</summary>
+    [HttpPut("settings/features/{feature}")]
+    [ProducesResponseType(typeof(AgenticFeatureSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> SaveAgenticFeatureSettings(string feature, [FromBody] SaveAgenticFeatureSettingsRequest request,
+        CancellationToken ct) =>
+        AdminAsync(async t => AgenticFeatureCatalog.IsKnown(feature)
+            ? Ok(await sender.Send(new SaveAgenticFeatureSettingsCommand(t, UserName(), feature, request), ct))
+            : NotFound());
+
+    /// <summary>Restores one feature's default settings and tables.</summary>
+    [HttpDelete("settings/features/{feature}")]
+    [ProducesResponseType(typeof(AgenticFeatureSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> ResetAgenticFeatureSettings(string feature, CancellationToken ct) =>
+        AdminAsync(async t => AgenticFeatureCatalog.IsKnown(feature)
+            ? Ok(await sender.Send(new ResetAgenticFeatureSettingsCommand(t, UserName(), feature), ct))
+            : NotFound());
 
     // ── AI prompts (Settings → AI Prompts, admins only) ───────────────────────────────────────────────────────────
 

@@ -3,8 +3,8 @@
 Replaces twise's db_assistant llm_client + twise_common.llm.provider with the same behaviour:
   * the per-agent reasoning tuning table (effort, verbosity), main tier only and never for Ollama;
   * timeout 120 s and 2 provider retries (twise LLM_TIMEOUT / LLM_MAX_RETRIES);
-  * a model that rejects temperature / verbosity / reasoning_effort gets ONE retry without it
-    (remembered per model, so later calls do not pay the failed request again).
+  * a model that rejects temperature / verbosity / reasoning_effort (or JSON mode) is asked again without
+    it, once per rejected parameter (remembered per model, so later calls do not pay the failed request again).
 Same request shape as the Tenant API's OpenAiCompatibleChatClient ({base_url}/chat/completions, Bearer key
 or Azure api-key header). The fast tier uses ``llm.fast_model`` when set, else the main model. Each call
 is recorded in the run's usage, labelled by node (orchestrator, sql_author, ...).
@@ -33,7 +33,7 @@ _REJECTED: set[tuple[str, str]] = set()
 
 @lru_cache(maxsize=32)
 def chat_model(provider: str, base_url: str, model: str, api_key: str | None, temperature: float | None,
-               effort: str = "", verbosity: str = ""):
+               effort: str = "", verbosity: str = "", max_tokens: int | None = None, json_mode: bool = False):
     from langchain_openai import ChatOpenAI
 
     headers = {"api-key": api_key} if provider == "azure" and api_key else None
@@ -42,40 +42,48 @@ def chat_model(provider: str, base_url: str, model: str, api_key: str | None, te
         kwargs["reasoning_effort"] = effort
     if verbosity:
         kwargs["verbosity"] = verbosity
+    if max_tokens:
+        kwargs["max_tokens"] = max_tokens
+    if json_mode:
+        kwargs["model_kwargs"] = {"response_format": {"type": "json_object"}}
     return ChatOpenAI(model=model, base_url=base_url.rstrip("/"), api_key=api_key or "none",
                       default_headers=headers, timeout=LLM_TIMEOUT, max_retries=LLM_MAX_RETRIES, **kwargs)
 
 
+# A provider error that names one of these: the call is repeated without that parameter (remembered per model).
+_OPTIONAL = (
+    ("temperature", ("temperature",)),
+    ("verbosity", ("verbosity",)),
+    ("reasoning_effort", ("reasoning", "effort")),
+    ("response_format", ("response_format", "json_object", "json mode")),
+)
+
+
 def invoke(llm, messages: list[tuple[str, str]], temperature: float | None, fast: bool = False,
-           effort: str = "", verbosity: str = ""):
-    """One call, retried once without the parameter the model rejected (twise provider.chat)."""
+           effort: str = "", verbosity: str = "", max_tokens: int | None = None, json_mode: bool = False):
+    """One call. A model that rejects an optional parameter (temperature, verbosity, reasoning_effort, JSON mode) is
+    asked again without it, as often as it rejects another one (twise provider.chat dropped them all at once)."""
     model = (llm.fast_model or llm.model) if fast else llm.model
     if fast or llm.provider == "ollama":
         effort, verbosity = "", ""          # the fast tier and Ollama never get these
-    if (model, "temperature") in _REJECTED:
-        temperature = None
-    if (model, "verbosity") in _REJECTED:
-        verbosity = ""
-    if (model, "reasoning_effort") in _REJECTED:
-        effort = ""
+    sent = {"temperature": temperature, "verbosity": verbosity, "reasoning_effort": effort, "response_format": json_mode}
+    for name, _ in _OPTIONAL:
+        if (model, name) in _REJECTED:
+            sent[name] = None if name == "temperature" else ("" if name != "response_format" else False)
 
-    def call(t, e, v):
-        return chat_model(llm.provider, llm.base_url, model, llm.api_key, t, e, v).invoke(messages)
-
-    try:
-        return model, call(temperature, effort, verbosity)
-    except Exception as exc:  # noqa: BLE001
-        text = str(exc).lower()
-        if temperature is not None and "temperature" in text:
-            _REJECTED.add((model, "temperature"))
-            return model, call(None, effort, verbosity)
-        if verbosity and "verbosity" in text:
-            _REJECTED.add((model, "verbosity"))
-            return model, call(temperature, effort, "")
-        if effort and ("reasoning" in text or "effort" in text):
-            _REJECTED.add((model, "reasoning_effort"))
-            return model, call(temperature, "", verbosity)
-        raise
+    while True:
+        try:
+            return model, chat_model(llm.provider, llm.base_url, model, llm.api_key, sent["temperature"],
+                                     sent["reasoning_effort"], sent["verbosity"], max_tokens,
+                                     bool(sent["response_format"])).invoke(messages)
+        except Exception as exc:  # noqa: BLE001
+            text = str(exc).lower()
+            rejected = next((name for name, words in _OPTIONAL
+                             if sent[name] not in (None, "", False) and any(w in text for w in words)), None)
+            if rejected is None:
+                raise
+            _REJECTED.add((model, rejected))
+            sent[rejected] = None if rejected == "temperature" else ("" if rejected != "response_format" else False)
 
 
 def chat(system: str, user: str, temperature: float | None = 0.0, fast: bool = False) -> str:
