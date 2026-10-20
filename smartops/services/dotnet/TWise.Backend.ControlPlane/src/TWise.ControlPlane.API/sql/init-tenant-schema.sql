@@ -1429,8 +1429,8 @@ CREATE TABLE core.AiProviders (
     created_at         datetime2      NOT NULL CONSTRAINT DF_core_AiProviders_created DEFAULT SYSUTCDATETIME(),
     modified_by        nvarchar(100)  NULL,
     modified_at        datetime2      NOT NULL CONSTRAINT DF_core_AiProviders_modified DEFAULT SYSUTCDATETIME(),
-    deleted_by         nvarchar(100)  NULL,
-    is_deleted         bit            NOT NULL CONSTRAINT DF_core_AiProviders_deleted DEFAULT 0
+    deleted_by         nvarchar(100)  NULL
+    -- no is_deleted: providers are deleted for real (remove-ai-providers-soft-delete.sql)
 );
 GO
 

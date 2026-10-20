@@ -43,6 +43,12 @@ public sealed class AiProviderRepository(TenantDbContext db) : IAiProviderReposi
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task DeleteAsync(AiProvider provider, CancellationToken ct)
+    {
+        db.AiProviders.Remove(provider);
+        await db.SaveChangesAsync(ct);
+    }
+
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }
 

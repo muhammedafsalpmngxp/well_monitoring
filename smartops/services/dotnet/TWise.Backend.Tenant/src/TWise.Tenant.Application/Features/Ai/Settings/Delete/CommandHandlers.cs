@@ -13,10 +13,8 @@ public sealed class DeleteAiProviderHandler(IAiProviderRepository providers) : I
         var p = await providers.GetAsync(c.Id, c.TenantId, ct);
         if (p is null) return false;
         if (p.IsActive) throw new InvalidOperationException("Make another provider active before deleting this one.");
-        p.IsDeleted = true;
-        p.DeletedBy = c.UserId;
-        p.ModifiedAt = DateTime.UtcNow;
-        await providers.SaveAsync(ct);
+        // Deleted for real: the row and its encrypted key leave the table.
+        await providers.DeleteAsync(p, ct);
         return true;
     }
 }

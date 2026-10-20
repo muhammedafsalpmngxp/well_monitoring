@@ -17,6 +17,8 @@ public interface IAiProviderRepository
     Task AddAsync(AiProvider provider, CancellationToken ct);
     /// <summary>Marks this provider active and every other provider of the tenant inactive.</summary>
     Task SetActiveAsync(AiProvider provider, CancellationToken ct);
+    /// <summary>Deletes the provider row for good (its encrypted key goes with it).</summary>
+    Task DeleteAsync(AiProvider provider, CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
 }
 

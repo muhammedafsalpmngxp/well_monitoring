@@ -76,8 +76,8 @@ public sealed class AiProviderConfiguration : IEntityTypeConfiguration<AiProvide
         b.Property(e => e.ModifiedBy).HasColumnName("modified_by");
         b.Property(e => e.ModifiedAt).HasColumnName("modified_at");
         b.Property(e => e.DeletedBy).HasColumnName("deleted_by");
-        b.Property(e => e.IsDeleted).HasColumnName("is_deleted");
-        b.HasQueryFilter(e => !e.IsDeleted);
+        // Providers are deleted for real (remove-ai-providers-soft-delete.sql dropped is_deleted): no soft-delete flag.
+        b.Ignore(e => e.IsDeleted);
     }
 }
 

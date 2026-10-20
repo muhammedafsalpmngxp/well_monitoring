@@ -30,7 +30,7 @@ BEGIN
         modified_by        NVARCHAR(100)  NULL,
         modified_at        DATETIME2      NOT NULL CONSTRAINT DF_AiProviders_modified DEFAULT SYSUTCDATETIME(),
         deleted_by         NVARCHAR(100)  NULL,
-        is_deleted         BIT            NOT NULL CONSTRAINT DF_AiProviders_deleted DEFAULT 0,
+        -- no is_deleted: providers are deleted for real (remove-ai-providers-soft-delete.sql)
         CONSTRAINT PK_AiProviders PRIMARY KEY CLUSTERED (id)
     );
     CREATE INDEX IX_AiProviders_tenant ON core.AiProviders (tenant_id, is_active);
