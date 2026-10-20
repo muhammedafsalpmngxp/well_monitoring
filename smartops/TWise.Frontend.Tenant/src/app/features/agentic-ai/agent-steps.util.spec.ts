@@ -63,3 +63,11 @@ describe('stepsToSave', () => {
     expect(saved.every(s => s.next === null)).toBe(true);
   });
 });
+
+describe('stepsToSave with Saved SQL', () => {
+  it('keeps a step that has SQL but no label, so its SQL is not lost', () => {
+    const saved = stepsToSave([step('a', '  ', { sql: 'SELECT 1 AS one' }), step('b', '  ')], 'parallel');
+    expect(saved.map(s => s.id)).toEqual(['a']);
+    expect(saved[0].sql).toBe('SELECT 1 AS one');
+  });
+});

@@ -10,9 +10,12 @@ import {
 export interface CanvasBranch { id: string; label?: string | null; input?: string | null; op: string; value?: string | null; target?: string | null; }
 export interface CanvasStep {
   id?: string; value: string; x?: number; y?: number;
-  kind?: 'step' | 'router'; routeBy?: 'rules' | 'ai'; branches?: CanvasBranch[]; next?: string | null;
+  /** 'setup' (step 1, Saved SQL) is drawn as an instruction; it is set in the Form view. */
+  kind?: 'step' | 'router' | 'setup'; routeBy?: 'rules' | 'ai'; branches?: CanvasBranch[]; next?: string | null;
   /** The step's own tool; null = the agent's first tool. */
   tool?: { agent: string; action: string } | null;
+  /** Saved SQL steps: the SELECT they run. */
+  sql?: string | null;
 }
 export interface CanvasTool { id: string; label: string; }
 
@@ -395,6 +398,18 @@ export class AgentCanvasComponent implements OnChanges, AfterViewInit, OnDestroy
     if (!step) return;
     step.value = text;
     this.build();
+    this.changed.emit();
+  }
+
+  readonly sqlPlaceholder = 'SELECT col FROM schema.table\nWHERE other = {{input}}';
+
+  /** The step runs with Saved SQL (sql_query), so Properties shows its SQL. */
+  isSqlStep(s: CanvasStep): boolean { return this.toolOf(s)?.startsWith('sql_query:') ?? false; }
+
+  editSql(sql: string): void {
+    const step = this.selectedStep;
+    if (!step) return;
+    step.sql = sql;
     this.changed.emit();
   }
 

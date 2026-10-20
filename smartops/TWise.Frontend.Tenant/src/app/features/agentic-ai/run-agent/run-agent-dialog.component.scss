@@ -323,3 +323,7 @@
 
     &__detail { font-size: 12px; font-weight: 400; color: #667085; }
 }
+
+// Question mode: a free-text box, and what the question and the setup step set.
+.ra-input--question { height: auto; padding: 8px 11px; resize: vertical; min-height: 64px; font-family: inherit; line-height: 1.4; }
+.ra-understood { display: flex; flex-direction: column; gap: 2px; margin: 8px 0; }

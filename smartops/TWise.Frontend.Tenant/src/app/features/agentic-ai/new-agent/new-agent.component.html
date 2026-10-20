@@ -255,7 +255,7 @@
                     <div class="na-field">
                         <label class="na-label">Step-by-step instructions</label>
                         <div class="na-instr-list">
-                            <div class="na-instr-row"
+                            <div class="na-instr-row" [class.na-instr-row--sql]="isSqlStep(item)"
                                 *ngFor="let item of goalInstructions; let i = index; trackBy: trackByIndex">
                                 <div class="na-instr-card">
                                     <span class="na-drag-handle">
@@ -270,7 +270,9 @@
                                     </span>
                                     <span class="na-instr-num">{{ i + 1 }}</span>
                                     <span class="na-instr-tag" *ngIf="item.kind === 'router'" title="Edit its branches on the Canvas">Router · {{ item.branches?.length ?? 0 }} branches</span>
-                                    <input class="na-instr-input" type="text" [(ngModel)]="item.value" />
+                                    <span class="na-instr-tag na-instr-tag--sql" *ngIf="isSqlStep(item)" title="Runs the SQL below; no model call">{{ item.kind === 'setup' ? 'Setup · Saved SQL' : 'Saved SQL' }}</span>
+                                    <input class="na-instr-input" type="text" [(ngModel)]="item.value"
+                                        [attr.aria-label]="'Instruction ' + (i + 1)" [placeholder]="isSqlStep(item) ? 'What this query returns, e.g. Recent report dates' : ''" />
                                     <button class="na-btn-trash" (click)="removeGoalInstruction(i)">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                             viewBox="0 0 24 24" fill="none">
@@ -280,6 +282,17 @@
                                                 stroke-linejoin="round" />
                                         </svg>
                                     </button>
+                                </div>
+                                <div class="na-instr-sql" *ngIf="isSqlStep(item)">
+                                    <label class="na-label" [for]="'step-sql-' + i">SQL for step {{ i + 1 }}</label>
+                                    <textarea [id]="'step-sql-' + i" class="na-textarea na-sql" rows="5" spellcheck="false"
+                                        [(ngModel)]="item.sql" [placeholder]="sqlPlaceholder"></textarea>
+                                    <span class="na-test-hint">One read-only SELECT, run as written with no model call. Use <code ngNonBindable>{{name}}</code> for an input: it is sent as a parameter, and an empty input is NULL.</span>
+                                    <label class="na-setup-toggle" *ngIf="i === 0 && goalInstructions.length > 1">
+                                        <input type="checkbox" [ngModel]="item.kind === 'setup'" (ngModelChange)="setSetup(item, $event)" />
+                                        Run first as the setup step: its first row sets the inputs for every other step
+                                    </label>
+                                    <span class="na-test-hint" *ngIf="item.kind === 'setup'">Name the columns like your inputs (for example <code>well_id</code>, <code>report_date</code>) to set them, e.g. a blank date becomes the latest report date. If it returns no row, the run stops with a message.</span>
                                 </div>
                             </div>
                         </div>
@@ -410,6 +423,7 @@
                     </button>
                 </div>
                 <div class="na-card__body">
+                    <p class="na-test-hint">Add an input named <strong>question</strong> to let people ask in their own words: one quick call on the fast model reads the other inputs from it, and anything typed in an input field still wins. Mark the inputs a question can supply as Optional.<ng-container *ngIf="asksQuestion"> This agent takes a question.</ng-container></p>
 
                     <!-- Inputs block -->
                     <div class="na-io-block">
@@ -542,7 +556,8 @@
                     </button>
                 </div>
                 <div class="na-card__body">
-                    <p class="na-test-hint">Used by the <strong>Ask Data</strong> tool. The workspace's default business rules always apply; rules you add here are added after them and take precedence where they differ. Example queries replace the default examples; leave blank to keep them.</p>
+                    <p class="na-test-hint">Used by the <strong>Ask Data</strong> tool. The workspace's default business rules always apply; rules you add here are added after them and take precedence where they differ. Example queries replace the default examples; leave blank to keep them.
+                        <strong>Saved SQL</strong> steps use only the allowed schemas and the row limit.</p>
                     <div class="na-field">
                         <label class="na-label" for="ask-rules">Business rules (added to the defaults)</label>
                         <textarea id="ask-rules" class="na-textarea" rows="6" [(ngModel)]="askBusinessRules"
@@ -632,6 +647,10 @@
                         <span class="na-label">Answer<span class="na-label--muted" *ngIf="testSeconds !== null"> · {{ testSeconds }}s</span><span class="na-label--muted" *ngIf="testLlm" [title]="testLlmTitle"> · LLM {{ testLlm }}</span></span>
                         <div class="agent-md" [innerHTML]="md(testAnswer)"></div>
                     </div>
+                    <div class="na-test-decisions" *ngIf="testUnderstood.length">
+                        <span class="na-label">Understood as</span>
+                        <p class="na-test-hint" *ngFor="let u of testUnderstood">{{ u }}</p>
+                    </div>
                     <div class="na-test-decisions" *ngIf="testDecisions.length">
                         <span class="na-label">Decisions</span>
                         <p class="na-test-hint" *ngFor="let d of testDecisions">{{ d }}</p>
@@ -639,12 +658,14 @@
                     <details class="na-test-step" *ngFor="let s of testSteps" [open]="s.phase === 'end' && !s.ok">
                         <summary>
                             <span class="na-test-step__dot" [class.na-test-step__dot--ok]="s.ok" [class.na-test-step__dot--bad]="s.phase === 'end' && !s.ok"></span>
-                            Step {{ s.step }}<span *ngIf="(s.attempt ?? 1) > 1"> (run {{ s.attempt }})</span> · {{ s.agent }} · {{ s.phase === 'start' ? 'running' : (s.seconds + 's') }}
+                            Step {{ s.step }}<span *ngIf="s.setup"> (setup)</span><span *ngIf="(s.attempt ?? 1) > 1"> (run {{ s.attempt }})</span> · {{ s.agent }} · {{ s.phase === 'start' ? 'running' : (s.seconds + 's') }}
                         </summary>
                         <p class="na-test-step__q">{{ s.question }}</p>
-                        <div class="agent-md" *ngIf="s.answer" [innerHTML]="md(s.answer)"></div>
+                        <!-- A Saved SQL step's answer is its rows, shown once below as the table. -->
+                        <div class="agent-md" *ngIf="s.answer && s.agent !== 'sql_query'" [innerHTML]="md(s.answer)"></div>
                         <p class="na-msg na-msg--bad" *ngIf="s.error">{{ s.error }}</p>
-                        <span class="na-chip" *ngIf="s.route === 'sql'" [class.na-chip--ok]="s.verified">{{ s.verified ? 'Verified' : 'Not verified: treat figures as indicative' }}</span>
+                        <span class="na-chip na-chip--ok" *ngIf="s.agent === 'sql_query' && s.ok">Saved SQL · no model call</span>
+                        <span class="na-chip" *ngIf="s.route === 'sql' && s.agent !== 'sql_query'" [class.na-chip--ok]="s.verified">{{ s.verified ? 'Verified' : 'Not verified: treat figures as indicative' }}</span>
                         <div class="na-test-table" *ngIf="s.data?.columns?.length">
                             <table>
                                 <thead><tr><th *ngFor="let c of s.data!.columns" scope="col">{{ c }}</th></tr></thead>

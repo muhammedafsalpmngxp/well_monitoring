@@ -11,6 +11,17 @@ public static class AgentMapping
     public static readonly AiAgentStatsDto NoRuns = new(0, null, null, null);
 
     public const string AskDataTool = "ask_data";
+    /// <summary>Saved SQL: the built-in tool that runs the SELECT written on the step (agent runtime app/sqlstep.py).</summary>
+    public const string SqlQueryTool = "sql_query";
+    public static readonly string[] SqlQueryActions = ["table", "summary"];
+    /// <summary>An input with this name lets people ask in their own words; one fast-model call fills the other inputs.</summary>
+    public const string QuestionInput = "question";
+    /// <summary>The first step's kind when it runs before the others and its first row sets the inputs (Saved SQL only).</summary>
+    public const string SetupKind = "setup";
+
+    /// <summary>The agent takes a question and one was typed in for this run.</summary>
+    public static bool HasQuestion(SaveAiAgentRequest r, IReadOnlyDictionary<string, string> inputs) =>
+        (r.Inputs ?? []).Any(i => i.Name == QuestionInput) && !string.IsNullOrWhiteSpace(inputs.GetValueOrDefault(QuestionInput));
 
     /// <summary>The agent as the page sends it, for export and runs.</summary>
     public static SaveAiAgentRequest ToRequest(AiAgentDto a) => new(
@@ -20,6 +31,19 @@ public static class AgentMapping
     public static bool UsesAskData(SaveAiAgentRequest r) =>
         r.Tools.Any(t => t.Agent == AskDataTool) || r.Steps.Any(s => s.Tool?.Agent == AskDataTool);
 
+    /// <summary>The tool a step runs with: its own, else the agent's first.</summary>
+    public static AiAgentToolDto? ToolOf(SaveAiAgentRequest r, AiAgentStepDto s) => s.Tool ?? r.Tools?.FirstOrDefault();
+
+    /// <summary>The Saved SQL steps: instructions (not routers) whose tool is sql_query.</summary>
+    public static IEnumerable<AiAgentStepDto> SqlSteps(SaveAiAgentRequest r) =>
+        (r.Steps ?? []).Where(s => s is not null && s.Kind != "router" && ToolOf(r, s)?.Agent == SqlQueryTool);
+
+    /// <summary>Runs read the Ask Data database: Ask Data and Saved SQL steps both get its login.</summary>
+    public static bool UsesDatabase(SaveAiAgentRequest r) => UsesAskData(r) || SqlSteps(r).Any();
+
+    /// <summary>A Saved SQL step whose answer the tenant's model writes from its rows (action "summary").</summary>
+    public static bool SummarisesSql(SaveAiAgentRequest r) => SqlSteps(r).Any(s => ToolOf(r, s)!.Action == "summary");
+
     public static void Apply(AiAgent a, SaveAiAgentRequest r)
     {
         a.Name = r.Name.Trim();
@@ -27,7 +51,7 @@ public static class AgentMapping
         a.Description = Blank(r.Description);
         a.SystemPrompt = Blank(r.SystemPrompt);
         a.Goal = Blank(r.Goal);
-        a.StepsJson = JsonSerializer.Serialize(r.Steps.Select(s => s with { Text = s.Text.Trim() }), Json);
+        a.StepsJson = JsonSerializer.Serialize(r.Steps.Select(s => s with { Text = s.Text.Trim(), Sql = Blank(s.Sql) }), Json);
         a.ToolsJson = JsonSerializer.Serialize(r.Tools, Json);
         a.InputsJson = JsonSerializer.Serialize(r.Inputs ?? [], Json);
         a.OutputsJson = JsonSerializer.Serialize(r.Outputs ?? [], Json);

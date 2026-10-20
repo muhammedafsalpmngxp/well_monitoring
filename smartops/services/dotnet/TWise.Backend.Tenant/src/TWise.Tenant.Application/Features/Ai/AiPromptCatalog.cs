@@ -140,6 +140,8 @@ public static partial class AiPromptCatalog
         G("agent.progress_failed", "Progress: failed step", "A step's error."),
         G("agent.progress_inputs", "Progress: inputs", "The run's inputs."),
         G("agent.progress_input", "Progress: one input", "One input and its value."),
+        G("agent.extract_inputs", "Question: read the inputs", "Agents with an input named question: one call on the fast model fills the agent's other inputs from the user's words.", "values", "note"),
+        G("agent.extract_input", "Question: one input", "One input (name, type, description) in that list."),
     ];
 
     private static readonly Dictionary<string, AiPromptDefinition> ByKey = All.ToDictionary(d => d.Key, StringComparer.Ordinal);

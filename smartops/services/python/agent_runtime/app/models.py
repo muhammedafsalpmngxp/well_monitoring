@@ -12,8 +12,8 @@ class _Camel(BaseModel):
 
 
 class Tool(_Camel):
-    agent: str                 # "ask_data" (built in) or a twise agent name, e.g. "db_assistant"
-    action: str = ""           # ask_data: "deep" | "normal"; twise: one of the agent's capabilities
+    agent: str                 # "ask_data" / "sql_query" (built in) or a twise agent name, e.g. "db_assistant"
+    action: str = ""           # ask_data: "deep" | "normal"; sql_query: "table" | "summary"; twise: a capability
 
 
 # Router rule operators; "else" is the fallback branch. Text compares ignore case; numbers compare as numbers.
@@ -35,15 +35,20 @@ class Step(_Camel):
     tool: Tool | None = None   # defaults to the agent's first tool
     id: str | None = None      # canvas node id; routers and `next` refer to steps by it
     # A router runs no tool: it picks one branch, by rules in order or by the model, and goes to its target.
-    kind: Literal["step", "router"] = "step"
+    # A setup step (first step only, Saved SQL) runs before the others; its first row's columns named like
+    # inputs set those inputs for the rest of the run (app/prepare.py).
+    kind: Literal["step", "router", "setup"] = "step"
     route_by: Literal["rules", "ai"] = "rules"
     branches: list[Branch] | None = None   # the Tenant API sends null for plain steps
     next: str | None = None    # the step id to run after this one, or "answer"; None = the following step
+    sql: str | None = None     # sql_query (Saved SQL) steps: the SELECT to run; {{input}} placeholders are parameters
 
 
 class AgentInput(_Camel):
     name: str
     required: bool = True
+    type: str = "string"               # string | number | boolean | array | object, as the page saves it
+    description: str | None = None     # told to the model when a question fills the inputs (app/prepare.py)
 
 
 class AskDataTenantSettings(_Camel):
@@ -91,6 +96,24 @@ class AgentConfig(_Camel):
     tools: list[Tool] = Field(min_length=1)
     inputs: list[AgentInput] = []
     ask_data: AskDataOptions | None = None
+
+    @model_validator(mode="after")
+    def _check_setup(self) -> "AgentConfig":
+        setups = [i for i, s in enumerate(self.steps) if s.kind == "setup"]
+        if not setups:
+            return self
+        if setups != [0]:
+            raise ValueError("Only the first step can be the setup step, and there can be one.")
+        setup = self.steps[0]
+        if (setup.tool or self.tools[0]).agent != "sql_query":
+            raise ValueError("The setup step must use Saved SQL.")
+        if setup.next:
+            raise ValueError("The setup step always runs first; it cannot link to another step.")
+        if len(self.steps) < 2:
+            raise ValueError("Add at least one step after the setup step.")
+        if setup.id and any(setup.id in [b.target for b in s.branches or []] + [s.next] for s in self.steps):
+            raise ValueError("No step or branch can go back to the setup step.")
+        return self
 
     @model_validator(mode="after")
     def _check_routing(self) -> "AgentConfig":

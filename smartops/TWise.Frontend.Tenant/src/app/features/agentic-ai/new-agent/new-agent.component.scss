@@ -1897,3 +1897,10 @@
 }
 
 .na-test-export { display: flex; gap: 8px; margin: 6px 0; }
+
+// Saved SQL steps: the SQL box sits under the instruction, full width.
+.na-instr-row--sql { flex-wrap: wrap; }
+.na-instr-sql { flex-basis: 100%; display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px 32px; }
+.na-sql { font-family: Consolas, 'Courier New', monospace; font-size: 13px; resize: vertical; }
+.na-instr-tag--sql { background: color-mix(in srgb, var(--color-primary, #21409A) 12%, transparent); }
+.na-setup-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-primary); cursor: pointer; }

@@ -25,11 +25,17 @@
                         {{ i.name }}<span class="ra-req" *ngIf="i.required">*</span>
                         <span class="ra-label__type">{{ i.type || 'string' }}</span>
                     </label>
-                    <input class="ra-input" [id]="'run-' + i.name" [name]="i.name" [(ngModel)]="values[i.name]" [disabled]="running"
-                        [type]="i.type === 'number' ? 'number' : 'text'" [placeholder]="'Enter ' + i.name"
-                        [attr.aria-required]="i.required" autocomplete="off" />
+                    <textarea *ngIf="isQuestion(i.name); else plainInput" class="ra-input ra-input--question" rows="3" [id]="'run-' + i.name"
+                        [name]="i.name" [(ngModel)]="values[i.name]" [disabled]="running"
+                        placeholder="Ask in your own words, e.g. Slippage report for well 35543"></textarea>
+                    <ng-template #plainInput>
+                        <input class="ra-input" [id]="'run-' + i.name" [name]="i.name" [(ngModel)]="values[i.name]" [disabled]="running"
+                            [type]="i.type === 'number' ? 'number' : 'text'" [placeholder]="'Enter ' + i.name"
+                            [attr.aria-required]="i.required" autocomplete="off" />
+                    </ng-template>
                     <span class="ra-hint" *ngIf="i.description">{{ i.description }}</span>
                 </div>
+                <p class="ra-hint" *ngIf="asksQuestion">Type a question, or fill in the fields; a field you fill in is used as entered.</p>
                 <button type="submit" hidden></button>
             </form>
             <ng-template #noInputs>
@@ -40,6 +46,11 @@
                 <span class="ra-spinner" aria-hidden="true"></span>
                 <span class="ra-progress__stage">{{ stage || 'Running' }}</span>
                 <span class="ra-progress__time">{{ elapsed }}s<ng-container *ngIf="steps.length"> · {{ doneSteps }}/{{ steps.length }} steps</ng-container></span>
+            </div>
+
+            <div class="ra-understood" *ngIf="understood.length">
+                <span class="ra-section">Understood as</span>
+                <p class="ra-hint" *ngFor="let u of understood">{{ u }}</p>
             </div>
 
             <p class="ra-msg ra-msg--bad" *ngIf="error" role="alert">{{ error }}</p>
@@ -76,7 +87,7 @@
                 <div class="ra-step" *ngFor="let s of steps">
                     <span class="ra-step__dot" [class.ra-step__dot--ok]="s.ok" [class.ra-step__dot--bad]="s.phase === 'end' && !s.ok"></span>
                     <div class="ra-step__text">
-                        <span class="ra-step__q">Step {{ s.step }} · {{ s.question }}</span>
+                        <span class="ra-step__q">Step {{ s.step }}<ng-container *ngIf="s.setup"> (setup)</ng-container> · {{ s.question }}</span>
                         <span class="ra-hint">{{ s.agent }}<ng-container *ngIf="s.seconds !== undefined"> · {{ s.seconds }}s</ng-container></span>
                         <span class="ra-step__err" *ngIf="s.error">{{ s.error }}</span>
                     </div>

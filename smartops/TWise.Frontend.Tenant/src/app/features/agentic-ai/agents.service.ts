@@ -10,10 +10,29 @@ export interface AgentTool { agent: string; action: string; }
 export type BranchOp = 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'gt' | 'gte' | 'lt' | 'lte' | 'empty' | 'not_empty' | 'else';
 /** One way out of a router: rule `input op value` (input may be last_answer), or 'else'; target = step id, 'answer' or null. */
 export interface AgentBranch { id: string; label?: string | null; input?: string | null; op: BranchOp; value?: string | null; target?: string | null; }
-/** kind 'router' picks one branch (routeBy rules or ai); next = the step to run after this one (null = the following). */
+/**
+ * kind 'router' picks one branch (routeBy rules or ai); next = the step to run after this one (null = the following).
+ * kind 'setup' (first step, Saved SQL only) runs before the others; its first row's columns named like inputs set them.
+ */
 export interface AgentStep {
   text: string; tool?: AgentTool | null; id?: string | null; x?: number | null; y?: number | null;
-  kind?: 'step' | 'router'; routeBy?: 'rules' | 'ai'; branches?: AgentBranch[] | null; next?: string | null;
+  kind?: StepKind; routeBy?: 'rules' | 'ai'; branches?: AgentBranch[] | null; next?: string | null;
+  /** Saved SQL steps: the SELECT they run; {{input}} placeholders are bound as parameters. */
+  sql?: string | null;
+}
+
+export type StepKind = 'step' | 'router' | 'setup';
+
+/** The built-in Saved SQL tool: a step runs its own SELECT, with no model call (the summary action adds one). */
+export const SQL_QUERY_TOOL = 'sql_query';
+/** An input with this name lets people ask in their own words; one fast-model call fills the agent's other inputs. */
+export const QUESTION_INPUT = 'question';
+
+/** "Understood as" text for the inputs a question or the setup step set during a run. */
+export function understoodText(e: { by: 'question' | 'setup'; values: Record<string, string>; note?: string }): string {
+  const set = Object.entries(e.values).map(([k, v]) => `${k} = ${v}`).join(' · ');
+  const from = e.by === 'question' ? 'From your question' : 'Setup step';
+  return `${from}: ${set || 'nothing set'}${e.note ? ` (${e.note})` : ''}`;
 }
 export interface AgentInput { name: string; type: string; required: boolean; description?: string | null; }
 export interface AgentOutput { name: string; type: string; description?: string | null; }
@@ -84,11 +103,13 @@ export interface AgentToolOption { agent: string; title: string; description: st
 export interface AgentStepResult {
   step: number; attempt?: number; question: string; agent: string; action: string; answer: string;
   sql: string[]; ok: boolean; error: string | null; seconds: number;
-  /** Ask Data only: sql | clarify | chitchat, the verifier's verdict and the result table. */
+  /** Ask Data: sql | clarify | chitchat, the verifier's verdict and the result table; Saved SQL: its rows. */
   route?: string; verified?: boolean; needs_analysis?: boolean;
   /** Signed handle for the Excel / Word download of this step's data (Ask Data, twise export). */
   export_token?: string | null;
   data?: { columns: string[]; rows: unknown[][]; truncated: boolean } | null;
+  /** The setup step (runs first; its row set the inputs). */
+  setup?: boolean;
 }
 
 /** Test Agent stream: step (phase start/end), status, node, then done or error. */
@@ -98,6 +119,7 @@ export type AgentRunEvent =
   | { type: 'node'; data: { step: number; node: string } }
   | { type: 'decision'; data: { by: 'supervisor' | 'loop' | 'router'; next?: string; task?: string; done?: boolean; reason?: string; round?: number; router?: string; branch?: string } }
   | { type: 'ping'; data: Record<string, never> }   // keeps the stream open while a step waits
+  | { type: 'inputs'; data: { by: 'question' | 'setup'; values: Record<string, string>; note?: string } }
   | { type: 'done'; data: { runId: number; ok: boolean; answer: string; steps: AgentStepResult[]; seconds: number; llm?: AgentLlmUsage | null } }
   | { type: 'error'; data: { message: string; runId?: number } };
 

@@ -15,9 +15,11 @@ public sealed record AiAgentBranchDto(string Id, string? Label = null, string? I
 /// One instruction; {{input}} placeholders are filled at run time. Tool defaults to the agent's first tool.
 /// Id and X/Y are the canvas node id and position. Kind "router" runs no tool: it picks one of its Branches
 /// (RouteBy rules or ai). Next is the step id to run after this one, or "answer"; null = the following step.
+/// Sql is the SELECT a Saved SQL (sql_query) step runs; its {{input}} placeholders are bound as parameters.
 /// </summary>
 public sealed record AiAgentStepDto(string Text, AiAgentToolDto? Tool = null, string? Id = null, double? X = null, double? Y = null,
-    string Kind = "step", string RouteBy = "rules", IReadOnlyList<AiAgentBranchDto>? Branches = null, string? Next = null);
+    string Kind = "step", string RouteBy = "rules", IReadOnlyList<AiAgentBranchDto>? Branches = null, string? Next = null,
+    string? Sql = null);
 
 public sealed record AiAgentInputDto(string Name, string Type = "string", bool Required = true, string? Description = null);
 
