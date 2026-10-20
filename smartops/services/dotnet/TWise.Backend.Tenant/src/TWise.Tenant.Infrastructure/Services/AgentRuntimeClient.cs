@@ -227,6 +227,8 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
             400 or 404 or 409 or 503 => new AgentRuntimeException(status, Detail(text) ?? "The agent service refused the request."),
             422 => new AgentRuntimeException(400, "The request is not valid: " + (Detail(text) ?? "check the values sent.")),
             401 or 403 => new HttpRequestException($"{status}: the agent service refused the Tenant API's key (AgentRuntime:ApiKey)."),
+            // It answered but failed: say so (not "not reachable"); the details are in the agent service's log.
+            >= 500 => new AgentRuntimeException(502, "The agent service had an unexpected error. Try again; if it persists, its log has the details."),
             _ => new HttpRequestException($"{status}: {Trim(text)}"),
         };
     }
