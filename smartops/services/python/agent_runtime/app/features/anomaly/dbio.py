@@ -9,7 +9,7 @@ from app.features.anomaly import TITLE
 from app.features.common import db as common_db
 from app.features.common.db import DatabaseUnavailable
 
-__all__ = ["DB_ERRORS", "DatabaseUnavailable", "connect", "connection", "guard", "error_text"]
+__all__ = ["DB_ERRORS", "DatabaseUnavailable", "connect", "connection", "guard", "error_text", "link_lost"]
 
 try:
     import pyodbc
@@ -48,3 +48,10 @@ def error_text(exc: BaseException) -> str:
     if len(args) > 1 and isinstance(args[1], str):
         return args[1].strip()
     return str(exc).strip() or type(exc).__name__
+
+
+def link_lost(exc: BaseException) -> bool:
+    """The connection itself failed (the server or network dropped it), not the statement: SQLSTATE 08xxx."""
+    args = getattr(exc, "args", ()) or ()
+    state = str(args[0]) if args else ""
+    return state.startswith("08") or "Communication link failure" in str(exc) or "forcibly closed" in str(exc)

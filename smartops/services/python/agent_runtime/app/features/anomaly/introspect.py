@@ -23,7 +23,8 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from contextlib import contextmanager
+from typing import Any, Iterable, Iterator
 
 from app.askdata.common.readonly import assert_read_only
 from app.features.anomaly import TITLE, dbio
@@ -178,16 +179,51 @@ class CatalogReader:
     """Reads the catalogue and samples data on one open cursor. Every statement passes the SELECT-only gate; those
     reading a business table also pass the feature's table allowlist."""
 
-    def __init__(self, cursor: Any) -> None:
+    def __init__(self, cursor: Any, conn: Any = None) -> None:
         self.cur = cursor
+        self.conn = conn
+        self._extra: list[Any] = []     # connections opened after the server dropped one (closed by close())
+
+    @property
+    def timeout(self) -> int:
+        return getattr(self.conn, "timeout", 0)
+
+    @timeout.setter
+    def timeout(self, seconds: int) -> None:
+        if self.conn is not None:
+            self.conn.timeout = seconds
 
     def _rows(self, sql: str, params: Iterable[Any] = (), data: bool = False) -> list[tuple]:
         if data:
             dbio.guard(sql)
         else:
             assert_read_only(sql)
-        self.cur.execute(sql, *list(params))
-        return [tuple(r) for r in self.cur.fetchall()]
+        try:
+            self.cur.execute(sql, *list(params))
+            return [tuple(r) for r in self.cur.fetchall()]
+        except dbio.DB_ERRORS as exc:
+            # A server or network that drops the connection mid-scan (SQLSTATE 08S01 / 08001, e.g. "forcibly closed
+            # by the remote host") would fail every later statement on it: reconnect once and retry this one.
+            if self.conn is None or not dbio.link_lost(exc):
+                raise
+            log.warning("anomaly introspect: the database connection was dropped - reconnecting")
+            self._reconnect()
+            self.cur.execute(sql, *list(params))
+            return [tuple(r) for r in self.cur.fetchall()]
+
+    def _reconnect(self) -> None:
+        timeout = self.timeout
+        self.conn = dbio.connect(timeout=timeout)
+        self._extra.append(self.conn)
+        self.cur = self.conn.cursor()
+
+    def close(self) -> None:
+        for c in self._extra:
+            try:
+                c.close()
+            except Exception:  # noqa: BLE001
+                pass
+        self._extra.clear()
 
     def _in(self, schemas: list[str]) -> str:
         return ",".join("?" for _ in schemas)
@@ -299,7 +335,20 @@ class CatalogReader:
 
 
 def make_reader(conn: Any) -> CatalogReader:
-    return CatalogReader(conn.cursor())
+    return CatalogReader(conn.cursor(), conn)
+
+
+@contextmanager
+def open_reader(timeout: int) -> Iterator[CatalogReader]:
+    """A reader on a fresh connection; closes it and any connection the reader re-opened."""
+    with dbio.connection(timeout=timeout) as conn:
+        reader = make_reader(conn)
+        try:
+            yield reader
+        finally:
+            close = getattr(reader, "close", None)
+            if close:
+                close()
 
 
 # ── Picture building ──
@@ -661,8 +710,7 @@ def describe(refresh: bool = False) -> Picture:
     schemas = schemas_in_scope()
     if refresh:
         _drop_cache("schema.txt", "schema.fingerprint", "value_hints.txt", "numeric_hints.txt")
-    with dbio.connection(timeout=settings.metadata_timeout) as conn:
-        reader = make_reader(conn)
+    with open_reader(settings.metadata_timeout) as reader:
         cached = _read_cache("schema.txt")
         live = ""
         if cached:
@@ -684,11 +732,13 @@ def describe(refresh: bool = False) -> Picture:
             dup_keys = _detect_duplicate_keys(reader, tables, pks, sizes)
             schema = render_schema(tables, pks, fks, dup_keys, sizes)
             values = build_value_hints(reader, tables, sizes)
-            conn.timeout = settings.detail_timeout          # profiling is a scan per table
+            reader.timeout = settings.detail_timeout        # profiling is a scan per table
             numbers = build_numeric_hints(reader, tables, pks, sizes)
-            conn.timeout = settings.metadata_timeout
+            reader.timeout = settings.metadata_timeout
             live = live or live_fingerprint(reader, schemas)
-        except dbio.DB_ERRORS:
+        except dbio.DB_ERRORS as exc:
+            # The user sees a safe message; the driver's own text (which query, which object) goes to the log.
+            log.error("anomaly introspect failed: %s: %s", type(exc).__name__, str(exc)[:1000])
             raise dbio.DatabaseUnavailable("The database description could not be read. Check the Ask Data database "
                                            "connection and that the login can read INFORMATION_SCHEMA.") from None
     if schema.strip():           # never cache an empty schema (a wrong scope would read as "no tables exist")
@@ -705,8 +755,7 @@ def fingerprints() -> tuple[str, dict[str, str], list[str]]:
     settings = cfg()
     try:
         schemas = schemas_in_scope()
-        with dbio.connection(timeout=settings.metadata_timeout) as conn:
-            reader = make_reader(conn)
+        with open_reader(settings.metadata_timeout) as reader:
             return structure_fingerprint(reader, schemas), table_signatures(reader, schemas), []
     except (dbio.DatabaseUnavailable, *dbio.DB_ERRORS) as exc:
         return "", {}, [f"The structure fingerprints are unavailable ({type(exc).__name__}), so compiled probes could "
