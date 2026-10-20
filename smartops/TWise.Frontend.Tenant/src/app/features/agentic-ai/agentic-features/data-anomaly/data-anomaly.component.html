@@ -110,7 +110,7 @@
           <h3>Data-quality score</h3>
           <app-loader *ngIf="run.loading" size="sm"></app-loader>
           <highcharts-chart *ngIf="scoreChart && isLatestRun" class="da__chart" [options]="scoreChart"></highcharts-chart>
-          <p class="da__big" *ngIf="!scoreChart || !isLatestRun">{{ lr.score != null ? (lr.score | number: '1.0-1') : '—' }}</p>
+          <p class="da__big" *ngIf="!scoreChart || !isLatestRun">{{ lr.score != null && lr.status !== 'failed' ? (lr.score | number: '1.0-1') : '—' }}</p>
           <p class="da__hint" *ngIf="result?.score_basis && isLatestRun" [title]="result?.score_basis">{{ result?.score_basis }}</p>
           <p class="da__hint">Run {{ lr.startedAt | date: 'medium' }} by {{ lr.startedBy }}
             <span class="da__pill" [attr.data-tone]="statusTone(lr.status)">{{ label(lr.status) }}</span></p>

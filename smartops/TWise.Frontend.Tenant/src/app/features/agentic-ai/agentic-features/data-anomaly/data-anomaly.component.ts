@@ -193,7 +193,9 @@ export class DataAnomalyComponent implements OnInit {
   private buildCharts(): void {
     const r = this.result;
     this.summaryBlocks = toBlocks(r?.summary);
-    const score = r?.score ?? this.run.data?.run.score ?? null;
+    // A failed run, or one where no check ran, has no score (the formula would read 100 on no data).
+    const ran = this.run.data?.run.status !== 'failed' && !r?.error && (r?.totals?.probes_run ?? 0) > 0;
+    const score = ran ? (r?.score ?? this.run.data?.run.score ?? null) : null;
     this.scoreChart = score == null ? null : {
       chart: { type: 'solidgauge', height: 190, backgroundColor: 'transparent', spacing: [0, 0, 0, 0] },
       title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },

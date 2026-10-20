@@ -412,11 +412,14 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
         stored.Remove("reports");
         stored.Remove("usage");
         stored.Remove("catalog");
+        var probesRun = (int?)Long(result, "probesRun", "totals.probes_run", "totals.probesRun", "totals.probes");
+        // A failed run, or one where no check ran, has no score: the formula would read 100 on no data.
+        var scored = string.IsNullOrWhiteSpace(error) && probesRun is > 0;
         var run = new AnomalyRun
         {
             TenantId = job.TenantId, RunId = runId, Status = string.IsNullOrWhiteSpace(error) ? "succeeded" : "failed",
             DatabaseName = DataAnomalyService.Clip(Text(result, "database"), 200), StartedAt = started, FinishedAt = DateTime.UtcNow,
-            Score = Decimal(result, "score"), ProbesRun = (int?)Long(result, "probesRun", "totals.probes_run", "totals.probesRun", "totals.probes"),
+            Score = scored ? Decimal(result, "score") : null, ProbesRun = probesRun,
             RecordsExamined = Long(result, "recordsExamined", "totals.records_examined", "totals.recordsExamined", "totals.rows_examined"),
             RecordsFlagged = Long(result, "recordsFlagged", "totals.records_flagged", "totals.recordsFlagged", "totals.anomalies"),
             RuleSetFingerprint = DataAnomalyService.Clip(DataAnomalyService.Str(result, "rule_set_fingerprint")
