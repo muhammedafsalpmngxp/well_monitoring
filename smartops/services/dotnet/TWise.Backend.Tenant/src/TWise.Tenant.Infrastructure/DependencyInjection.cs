@@ -33,7 +33,9 @@ public static class DependencyInjection
         {
             var cs = configuration.GetConnectionString("TenantDb")
                 ?? throw new InvalidOperationException("ConnectionStrings:TenantDb is not configured.");
-            opt.UseSqlServer(cs, sql => sql.CommandTimeout(120));
+            // Transient failures (dropped connection, deadlock, throttling) are retried outside the code's own
+            // transactions; inside them nothing changes (TransientRetryExecutionStrategy).
+            opt.UseSqlServer(cs, sql => sql.CommandTimeout(120).ExecutionStrategy(d => new TransientRetryExecutionStrategy(d)));
         });
         services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<TenantDbContext>>().CreateDbContext());
 
