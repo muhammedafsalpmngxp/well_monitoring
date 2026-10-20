@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Iterator, Sequence
 
-from app.askdata.common.connection import _SQL_SS_TIMESTAMPOFFSET, _decode_datetimeoffset, pick_driver
+from app.askdata.common.connection import _DRIVER_CANDIDATES, _SQL_SS_TIMESTAMPOFFSET, _decode_datetimeoffset
 from app.askdata.common.readonly import assert_read_only
 from app.features.common import access
 from app.features.common.context import current
@@ -28,6 +28,21 @@ class QueryResult:
     columns: list[str]
     rows: list[dict[str, Any]]
     truncated: bool = False
+
+
+def pick_driver() -> str:
+    """The best SQL Server ODBC driver installed. (Ask Data's pick_driver reads an Ask Data run's settings, which a
+    feature request does not have.)"""
+    import pyodbc
+
+    installed = {d.strip() for d in pyodbc.drivers()}
+    for candidate in _DRIVER_CANDIDATES:
+        if candidate in installed:
+            return candidate
+    sql_server = sorted(d for d in installed if "SQL Server" in d)
+    if sql_server:
+        return sql_server[-1]
+    raise DatabaseUnavailable("No SQL Server ODBC driver is installed on the agent service.")
 
 
 def connection_string(db: Db, app_name: str) -> str:
