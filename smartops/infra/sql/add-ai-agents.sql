@@ -1,14 +1,20 @@
 -- ═════════════════════════════════════════════════════════════════════════════
 -- SmartOps Tenant — AI agents (add-ai-agents.sql)
 -- ─────────────────────────────────────────────────────────────────────────────
--- Adds [core].[AiAgents]: agents built on Agentic AI → Create New Agent (role, goal, steps, tools,
--- inputs), and [core].[AiAgentRuns]: every Test Agent run with each step's answer. The agent
--- runtime (services/python/agent_runtime) runs them; the steps' tools are twise-agentic agents.
--- Idempotent.
+-- Adds the agent builder's tables (Agentic AI → AI Agents), run by services/python/agent_runtime:
+--   core.AiAgents          agents (steps, tools, inputs, Tool nodes, canvas notes)
+--   core.AiAgentRuns       every run: steps, answer, tokens per model (usage_json) and in total,
+--                          conversation thread, a paused Human Approval's state (resume_json)
+--   core.AiAgentVersions   saved versions;  core.AiAgentMemories  facts kept between runs
+--   core.AiAgentSchedules  triggers;        core.AiAgentEvalCases / AiAgentEvalRuns  evals
+--   core.AiModelPrices     model prices for cost estimates
+-- Idempotent: creates what is missing and adds missing columns to existing tables.
 --
+-- Run order: this script, then add-ai-agent-state.sql (core.AiAgents.agent_state).
 -- Usage:
---   sqlcmd -S <server> -d <tenant database> -i add-ai-agents.sql
---   or open in DBeaver / SSMS and run as one script (no GO separators; USE picks the tenant DB).
+--   change the USE line below to the tenant database (QA: smartops_tenant_TNT-1000,
+--   UAT: smartops_tenant_TNT-1000-new), then run in DBeaver / SSMS as one script (no GO separators),
+--   or: sqlcmd -S <server> -d <tenant database> -i add-ai-agents.sql
 -- ═════════════════════════════════════════════════════════════════════════════
 
 SET NOCOUNT ON;
@@ -67,6 +73,13 @@ CREATE TABLE core.AiAgentRuns (
     output_tokens int            NULL,        -- LLM output (completion) tokens
     total_tokens  int            NULL         -- input_tokens + output_tokens
 );
+-- Tokens on the tenant's AI provider, filled from the same numbers as usage_json.
+IF COL_LENGTH('core.AiAgentRuns', 'input_tokens') IS NULL
+    ALTER TABLE core.AiAgentRuns ADD input_tokens int NULL;
+IF COL_LENGTH('core.AiAgentRuns', 'output_tokens') IS NULL
+    ALTER TABLE core.AiAgentRuns ADD output_tokens int NULL;
+IF COL_LENGTH('core.AiAgentRuns', 'total_tokens') IS NULL
+    ALTER TABLE core.AiAgentRuns ADD total_tokens int NULL;
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiAgentRuns_agent')
 CREATE INDEX IX_core_AiAgentRuns_agent ON core.AiAgentRuns (tenant_id, agent_id, started_at DESC);
 
