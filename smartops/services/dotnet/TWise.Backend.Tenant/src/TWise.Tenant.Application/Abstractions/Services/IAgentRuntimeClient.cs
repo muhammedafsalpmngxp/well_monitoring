@@ -25,11 +25,23 @@ public sealed record AgentRuntimeAskData(
     int HistoryTurns,
     string OrgName,
     string ExportPrefix,
-    [property: JsonIgnore] string ChatMode = "deep");
+    [property: JsonIgnore] string ChatMode = "deep",
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeTerm>? Terms = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeColumnNote>? Notes = null);
+
+/// <summary>A business term Ask Data applies when a question uses it: a filter (Column = Value) and / or a Meaning.</summary>
+public sealed record AgentRuntimeTerm(string Term, IReadOnlyList<string> Synonyms, string? Column, string? Value, string? Meaning);
+
+/// <summary>What an Ask Data column ("schema.table.column") or table ("schema.table") is called and means.</summary>
+public sealed record AgentRuntimeColumnNote(string Column, string? DisplayName, string? Note);
 
 /// <summary>The Python agent runtime (services/python/agent_runtime), which runs agents as LangGraph graphs.</summary>
 public interface IAgentRuntimeClient
 {
+    /// <summary>Up to four suggested first questions for Ask your data, built from the column profiles (no AI call); empty
+    /// until the profiles are built. Throws HttpRequestException when the runtime is down.</summary>
+    Task<IReadOnlyList<string>> AskDataStartersAsync(AgentRuntimeAskData askData, CancellationToken ct);
+
     /// <summary>The tools a step can use, with a message when twise is down. Throws HttpRequestException when the runtime is down.</summary>
     Task<AgentToolsDto> ListToolsAsync(CancellationToken ct);
 

@@ -11,7 +11,7 @@ from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
 from app.askdata.common.text import extract_sql
 from app.askdata.settings import current_run
-from app.askdata.tools import value_match
+from app.askdata.tools import knowledge, value_match
 
 log = get_agent_logger("db_assistant")
 
@@ -38,12 +38,14 @@ def _already_gathered(steps: list[dict]) -> str:
 def sql_author_node(state: AgentState) -> dict:
     target = state.get("sub_question") or state["question"]
     matches = state.get("value_matches") or value_match.awaited(current_run().value_matches)[0]
+    terms = knowledge.terms_block(f"{state['question']} {target}", current_run().settings.terms)
     parts = [
         msg("sql_schema"),
         state.get("schema", ""),
         "",
         history_for(state),
         _already_gathered(state.get("steps", [])),
+        "\n" + terms if terms else "",
         "\n" + matches if matches else "",
         msg("sql_request", TARGET=target),
     ]

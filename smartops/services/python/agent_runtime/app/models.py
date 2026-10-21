@@ -93,6 +93,23 @@ class AgentInput(_Camel):
     description: str | None = None     # told to the model when a question fills the inputs (app/prepare.py)
 
 
+class AskDataTerm(_Camel):
+    """A business term (AI Settings > Ask Data & Features > Terms & column names): a filter (column = value) and / or a
+    meaning in plain words."""
+    term: str = Field(min_length=1, max_length=100)
+    synonyms: list[str] = []
+    column: str | None = None            # "schema.table.column", with value
+    value: str | None = None
+    meaning: str | None = None
+
+
+class AskDataColumnNote(_Camel):
+    """What a column ("schema.table.column") or a table ("schema.table") is called and means."""
+    column: str = Field(min_length=1, max_length=200)
+    display_name: str | None = None
+    note: str | None = None
+
+
 class AskDataTenantSettings(_Camel):
     """The tenant's Ask Data settings (core.AiSettings, AI Settings > Ask Data & Features), sent by the Tenant API with every run that
     uses Ask Data. The runtime has no schema, table or column names of its own: no allowed schemas = not set up."""
@@ -107,6 +124,8 @@ class AskDataTenantSettings(_Camel):
     history_turns: int = Field(3, ge=0, le=20)
     org_name: str = ""                   # {{ORG_NAME}} in the prompts
     export_prefix: str = "ask-data"      # start of exported file names
+    terms: list[AskDataTerm] = []        # the business term dictionary
+    notes: list[AskDataColumnNote] = []  # column and table names and notes
 
 
 class AgentOutput(_Camel):
@@ -261,6 +280,12 @@ class AskDataAskRequest(_Camel):
     llm: Llm
     ask_data: AskDataOptions | None = None
     prompts: dict[str, str] = {}         # the tenant's AI prompt texts (askdata.* keys)
+    ask_data_settings: AskDataTenantSettings | None = None
+
+
+class AskDataStartersRequest(_Camel):
+    """Starter questions for an empty Ask your data panel, built from the column profiles (no AI call)."""
+    db: Db
     ask_data_settings: AskDataTenantSettings | None = None
 
 

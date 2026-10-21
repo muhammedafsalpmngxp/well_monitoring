@@ -1,0 +1,24 @@
+// Builds on ../ai-configuration.component.scss (same cards, chips, fields and save bar).
+:host:not([hidden]) { display: block; min-width: 0; }
+
+.adk {
+  &__rows { display: grid; gap: 8px; }
+  &__row {
+    display: grid;
+    gap: 8px;
+    align-items: center;
+    input {
+      min-width: 0; padding: 6px 10px; border: 1px solid #d0d5dd; border-radius: 6px; font: inherit; font-size: 13px; color: #101828;
+      &:focus-visible { outline: 2px solid #21409a; outline-offset: 1px; }
+    }
+    &--term { grid-template-columns: 1fr 1.2fr 1.6fr 1fr 2fr 24px; }
+    &--note { grid-template-columns: 2fr 1.2fr 3fr 24px; }
+  }
+  &__head span { font-size: 12px; font-weight: 600; color: #344054; }
+}
+
+@media (max-width: 900px) {
+  .adk__row--term, .adk__row--note { grid-template-columns: 1fr; padding-bottom: 8px; border-bottom: 1px solid #eaecf0; }
+  .adk__row .ac__chip-x { justify-self: end; }
+  .adk__head { display: none; }
+}

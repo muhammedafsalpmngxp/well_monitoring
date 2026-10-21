@@ -11,6 +11,8 @@ from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
 from app.askdata.common.text import extract_json
+from app.askdata.settings import current_run
+from app.askdata.tools import knowledge
 
 log = get_agent_logger("db_assistant")
 
@@ -63,6 +65,10 @@ def names_known_entity(question: str, schema: str) -> str:
 def orchestrator_node(state: AgentState) -> dict:
     log.info("Q: %s", state.get("question", ""))
     user = msg("orchestrator", HISTORY=format_history(state.get("history")), QUESTION=state["question"])
+    # The company's words the question uses are defined, so they are not a reason to ask back.
+    terms = knowledge.terms_block(state["question"], current_run().settings.terms)
+    if terms:
+        user += "\n\n" + terms
     # Deep mode routes on the MAIN model; normal mode keeps the cheap tier. Measured over 11
     # standalone/follow-up questions asked with a prior turn in history: gpt-4o-mini 8/11 at
     # 2.2s avg, the main model 11/11 at 2.7s avg. EVERY mini miss was a STANDALONE question

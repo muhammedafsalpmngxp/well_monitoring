@@ -10,6 +10,7 @@ Endpoints:
   POST /api/agent-runtime/agentflow/import   agentflow.json v1 -> agent + warnings
   POST /api/agent-runtime/tools/try   calls one Tool (REST) once with sample values
   POST /api/agent-runtime/askdata/export   an Ask Data answer's data as xlsx / docx (signed token, no model call)
+  POST /api/agent-runtime/askdata/starters   suggested first questions for Ask your data (column profiles, no AI)
   POST /api/agent-runtime/askdata/ask   Ask your data: one question on the Ask Data database; events:
                                   status, node (ping when quiet), then done or error
   POST /api/agent-runtime/run     runs one agent configuration; server-sent events:
@@ -50,7 +51,7 @@ from app.errors import user_message
 from app import trace
 from app.graph import RUN_KEYS, approval_update, build_graph, missing_inputs, uses
 from app.prompt_text import missing as missing_prompts
-from app.models import AskDataAskRequest, AskDataExportRequest, JudgeRequest, ResumeRequest, RunRequest, ToolTryRequest
+from app.models import AskDataAskRequest, AskDataExportRequest, AskDataStartersRequest, JudgeRequest, ResumeRequest, RunRequest, ToolTryRequest
 from app import sqlstep
 from app.prepare import Prepared, asks_question, prepare
 from app.sqlstep import SQL_QUERY_TOOL
@@ -171,6 +172,18 @@ def tool_try(req: ToolTryRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=400, detail=f"The call failed: {exc}"[:1000]) from exc
+
+
+@app.post("/api/agent-runtime/askdata/starters", dependencies=[Depends(require_key)])
+def askdata_starters(req: AskDataStartersRequest) -> dict[str, list[str]]:
+    """Suggested first questions for an empty Ask your data panel, from the cached column profiles (none until the
+    first build finishes)."""
+    from app.askdata import runner
+
+    try:
+        return {"questions": runner.starters(req.db, req.ask_data_settings)}
+    except ValueError as exc:   # Ask Data is not set up for this tenant
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/agent-runtime/askdata/export", dependencies=[Depends(require_key)])

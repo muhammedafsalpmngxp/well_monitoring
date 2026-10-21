@@ -157,6 +157,16 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
         return await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
     }
 
+    public async Task<IReadOnlyList<string>> AskDataStartersAsync(AgentRuntimeAskData askData, CancellationToken ct)
+    {
+        using var res = await http.PostAsJsonAsync("api/agent-runtime/askdata/starters", new { db = AskDataDb(), askDataSettings = askData }, Json, ct);
+        if (!res.IsSuccessStatusCode) return [];
+        var body = await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
+        return body.TryGetProperty("questions", out var q) && q.ValueKind == JsonValueKind.Array
+            ? q.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList()
+            : [];
+    }
+
     public async Task<AskDataExportFile> ExportAskDataAsync(AskDataExportRequest request, AgentRuntimeAskData askData, CancellationToken ct)
     {
         using var res = await http.PostAsJsonAsync("api/agent-runtime/askdata/export", new

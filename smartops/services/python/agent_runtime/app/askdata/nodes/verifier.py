@@ -7,7 +7,8 @@ reword an answer built on data that was already wrong — which it has no way to
 """
 from __future__ import annotations
 
-from app.askdata.settings import agent_settings
+from app.askdata.settings import agent_settings, current_run
+from app.askdata.tools import knowledge
 from app.askdata.nodes._common import history_for, render_steps
 from app.askdata.prompts import current_prompts, msg
 from app.askdata.tools.sqlcheck import check as sql_concerns, schema_for_sql
@@ -83,6 +84,10 @@ def verifier_node(state: AgentState) -> dict:
     if history:
         parts.append(history.rstrip())
     parts.append(msg("verifier_question", QUESTION=state["question"]))
+    # A filter that comes from a business term's definition is what the question asked for.
+    terms = knowledge.terms_block(state["question"], current_run().settings.terms)
+    if terms:
+        parts.append(terms)
     parts.append(msg("verifier_data", DATA=render_steps(steps, max_rows=agent_settings.max_rows)))
     if state.get("analysis"):
         parts.append(msg("verifier_analysis", ANALYSIS=state["analysis"]))

@@ -168,6 +168,10 @@
     <div class="ask__welcome" *ngIf="!turns.length && !loadError">
       <p class="ask__welcome-title">How can I help you today?</p>
       <p class="ask__welcome-text">Ask me anything about your data.</p>
+      <div class="ask__suggest ask__starters" *ngIf="!onDataset && starters.length">
+        <small class="ask__muted">Try asking:</small>
+        <button type="button" class="ask__chip" *ngFor="let s of starters" [disabled]="busy" (click)="askSuggestion(s)">{{ s }}</button>
+      </div>
     </div>
 
     <div class="ask__turn" *ngFor="let t of turns; trackBy: trackTurn">
@@ -221,6 +225,10 @@
           <button type="button" class="ask__link" *ngIf="t.chart && can('chart')" (click)="openInChartBuilder(t)"
             [title]="t.spec?.filters?.length ? 'Filters are not carried over; add them in the builder' : ''">Open as {{ t.chart.chartType }} chart</button>
           <button type="button" class="ask__link" *ngIf="t.chart && can('chart')" (click)="openAddToDashboard(t)">Add to dashboard</button>
+        </div>
+        <div class="ask__suggest" *ngIf="t.followUps?.length && !t.status">
+          <small class="ask__muted">Ask next:</small>
+          <button type="button" class="ask__chip" *ngFor="let s of t.followUps" [disabled]="busy" (click)="askSuggestion(s)">{{ s }}</button>
         </div>
         <code class="ask__spec" *ngIf="t.spec && t.showQuery">{{ describe(t.spec) }}</code>
         <pre class="ask__spec ask__sql" *ngIf="!t.spec && t.sql && t.showQuery">{{ t.sql.sql }}</pre>

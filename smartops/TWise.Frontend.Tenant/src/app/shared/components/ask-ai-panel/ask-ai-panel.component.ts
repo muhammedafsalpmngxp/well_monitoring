@@ -34,6 +34,8 @@ interface Turn {
   liked: boolean;
   /** Questions to try after a failure or an empty result. */
   suggestions?: string[];
+  /** Ask Data: next questions for an answer that found something. */
+  followUps?: string[];
   /** The AI asks which reading of the question was meant. */
   clarify?: AiClarification;
   /** Findings worked out from the result: trend, top/bottom, share, outliers. */
@@ -82,6 +84,8 @@ export class AskAiPanelComponent implements OnInit {
   question = '';
   private pendingSpec: AiQuerySpec | null = null;
   busy = false;
+  /** Ask Data's suggested first questions, shown while nothing is asked. */
+  starters: string[] = [];
   showHistory = false;
   loadError = '';
   features: AiFeatures = { enabled: [] };
@@ -192,6 +196,7 @@ export class AskAiPanelComponent implements OnInit {
     this.ai.features().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: f => { this.features = f; this.cdr.markForCheck(); }, error: () => { /* defaults */ } });
     this.loadConversations();
     this.loadAlerts();
+    this.loadStarters();
   }
 
   get canAsk(): boolean {
@@ -212,6 +217,7 @@ export class AskAiPanelComponent implements OnInit {
     this.busy = false;
     this.showHistory = false;
     this.showNotes = false;
+    if (!this.starters.length) this.loadStarters();
   }
 
   openConversation(c: AiConversation): void {
@@ -343,6 +349,7 @@ export class AskAiPanelComponent implements OnInit {
           // The answer is complete at done; the server may still be saving its trace, so the panel does not wait.
           case 'done': if (ev.data && 'conversationId' in ev.data) { this.conversationId = ev.data.conversationId; this.sourceName = ev.data.sourceName; turn.messageId = ev.data.messageId; this.loadConversations(); } this.busy = false; turn.status = ''; break;
           case 'suggestions': turn.suggestions = ev.data; break;
+          case 'followups': turn.followUps = ev.data; break;
           case 'clarify': turn.clarify = ev.data; turn.status = ''; break;
           case 'insights': turn.insights = ev.data; break;
           case 'trace': turn.trace = ev.data; break;
@@ -566,6 +573,14 @@ export class AskAiPanelComponent implements OnInit {
     this.ai.alerts().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: a => { this.alerts = a; this.cdr.markForCheck(); },
       error: () => { /* alerts are optional */ },
+    });
+  }
+
+  /** Ask Data's suggested first questions (none for a dataset, or before the database is profiled). */
+  private loadStarters(): void {
+    this.ai.askDataStarters().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: s => { this.starters = s; this.cdr.markForCheck(); },
+      error: () => { /* suggestions are optional */ },
     });
   }
 

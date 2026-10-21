@@ -136,6 +136,8 @@ export interface AiFailure { id: number; userId: string | null; userName: string
 // ── Ask your data ─────────────────────────────────────────────────────────────
 
 export type AiSourceType = 'view' | 'import';
+/** Where terms and notes live: a dataset, or askdata (id 0) for Ask Data's own, which has no dataset. */
+export type AiKnowledgeSource = AiSourceType | 'askdata';
 
 export interface AiDataset { sourceType: AiSourceType; sourceId: number; name: string; description?: string | null; rowCount?: number | null }
 
@@ -232,6 +234,7 @@ export type AiAskEvent =
   | { type: 'answer'; data: string }
   | { type: 'done'; data: { conversationId: number; sourceName: string; messageId: number } | { cached: boolean } | null }
   | { type: 'suggestions'; data: string[] }
+  | { type: 'followups'; data: string[] }
   | { type: 'clarify'; data: AiClarification }
   | { type: 'insights'; data: string[] }
   | { type: 'trace'; data: AiTraceStep[] }
@@ -379,6 +382,11 @@ export class AiService {
   }
 
   /** Admin: the Ask Data database's schemas, tables and columns, to choose from. */
+  /** Suggested first questions for Ask your data, from what the database holds; [] when there are none yet. */
+  askDataStarters(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_STARTERS}`);
+  }
+
   askDataCatalog(): Observable<AskDataCatalog> {
     return this.http.get<AskDataCatalog>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_CATALOG}`);
   }
@@ -474,7 +482,7 @@ export class AiService {
     return this.http.delete<void>(`${this.api}${API_ENDPOINTS.AI.EXAMPLE(id)}`);
   }
 
-  notes(sourceType: AiSourceType, sourceId: number): Observable<AiDatasetNote[]> {
+  notes(sourceType: AiKnowledgeSource, sourceId: number): Observable<AiDatasetNote[]> {
     return this.http.get<AiDatasetNote[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_NOTES(sourceType, sourceId)}`);
   }
 
@@ -487,12 +495,12 @@ export class AiService {
     return this.http.get<string[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_COLUMNS(sourceType, sourceId)}`);
   }
 
-  terms(sourceType: AiSourceType, sourceId: number): Observable<AiTerm[]> {
+  terms(sourceType: AiKnowledgeSource, sourceId: number): Observable<AiTerm[]> {
     return this.http.get<AiTerm[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_TERMS(sourceType, sourceId)}`);
   }
 
   /** Admin: replaces the dataset's business terms. */
-  saveTerms(sourceType: AiSourceType, sourceId: number, terms: AiTerm[]): Observable<AiTerm[]> {
+  saveTerms(sourceType: AiKnowledgeSource, sourceId: number, terms: AiTerm[]): Observable<AiTerm[]> {
     return this.http.put<AiTerm[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_TERMS(sourceType, sourceId)}`, terms);
   }
 
@@ -520,7 +528,7 @@ export class AiService {
     return this.http.put<AiPromptDto[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_PROMPTS(sourceType, sourceId)}/${key}`, { text });
   }
 
-  saveNotes(sourceType: AiSourceType, sourceId: number, notes: AiDatasetNote[]): Observable<AiDatasetNote[]> {
+  saveNotes(sourceType: AiKnowledgeSource, sourceId: number, notes: AiDatasetNote[]): Observable<AiDatasetNote[]> {
     return this.http.put<AiDatasetNote[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_NOTES(sourceType, sourceId)}`, notes);
   }
 

@@ -122,6 +122,11 @@ public static partial class AiPromptCatalog
         M("value_match", "SQL author: one matched word", "One word of the question and the stored values that contain it."),
         M("value_match_value", "SQL author: one matched value", "One stored value, its column and how many rows hold it."),
         M("value_unmatched", "SQL author: words with no match", "Words of the question that no stored value contains."),
+        M("business_terms", "Business terms block", "The business terms a question uses (Ask Data & Features > Terms & column names), for the orchestrator, SQL author and verifier."),
+        M("business_term_filter", "Business term: filter", "One term defined as a column and a value."),
+        M("business_term_meaning", "Business term: meaning", "One term defined in plain words."),
+        M("column_called", "Column business name", "Added to a column's schema line: what people call it."),
+        M("table_note", "Table note line", "The line under a table in the schema with its business name and note."),
 
         // ── Agents (agent runtime) ────────────────────────────────────────────────────────────────────────────
         G("agent.supervisor", "Supervisor", "Supervisor agents: picks the next step, or FINISH.", "next"),

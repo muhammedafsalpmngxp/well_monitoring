@@ -124,6 +124,16 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
     public Task<IActionResult> SqlReview([FromBody] AiSqlReviewRequest request, CancellationToken ct) =>
         SendAiAsync(async (t, u) => await sender.Send(new ReviewSqlCommand(request, t, u), ct) is { } r ? Ok(r) : NotFound());
 
+    /// <summary>Up to four suggested first questions for Ask your data, from what the Ask Data database holds (no AI call).
+    /// Empty when Ask your data is off for the user, not set up, its column profiles are not built yet or the runtime is down.</summary>
+    [HttpGet("askdata/starters")]
+    [ProducesResponseType(typeof(IReadOnlyList<string>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> AskDataStarters(CancellationToken ct)
+    {
+        if (!TryGetIds(out var tenantId, out _)) return Unauthorized();
+        return Ok(await sender.Send(new GetAskDataStartersQuery(tenantId), ct));
+    }
+
     // ── Conversations (own) ─────────────────────────────────────────────────────
 
     /// <summary>The user's conversations, newest first.</summary>

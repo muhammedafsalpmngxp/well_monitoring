@@ -1,0 +1,81 @@
+<div class="ac__body">
+<app-loader *ngIf="loading" size="sm"></app-loader>
+<div class="ac__alert ac__alert--bad" *ngIf="loadError" role="alert">
+  {{ loadError }}
+  <button type="button" class="ac__link" (click)="load()">Try again</button>
+</div>
+
+<ng-container *ngIf="!loading && !loadError">
+  <!-- Business terms -->
+  <article class="ac__card">
+    <header class="ac__card-head">
+      <div>
+        <h3>Business terms</h3>
+        <p>The company's own words, defined once. When a question uses a term (or a synonym), Ask Data applies its
+          definition exactly: either a filter (a column and a value) or a meaning in plain words.</p>
+      </div>
+      <button type="button" class="btn btn-secondary" (click)="addTerm()">Add term</button>
+    </header>
+    <p class="ac__empty" *ngIf="!terms.length">No terms yet. Example: <strong>NPT</strong>, meaning
+      <em>downtime_hours where category = 'Non-productive'</em>.</p>
+    <div class="adk__rows" *ngIf="terms.length">
+      <div class="adk__row adk__row--term adk__head" aria-hidden="true">
+        <span>Term</span><span>Synonyms</span><span>Column</span><span>Value</span><span>Meaning</span><span></span>
+      </div>
+      <div class="adk__row adk__row--term" *ngFor="let t of terms; let i = index; trackBy: trackIndex">
+        <input type="text" [(ngModel)]="t.term" [name]="'term' + i" maxlength="100" placeholder="e.g. NPT" aria-label="Term" />
+        <input type="text" [(ngModel)]="t.synonyms" [name]="'syn' + i" maxlength="500" placeholder="comma separated" aria-label="Synonyms" />
+        <input type="text" [(ngModel)]="t.column" [name]="'col' + i" maxlength="200" list="adk-columns" placeholder="schema.table.column" aria-label="Column" />
+        <input type="text" [(ngModel)]="t.value" [name]="'val' + i" maxlength="400" placeholder="stored value" aria-label="Value" />
+        <input type="text" [(ngModel)]="t.meaning" [name]="'mean' + i" maxlength="500" placeholder="or: what it means" aria-label="Meaning" />
+        <button type="button" class="ac__chip-x" (click)="removeTerm(i)" [attr.aria-label]="'Remove term ' + (t.term || (i + 1))">×</button>
+      </div>
+    </div>
+  </article>
+
+  <!-- Column names and notes -->
+  <article class="ac__card">
+    <header class="ac__card-head">
+      <div>
+        <h3>Column names and notes</h3>
+        <p>What people call a column or table, and what it means. Ask Data understands the name in questions and shows it as
+          the column header in answers, e.g. <strong>FLAF Score</strong> for <code>bl_flaf_scr</code>.</p>
+      </div>
+      <button type="button" class="btn btn-secondary" (click)="addNote()">Add column</button>
+    </header>
+    <p class="ac__empty" *ngIf="!notes.length">No names or notes yet.</p>
+    <div class="adk__rows" *ngIf="notes.length">
+      <div class="adk__row adk__row--note adk__head" aria-hidden="true">
+        <span>Column or table</span><span>Shown as</span><span>Note</span><span></span>
+      </div>
+      <div class="adk__row adk__row--note" *ngFor="let n of notes; let i = index; trackBy: trackIndex">
+        <input type="text" [(ngModel)]="n.column" [name]="'ncol' + i" maxlength="200" list="adk-columns-tables" placeholder="schema.table.column" aria-label="Column or table" />
+        <input type="text" [(ngModel)]="n.displayName" [name]="'nname' + i" maxlength="200" placeholder="e.g. FLAF Score" aria-label="Shown as" />
+        <input type="text" [(ngModel)]="n.note" [name]="'nnote' + i" maxlength="1000" placeholder="what it means, units, code values…" aria-label="Note" />
+        <button type="button" class="ac__chip-x" (click)="removeNote(i)" [attr.aria-label]="'Remove ' + (n.column || 'row ' + (i + 1))">×</button>
+      </div>
+    </div>
+    <small class="ac__hint" *ngIf="!catalog">The column list appears once the database catalog has loaded (Ask Data section).</small>
+  </article>
+
+  <datalist id="adk-columns"><option *ngFor="let c of columns" [value]="c"></option></datalist>
+  <datalist id="adk-columns-tables"><option *ngFor="let t of tables" [value]="t"></option><option *ngFor="let c of columns" [value]="c"></option></datalist>
+
+  <!-- Save bar -->
+  <div class="ac__bar" [class.ac__bar--dirty]="dirty">
+    <div class="ac__bar-info">
+      <ul class="ac__problems" *ngIf="dirty && problems.length">
+        <li *ngFor="let p of problems">{{ p }}</li>
+      </ul>
+      <span *ngIf="dirty && !problems.length">Unsaved changes.</span>
+      <p class="ac__msg" *ngIf="message && !(dirty && message.ok)" [class.ac__msg--ok]="message.ok" [class.ac__msg--bad]="!message.ok" role="status">{{ message.text }}</p>
+    </div>
+    <div class="ac__bar-actions">
+      <button type="button" class="btn btn-secondary" [disabled]="saving || !dirty" (click)="discard()">Discard</button>
+      <button type="button" class="btn btn-primary" [disabled]="saving || !dirty || problems.length > 0" (click)="save()">
+        {{ saving ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+  </div>
+</ng-container>
+</div>

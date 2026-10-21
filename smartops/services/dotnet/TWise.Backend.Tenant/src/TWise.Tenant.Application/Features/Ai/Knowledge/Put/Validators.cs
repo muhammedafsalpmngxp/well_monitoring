@@ -5,7 +5,14 @@ namespace TWise.Tenant.Application.Features.Ai.Knowledge;
 
 public sealed class SaveAiDatasetNotesCommandValidator : AbstractValidator<SaveAiDatasetNotesCommand>
 {
-    public SaveAiDatasetNotesCommandValidator() => RuleFor(x => x.SourceType).Must(AiSources.IsSourceType).WithMessage(AiSources.Message);
+    public SaveAiDatasetNotesCommandValidator()
+    {
+        RuleFor(x => x.SourceType).Must((x, s) => AiSources.IsKnowledgeSource(s, x.SourceId)).WithMessage(AiSources.KnowledgeMessage);
+        // Ask Data has no dataset: a note names its table or column in full.
+        RuleForEach(x => x.Notes).Must(n => string.IsNullOrWhiteSpace(n.Column) || AiSources.IsAskDataColumn(n.Column.Trim(), tableAllowed: true))
+            .When(x => x.SourceType == AiSources.AskData)
+            .WithMessage(n => "Give the column as schema.table.column (or schema.table for a table).");
+    }
 }
 
 public sealed class SaveAiDatasetMetricsCommandValidator : AbstractValidator<SaveAiDatasetMetricsCommand>
@@ -33,7 +40,10 @@ public sealed class SaveAiDatasetTermsCommandValidator : AbstractValidator<SaveA
 {
     public SaveAiDatasetTermsCommandValidator()
     {
-        RuleFor(x => x.SourceType).Must(AiSources.IsSourceType).WithMessage(AiSources.Message);
+        RuleFor(x => x.SourceType).Must((x, s) => AiSources.IsKnowledgeSource(s, x.SourceId)).WithMessage(AiSources.KnowledgeMessage);
+        RuleForEach(x => x.Terms).Must(t => string.IsNullOrWhiteSpace(t.Column) || AiSources.IsAskDataColumn(t.Column.Trim(), tableAllowed: false))
+            .When(x => x.SourceType == AiSources.AskData)
+            .WithMessage("Give a term's column as schema.table.column.");
         RuleFor(x => x.Terms).Custom((terms, ctx) =>
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

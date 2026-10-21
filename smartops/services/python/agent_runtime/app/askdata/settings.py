@@ -11,9 +11,25 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, NamedTuple
 
 CACHE_ROOT = Path(os.environ.get("AGENT_RUNTIME_CACHE", Path(__file__).resolve().parents[2] / ".cache"))
+
+
+class Term(NamedTuple):
+    """A business term (tools/knowledge.py): a filter column = value, and / or a meaning."""
+    term: str
+    synonyms: tuple[str, ...] = ()
+    column: str = ""
+    value: str = ""
+    meaning: str = ""
+
+
+class ColumnNote(NamedTuple):
+    """What a column ("schema.table.column", lower case) or a table ("schema.table") is called and means."""
+    column: str
+    display_name: str = ""
+    note: str = ""
 
 
 @dataclass(frozen=True)
@@ -31,6 +47,8 @@ class AskDataSettings:
     excluded_columns: tuple[str, ...] = ()
     org_name: str = ""                 # {{ORG_NAME}} in the prompts
     export_prefix: str = "ask-data"
+    terms: tuple[Term, ...] = ()
+    notes: tuple[ColumnNote, ...] = ()
     # Export (tools/export.py): full re-read of an answer's SQL, no model call.
     export_max_rows: int = 1_000_000
     export_query_timeout: int = 600

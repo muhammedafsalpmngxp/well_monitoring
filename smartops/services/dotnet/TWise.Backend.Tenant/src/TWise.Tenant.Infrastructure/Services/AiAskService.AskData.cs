@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai;
 using TWise.Tenant.Application.Features.Ai.AskDataSettings;
 using TWise.Tenant.Domain.DTOs;
@@ -40,7 +41,8 @@ public sealed partial class AiAskService
         JsonElement? done = null;
         yield return new AiAskEvent("status", "Understanding your question…");
         // What Ask Data may read and its limits come from the tenant's AI Settings; so does how much history it keeps.
-        var askData = AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct));
+        // ... with the tenant's business terms and column names (Terms & column names).
+        var askData = await AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, tenantId, ct);
         var texts = AiPromptCatalog.RuntimeTexts(await prompts.GetAsync(tenantId, ct));
         await foreach (var ev in Guarded(runtime.AskDataAsync(question, history.TakeLast(askData.HistoryTurns).ToList(), llm, texts, askData, ct), m => failed = m, ct))
         {
@@ -74,10 +76,13 @@ public sealed partial class AiAskService
         var accepted = steps.Where(s => !Rejected(s)).ToList();
         var sql = Str(d, "sql") ?? (accepted.Count > 0 ? Str(accepted[^1], "sql") : null);
         if (!string.IsNullOrWhiteSpace(sql)) yield return new AiAskEvent("sql", new { sql, verified, queries = accepted.Count });
-        if (Result(d) is { } result) yield return new AiAskEvent("result", result);
+        if (Result(d) is { } result) yield return new AiAskEvent("result", result with { Labels = AskDataLabels(result.Columns, askData.Notes) });
         var answer = Str(d, "answer") ?? "";
         if (!verified) answer += "\n\n_The figures could not be verified: treat them as indicative._";
         yield return new AiAskEvent("answer", answer);
+        // Next questions from what the database holds: follow-ups of an answer, or questions that work here when nothing was found.
+        if (Strings(d, "follow_ups") is { Count: > 0 } next) yield return new AiAskEvent("followups", next);
+        else if (Strings(d, "suggestions") is { Count: > 0 } other) yield return new AiAskEvent("suggestions", other);
         // After the answer is on screen: every save below is a round trip to the tenant database.
         await LogAskDataUsageAsync(d, tenantId, userId);
 
@@ -94,6 +99,23 @@ public sealed partial class AiAskService
         try { await conversations.AddTraceAsync(new AiTrace { MessageId = assistant.Id, TraceJson = JsonSerializer.Serialize(trace, Json) }, CancellationToken.None); }
         catch (Exception ex) when (ex is not OperationCanceledException) { /* answer already saved */ }
     }
+
+    /// <summary>Table headers in the tenant's business names (Terms & column names): a result column named like a noted
+    /// column (its last part) shows that name, when every noted column of that name has the same one.</summary>
+    private static IReadOnlyDictionary<string, string>? AskDataLabels(IReadOnlyList<string> columns, IReadOnlyList<AgentRuntimeColumnNote>? notes)
+    {
+        var names = (notes ?? []).Where(n => !string.IsNullOrWhiteSpace(n.DisplayName) && n.Column.Count(c => c == '.') == 2)
+            .GroupBy(n => n.Column[(n.Column.LastIndexOf('.') + 1)..].Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Select(n => n.DisplayName!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1)
+            .ToDictionary(g => g.Key, g => g.First().DisplayName!.Trim(), StringComparer.OrdinalIgnoreCase);
+        var labels = columns.Where(names.ContainsKey).ToDictionary(c => c, c => names[c]);
+        return labels.Count > 0 ? labels : null;
+    }
+
+    private static List<string>? Strings(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Array
+            ? v.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToList()
+            : null;
 
     /// <summary>Earlier turns as the runtime expects them: {user, assistant} pairs, oldest first.</summary>
     private static List<Dictionary<string, string>> HistoryPairs(IReadOnlyList<AiChatMessage> history)

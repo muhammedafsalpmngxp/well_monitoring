@@ -71,6 +71,24 @@ def _value_matches() -> str:
                   Match("kap flowline", "well.flowline.flowline_name", "KAP Flowline", 12)], ["wells"])
 
 
+def _terms():
+    """The tenant's business terms in every scenario's run; only questions that use them get the block."""
+    from app.askdata.settings import Term
+    return (Term("NPT", ("non-productive time",), meaning="downtime_hours where category = 'Non-productive'"),
+            Term("dry well", (), "well.well_master.cluster", "Dry"))
+
+
+def _named_schema() -> str:
+    """SCHEMA with the tenant's column and table names and notes (tools/knowledge.annotate)."""
+    from app.askdata.settings import ColumnNote
+    from app.askdata.tools.knowledge import annotate
+    return annotate(SCHEMA, [ColumnNote("well.task_daily.progress", "Daily progress", "percent of the day's plan"),
+                             ColumnNote("well.well_master", "", "one row per well")])
+
+
+TERMS_QUESTION = "What is the NPT of dry wells?"
+
+
 def askdata_scenarios() -> list[tuple[str, str, dict[str, Any], list[str]]]:
     """(name, node, state, canned replies)."""
     return [
@@ -94,6 +112,11 @@ def askdata_scenarios() -> list[tuple[str, str, dict[str, Any], list[str]]]:
          ["```sql\nSELECT 1\n```"]),
         ("sql_author/value-matches", "sql_author", _state(question="Wells in marmul on the kap flowline",
                                                          value_matches=_value_matches()), ["```sql\nSELECT 1\n```"]),
+        ("sql_author/business-terms", "sql_author", _state(question=TERMS_QUESTION), ["```sql\nSELECT 1\n```"]),
+        ("sql_author/column-names", "sql_author", _state(question="Average daily progress?", schema=_named_schema()),
+         ["```sql\nSELECT 1\n```"]),
+        ("orchestrator/business-terms", "orchestrator", _state(question=TERMS_QUESTION), ['{"route":"sql"}']),
+        ("verifier/business-terms", "verifier", _state(question=TERMS_QUESTION, steps=[STEP]), ['{"ok": true}']),
         ("analysis/plain", "analysis", _state(steps=[STEP]), ["analysis text"]),
         ("analysis/truncated-followup", "analysis", _state(steps=[WIDE], is_followup=True, history=HISTORY), ["analysis text"]),
         ("analysis/no-columns-no-rows", "analysis", _state(steps=[NO_COLUMNS, NO_ROWS]), ["analysis text"]),
@@ -133,7 +156,8 @@ def run_askdata(adapter, concerns: list[str] | None = None) -> list[dict[str, An
     out = []
     for knowledge in ("default", "agent"):
         br, fs = (None, None) if knowledge == "default" else ("AGENT RULE: wells are counted by well_id.", "Q: wells?\nSELECT 1")
-        run = AskDataRun(settings=AskDataSettings(max_rows=500), db=DbTarget(server="s", name="n", user="u", password="p"))
+        run = AskDataRun(settings=AskDataSettings(max_rows=500, terms=_terms()),
+                         db=DbTarget(server="s", name="n", user="u", password="p"))
         with run_context(run):
             run.prompts = adapter.prompt_set(500, br, fs)
             for name, node, state, replies in askdata_scenarios():

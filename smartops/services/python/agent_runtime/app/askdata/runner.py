@@ -21,8 +21,9 @@ from app.askdata.nodes._common import answer_steps
 from app.askdata.prompts import KEYS as PROMPT_KEYS, build_prompts, knowledge
 from app.prompt_text import missing
 from app.askdata.tools import export as export_svc
-from app.askdata.settings import AskDataRun, AskDataSettings, DbTarget, run_context
-from app.askdata.tools import column_profile, value_match
+from app.askdata.settings import AskDataRun, AskDataSettings, ColumnNote, DbTarget, Term, run_context
+from app.askdata.tools import column_profile, suggest, value_match
+from app.askdata.tools.knowledge import annotate as annotate_notes, known_words
 from app.askdata.tools.schema_introspect import _cache_path, _value_cache_path, build_schema_text, build_value_hints
 
 log = logging.getLogger("askdata.runner")
@@ -141,9 +142,12 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
         # What each column holds (built in the background; none until the first build finishes), and the stored
         # values the question's words match, so filters use real values instead of guessed spellings.
         profiles = column_profile.current()
-        schema = column_profile.annotate(_schema(run), profiles)
+        # The tenant's column names and notes (AI Settings > Ask Data & Features > Terms & column names) go after the
+        # profiles; a term's words and a business name are definitions, not values to look up.
+        schema = annotate_notes(column_profile.annotate(_schema(run), profiles), settings.notes)
         if profiles:
-            run.value_matches = value_match.start(question, schema, profiles)
+            run.value_matches = value_match.start(question, schema, profiles,
+                                                  known_words(question, settings.terms, settings.notes))
         route: list[tuple[str, float, list, dict]] = []    # for the log: node, seconds, AI calls, what it returned
         # Each label below is sent when its node finishes; this one covers the first node while it runs.
         yield {"event": "status", "data": {"stage": STAGE_LABELS["orchestrator"]}}
@@ -165,11 +169,35 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
                 final = chunk
         # Inside the run: the export token is signed with this run's settings.
         response = _response(final, mode, time.monotonic() - started, run.usage)
+        response.update(_suggestions(question, response, profiles, settings.notes, schema))
         if run.value_matches is not None:
             block, seconds = value_match.awaited(run.value_matches)
             route.insert(0, ("value match", seconds, [], {"value_matches": block}))
     trace.route(f"Ask Data ({mode})", question, route, response)
     yield {"event": "done", "data": response}
+
+
+def _suggestions(question: str, response: dict[str, Any], profiles: dict, notes: tuple[ColumnNote, ...],
+                 schema: str = "") -> dict[str, list[str]]:
+    """Next questions for the panel: {"follow_ups": [...]} for an answer that found something, else (nothing found,
+    small talk) {"suggestions": [...]}, questions that work here; {} while the question is being clarified."""
+    if response.get("route") == "clarify" or not profiles:
+        return {}
+    rows = (response.get("data") or {}).get("rows") or []
+    found = bool(rows) and not (len(rows) == 1 and all(v in (0, None, "") for v in rows[0]))
+    # A query that reads no table only carries a message ("... is not available"): nothing was found.
+    if response.get("route") == "sql" and found and suggest.reads_tables(response.get("sql") or ""):
+        return {"follow_ups": suggest.follow_ups(response.get("sql") or "", profiles, notes)}
+    return {"suggestions": [q for q in suggest.starters(profiles, notes, schema) if q.lower() != question.strip().lower()]}
+
+
+def starters(db: Any, tenant: Any) -> list[str]:
+    """Starter questions for an empty panel, from the cached column profiles ([] until the first build finishes,
+    which this starts)."""
+    run = AskDataRun(settings=settings_for(None, tenant), db=target(db))
+    with run_context(run):
+        profiles = column_profile.current()
+        return suggest.starters(profiles, run.settings.notes, _schema(run)) if profiles else []
 
 
 def without_export_hints(answer: str) -> str:
@@ -220,7 +248,12 @@ def settings_for(options: Any, tenant: Any = None) -> AskDataSettings:
         max_queries=tenant.max_queries, verify_retries=tenant.verify_retries, history_turns=tenant.history_turns,
         allowed_schemas=allowed or base, excluded_tables=_names(tenant.excluded_tables),
         excluded_columns=_names(tenant.excluded_columns), org_name=(tenant.org_name or "").strip(),
-        export_prefix=tenant.export_prefix or "")
+        export_prefix=tenant.export_prefix or "",
+        terms=tuple(Term(t.term.strip(), tuple(x.strip() for x in t.synonyms if x.strip()), (t.column or "").strip(),
+                         (t.value or "").strip(), (t.meaning or "").strip())
+                    for t in tenant.terms or () if t.term.strip()),
+        notes=tuple(ColumnNote(n.column.strip().lower(), (n.display_name or "").strip(), (n.note or "").strip())
+                    for n in tenant.notes or () if n.column.strip()))
 
 
 def target(db: Any) -> DbTarget:

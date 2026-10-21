@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
+using TWise.Tenant.Application.Features.Ai.Knowledge;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
 
@@ -51,6 +53,21 @@ public static partial class AskDataSettingsRules
             s.AskDataMaxRows, s.AskDataQueryTimeout, s.AskDataMaxQueries, s.AskDataSqlRetries, s.AskDataVerifyRetries, s.AskDataHistoryTurns,
             s.AskDataOrgName, s.AskDataExportPrefix, ChatMode(s.AskDataChatMode), s.ModifiedBy,
             s.ModifiedAt == default ? null : DateTime.SpecifyKind(s.ModifiedAt, DateTimeKind.Utc));
+    }
+
+    /// <summary>The settings with the tenant's Ask Data business terms and column names (AI Settings → Ask Data & Features →
+    /// Terms & column names), which every Ask Data run applies: the panel's and agents' Ask Data steps.</summary>
+    public static async Task<AgentRuntimeAskData> WithKnowledgeAsync(this AgentRuntimeAskData askData, IAiKnowledgeRepository knowledge,
+        long tenantId, CancellationToken ct)
+    {
+        var terms = await knowledge.GetTermsAsync(tenantId, AiSources.AskData, 0, ct) ?? [];
+        var notes = await knowledge.GetNotesAsync(tenantId, AiSources.AskData, 0, ct) ?? [];
+        return askData with
+        {
+            Terms = terms.Select(t => new AgentRuntimeTerm(t.Term, AiKnowledgeRules.Synonyms(t.Synonyms), t.ColumnName, t.Value, t.Meaning)).ToList(),
+            Notes = notes.Where(n => !string.IsNullOrWhiteSpace(n.ColumnName))
+                .Select(n => new AgentRuntimeColumnNote(n.ColumnName!, n.DisplayName, string.IsNullOrWhiteSpace(n.Note) ? null : n.Note)).ToList(),
+        };
     }
 
     /// <summary>What the runtime gets with every Ask Data run. No settings row = not set up (no schemas): it refuses.</summary>

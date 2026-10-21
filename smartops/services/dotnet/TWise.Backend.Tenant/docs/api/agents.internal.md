@@ -213,6 +213,8 @@ the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_
   (`trace.route`: Step 1:, Step 2:, ... with time, AI tokens and what each step produced).
 * `ASKDATA_PROFILES=off` switches both off (the tests set it).
 
+**Business terms, column names and suggested questions:** see `ask-data-knowledge.internal.md`.
+
 **Ask your data panel (`POST /api/ai/ask`, `AiAskService.AskData.cs`), tenant-database round trips:** the tenant DB is
 remote on QA (each save ~0.5-1.5 s), so the path keeps them few. `AiSettingsRepository` and `AiFeatureRoleRepository`
 read once per request (scoped; a question checked the settings 4 times and the grants twice). The usage rows of one

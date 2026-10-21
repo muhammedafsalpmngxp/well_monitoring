@@ -227,6 +227,9 @@
       </div>
     </section>
 
+    <!-- Ask Data's business terms and column names (kept alive, so switching sections keeps drafts) -->
+    <app-ask-data-knowledge [hidden]="activeSection !== 'ask-data-terms'" [catalog]="catalog"></app-ask-data-knowledge>
+
     <!-- Agentic Features: one section each, built from the feature's own setting definitions -->
     <app-feature-settings *ngFor="let f of features; trackBy: trackFeature" [hidden]="activeSection !== f.feature"
       [settings]="f" [catalog]="catalog" [catalogError]="catalogError" (saved)="onFeatureSaved($event)" (reloadCatalog)="loadCatalog()">

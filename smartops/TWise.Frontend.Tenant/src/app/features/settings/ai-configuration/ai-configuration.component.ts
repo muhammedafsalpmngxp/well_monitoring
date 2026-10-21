@@ -6,6 +6,7 @@ import { AgenticFeatureSettings, AiService, AskDataCatalog, AskDataSettings, Sav
 /** The fixed sections of AI Settings → Ask Data & Features. Ask Data is the first; each Agentic Feature adds its own (from the API). */
 export const AI_SETTINGS_SECTIONS: { key: string; title: string; hint: string }[] = [
   { key: 'ask-data', title: 'Ask Data', hint: 'What Ask your data and agent Ask Data steps may read, and their limits.' },
+  { key: 'ask-data-terms', title: 'Terms & column names', hint: "The company's words and what columns are called, for Ask Data." },
 ];
 
 /** A number field of the Limits card: bounds as the API checks them. */
@@ -117,7 +118,7 @@ export class AiConfigurationComponent implements OnInit {
 
   /** Set up: Ask Data has a schema; a feature has its tables (or schemas) chosen. */
   isConfigured(key: string): boolean {
-    if (key === 'ask-data') return !!this.saved?.configured;
+    if (key === 'ask-data' || key === 'ask-data-terms') return !!this.saved?.configured;
     const f = this.feature(key);
     return !!f && (f.access.includedTables.length > 0 || (f.accessMode === 'schemas' && f.access.allowedSchemas.length > 0));
   }

@@ -66,10 +66,11 @@ def _schema_words(schema_text: str) -> set[str]:
     return {w.lower() for n in names for w in _WORD.findall(n.replace("_", " "))}
 
 
-def terms(question: str, schema_text: str) -> list[str]:
-    """Search words: quoted phrases first, then words of 3+ characters that are not common words or table / column
-    names, then two-word phrases of those words. Numbers under 4 digits are skipped ("top 10" matches too much)."""
-    known = _schema_words(schema_text)
+def terms(question: str, schema_text: str, exclude: frozenset[str] = frozenset()) -> list[str]:
+    """Search words: quoted phrases first, then words of 3+ characters that are not common words, table / column
+    names or ``exclude`` (business terms and names), then two-word phrases of those words. Numbers under 4 digits are
+    skipped ("top 10" matches too much)."""
+    known = _schema_words(schema_text) | exclude
     out: list[str] = []
 
     def add(t: str) -> None:
@@ -217,8 +218,9 @@ def _live(found_terms: list[str], profiles: dict) -> list[Hit]:
     return hits
 
 
-def find(question: str, schema_text: str, profiles: dict, live: bool = True) -> tuple[list[Match], list[str]]:
-    found_terms = terms(question, schema_text)
+def find(question: str, schema_text: str, profiles: dict, live: bool = True,
+         exclude: frozenset[str] = frozenset()) -> tuple[list[Match], list[str]]:
+    found_terms = terms(question, schema_text, exclude)
     if not found_terms or not profiles:
         return [], []
     hits = _in_profiles(found_terms, profiles)
@@ -253,12 +255,12 @@ def block(matches: list[Match], missing: list[str]) -> str:
 _BACKGROUND = ThreadPoolExecutor(max_workers=4, thread_name_prefix="askdata-value-match")
 
 
-def start(question: str, schema_text: str, profiles: dict):
+def start(question: str, schema_text: str, profiles: dict, exclude: frozenset[str] = frozenset()):
     """for_question in the background, so it runs while the orchestrator works (only the SQL Author needs it): a
     Future of (block, seconds)."""
     def timed() -> tuple[str, float]:
         started = time.monotonic()
-        return for_question(question, schema_text, profiles), time.monotonic() - started
+        return for_question(question, schema_text, profiles, exclude), time.monotonic() - started
     # The lookup needs the run's database (a context variable): the task gets a copy.
     return _BACKGROUND.submit(contextvars.copy_context().run, timed)
 
@@ -274,9 +276,9 @@ def awaited(pending) -> tuple[str, float]:
         return "", 0.0
 
 
-def for_question(question: str, schema_text: str, profiles: dict) -> str:
+def for_question(question: str, schema_text: str, profiles: dict, exclude: frozenset[str] = frozenset()) -> str:
     try:
-        return block(*find(question, schema_text, profiles))
+        return block(*find(question, schema_text, profiles, exclude=exclude))
     except Exception as exc:  # noqa: BLE001 - an aid: the question is answered without it
         log.warning("value match: skipped (%s)", exc)
         return ""
