@@ -10,7 +10,7 @@ from __future__ import annotations
 from app.askdata.settings import agent_settings
 from app.askdata.nodes._common import history_for, render_steps
 from app.askdata.prompts import current_prompts, msg
-from app.askdata.tools.sqlcheck import check as sql_concerns
+from app.askdata.tools.sqlcheck import check as sql_concerns, schema_for_sql
 from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
@@ -70,10 +70,15 @@ def verifier_node(state: AgentState) -> dict:
     # History matters for correctness: without it the reviewer cannot resolve a follow-up like
     # "how many are completed?" and rejects a correct query as "ambiguous" — which the SQL Author
     # cannot fix, because the query was right all along.
+    #
+    # Only the tables the executed SQL reads go to the model: it judges a query that is already written, and the whole
+    # schema was ~75% of its prompt. The deterministic check below still gets the whole schema.
     schema = state.get("schema", "")
     parts = []
     if schema:
-        parts.append(msg("verifier_schema", SCHEMA=schema))
+        shown, kept, total = schema_for_sql([s.get("sql", "") for s in steps], schema)
+        log.info("verify: schema cut to %d of %d tables (%d -> %d chars)", kept, total, len(schema), len(shown))
+        parts.append(msg("verifier_schema", SCHEMA=shown))
     history = history_for(state)
     if history:
         parts.append(history.rstrip())
