@@ -38,20 +38,46 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
         return new AgentToolsDto(body?.Tools ?? [], body?.Message);
     }
 
-    public async IAsyncEnumerable<AgentRuntimeEvent> RunAsync(SaveAiAgentRequest agent, IReadOnlyDictionary<string, string> inputs,
-        AgentRuntimeLlm? llm, string sessionId, IReadOnlyDictionary<string, string> prompts, AgentRuntimeAskData askData,
-        [EnumeratorCancellation] CancellationToken ct)
+    public async IAsyncEnumerable<AgentRuntimeEvent> RunAsync(AgentRunContext run, [EnumeratorCancellation] CancellationToken ct)
     {
-        // Ask Data and Saved SQL steps read the Ask Data database (its login), under the tenant's Ask Data settings.
-        var usesDatabase = AgentMapping.UsesDatabase(agent);
-        using var req = new HttpRequestMessage(HttpMethod.Post, "api/agent-runtime/run")
+        await foreach (var ev in StreamAsync("api/agent-runtime/run", Body(run), ct)) yield return ev;
+    }
+
+    public async IAsyncEnumerable<AgentRuntimeEvent> ResumeAsync(AgentRunContext run, AgentResume resume, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var body = new Dictionary<string, object?>(Body(run))
         {
-            Content = JsonContent.Create(new
-            {
-                agent, inputs, llm, sessionId, db = usesDatabase ? AskDataDb() : null, prompts,
-                askDataSettings = usesDatabase ? askData : null,
-            }, options: Json),
+            ["state"] = resume.State, ["node"] = resume.Node, ["decision"] = resume.Decision, ["text"] = resume.Text ?? "", ["by"] = resume.By,
         };
+        await foreach (var ev in StreamAsync("api/agent-runtime/resume", body, ct)) yield return ev;
+    }
+
+    public async Task<AgentJudgeResult> JudgeAsync(AgentRuntimeLlm llm, string question, string answer, string expectation, CancellationToken ct)
+    {
+        using var res = await http.PostAsJsonAsync("api/agent-runtime/eval/judge", new { llm, question, answer, expectation }, Json, ct);
+        if (!res.IsSuccessStatusCode)
+            throw new HttpRequestException($"{(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync(ct))}");
+        var body = await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
+        return new AgentJudgeResult(body.TryGetProperty("pass", out var p) && p.ValueKind == JsonValueKind.True,
+            body.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "");
+    }
+
+    private Dictionary<string, object?> Body(AgentRunContext r) => new()
+    {
+        ["agent"] = r.Agent, ["inputs"] = r.Inputs, ["llm"] = r.Llm, ["memories"] = r.Memories, ["subagents"] = r.Subagents,
+        ["thread"] = r.Thread, ["sessionId"] = r.SessionId, ["prompts"] = r.Prompts ?? new Dictionary<string, string>(),
+        // Ask Data and Saved SQL steps (the agent's or a sub-agent's) read the Ask Data database, under the tenant's settings.
+        ["db"] = UsesDatabase(r) ? AskDataDb() : null,
+        ["askDataSettings"] = UsesDatabase(r) ? r.AskData : null,
+    };
+
+    private static bool UsesDatabase(AgentRunContext r) =>
+        AgentMapping.UsesDatabase(r.Agent) || r.Subagents.Values.Any(AgentMapping.UsesDatabase);
+
+    /// <summary>POSTs the body and reads the runtime's server-sent events.</summary>
+    private async IAsyncEnumerable<AgentRuntimeEvent> StreamAsync(string path, object body, [EnumeratorCancellation] CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body, options: Json) };
         await foreach (var ev in EventsAsync(req, ct)) yield return ev;
     }
 
@@ -115,6 +141,19 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
             throw new HttpRequestException($"{(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync(ct))}");
         return await res.Content.ReadFromJsonAsync<AgentFlowImportDto>(Json, ct)
             ?? throw new InvalidOperationException("The file could not be imported.");
+    }
+
+    public async Task<JsonElement> TryToolAsync(AiAgentCustomToolDto tool, IReadOnlyDictionary<string, JsonElement> args, CancellationToken ct)
+    {
+        using var res = await http.PostAsJsonAsync("api/agent-runtime/tools/try", new { tool, args }, Json, ct);
+        if ((int)res.StatusCode == 400)
+        {
+            var detail = await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
+            throw new InvalidOperationException(detail.TryGetProperty("detail", out var d) ? d.GetString() : "The tool could not be called.");
+        }
+        if (!res.IsSuccessStatusCode)
+            throw new HttpRequestException($"{(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync(ct))}");
+        return await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
     }
 
     public async Task<AskDataExportFile> ExportAskDataAsync(AskDataExportRequest request, AgentRuntimeAskData askData, CancellationToken ct)

@@ -21,6 +21,7 @@ using TWise.Tenant.Application.Features.Ai.Settings;
 using TWise.Tenant.Application.Features.Ai.SqlReview;
 using TWise.Tenant.Domain.DTOs;
 
+using TWise.Tenant.Application.Features.Ai.ModelPrices;
 namespace TWise.Tenant.API.Controllers;
 
 /// <summary>
@@ -551,6 +552,19 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> RestorePrompt(string key, [FromBody] RestoreAiPromptRequest request, CancellationToken ct) =>
         AdminAsync(async t => Ok(await sender.Send(new RestoreAiPromptCommand(t, UserName(), key, request), ct)));
+    /// <summary>The model price catalog and the active provider's models, for agent cost estimates (any signed-in user).</summary>
+    [HttpGet("model-prices")]
+    [ProducesResponseType(typeof(AiModelPricesDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ModelPrices(CancellationToken ct) =>
+        TryGetTenantId(out var t) ? Ok(await sender.Send(new GetAiModelPricesQuery(t), ct)) : Unauthorized();
+
+    /// <summary>Replaces the model price catalog (admins).</summary>
+    [HttpPut("model-prices")]
+    [ProducesResponseType(typeof(AiModelPricesDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> SaveModelPrices([FromBody] IReadOnlyList<AiModelPriceDto> prices, CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new SaveAiModelPricesCommand(t, UserId(), prices), ct)));
 
     /// <summary>All registered providers, active first.</summary>
     [HttpGet("providers")]

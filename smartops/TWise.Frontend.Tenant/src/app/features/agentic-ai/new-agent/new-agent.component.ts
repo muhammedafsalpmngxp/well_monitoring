@@ -1,9 +1,14 @@
 import { Location } from '@angular/common';
 import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
-import { Agent, AgentBranch, AgentsService, AgentTool, AgentStepResult, AgentToolOption, AgentType, QUESTION_INPUT, SaveAgentRequest, SQL_QUERY_TOOL,
-  StepKind, understoodText } from '../agents.service';
+import { Observable, Subscription } from 'rxjs';
+import { templateAgent } from '../catalog/agent-templates';
+import { EditHistory } from './agent-canvas/canvas-clipboard';
+import { AiService } from '../../../core/services/ai.service';
+import { costOfUsage, ModelUsage, PriceCatalog } from '../analyzer/agent-analyzer';
+import { duplicateOf } from '../catalog/agent-catalog.component';
+import { Agent, AgentBranch, AgentRunEvent, AgentSchedule, AgentCustomTool, AgentNote, AgentsService, AgentTool, AgentVersion, AgentStepResult, AgentToolOption, AgentType,
+  QUESTION_INPUT, SaveAgentRequest, SQL_QUERY_TOOL, StepKind, understoodText } from '../agents.service';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
 import { circleAt, neverReached, stepsToSave } from '../agent-steps.util';
 import { usageLine, usageTitle } from '../llm-usage.util';
@@ -25,6 +30,8 @@ export interface InstructionItem {
   tool?: AgentTool | null;
   /** Saved SQL steps: the SELECT they run. */
   sql?: string | null;
+  expectedOutput?: string | null; outputKey?: string | null; model?: string | null; temperature?: number | null; maxTokens?: number | null;
+  forEach?: string | null; retries?: number | null; options?: Record<string, unknown> | null;
 }
 
 const newStepId = () => 'st-' + Math.random().toString(36).slice(2, 10);
@@ -79,6 +86,8 @@ export interface AgentToolAction {
   path: string;
 }
 
+const BUILT_IN_TOOLS = ['ask_data', 'ask_ai', 'url_context', 'load_memory', 'preload_memory', 'exit_loop', 'approval', 'evaluator', 'guardrail', 'compute', 'merge'];
+
 @Component({
   selector: 'app-new-agent',
   standalone: false,
@@ -101,24 +110,14 @@ export class NewAgentComponent implements OnInit, OnDestroy {
 
   activeSection = 'section-role';
 
-  /** Section badges from what is on the page (they were fixed values before). */
-  get navSections(): { label: string; iconType: string; status: 'complete' | 'warning' | 'soon'; note: string; anchor: string }[] {
-    const ok = (missing: string) => missing ? { status: 'warning' as const, note: missing } : { status: 'complete' as const, note: 'Complete' };
-    const steps = this.goalInstructions.filter(i => i.value.trim());
-    const inputNames = new Set(this.inputs.map(i => i.name.trim()).filter(Boolean));
-    const unknown = steps.flatMap(s => [...`${s.value} ${this.isSqlStep(s) ? s.sql ?? '' : ''}`.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(m => m[1]))
-      .find(n => !inputNames.has(n));
-    const noSql = steps.some(s => this.isSqlStep(s) && !s.sql?.trim());
-    return [
-      { label: 'Identity & Role', iconType: 'identity', anchor: 'section-role', ...ok(this.agentName.trim() ? '' : 'Needs a name') },
-      { label: 'Goal & Instructions', iconType: 'goal', anchor: 'section-goal',
-        ...ok(!steps.length ? 'Add an instruction' : noSql ? 'A Saved SQL step needs its SQL' : '') },
-      { label: 'Tools & Capabilities', iconType: 'tools', anchor: 'section-tools', ...ok(this.agentToolGroups.length ? '' : 'Add a tool') },
-      { label: 'Inputs & Outputs', iconType: 'inputs', anchor: 'section-io', ...ok(unknown ? `Add input "${unknown}"` : '') },
-      { label: 'Knowledge Source', iconType: 'knowledge', anchor: 'section-knowledge', ...ok('') },
-      { label: 'Triggers', iconType: 'triggers', anchor: 'section-triggers', status: 'soon', note: 'Coming soon' },
-    ];
-  }
+  navSections = [
+    { label: 'Identity & Role',      iconType: 'identity',  anchor: 'section-role' },
+    { label: 'Goal & Instructions',  iconType: 'goal',      anchor: 'section-goal' },
+    { label: 'Tools & Capabilities', iconType: 'tools',     anchor: 'section-tools' },
+    { label: 'Inputs & Outputs',     iconType: 'inputs',    anchor: 'section-io' },
+    { label: 'Knowledge Source',     iconType: 'knowledge', anchor: 'section-knowledge' },
+    { label: 'Triggers',             iconType: 'triggers',  anchor: 'section-triggers' },
+  ];
 
   // Section 1
   rolePersona = '';
@@ -150,6 +149,10 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   jsonError = '';
   importWarnings: string[] = [];
   canvasTools: { id: string; label: string }[] = [];
+  /** The agent's Tool nodes (REST calls), edited on the canvas. */
+  customTools: AgentCustomTool[] = [];
+  /** Canvas sticky notes. */
+  notes: AgentNote[] = [];
   /** Every tool the agent could use, for the canvas palette's Tools group. */
   paletteTools: { id: string; label: string }[] = [];
   canvasInputs: string[] = [];
@@ -186,6 +189,8 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   testUnderstood: string[] = [];
   testSteps: (Partial<AgentStepResult> & { step: number; phase: 'start' | 'end' })[] = [];
   testAnswer = '';
+  /** The answer's Outputs as typed fields, when the agent has Outputs. */
+  testOutput: { name: string; value: string }[] = [];
   testError = '';
   testSeconds: number | null = null;
   /** The run's LLM use on the tenant's provider: "5 calls · 3.2k tokens" and the full numbers. */
@@ -232,7 +237,30 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   }
 
   constructor(private router: Router, private route: ActivatedRoute, private agents: AgentsService, private cdr: ChangeDetectorRef,
-              private layoutState: LayoutStateService, private location: Location) {}
+              private layoutState: LayoutStateService, private location: Location, private ai: AiService) {}
+
+  // ── Cost: the price catalog, the real usage of the last runs and of the Test run ─
+  catalog: PriceCatalog = { activeModel: null, fastModel: null, prices: [] };
+  /** Average real tokens / cost of the agent's last successful runs (null = none yet). */
+  measured: { runs: number; tokens: number; cost: number | null } | null = null;
+  /** The Test run's tokens and cost. */
+  testCost: { input: number; output: number; cost: number; unpriced: string[] } | null = null;
+  /** For the canvas Analysis tab. */
+  readonly analysisSource = () => ({ agent: this.request(this.status), catalog: this.catalog, measured: this.measured, agentId: this.agentId });
+
+  private loadCost(): void {
+    this.ai.modelPrices().subscribe({ next: c => { this.catalog = c; this.cdr.markForCheck(); }, error: () => {} });
+    if (!this.agentId) return;
+    this.agents.runsOf(this.agentId).subscribe({
+      next: runs => {
+        const used = runs.filter(r => r.status === 'success' && r.usage?.length).map(r => costOfUsage(r.usage as ModelUsage[], this.catalog));
+        this.measured = used.length ? { runs: used.length, tokens: Math.round(used.reduce((n, u) => n + u.input + u.output, 0) / used.length),
+          cost: used.every(u => !u.unpriced.length) ? used.reduce((n, u) => n + u.cost, 0) / used.length : null } : null;
+        this.cdr.markForCheck();
+      },
+      error: () => {},
+    });
+  }
 
   /** App sidebar state before the editor opened: the editor (Form and Canvas) collapses it for room, leaving restores it. */
   private sidebarBefore: boolean | null = null;
@@ -246,9 +274,11 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.sidebarBefore = this.layoutState.isCollapsed;
     this.layoutState.collapse();
+    this.agents.list().subscribe({ next: list => { this.subAgents = list; this.addSubAgents(); this.cdr.markForCheck(); } });
     this.agents.tools().subscribe({
       next: r => {
         this.availableConnections = r.tools.map(t => this.toConnection(t));
+        this.addSubAgents();
         this.toolsMessage = r.message ?? '';
         this.nameToolGroups();
         this.refreshCanvasTools();
@@ -257,10 +287,14 @@ export class NewAgentComponent implements OnInit, OnDestroy {
       error: () => { this.toolsMessage = 'Could not load the tools.'; this.cdr.markForCheck(); },
     });
     const id = Number(this.route.snapshot.paramMap.get('id'));
+    const query = this.route.snapshot.queryParamMap;
     if (id > 0) this.agents.get(id).subscribe({
       next: a => {
         this.load(a);
         this.markSaved();
+        this.offerAutosave();
+        this.loadSchedules();
+        this.loadCost();
         // Agents built before routers were linked in can hold a step nothing reaches: say so on open, not only on Save.
         const dead = this.unreachable(this.request(this.status));
         if (dead) this.show(`${dead} Saving is blocked until then; tests still run.`, 'bad');
@@ -268,14 +302,284 @@ export class NewAgentComponent implements OnInit, OnDestroy {
       },
       error: () => this.show('Agent not found.', 'bad'),
     });
-    else this.markSaved();
+    else {
+      this.markSaved();
+      this.loadCost();
+      // From the Agent Catalog: a template or a copy of a published agent, not saved yet.
+      const template = query.get('template'), copy = Number(query.get('duplicate'));
+      if (template) {
+        const req = templateAgent(template);
+        if (req) { this.loadRequest(req, 'draft'); this.show(`Started from the "${req.name}" template. Review it, then Save as Draft or Publish.`, 'ok'); }
+      } else if (copy > 0) {
+        this.agents.get(copy).subscribe({
+          next: a => { this.loadRequest(duplicateOf(a), 'draft'); this.show(`Copied "${a.name}". Tool secrets are not copied; enter them again.`, 'ok'); },
+          error: () => this.show('That agent could not be copied.', 'bad'),
+        });
+      } else this.offerAutosave();
+    }
+    this.autosaveTimer = setInterval(() => this.autosave(), 2000);
+    this.historyTimer = setInterval(() => this.history.record(this.snapshot()), 700);
   }
 
-  ngOnDestroy(): void { this.confirmBox?.resolve(false); this.testSub?.unsubscribe(); this.stopTimer(); this.restoreSidebar(); }
+  ngOnDestroy(): void { this.confirmBox?.resolve(false); this.testSub?.unsubscribe(); this.stopTimer(); this.restoreSidebar(); clearInterval(this.autosaveTimer); clearTimeout(this.messageTimer); clearInterval(this.historyTimer); }
+
+  // ── AutoSave: unsaved changes are kept on this browser until Save or Discard ─
+  private autosaveTimer: ReturnType<typeof setInterval> | undefined;
+  private autosavedJson = '';
+  /** When the last unsaved change was kept, for the header. */
+  autosavedAt: Date | null = null;
+  /** Unsaved changes found when the page opened: Restore or Dismiss. */
+  autosaveOffer: { savedAt: string; request: SaveAgentRequest } | null = null;
+
+  private get autosaveKey(): string { return `twise.agent-autosave.${this.agentId ?? 'new'}`; }
+
+  /** Keeps the page's state (never tool secrets) while it differs from what was saved. */
+  private autosave(): void {
+    // Not before the agent has loaded, and never over changes the user has not restored or dismissed yet.
+    if (!this.savedSnapshot || this.autosaveOffer) return;
+    try {
+      if (!this.dirty) {
+        if (this.autosavedJson) { localStorage.removeItem(this.autosaveKey); this.autosavedJson = ''; this.autosavedAt = null; this.cdr.markForCheck(); }
+        return;
+      }
+      const req = this.request('draft');
+      const json = JSON.stringify({ ...req, customTools: req.customTools.map(t => ({ ...t, authSecret: null })) });
+      if (json === this.autosavedJson) return;
+      localStorage.setItem(this.autosaveKey, JSON.stringify({ savedAt: new Date().toISOString(), request: JSON.parse(json) }));
+      this.autosavedJson = json;
+      this.autosavedAt = new Date();
+      this.cdr.markForCheck();
+    } catch { /* storage blocked or full: the page still works, only nothing is kept */ }
+  }
+
+  private clearAutosave(key = this.autosaveKey): void {
+    try { localStorage.removeItem(key); } catch { /* storage blocked */ }
+    this.autosavedJson = '';
+    this.autosavedAt = null;
+  }
+
+  private offerAutosave(): void {
+    try {
+      const kept = JSON.parse(localStorage.getItem(this.autosaveKey) ?? 'null');
+      if (kept?.request && JSON.stringify(kept.request) !== this.savedSnapshot) this.autosaveOffer = kept;
+    } catch { /* nothing usable kept */ }
+  }
+
+  restoreAutosave(): void {
+    const kept = this.autosaveOffer;
+    if (!kept) return;
+    this.autosaveOffer = null;
+    this.loadRequest(kept.request, this.status);
+    this.show('Restored your unsaved changes. Tool secrets typed before are not kept; enter them again if needed.', 'ok');
+  }
+
+  dismissAutosave(): void { this.autosaveOffer = null; this.clearAutosave(); this.cdr.markForCheck(); }
+
+  /** An agent object (a version or kept changes) into the editor, keeping this agent's id; nothing is saved. */
+  private loadRequest(req: SaveAgentRequest, status: 'draft' | 'published'): void {
+    const keepId = this.agentId;
+    this.load({ ...req, id: keepId ?? 0, createdBy: '', createdAt: '', updatedAt: '',
+      stats: { runs: 0, successRate: null, avgSeconds: null, lastRunAt: null } } as Agent);
+    this.agentId = keepId;
+    this.status = status;
+    // The canvas works on a snapshot of the inputs and needs step ids: take them again (a load can happen on the canvas).
+    this.goalInstructions = this.goalInstructions.map(i => i.id ? i : { ...i, id: newStepId() });
+    this.canvasInputs = this.inputs.map(i => i.name.trim()).filter(Boolean);
+    this.refreshCanvasTools();
+    this.refreshJson();
+    this.cdr.markForCheck();
+  }
+
+  // ── Triggers: schedules that run the published agent ────────────────────
+  schedules: AgentSchedule[] = [];
+  readonly repeats = [
+    { value: 'daily', label: 'Every day at' }, { value: 'weekdays', label: 'Every weekday (Mon–Fri) at' },
+    { value: 'weekly', label: 'Every week on' }, { value: 'hourly', label: 'Every hour' },
+    { value: 'once', label: 'Once at' }, { value: 'cron', label: 'Custom (cron)' },
+  ];
+  readonly weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  /** The trigger being added (id null) or edited. */
+  scheduleForm: { id: number | null; repeat: string; time: string; weekday: number; once: string; cron: string; timeZone: string;
+    inputs: Record<string, string>; emailTo: string; isActive: boolean } | null = null;
+  schedulePreview: { problem: string | null; next: string[] } | null = null;
+  scheduleError = '';
+
+  private loadSchedules(): void {
+    if (!this.agentId) return;
+    this.agents.schedules(this.agentId).subscribe({ next: s => { this.schedules = s; this.cdr.markForCheck(); }, error: () => { this.schedules = []; } });
+  }
+
+  newSchedule(): void {
+    this.scheduleForm = { id: null, repeat: 'daily', time: '06:00', weekday: 0, once: '', cron: '0 6 * * *', timeZone: 'Asia/Muscat',
+      inputs: Object.fromEntries(this.testInputs.map(i => [i.name.trim(), ''])), emailTo: '', isActive: true };
+    this.schedulePreview = null;
+    this.scheduleError = '';
+  }
+
+  editSchedule(s: AgentSchedule): void {
+    const m = /^(\d+) (\d+) \* \* (\*|1-5|\d)$/.exec(s.cron ?? '');
+    const repeat = !s.cron ? 'once' : s.cron === '0 * * * *' ? 'hourly' : !m ? 'cron' : m[3] === '*' ? 'daily' : m[3] === '1-5' ? 'weekdays' : 'weekly';
+    this.scheduleForm = {
+      id: s.id, repeat, time: m ? `${m[2].padStart(2, '0')}:${m[1].padStart(2, '0')}` : '06:00', weekday: m && /^\d$/.test(m[3]) ? +m[3] : 0,
+      once: s.runOnceAt ? this.utc(s.runOnceAt).slice(0, 16) : '', cron: s.cron ?? '', timeZone: s.timeZone,
+      inputs: { ...Object.fromEntries(this.testInputs.map(i => [i.name.trim(), ''])), ...s.inputs }, emailTo: s.emailTo.join(', '), isActive: s.isActive,
+    };
+    this.schedulePreview = null;
+    this.scheduleError = '';
+  }
+
+  /** The form as cron / once. Once is entered in UTC (the list shows times in your browser's zone). */
+  private scheduleSpec(): { cron: string | null; runOnceAt: string | null; timeZone: string } {
+    const f = this.scheduleForm!;
+    const [h, min] = (f.time || '06:00').split(':').map(Number);
+    const cron = f.repeat === 'daily' ? `${min} ${h} * * *` : f.repeat === 'weekdays' ? `${min} ${h} * * 1-5`
+      : f.repeat === 'weekly' ? `${min} ${h} * * ${f.weekday}` : f.repeat === 'hourly' ? '0 * * * *' : f.repeat === 'cron' ? f.cron.trim() : null;
+    return { cron, runOnceAt: cron ? null : f.once ? new Date(f.once + 'Z').toISOString() : null, timeZone: f.timeZone.trim() };
+  }
+
+  previewSchedule(): void {
+    this.agents.previewSchedule(this.scheduleSpec()).subscribe({
+      next: p => { this.schedulePreview = p; this.cdr.markForCheck(); },
+      error: err => { this.scheduleError = this.errorText(err, 'Could not check the schedule.'); this.cdr.markForCheck(); },
+    });
+  }
+
+  saveSchedule(): void {
+    const f = this.scheduleForm;
+    if (!f || !this.agentId) return;
+    const body = { ...this.scheduleSpec(), inputs: f.inputs, isActive: f.isActive,
+      emailTo: f.emailTo.split(/[,;]/).map(e => e.trim()).filter(Boolean) };
+    this.agents.saveSchedule(this.agentId, body, f.id ?? undefined).subscribe({
+      next: () => { this.scheduleForm = null; this.show('Trigger saved.', 'ok'); this.loadSchedules(); },
+      error: err => { this.scheduleError = this.errorText(err, 'The trigger could not be saved.'); this.cdr.markForCheck(); },
+    });
+  }
+
+  toggleSchedule(s: AgentSchedule): void {
+    if (!this.agentId) return;
+    this.agents.saveSchedule(this.agentId, { cron: s.cron, runOnceAt: s.runOnceAt, timeZone: s.timeZone, inputs: s.inputs,
+      emailTo: s.emailTo, isActive: !s.isActive }, s.id).subscribe({
+      next: () => this.loadSchedules(),
+      error: err => this.show(this.errorText(err, 'The trigger could not be changed.'), 'bad'),
+    });
+  }
+
+  runScheduleNow(s: AgentSchedule): void {
+    if (!this.agentId) return;
+    this.agents.runScheduleNow(this.agentId, s.id).subscribe({
+      next: () => { this.show('The trigger runs within a minute. Its run appears in the agent\'s run history.', 'ok'); setTimeout(() => this.loadSchedules(), 65000); },
+      error: err => this.show(this.errorText(err, 'The trigger could not be run.'), 'bad'),
+    });
+  }
+
+  deleteSchedule(s: AgentSchedule): void {
+    if (!this.agentId || !confirm('Delete this trigger?')) return;
+    this.agents.deleteSchedule(this.agentId, s.id).subscribe({ next: () => this.loadSchedules() });
+  }
+
+  /** A trigger in words. */
+  scheduleText(s: AgentSchedule): string {
+    if (!s.cron) return s.runOnceAt ? 'Once' : '—';
+    const m = /^(\d+) (\d+) \* \* (\*|1-5|\d)$/.exec(s.cron);
+    if (s.cron === '0 * * * *') return 'Every hour';
+    if (!m) return `Cron ${s.cron}`;
+    const at = `${m[2].padStart(2, '0')}:${m[1].padStart(2, '0')}`;
+    return m[3] === '*' ? `Every day at ${at}` : m[3] === '1-5' ? `Weekdays at ${at}` : `Every ${this.weekdays[+m[3]]} at ${at}`;
+  }
+
+  // ── Section status (the form's side menu) ─────────────────────────────────
+  /** complete = required parts done; warning = something to fix; optional = not needed here. */
+  sectionStatus(anchor: string): { kind: 'complete' | 'warning' | 'optional'; text: string } {
+    const named = (rows: IORow[]) => rows.filter(r => r.name.trim());
+    switch (anchor) {
+      case 'section-role':
+        return this.agentName.trim() ? { kind: 'complete', text: 'Complete' } : { kind: 'warning', text: 'Add a name' };
+      case 'section-goal':
+        if (!this.goalInstructions.some(i => i.value.trim())) return { kind: 'warning', text: 'Add an instruction' };
+        return this.goalInstructions.some(i => i.value.trim() && this.isSqlStep(i) && !i.sql?.trim())
+          ? { kind: 'warning', text: 'A Saved SQL step needs its SQL' } : { kind: 'complete', text: 'Complete' };
+      case 'section-tools':
+        return this.agentToolGroups.some(g => g.actions.length) ? { kind: 'complete', text: 'Complete' } : { kind: 'warning', text: 'Add a tool' };
+      case 'section-io': {
+        const known = new Set([...named(this.inputs).map(i => i.name.trim()),
+          ...this.goalInstructions.map(i => i.outputKey?.trim()).filter((k): k is string => !!k)]);
+        // {{item}} is a For Each step's current item.
+        const unknown = this.goalInstructions.flatMap(i => [...`${i.value} ${this.isSqlStep(i) ? i.sql ?? '' : ''}`.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(m => m[1])
+          .filter(n => !(n === 'item' && i.forEach))).find(n => !known.has(n));
+        if (unknown) return { kind: 'warning', text: `{{${unknown}}} is not an input` };
+        return named(this.inputs).length || named(this.outputs).length ? { kind: 'complete', text: 'Complete' } : { kind: 'optional', text: 'Optional' };
+      }
+      case 'section-knowledge':
+        return this.agentToolGroups.some(g => g.connectionId === 'ask_data')
+          ? { kind: 'complete', text: this.askBusinessRules.trim() || this.askExamples.trim() ? 'Complete' : 'Default rules' }
+          : { kind: 'optional', text: 'Not used' };
+      default: {
+        const on = this.schedules.filter(s => s.isActive).length;
+        return on ? { kind: 'complete', text: `${on} schedule${on > 1 ? 's' : ''} on` } : { kind: 'optional', text: 'Manual (Test Agent)' };
+      }
+    }
+  }
+
+  // ── Versions ─────────────────────────────────────────────────────────────
+  versionsOpen = false;
+  versions: AgentVersion[] | null = null;
+  /** The version being looked at, and how it differs from the page now. */
+  versionPick: { no: number; request: SaveAgentRequest; changes: string[] } | null = null;
+
+  toggleVersions(): void {
+    this.versionsOpen = !this.versionsOpen;
+    this.versionPick = null;
+    if (!this.versionsOpen || !this.agentId) return;
+    this.versions = null;
+    this.agents.versions(this.agentId).subscribe({
+      next: v => { this.versions = v; this.cdr.markForCheck(); },
+      error: err => { this.versionsOpen = false; this.show(this.errorText(err, 'Could not load the versions.'), 'bad'); },
+    });
+  }
+
+  pickVersion(no: number): void {
+    if (!this.agentId) return;
+    this.agents.version(this.agentId, no).subscribe({
+      next: r => { this.versionPick = { no, request: r, changes: this.versionChanges(r, this.request(this.status)) }; this.cdr.markForCheck(); },
+      error: err => this.show(this.errorText(err, 'Could not load that version.'), 'bad'),
+    });
+  }
+
+  restoreVersion(): void {
+    const pick = this.versionPick;
+    if (!pick) return;
+    this.loadRequest(pick.request, 'draft');
+    this.versionsOpen = false;
+    this.versionPick = null;
+    this.show(`Loaded version ${pick.no}. Save as Draft or Publish to keep it; Discard to go back.`, 'ok');
+  }
+
+  /** The API's UTC times come without a zone. */
+  utc(t: string): string { return /Z|[+-]\d\d:\d\d$/.test(t) ? t : t + 'Z'; }
+
+  /** What restoring `v` would change on the page `now`. */
+  private versionChanges(v: SaveAgentRequest, now: SaveAgentRequest): string[] {
+    const out: string[] = [];
+    const fields: [keyof SaveAgentRequest, string][] = [['name', 'Name'], ['role', 'Role'], ['description', 'Description'],
+      ['systemPrompt', 'System prompt'], ['goal', 'Goal'], ['type', 'Agent type'], ['maxIterations', 'Max iterations']];
+    for (const [k, label] of fields) if (JSON.stringify(v[k] ?? null) !== JSON.stringify(now[k] ?? null)) out.push(`${label} differs`);
+    const short = (t: string) => t.length > 40 ? t.slice(0, 40) + '…' : t;
+    const strip = (s: object) => JSON.stringify({ ...s, x: null, y: null });
+    for (const s of v.steps) {
+      const cur = now.steps.find(c => c.id === s.id);
+      if (!cur) out.push(`Brings back “${short(s.text)}”`);
+      else if (strip(cur) !== strip(s)) out.push(`Changes “${short(cur.text)}”`);
+    }
+    for (const c of now.steps) if (!v.steps.some(s => s.id === c.id)) out.push(`Removes “${short(c.text)}”`);
+    const names = (r: SaveAgentRequest) => [...r.tools.map(t => `${t.agent}:${t.action}`), ...(r.customTools ?? []).map(t => JSON.stringify({ ...t, authSecret: null, hasAuthSecret: null }))].sort().join('|');
+    if (names(v) !== names(now)) out.push('Tools differ');
+    if (JSON.stringify([v.inputs, v.outputs, v.askData ?? null]) !== JSON.stringify([now.inputs, now.outputs, now.askData ?? null])) out.push('Inputs, outputs or Ask Data settings differ');
+    return out.length ? out : ['Same as the page now (only positions may differ).'];
+  }
 
   /** The page as last loaded or saved, to tell unsaved changes. */
   private savedSnapshot = '';
-  private markSaved(): void { this.savedSnapshot = JSON.stringify(this.request('draft')); }
+  private markSaved(): void { this.savedSnapshot = JSON.stringify(this.request('draft')); this.history.reset(this.snapshot()); }
   get dirty(): boolean { return JSON.stringify(this.request('draft')) !== this.savedSnapshot; }
 
   /** Refresh or closing the tab with unsaved changes: the browser asks first. */
@@ -312,11 +616,35 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     };
   }
 
+  // ── Sub-agents: published agents a step can run (tool subagent / <id>) ──────
+  private subAgents: Agent[] = [];
+
+  /** The Sub-agents group of Add Tool: the tenant's published agents but this one. */
+  private addSubAgents(): void {
+    this.availableConnections = this.availableConnections.filter(c => c.id !== 'subagent');
+    const list = this.subAgents.filter(a => a.status === 'published' && a.id !== this.agentId);
+    if (list.length) this.availableConnections.push({
+      id: 'subagent', name: 'Sub-agents', subtitle: 'Run another published agent as one step. Its inputs take the values with the same name; the first one left gets the instruction.',
+      type: 'Agent', status: 'Online', expanded: false,
+      actions: list.map(a => ({ id: `subagent:${a.id}`, method: 'RUN', name: String(a.id), path: 'subagent' })),
+    });
+    this.nameToolGroups();
+    this.refreshCanvasTools();
+  }
+
+  /** A tool action's name as shown: a sub-agent by its agent's name. */
+  actionLabel(a: { name: string; path: string }): string {
+    if (a.path !== 'subagent') return a.name;
+    return this.subAgents.find(x => String(x.id) === a.name)?.name ?? `Agent ${a.name}`;
+  }
+
   /** Saved tools carry only the agent key; show its title and status once the tool list is known. */
   private nameToolGroups(): void {
     for (const g of this.agentToolGroups) {
       const c = this.availableConnections.find(x => x.id === g.connectionId);
       if (c) { g.connectionName = c.name; g.connectionStatus = c.status; }
+      if (g.connectionId === 'api') g.connectionName = 'Tool';
+      if (g.connectionId === 'subagent') g.connectionName = 'Sub-agents';
     }
   }
 
@@ -333,6 +661,8 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     this.goalInstructions = a.steps.length
       ? a.steps.map(s => ({ id: s.id ?? newStepId(), value: s.text, x: s.x ?? undefined, y: s.y ?? undefined,
           kind: s.kind ?? 'step', routeBy: s.routeBy ?? 'rules', branches: s.branches ?? undefined, next: s.next ?? null, tool: s.tool ?? null,
+          expectedOutput: s.expectedOutput ?? null, outputKey: s.outputKey ?? null, model: s.model ?? null,
+          temperature: s.temperature ?? null, maxTokens: s.maxTokens ?? null, forEach: s.forEach ?? null, retries: s.retries ?? null, options: s.options ?? null,
           sql: s.sql ?? null }))
       : [{ id: newStepId(), value: '' }];
     this.agentToolGroups = [];
@@ -342,9 +672,11 @@ export class NewAgentComponent implements OnInit, OnDestroy {
         group = { connectionId: t.agent, connectionName: t.agent, connectionType: 'Agent', connectionStatus: '', actions: [] };
         this.agentToolGroups.push(group);
       }
-      group.actions.push({ id: `${t.agent}:${t.action}`, method: 'RUN', name: t.action, path: t.agent });
+      group.actions.push({ id: `${t.agent}:${t.action}`, method: 'RUN', name: t.action, path: t.agent === 'subagent' ? 'subagent' : t.agent });
     }
     this.inputs = a.inputs.map(i => ({ name: i.name, type: this.title(i.type), requirement: i.required ? 'Required' : 'Optional', description: i.description ?? '' }));
+    this.customTools = (a.customTools ?? []).map(t => ({ ...t, authSecret: '', parameters: t.parameters ?? [], headers: t.headers ?? [] }));
+    this.notes = (a.notes ?? []).map(n => ({ ...n }));
     this.nameToolGroups();
     this.askBusinessRules = a.askData?.businessRules ?? '';
     this.askExamples = a.askData?.examples ?? '';
@@ -368,6 +700,9 @@ export class NewAgentComponent implements OnInit, OnDestroy {
       // tool, it becomes an ordinary step (its checkbox is shown only on step 1, so it could not be unticked there).
       steps: stepsToSave(this.goalInstructions.map(i => ({ text: i.value, id: i.id ?? newStepId(), x: i.x ?? null, y: i.y ?? null,
         kind: i.kind ?? 'step', routeBy: i.routeBy ?? 'rules', branches: i.branches ?? null, next: i.next ?? null, tool: i.tool ?? null,
+        expectedOutput: i.expectedOutput?.trim() || null, outputKey: i.outputKey?.trim() || null, model: i.model?.trim() || null,
+        temperature: i.temperature ?? null, maxTokens: i.maxTokens ?? null, forEach: i.forEach?.trim() || null,
+        retries: i.retries ? Number(i.retries) : null, options: i.options && Object.keys(i.options).length ? i.options : null,
         sql: this.isSqlStep(i) ? i.sql?.trim() || null : null })),
         this.agentType).map((s, at) => s.kind === 'setup' && (at > 0 || !s.sql) ? { ...s, kind: 'step' as const } : s),
       tools: this.agentToolGroups.flatMap(g => g.actions.map(a => ({ agent: g.connectionId, action: a.name }))),
@@ -376,6 +711,8 @@ export class NewAgentComponent implements OnInit, OnDestroy {
       status,
       type: this.agentType,
       maxIterations: Number(this.maxIterations) || 5,
+      customTools: this.customTools.map(t => ({ ...t, authSecret: t.authSecret || null, body: t.body || null, responsePath: t.responsePath || null })),
+      notes: this.notes.map(n => ({ ...n })),
       // Ask Data's Knowledge Source; Saved SQL uses its row limit and allowed schemas.
       askData: this.agentToolGroups.some(g => g.connectionId === 'ask_data' || g.connectionId === SQL_QUERY_TOOL) ? {
         businessRules: blank(this.askBusinessRules),
@@ -430,7 +767,17 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   /** Inputs the Test panel asks for: the named rows under Inputs & Outputs. */
   get testInputs(): IORow[] { return this.inputs.filter(i => i.name.trim()); }
 
-  private show(text: string, kind: 'ok' | 'bad'): void { this.message = text; this.messageKind = kind; this.cdr.markForCheck(); }
+  /** Page messages show as a floating alert: confirmations close by themselves, problems stay until closed. */
+  private messageTimer: ReturnType<typeof setTimeout> | undefined;
+  private show(text: string, kind: 'ok' | 'bad'): void {
+    this.message = text;
+    this.messageKind = kind;
+    clearTimeout(this.messageTimer);
+    if (kind === 'ok') this.messageTimer = setTimeout(() => this.closeMessage(), 6000);
+    this.cdr.markForCheck();
+  }
+
+  closeMessage(): void { clearTimeout(this.messageTimer); this.message = ''; this.cdr.markForCheck(); }
 
   private save(status: 'draft' | 'published'): void {
     const req = this.request(status);
@@ -451,9 +798,12 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     call.subscribe({
       next: a => {
         this.saving = false;
+        this.clearAutosave();
+        if (!this.agentId) this.clearAutosave('twise.agent-autosave.new');
         this.agentId = a.id;
         this.status = a.status;
         this.markSaved();
+        this.versions = null;
         if (status === 'published') { this.router.navigate(['/agentic-ai/ai-agents']); return; }
         this.show('Saved as draft.', 'ok');
         // Only the address changes (/new → /:id): navigating rebuilt the page and lost this message and the test results.
@@ -513,6 +863,36 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /** Duplicate / Paste on the canvas: the copies come with new ids, positions and links. */
+  canvasInsert(steps: unknown[]): void {
+    this.goalInstructions = [...this.goalInstructions, ...(steps as InstructionItem[])];
+    this.refreshCanvasTools();
+    this.cdr.markForCheck();
+  }
+
+  canvasRemoveMany(ids: string[]): void {
+    this.goalInstructions = this.goalInstructions.filter(i => !ids.includes(i.id ?? ''));
+    for (const id of ids) this.unlink(id);
+    if (!this.goalInstructions.length) this.goalInstructions = [{ id: newStepId(), value: '' }];
+    this.cdr.markForCheck();
+  }
+
+  // ── Undo / redo: every change to the agent (form or canvas) is a step back ─
+  readonly history = new EditHistory(50);
+  private historyTimer: ReturnType<typeof setInterval> | undefined;
+  private snapshot(): string { return JSON.stringify(this.request(this.status)); }
+
+  // Record first: a change made since the last tick would otherwise be skipped.
+  undoEdit(): void { this.history.record(this.snapshot()); this.applyHistory(this.history.undo()); }
+  redoEdit(): void { this.applyHistory(this.history.redo()); }
+
+  private applyHistory(snap: string | null): void {
+    if (!snap) return;
+    this.loadRequest(JSON.parse(snap), this.status);
+    this.history.sync(this.snapshot());   // the editor may normalise the loaded agent: that is not a new step
+    this.show('Undone — Ctrl+Y redoes it.', 'ok');
+  }
+
   canvasRemove(id: string): void {
     this.goalInstructions = this.goalInstructions.filter(i => i.id !== id);
     this.unlink(id);
@@ -524,6 +904,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     for (const i of this.goalInstructions) {
       if (i.next === id) i.next = null;
       for (const b of i.branches ?? []) if (b.target === id) b.target = null;
+      if (i.options?.['retryFrom'] === id) { const rest = { ...i.options }; delete rest['retryFrom']; i.options = Object.keys(rest).length ? rest : null; }
     }
   }
 
@@ -619,9 +1000,9 @@ export class NewAgentComponent implements OnInit, OnDestroy {
   clearSelectedActions(): void { this.selectedActions = []; }
 
   private refreshCanvasTools(): void {
-    this.canvasTools = this.agentToolGroups.flatMap(g => g.actions.map(a => ({ id: `${g.connectionId}:${a.name}`, label: `${g.connectionName} · ${a.name}` })));
-    // Only built-in tools: the twise agents are agents to be rebuilt in this builder, not tools.
-    this.paletteTools = this.availableConnections.filter(c => c.id === 'ask_data' || c.id === SQL_QUERY_TOOL)
+    this.canvasTools = this.agentToolGroups.flatMap(g => g.actions.map(a => ({ id: `${g.connectionId}:${a.name}`, label: `${g.connectionName} · ${this.actionLabel(a)}` })));
+    // Built-in tools the canvas can add (its palette shows the framework's Built-in Tools; Ask Data / Ask AI via Tools & Capabilities).
+    this.paletteTools = this.availableConnections.filter(c => BUILT_IN_TOOLS.includes(c.id) || c.id === SQL_QUERY_TOOL)
       .flatMap(c => c.actions.map(a => ({ id: `${c.id}:${a.name}`, label: `${c.name} · ${a.name}` })));
   }
 
@@ -632,6 +1013,33 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     for (const g of this.agentToolGroups) if (g.connectionId === agent) g.actions = g.actions.filter(a => a.name !== action);
     this.agentToolGroups = this.agentToolGroups.filter(g => g.actions.length);
     for (const i of this.goalInstructions) if (i.tool?.agent === agent && i.tool.action === action) i.tool = null;
+    if (agent === 'api') this.customTools = this.customTools.filter(t => t.name !== action);
+    this.refreshCanvasTools();
+    this.cdr.markForCheck();
+  }
+
+  /** A new Tool node from the canvas palette: a REST call the agent's model can make. */
+  canvasNewTool(): void {
+    let n = this.customTools.length + 1;
+    while (this.customTools.some(t => t.name === `tool_${n}`)) n++;
+    const tool: AgentCustomTool = { name: `tool_${n}`, description: '', parameters: [], method: 'GET', url: 'https://', headers: [],
+      body: '', responsePath: '', authScheme: 'none', authSecret: '', timeout: 30 };
+    this.customTools = [...this.customTools, tool];
+    let group = this.agentToolGroups.find(g => g.connectionId === 'api');
+    if (!group) {
+      group = { connectionId: 'api', connectionName: 'Tool', connectionType: 'Tool', connectionStatus: '', actions: [] };
+      this.agentToolGroups.push(group);
+    }
+    group.actions.push({ id: `api:${tool.name}`, method: 'RUN', name: tool.name, path: 'api' });
+    this.refreshCanvasTools();
+    this.cdr.markForCheck();
+  }
+
+  /** A Tool node renamed on the canvas: its references follow. */
+  canvasRenameTool(e: { from: string; to: string }): void {
+    for (const g of this.agentToolGroups) if (g.connectionId === 'api')
+      for (const a of g.actions) if (a.name === e.from) { a.name = e.to; a.id = `api:${e.to}`; }
+    for (const i of this.goalInstructions) if (i.tool?.agent === 'api' && i.tool.action === e.from) i.tool = { agent: 'api', action: e.to };
     this.refreshCanvasTools();
     this.cdr.markForCheck();
   }
@@ -680,7 +1088,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
 
   addTool(): void { this.openAddToolModal(); }
 
-  discard(): void { this.markSaved(); this.router.navigate(['/agentic-ai/ai-agents']); }
+  discard(): void { this.clearAutosave(); this.markSaved(); this.router.navigate(['/agentic-ai/ai-agents']); }
   saveAsDraft(): void { this.save('draft'); }
   publish(): void { this.save('published'); }
 
@@ -689,20 +1097,58 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     const req = this.request(this.status);
     const problem = this.problems(req);
     if (problem) { this.testError = problem; return; }
-    this.testSub?.unsubscribe();
-    Object.assign(this, { testing: true, testStage: 'Starting', testSteps: [], testAnswer: '', testError: '', testSeconds: null, testLlm: '', testLlmTitle: '',
+    Object.assign(this, { testSteps: [], testAnswer: '', testOutput: [], testSeconds: null, testCost: null, testLlm: '', testLlmTitle: '',
       testDecisions: [], testUnderstood: [] });
-    this.startTimer();
     const values: Record<string, string> = {};
     for (const i of req.inputs) values[i.name] = this.testValues[i.name] ?? '';
+    if (this.conversation && !this.threadId) this.threadId = crypto.randomUUID();
+    if (this.conversation) this.turns++;
+    this.follow(this.agents.test(req, values, this.agentId, this.conversation ? this.threadId : null));
+  }
+
+  /** The Test panel: run once (Test) or the agent's test cases (Evals). */
+  panelTab: 'test' | 'evals' = 'test';
+  /** For the Evals tab: the agent as it is on the page, and whether it has unsaved changes. */
+  readonly evalCurrent = () => ({ agent: this.request(this.status), dirty: this.dirty });
+  get inputNames(): string[] { return this.testInputs.map(i => i.name.trim()); }
+
+  /** Conversation: each Test Agent run continues the same thread (the agent gets the earlier answers). */
+  conversation = false;
+  threadId: string | null = null;
+  turns = 0;
+
+  newConversation(): void { this.threadId = null; this.turns = 0; }
+
+  /** Human Approval: the run waiting for a decision, and the text (the draft, editable). */
+  approval: { runId: number; token: string; step: number; question: string; draft: string } | null = null;
+  approvalText = '';
+
+  decide(decision: 'approve' | 'reject'): void {
+    const a = this.approval;
+    if (!a) return;
+    const edited = decision === 'approve' && this.approvalText.trim() !== a.draft.trim();
+    this.follow(this.agents.resume(a.runId, a.token, edited ? 'edit' : decision, this.approvalText));
+  }
+
+  /** Shows a run's (or a resumed run's) progress as it streams. */
+  private follow(events: Observable<AgentRunEvent>): void {
+    this.testSub?.unsubscribe();
+    Object.assign(this, { testing: true, testStage: 'Starting', testError: '', approval: null });
+    this.startTimer();
     let ended = false;
     const why = (reason?: string) => reason ? ` (${reason})` : '';
-    this.testSub = this.agents.test(req, values, this.agentId).subscribe({
+    this.testSub = events.subscribe({
       next: ev => {
         if (ev.type === 'status') this.testStage = ev.data.stage;
         else if (ev.type === 'inputs') this.testUnderstood.push(understoodText(ev.data));
-        else if (ev.type === 'decision') {
-          this.testStage = ev.data.by === 'router'
+        else if (ev.type === 'approval') {
+          ended = true;   // paused, not lost: the decision continues it
+          this.approval = ev.data;
+          this.approvalText = ev.data.draft;
+        } else if (ev.type === 'decision') {
+          this.testStage = ev.data.by === 'approval' ? `Step ${ev.data.step}: ${ev.data.decision}${ev.data.reviewer ? ' by ' + ev.data.reviewer : ''}`
+            : ev.data.by === 'exit_loop' ? `Exit Loop: ${ev.data.done ? 'goal met' : 'not yet'}${why(ev.data.reason)}`
+            : ev.data.by === 'router'
             ? `${ev.data.router}: ${ev.data.branch}${why(ev.data.reason)}`
             : ev.data.by === 'supervisor'
             ? (ev.data.next === 'answer' ? `Supervisor: finished${why(ev.data.reason)}` : `Supervisor → ${ev.data.next}${why(ev.data.reason)}`)
@@ -716,6 +1162,8 @@ export class NewAgentComponent implements OnInit, OnDestroy {
         } else if (ev.type === 'done') {
           ended = true;
           this.testAnswer = ev.data.answer;
+          this.testCost = ev.data.usage?.length ? costOfUsage(ev.data.usage, this.catalog) : null;
+          this.testOutput = Object.entries(ev.data.output ?? {}).map(([name, v]) => ({ name, value: v === null ? '—' : typeof v === 'string' ? v : JSON.stringify(v) }));
           this.testSeconds = ev.data.seconds;
           this.testLlm = ev.data.llm ? usageLine(ev.data.llm) : '';
           this.testLlmTitle = usageTitle(ev.data.llm);

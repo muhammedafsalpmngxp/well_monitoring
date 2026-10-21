@@ -101,3 +101,20 @@ public sealed class AiUsageLogConfiguration : IEntityTypeConfiguration<AiUsageLo
         b.Property(e => e.CreatedAt).HasColumnName("created_at");
     }
 }
+
+public sealed class AiModelPriceConfiguration : IEntityTypeConfiguration<AiModelPrice>
+{
+    public void Configure(EntityTypeBuilder<AiModelPrice> b)
+    {
+        b.ToTable("AiModelPrices", "core");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.Id).HasColumnName("id");
+        b.Property(e => e.TenantId).HasColumnName("tenant_id");
+        b.Property(e => e.Model).HasColumnName("model").HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModelClass).HasColumnName("model_class").HasMaxLength(20).IsRequired();
+        b.Property(e => e.InputPer1M).HasColumnName("input_per_1m").HasPrecision(18, 6);
+        b.Property(e => e.OutputPer1M).HasColumnName("output_per_1m").HasPrecision(18, 6);
+        b.Property(e => e.UpdatedBy).HasColumnName("updated_by").HasMaxLength(200);
+        b.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+    }
+}

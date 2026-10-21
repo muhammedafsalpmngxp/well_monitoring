@@ -1,17 +1,19 @@
 using MediatR;
 using TWise.Tenant.Application.Abstractions;
+using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Domain.DTOs;
 
 namespace TWise.Tenant.Application.Features.Agents;
 
-public sealed class UpdateAiAgentHandler(IAiAgentRepository agents) : IRequestHandler<UpdateAiAgentCommand, AiAgentDto?>
+public sealed class UpdateAiAgentHandler(IAiAgentRepository agents, IAiKeyProtector keys) : IRequestHandler<UpdateAiAgentCommand, AiAgentDto?>
 {
     public async Task<AiAgentDto?> Handle(UpdateAiAgentCommand c, CancellationToken ct)
     {
         var agent = await agents.GetAsync(c.TenantId, c.Id, ct);
         if (agent is null) return null;
-        AgentMapping.Apply(agent, c.Request);
+        AgentMapping.Apply(agent, c.Request, keys);
         await agents.SaveAsync(ct);
+        await AgentVersioning.RecordAsync(agents, agent, c.UserName, ct);
         var stats = await agents.StatsAsync(c.TenantId, ct);
         return AgentMapping.ToDto(agent, stats.GetValueOrDefault(agent.Id));
     }

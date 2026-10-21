@@ -115,3 +115,18 @@ def test_router_source_is_the_step_linked_to_it():
              {"id": "r", "text": "R", "kind": "router", "branches": [{"id": "x", "op": "else", "target": "b"}]}]
     flow = to_agentflow({**AGENT, "type": "sequential", "steps": steps})
     assert flow["config"]["routers"][0]["source"] == "step_1"
+
+
+def test_step_agent_fields_map_to_agentflow_and_back_without_the_extra_block():
+    step = {"text": "Summarise", "id": "s1", "expectedOutput": "Two sentences", "outputKey": "summary",
+            "model": "gpt-x", "temperature": 0.3, "maxTokens": 200}
+    flow = to_agentflow({**AGENT, "type": "sequential", "steps": [step]})
+    cfg = flow["config"]
+    assert cfg["tasks"][0]["expected_output"] == "Two sentences"
+    assert cfg["agents"][0]["output_key"] == "summary"
+    assert cfg["agents"][0]["llm_provider"]["model"] == "gpt-x" and cfg["agents"][0]["llm_provider"]["max_tokens"] == 200
+    del cfg["wellmonitoring"]                       # as a flow made in the framework
+    back, _ = from_agentflow(flow)
+    s = back["steps"][0]
+    assert (s["expectedOutput"], s["outputKey"], s["model"], s["temperature"], s["maxTokens"]) == \
+        ("Two sentences", "summary", "gpt-x", 0.3, 200)

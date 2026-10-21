@@ -1,0 +1,86 @@
+<app-page-header title="Agent Catalog" [breadcrumbs]="[{label:'Home'},{label:'Agentic AI'},{label:'Agent Catalog'}]"></app-page-header>
+
+<div class="cat">
+    <div class="cat__bar">
+        <div class="cat__tabs" role="tablist" aria-label="Catalog">
+            <button type="button" role="tab" [attr.aria-selected]="tab === 'templates'" [class.cat__tab--on]="tab === 'templates'" (click)="tab = 'templates'">
+                Templates <span>{{ templates.length }}</span>
+            </button>
+            <button type="button" role="tab" [attr.aria-selected]="tab === 'ours'" [class.cat__tab--on]="tab === 'ours'" (click)="tab = 'ours'">
+                Our agents <span>{{ ours?.length ?? '…' }}</span>
+            </button>
+        </div>
+        <input class="cat__search" type="search" aria-label="Search the catalog" placeholder="Search agents" [(ngModel)]="search" />
+    </div>
+
+    @if (tab === 'templates') {
+        <div class="cat__chips" role="group" aria-label="Pattern">
+            <button type="button" [class.cat__chip--on]="!pattern" [attr.aria-pressed]="!pattern" (click)="pattern = null">All</button>
+            @for (p of patterns; track p) {
+                <button type="button" [class.cat__chip--on]="pattern === p" [attr.aria-pressed]="pattern === p" (click)="pattern = pattern === p ? null : p">
+                    {{ p }} <span>{{ count(p) }}</span>
+                </button>
+            }
+        </div>
+        <div class="cat__grid">
+            @for (t of templates; track t.id) {
+                <article class="cat__card" [class.cat__card--soon]="t.comingSoon">
+                    <div class="cat__head">
+                        <h3>{{ t.name }}</h3>
+                        <span class="cat__badge">{{ t.patterns[0] }}</span>
+                    </div>
+                    <p class="cat__summary">{{ t.summary }}</p>
+                    <div class="cat__flow" [attr.aria-label]="typeLabel(t.agent.type) + ' flow'">
+                        <span class="cat__type">{{ typeLabel(t.agent.type) }}</span>
+                        @for (f of flow(t.agent); track $index; let last = $last) {
+                            <span class="cat__node" [class.cat__node--router]="f.router">{{ f.label }}</span>
+                            @if (!last) { <span class="cat__join" aria-hidden="true">{{ joiner(t.agent) }}</span> }
+                        }
+                        @if (t.agent.type === 'loop') { <span class="cat__join" title="Repeats">↻</span> }
+                    </div>
+                    <div class="cat__meta">
+                        @for (x of tools(t.agent); track x) { <span class="cat__tool">{{ x }}</span> }
+                        @for (p of t.patterns.slice(1); track p) { <span class="cat__tag">{{ p }}</span> }
+                    </div>
+                    @if (t.needs) { <p class="cat__needs">Needs: {{ t.needs }}</p> }
+                    <div class="cat__actions">
+                        @if (t.comingSoon) {
+                            <span class="cat__soon">{{ t.comingSoon }}</span>
+                        } @else {
+                            <app-button variant="primary" (clicked)="useTemplate(t)">Use template</app-button>
+                        }
+                    </div>
+                </article>
+            } @empty {
+                <p class="cat__empty">No template matches.</p>
+            }
+        </div>
+    } @else {
+        <div class="cat__grid">
+            @if (oursError) { <p class="cat__empty">{{ oursError }}</p> }
+            @else if (ours === null) { <p class="cat__empty">Loading…</p> }
+            @for (a of ourAgents; track a.id) {
+                <article class="cat__card">
+                    <div class="cat__head">
+                        <h3>{{ a.name }}</h3>
+                        <span class="cat__badge">{{ typeLabel(a.type) }}</span>
+                    </div>
+                    <p class="cat__summary">{{ a.description || a.role || 'No description.' }}</p>
+                    <div class="cat__flow">
+                        @for (f of flow(a); track $index; let last = $last) {
+                            <span class="cat__node" [class.cat__node--router]="f.router">{{ f.label }}</span>
+                            @if (!last) { <span class="cat__join" aria-hidden="true">{{ joiner(a) }}</span> }
+                        }
+                    </div>
+                    <p class="cat__needs">{{ a.stats.runs }} runs{{ a.stats.successRate !== null ? ' · ' + a.stats.successRate + '% success' : '' }} · by {{ a.createdBy }}</p>
+                    <div class="cat__actions">
+                        <app-button variant="secondary" (clicked)="open(a)">Open</app-button>
+                        <app-button variant="primary" (clicked)="duplicate(a)">Duplicate</app-button>
+                    </div>
+                </article>
+            } @empty {
+                @if (ours !== null && !oursError) { <p class="cat__empty">No published agent matches.</p> }
+            }
+        </div>
+    }
+</div>

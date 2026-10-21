@@ -1,4 +1,8 @@
-"""Calls the twise-agentic supervisor: its agent list (the tools) and one agent run, streamed."""
+"""Calls the twise-agentic supervisor: its agent list (the tools) and one agent run, streamed.
+
+Optional: only when AGENT_RUNTIME_TWISE_URL is set. Without it the runtime offers just its built-in tools and
+never connects to the supervisor.
+"""
 from __future__ import annotations
 
 import json
@@ -7,7 +11,7 @@ from typing import Any, Iterable, Iterator
 
 import httpx
 
-TWISE_URL = os.environ.get("AGENT_RUNTIME_TWISE_URL", "http://localhost:8000").rstrip("/")
+TWISE_URL = os.environ.get("AGENT_RUNTIME_TWISE_URL", "").rstrip("/")
 TWISE_API_KEY = os.environ.get("AGENT_RUNTIME_TWISE_API_KEY", "")
 STEP_TIMEOUT = float(os.environ.get("AGENT_RUNTIME_STEP_TIMEOUT", "180"))
 
@@ -17,7 +21,9 @@ def _headers() -> dict[str, str]:
 
 
 def list_tools() -> list[dict[str, Any]]:
-    """Every twise agent and the actions it accepts (GET /api/agents)."""
+    """Every twise agent and the actions it accepts (GET /api/agents); none when the supervisor is not configured."""
+    if not TWISE_URL:
+        return []
     r = httpx.get(f"{TWISE_URL}/api/agents", headers=_headers(), timeout=15)
     r.raise_for_status()
     return [
@@ -35,6 +41,10 @@ def list_tools() -> list[dict[str, Any]]:
 def run_tool(agent: str, action: str, text: str, history: list[dict[str, str]], session_id: str) -> Iterator[dict[str, Any]]:
     """Runs one agent through POST /api/supervisor/execute and yields its events
     ({"event": "start"|"node"|"status"|"done"|"error", "data": {...}})."""
+    if not TWISE_URL:
+        yield {"event": "error", "data": {"message": f"Tool '{agent}' needs the twise agent service, which is not configured "
+                                                    "(AGENT_RUNTIME_TWISE_URL)."}}
+        return
     body = {
         "agent": agent, "action": action, "input_text": text, "session_id": session_id,
         "payload": {"mode": "deep", "history": history},

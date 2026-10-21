@@ -131,7 +131,8 @@ export class RunAgentDialogComponent implements OnInit, OnDestroy {
   private request(): SaveAgentRequest {
     const a = this.agent;
     return { name: a.name, role: a.role, description: a.description, systemPrompt: a.systemPrompt, goal: a.goal, steps: a.steps,
-      tools: a.tools, inputs: a.inputs, outputs: a.outputs, status: a.status, askData: a.askData, type: a.type, maxIterations: a.maxIterations };
+      tools: a.tools, inputs: a.inputs, outputs: a.outputs, status: a.status, askData: a.askData, type: a.type, maxIterations: a.maxIterations,
+      customTools: a.customTools ?? [] };
   }
 
   private stop(): void {

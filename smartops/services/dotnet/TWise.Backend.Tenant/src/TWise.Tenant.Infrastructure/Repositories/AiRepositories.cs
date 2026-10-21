@@ -26,6 +26,18 @@ public sealed class AiProviderRepository(TenantDbContext db) : IAiProviderReposi
     public Task<AiProvider?> GetAsync(long id, long tenantId, CancellationToken ct) =>
         db.AiProviders.FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenantId, ct);
 
+    public async Task<IReadOnlyList<AiModelPrice>> ListPricesAsync(long tenantId, CancellationToken ct) =>
+        await db.AiModelPrices.AsNoTracking().Where(p => p.TenantId == tenantId).OrderBy(p => p.Model).ToListAsync(ct);
+
+    public async Task ReplacePricesAsync(long tenantId, IReadOnlyList<AiModelPrice> prices, CancellationToken ct)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await db.AiModelPrices.Where(p => p.TenantId == tenantId).ExecuteDeleteAsync(ct);
+        db.AiModelPrices.AddRange(prices);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
     public Task<AiProvider?> GetActiveAsync(long tenantId, CancellationToken ct) =>
         db.AiProviders.FirstOrDefaultAsync(p => p.TenantId == tenantId && p.IsActive, ct);
 

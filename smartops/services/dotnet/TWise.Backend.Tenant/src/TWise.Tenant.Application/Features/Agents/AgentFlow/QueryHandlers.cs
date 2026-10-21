@@ -25,6 +25,17 @@ public sealed class GetAgentFlowHandler(IAiAgentRepository agents, IAgentRuntime
     }
 }
 
+public sealed class TryAgentToolHandler(IAiAgentRepository agents, IAiKeyProtector keys, IAgentRuntimeClient runtime)
+    : IRequestHandler<TryAgentToolQuery, JsonElement>
+{
+    public async Task<JsonElement> Handle(TryAgentToolQuery q, CancellationToken ct)
+    {
+        var saved = q.Request.AgentId is { } id ? await agents.GetAsync(q.TenantId, id, ct) : null;
+        var tool = AgentMapping.WithSecrets([q.Request.Tool], saved, keys)![0];
+        return await runtime.TryToolAsync(tool, q.Request.Args ?? [], ct);
+    }
+}
+
 /// <summary>The tenant's active provider for agentflow.json (it used to always say openai / gpt-4o-mini).</summary>
 internal static class AgentFlowModel
 {

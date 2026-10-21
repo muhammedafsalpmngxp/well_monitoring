@@ -41,7 +41,13 @@ public class TenantDbContext(DbContextOptions<TenantDbContext> options) : DbCont
     public DbSet<AiTrace> AiTraces => Set<AiTrace>();
     public DbSet<AiAlert> AiAlerts => Set<AiAlert>();
     public DbSet<AiAgent> AiAgents => Set<AiAgent>();
+    public DbSet<AiModelPrice> AiModelPrices => Set<AiModelPrice>();
     public DbSet<AiAgentRun> AiAgentRuns => Set<AiAgentRun>();
+    public DbSet<AiAgentVersion> AiAgentVersions => Set<AiAgentVersion>();
+    public DbSet<AiAgentMemory> AiAgentMemories => Set<AiAgentMemory>();
+    public DbSet<AiAgentSchedule> AiAgentSchedules => Set<AiAgentSchedule>();
+    public DbSet<AiAgentEvalCase> AiAgentEvalCases => Set<AiAgentEvalCase>();
+    public DbSet<AiAgentEvalRun> AiAgentEvalRuns => Set<AiAgentEvalRun>();
     public DbSet<AiDatasetNote> AiDatasetNotes => Set<AiDatasetNote>();
     public DbSet<AiDatasetPrompt> AiDatasetPrompts => Set<AiDatasetPrompt>();
     public DbSet<AiDatasetRelation> AiDatasetRelations => Set<AiDatasetRelation>();

@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { AiFeatureAccess, AiFeatureDef, AiProvider, AiProviderDto, AiService, AiSettingsDto, AiTestResultDto, AiUsageSummaryDto } from '../../../core/services/ai.service';
+import { AiFeatureAccess, AiFeatureDef, AiModelPrice, AiProvider, AiProviderDto, AiService, AiSettingsDto, AiTestResultDto, AiUsageSummaryDto } from '../../../core/services/ai.service';
 import { RoleDto, UserManagementService } from '../../../core/services/user-management.service';
 import { PermissionService } from '../../../core/services/permission.service';
 
@@ -65,6 +65,41 @@ export class AiSettingsComponent implements OnInit {
 
   /** Admins see where the AI instructions moved (Settings → AI Prompts is admin-only). */
   get isAdmin(): boolean { return this.permissions.isAdminUser; }
+
+  // ── Model prices (agent cost estimates; nothing is built in, prices change often) ─
+  prices: AiModelPrice[] = [];
+  readonly modelClasses = ['frontier', 'standard', 'fast'] as const;
+  pricesMessage = '';
+  pricesError = '';
+  savingPrices = false;
+
+  loadPrices(): void {
+    this.ai.modelPrices().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: c => {
+        this.prices = c.prices.map(p => ({ ...p }));
+        // Offer rows for the active provider's models when they have no price yet.
+        for (const [m, cls] of [[c.activeModel, 'standard'], [c.fastModel, 'fast']] as const)
+          if (m && !this.prices.some(p => p.model.toLowerCase() === m.toLowerCase())) this.prices.push({ model: m, modelClass: cls, inputPer1M: 0, outputPer1M: 0 });
+        this.cdr.markForCheck();
+      },
+      error: () => { this.pricesError = 'Could not load the model prices. Restart the Tenant API if it was just updated.'; this.cdr.markForCheck(); },
+    });
+  }
+
+  savePrices(): void {
+    this.savingPrices = true;
+    this.pricesMessage = this.pricesError = '';
+    const rows = this.prices.filter(p => p.model.trim()).map(p => ({ ...p, model: p.model.trim(), inputPer1M: Number(p.inputPer1M) || 0, outputPer1M: Number(p.outputPer1M) || 0 }));
+    this.ai.saveModelPrices(rows).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: c => { this.savingPrices = false; this.prices = c.prices.map(p => ({ ...p })); this.pricesMessage = 'Saved.'; this.cdr.markForCheck(); },
+      error: err => {
+        this.savingPrices = false;
+        const e = err?.error;
+        this.pricesError = e?.errors ? Object.values(e.errors as Record<string, string[]>).flat().join(' ') : e?.message ?? 'The prices could not be saved.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
 
   ngOnInit(): void {
     this.loadSettings();
@@ -215,6 +250,7 @@ export class AiSettingsComponent implements OnInit {
   }
 
   private loadProviders(): void {
+    this.loadPrices();
     this.ai.providers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: p => { this.providers = p; this.loading = false; this.cdr.markForCheck(); },
       error: err => { this.loading = false; this.error = err?.error?.message ?? 'Providers could not be loaded.'; this.cdr.markForCheck(); },

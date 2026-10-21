@@ -14,6 +14,9 @@ public interface IAiProviderRepository
     Task<IReadOnlyList<AiProvider>> ListAsync(long tenantId, CancellationToken ct);
     Task<AiProvider?> GetAsync(long id, long tenantId, CancellationToken ct);
     Task<AiProvider?> GetActiveAsync(long tenantId, CancellationToken ct);
+    Task<IReadOnlyList<AiModelPrice>> ListPricesAsync(long tenantId, CancellationToken ct);
+    /// <summary>The tenant's price catalog becomes exactly these rows.</summary>
+    Task ReplacePricesAsync(long tenantId, IReadOnlyList<AiModelPrice> prices, CancellationToken ct);
     Task AddAsync(AiProvider provider, CancellationToken ct);
     /// <summary>Marks this provider active and every other provider of the tenant inactive.</summary>
     Task SetActiveAsync(AiProvider provider, CancellationToken ct);

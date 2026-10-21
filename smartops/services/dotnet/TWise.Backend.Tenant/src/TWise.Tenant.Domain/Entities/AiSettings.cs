@@ -36,6 +36,22 @@ public class AiSettings : BaseEntity
 /// One registered LLM endpoint for a tenant. Several can exist; exactly one is active and used by the
 /// AI features. The API key is encrypted with the connection-password cipher and never returned.
 /// </summary>
+/// <summary>
+/// What a model costs, for the agent cost estimates (USD per 1M tokens) and its class: frontier | standard | fast.
+/// Set by an admin; prices change often, so none are built in. Maps to core.AiModelPrices.
+/// </summary>
+public class AiModelPrice
+{
+    public long Id { get; set; }
+    public long TenantId { get; set; }
+    public string Model { get; set; } = "";
+    public string ModelClass { get; set; } = "standard";
+    public decimal InputPer1M { get; set; }
+    public decimal OutputPer1M { get; set; }
+    public string? UpdatedBy { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
 public class AiProvider : BaseEntity
 {
     public long Id { get; set; }

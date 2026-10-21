@@ -179,6 +179,9 @@ public static class DependencyInjection
         services.AddScoped<IAiAskService, AiAskService>();
         services.AddScoped<IAiAlertService, AiAlertService>();
         services.AddHostedService<AiAlertWorker>();
+        // Agent triggers (Agentic AI → agent → Triggers): runs published agents on their schedules.
+        services.AddScoped<TWise.Tenant.Application.Features.Agents.AgentScheduleRunner>();
+        services.AddHostedService<AgentScheduleWorker>();
         services.AddScoped<IAiViewQueryRunner, AiViewQueryRunner>();
 
         // Agentic AI: agents built on Create New Agent run in the Python agent runtime (LangGraph).

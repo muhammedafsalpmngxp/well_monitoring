@@ -84,6 +84,7 @@ export const API_ENDPOINTS = {
   AI: {
     SETTINGS: '/ai/settings',
     PROVIDERS: '/ai/providers',
+    MODEL_PRICES: '/ai/model-prices',
     PROVIDER: (id: number) => `/ai/providers/${id}`,
     PROVIDER_ACTIVATE: (id: number) => `/ai/providers/${id}/activate`,
     PROVIDER_TEST: (id: number) => `/ai/providers/${id}/test`,

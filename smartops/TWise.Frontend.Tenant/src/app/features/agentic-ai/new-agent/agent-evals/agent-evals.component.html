@@ -1,0 +1,102 @@
+@if (!agentId) {
+    <p class="ev__hint">Save the agent first: test cases belong to a saved agent.</p>
+} @else {
+    <p class="ev__hint">Test cases check the agent before you publish or after a change. Run all runs every case on the agent as it is on the page now.</p>
+    @if (error) { <p class="ev__error" role="alert">{{ error }}</p> }
+
+    <div class="ev__bar">
+        <strong>{{ cases.length }} test case{{ cases.length === 1 ? '' : 's' }}</strong>
+        <span class="ev__spacer"></span>
+        <button type="button" class="ev__link" (click)="newCase()">+ Add test case</button>
+        <button type="button" class="ev__run" [disabled]="running || !cases.length" (click)="runAll()">{{ running ? 'Running…' : 'Run all' }}</button>
+    </div>
+
+    @if (form; as f) {
+        <div class="ev__form">
+            <label class="ev__field">Name
+                <input type="text" [(ngModel)]="f.name" placeholder="e.g. Nimr well count" />
+            </label>
+            @for (n of inputNames; track n) {
+                <label class="ev__field">{{ n }}
+                    <input type="text" [(ngModel)]="f.inputs[n]" placeholder="Value for this test" />
+                </label>
+            }
+            <label class="ev__field">A good answer…
+                <textarea rows="3" [(ngModel)]="f.expectation" placeholder="e.g. says Nimr has 393 wells and names the cluster"></textarea>
+                <small>The AI model judges the answer against this. Leave empty to use only the rules below.</small>
+            </label>
+            @for (r of f.rules; track $index) {
+                <div class="ev__rule">
+                    <select [(ngModel)]="r.op" aria-label="Rule">
+                        @for (o of ruleOps; track o.value) { <option [value]="o.value">{{ o.label }}</option> }
+                    </select>
+                    <input type="text" [(ngModel)]="r.value" aria-label="Value" placeholder="text or number" />
+                    <button type="button" class="ev__link" (click)="f.rules.splice($index, 1)">Remove</button>
+                </div>
+            }
+            <button type="button" class="ev__link" (click)="f.rules.push({ op: 'contains', value: '' })">+ Rule (exact check)</button>
+            <div class="ev__actions">
+                <button type="button" class="ev__link" (click)="form = null">Cancel</button>
+                <button type="button" class="ev__run" (click)="saveCase()">{{ f.id ? 'Save' : 'Add' }}</button>
+            </div>
+        </div>
+    }
+
+    @if (live.length) {
+        <div class="ev__results" aria-live="polite">
+            @if (score) { <p class="ev__score" [class.ev__score--all]="score.passed === score.total">{{ score.passed }} / {{ score.total }} passed</p> }
+            @for (l of live; track l.caseId) {
+                <div class="ev__result" [class.ev__result--pass]="l.result?.passed" [class.ev__result--fail]="l.result && !l.result.passed">
+                    <span class="ev__mark" aria-hidden="true">{{ l.result ? (l.result.passed ? '✓' : '✗') : l.running ? '…' : '·' }}</span>
+                    <div class="ev__body">
+                        <strong>{{ l.name }}</strong>
+                        @for (r of l.result?.reasons ?? []; track $index) { <span class="ev__reason">{{ r }}</span> }
+                        @if (l.result?.answer) { <details><summary>Answer</summary><p class="ev__answer">{{ l.result!.answer }}</p></details> }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (opened; as o) {
+        <div class="ev__results">
+            <p class="ev__score" [class.ev__score--all]="o.passed === o.total">{{ version(o) }}: {{ o.passed }} / {{ o.total }} passed · {{ utc(o.startedAt) | date: 'short' }}</p>
+            @for (r of o.results ?? []; track r.caseId) {
+                <div class="ev__result" [class.ev__result--pass]="r.passed" [class.ev__result--fail]="!r.passed">
+                    <span class="ev__mark" aria-hidden="true">{{ r.passed ? '✓' : '✗' }}</span>
+                    <div class="ev__body">
+                        <strong>{{ r.name }}</strong>
+                        @for (x of r.reasons; track $index) { <span class="ev__reason">{{ x }}</span> }
+                        @if (r.answer) { <details><summary>Answer</summary><p class="ev__answer">{{ r.answer }}</p></details> }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @for (c of cases; track c.id) {
+        <div class="ev__case">
+            <div class="ev__body">
+                <strong>{{ c.name }}</strong>
+                <span class="ev__meta">{{ inputsText(c) }}</span>
+                @if (c.expectation) { <span class="ev__meta">Good answer: {{ c.expectation }}</span> }
+                @if (c.rules.length) { <span class="ev__meta">{{ c.rules.length }} rule{{ c.rules.length > 1 ? 's' : '' }}</span> }
+            </div>
+            <button type="button" class="ev__link" (click)="editCase(c)">Edit</button>
+            <button type="button" class="ev__link ev__link--bad" (click)="deleteCase(c)">Delete</button>
+        </div>
+    } @empty {
+        @if (loaded && !form) { <p class="ev__hint">No test cases yet. Add one with the inputs to try and what a good answer says.</p> }
+    }
+
+    @if (runs.length) {
+        <p class="ev__title">Score history</p>
+        @for (r of runs; track r.id) {
+            <button type="button" class="ev__history" (click)="openRun(r)">
+                <span>{{ version(r) }}</span>
+                <strong [class.ev__score--all]="r.passed === r.total">{{ r.passed }}/{{ r.total }}</strong>
+                <span class="ev__meta">{{ utc(r.startedAt) | date: 'short' }} · {{ r.runBy }}</span>
+            </button>
+        }
+    }
+}

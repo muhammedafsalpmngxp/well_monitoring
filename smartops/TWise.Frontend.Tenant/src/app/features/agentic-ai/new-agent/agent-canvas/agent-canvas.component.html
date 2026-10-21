@@ -15,6 +15,7 @@
             </button>
             @if (!collapsed.has(g.label)) {
                 @for (item of g.items; track item.label) {
+                    @if (item.section) { <p class="ac__section">{{ item.section }}</p> }
                     @if (item.data) {
                         <div class="ac__palette-item" fExternalItem [fData]="item.data" tabindex="0" role="button"
                             [attr.aria-label]="item.label + ': drag onto the canvas. ' + item.description" [title]="item.description">
@@ -31,7 +32,7 @@
                 @if (!g.items.length) { <p class="ac__hint">No tools available.</p> }
             }
         }
-        <p class="ac__hint">Drag an Agent or Task to add a step, a Router to branch, or a tool to give it to the agent. Connect a
+        <p class="ac__hint">Drag an Agent or Task to add a step, or a Conditional to branch. Connect a
             step's (or a branch's) right dot to another step's left dot to run it next. Select any node to see its properties.</p>
     </aside>
     }
@@ -41,8 +42,22 @@
         <button type="button" (click)="zoomOut()" aria-label="Zoom out" title="Zoom out">−</button>
         <button type="button" (click)="actualSize()" aria-label="Zoom to 100%" title="100%">100%</button>
         <button type="button" (click)="zoomIn()" aria-label="Zoom in" title="Zoom in">+</button>
-        <button type="button" (click)="fit()" aria-label="Fit to screen" title="Fit to screen">Fit</button>
+        <button type="button" (click)="fit()" aria-label="Fit to screen" title="Fit to screen (F)">Fit</button>
+        <button type="button" (click)="undo.emit()" [disabled]="!canUndo" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button>
+        <button type="button" (click)="redo.emit()" [disabled]="!canRedo" aria-label="Redo" title="Redo (Ctrl+Y)">↷</button>
+        <button type="button" (click)="openPalette()" aria-label="Commands" title="Commands (Ctrl+K)">⌘K</button>
+        <button type="button" class="ac__pill" [class.ac__pill--bad]="issues.length" [attr.aria-expanded]="showIssues"
+            (click)="showIssues = !showIssues" [disabled]="!issues.length">
+            {{ issues.length ? issues.length + (issues.length === 1 ? ' issue' : ' issues') : 'No issues' }}
+        </button>
     </div>
+    @if (showIssues && issues.length) {
+        <ul class="ac__issues" aria-label="Issues">
+            @for (i of issues; track $index) {
+                <li><button type="button" (click)="focusIssue(i)">{{ i.text }}</button></li>
+            }
+        </ul>
+    }
     <f-flow fDraggable class="ac__flow"
         (fCreateNode)="onCreateNode($event)"
         (fMoveNodes)="onMoveNodes($event)"
@@ -54,7 +69,9 @@
             @for (c of connections; track c.id) {
                 <f-connection [fConnectionId]="c.id" [fSourceId]="c.source" [fTargetId]="c.target"
                     fType="segment" fBehavior="fixed" [fReassignDisabled]="true" [fSelectionDisabled]="true"
-                    [class.ac__uses]="c.uses" [class.ac__back]="c.back" [class.ac__loop]="c.loop"></f-connection>
+                    [class.ac__uses]="c.uses" [class.ac__back]="c.back" [class.ac__loop]="c.loop">
+                    @if (c.label) { <div fConnectionContent [position]="0.5" class="ac__link-label">{{ c.label }}</div> }
+                </f-connection>
             }
             @for (n of nodes; track n.id) {
                 <div fNode fDragHandle [fNodeId]="n.id" [fNodePosition]="n.position"
@@ -86,8 +103,42 @@
                     }
                 </div>
             }
+            @for (n of notes; track n.id) {
+                <div fNode [fNodeId]="notePrefix + n.id" [fNodePosition]="{ x: n.x, y: n.y }" class="ac__note ac__note--{{ n.color }}">
+                    <div fDragHandle class="ac__note-bar">
+                        <span>Note</span>
+                        <button type="button" class="ac__note-btn" (click)="nextColor(n)" title="Change colour" aria-label="Change note colour">●</button>
+                        <button type="button" class="ac__note-btn" (click)="removeNote(n.id)" title="Delete note" aria-label="Delete note">×</button>
+                    </div>
+                    <textarea class="ac__note-text" [(ngModel)]="n.text" (ngModelChange)="changed.emit()" maxlength="2000"
+                        placeholder="Write a note…" aria-label="Note text"></textarea>
+                </div>
+            }
         </f-canvas>
+        <f-selection-area></f-selection-area>
     </f-flow>
+    @if (paletteOpen) {
+        <div class="ac__cmd" role="dialog" aria-label="Commands">
+            <input type="text" class="ac__cmd-input" placeholder="Type a command…" aria-label="Command" autofocus
+                [ngModel]="paletteQuery" (ngModelChange)="paletteQuery = $event; paletteIndex = 0" (keydown)="paletteKey($event)" />
+            <ul>
+                @for (c of paletteCommands; track c.id; let i = $index) {
+                    <li><button type="button" [class.ac__cmd--on]="i === paletteIndex" (click)="runCommand(c)" (mouseenter)="paletteIndex = i">
+                        <span>{{ c.label }}</span><kbd>{{ c.keys }}</kbd></button></li>
+                } @empty { <li class="ac__hint">No command matches.</li> }
+            </ul>
+        </div>
+    }
+    @if (helpOpen) {
+        <div class="ac__cmd" role="dialog" aria-label="Keyboard shortcuts">
+            <div class="ac__cmd-head"><strong>Keyboard shortcuts</strong><button type="button" class="ac__link" (click)="helpOpen = false">Close</button></div>
+            <ul>
+                @for (c of commands; track c.id) { @if (c.keys) { <li class="ac__cmd-row"><span>{{ c.label }}</span><kbd>{{ c.keys }}</kbd></li> } }
+                <li class="ac__cmd-row"><span>Select several</span><kbd>Ctrl+click · Shift+drag</kbd></li>
+                <li class="ac__cmd-row"><span>Close / clear the selection</span><kbd>Esc</kbd></li>
+            </ul>
+        </div>
+    }
     @if (loopNote) { <p class="ac__warn" role="alert">{{ loopNote }}</p> }
     </div>
 
@@ -98,9 +149,102 @@
     } @else {
     <aside class="ac__panel" aria-label="Properties">
         <div class="ac__panel-head">
-            <p class="ac__palette-title">Properties</p>
+            <div class="ac__panel-tabs" role="tablist" aria-label="Panel">
+                <button type="button" role="tab" [attr.aria-selected]="panelTab === 'properties'" [class.ac__panel-tabs--on]="panelTab === 'properties'" (click)="panelTab = 'properties'">Properties</button>
+                <button type="button" role="tab" [attr.aria-selected]="panelTab === 'analysis'" [class.ac__panel-tabs--on]="panelTab === 'analysis'" (click)="showAnalysis()">Analysis</button>
+            </div>
             <button type="button" class="ac__collapse" (click)="propertiesCollapsed = true" aria-label="Hide Properties" title="Hide Properties">›</button>
         </div>
+        @if (panelTab === 'analysis') {
+            @if (analysis; as an) {
+                <p class="ac__hint">Estimates from the design (rough token profiles per tool and your model prices). They help you review it; they are not measurements.</p>
+                <div class="ac__metric-row">
+                    <div class="ac__metric"><span>Tokens per run</span><strong>{{ an.tokens.expected | number }}</strong><small>worst {{ an.tokens.worst | number }}</small></div>
+                    <div class="ac__metric"><span>Cost per run</span>
+                        <strong>{{ an.cost.expected !== null ? '$' + (an.cost.expected | number: '1.4-4') : '—' }}</strong>
+                        <small>{{ an.cost.worst !== null ? 'worst $' + (an.cost.worst | number: '1.4-4') : an.cost.missingPrices.length ? 'no price: ' + an.cost.missingPrices.join(', ') : 'no model calls' }}</small>
+                    </div>
+                    <div class="ac__metric"><span>Model calls</span><strong>{{ an.counts.llmCallsExpected }}</strong><small>worst {{ an.counts.llmCallsWorst }}</small></div>
+                </div>
+                @if (measured; as m) {
+                    <p class="ac__hint">Measured: the last {{ m.runs }} successful run{{ m.runs > 1 ? 's' : '' }} used {{ m.tokens | number }} tokens on average{{ m.cost !== null ? ', ≈ $' + (m.cost | number: '1.4-4') : '' }}.</p>
+                }
+                <label class="ac__go">Token budget per run (optional)
+                    <input type="number" min="0" step="1000" [ngModel]="budget" (ngModelChange)="setBudget($event)" placeholder="e.g. 50000" />
+                </label>
+
+                <p class="ac__panel-label">Scores <small>(heuristics, 0–100)</small></p>
+                <div class="ac__scores">
+                    <span>Efficiency</span><span class="ac__score" [ngClass]="scoreClass(an.scores.efficiency)">{{ an.scores.efficiency }}</span>
+                    <span>Reliability</span><span class="ac__score" [ngClass]="scoreClass(an.scores.reliability)">{{ an.scores.reliability }}</span>
+                    <span>Complexity</span><span class="ac__score" [ngClass]="scoreClass(an.scores.complexity, false)">{{ an.scores.complexity }}</span>
+                    <span>LLM dependency</span><span>{{ an.scores.llmDependency }}%</span>
+                    <span>Human dependency</span><span>{{ an.scores.humanDependency }}%</span>
+                    <span>Frontier-model share</span><span>{{ an.scores.frontierDependency }}%</span>
+                </div>
+
+                <p class="ac__panel-label">Findings ({{ an.findings.length }})</p>
+                @for (f of an.findings; track $index) {
+                    <div class="ac__finding" [ngClass]="'ac__finding--' + f.severity">
+                        <strong>{{ f.what }}</strong>
+                        <span><em>Why:</em> {{ f.why }}</span>
+                        <span><em>Fix:</em> {{ f.fix }}</span>
+                        @if (f.stepId) { <button type="button" class="ac__link" (click)="focusIssue({ id: f.stepId })">Show the step</button> }
+                    </div>
+                } @empty { <p class="ac__hint">No findings. Nice.</p> }
+
+                <p class="ac__panel-label">Counts</p>
+                <div class="ac__scores">
+                    <span>Steps</span><span>{{ an.counts.steps }}</span>
+                    <span>Agents / tasks</span><span>{{ an.counts.agents }}</span>
+                    <span>Tools used</span><span>{{ an.counts.tools }}</span>
+                    <span>Conditionals</span><span>{{ an.counts.routers }}</span>
+                    <span>Loops</span><span>{{ an.counts.loops }}</span>
+                    <span>For Each</span><span>{{ an.counts.forEach }}</span>
+                    <span>Approvals</span><span>{{ an.counts.approvals }}</span>
+                    <span>Sub-agents</span><span>{{ an.counts.subagents }}</span>
+                    <span>Graph depth</span><span>{{ an.counts.depth }}</span>
+                    <span>Parallel branches</span><span>{{ an.counts.parallelBranches }}</span>
+                    <span>Expected step runs</span><span>{{ an.counts.expectedExecutions }}</span>
+                </div>
+
+                <p class="ac__panel-label">Tokens by model class</p>
+                <div class="ac__scores">
+                    <span>Frontier</span><span>{{ an.tokens.byClass.frontier.expected | number }} <small>/ {{ an.tokens.byClass.frontier.worst | number }}</small></span>
+                    <span>Standard</span><span>{{ an.tokens.byClass.standard.expected | number }} <small>/ {{ an.tokens.byClass.standard.worst | number }}</small></span>
+                    <span>Fast</span><span>{{ an.tokens.byClass.fast.expected | number }} <small>/ {{ an.tokens.byClass.fast.worst | number }}</small></span>
+                </div>
+                @if (an.cost.byModel.length) {
+                    <p class="ac__panel-label">Cost by model <small>(expected / worst)</small></p>
+                    <div class="ac__scores">
+                        @for (m of an.cost.byModel; track m.model) {
+                            <span>{{ m.model }}</span><span>{{ m.priced ? '$' + (m.expected | number: '1.4-4') + ' / $' + (m.worst | number: '1.4-4') : 'no price' }}</span>
+                        }
+                    </div>
+                }
+
+                <p class="ac__panel-label">By step <small>(tokens per run, expected × runs / worst)</small></p>
+                <div class="ac__steps-cost">
+                    @for (s of costlySteps; track $index) {
+                        <span>{{ s.label }}</span>
+                        <span>{{ s.calls * (s.input + s.output) | number }} × {{ s.expectedRuns | number: '1.0-1' }} / {{ s.worstRuns }}</span>
+                        <small>{{ s.tool }} · {{ s.model ?? 'no model' }}{{ s.modelClass ? ' (' + s.modelClass + ')' : '' }}</small>
+                    }
+                </div>
+                <p class="ac__hint">Prices per model: Settings → AI Providers → Model prices.</p>
+            } @else {
+                <p class="ac__hint">Open this tab from the agent editor to see the analysis.</p>
+            }
+        } @else {
+        @if (selectedSteps.length > 1) {
+            <p class="ac__props-kind">{{ selectedSteps.length }} steps selected</p>
+            <p class="ac__hint">Duplicate keeps the links between them; paste with Ctrl+V (also into another agent).</p>
+            <div class="ac__row">
+                <button type="button" class="ac__link" (click)="duplicateSelected()">Duplicate (Ctrl+D)</button>
+                <button type="button" class="ac__link" (click)="copySelected()">Copy (Ctrl+C)</button>
+                <button type="button" class="ac__delete" (click)="deleteSelection()">Delete {{ selectedSteps.length }} steps</button>
+            </div>
+        } @else {
         @if (selectedNode; as node) {
             <p class="ac__props-kind">{{ node.kind === 'step' ? node.title : node.kind === 'tool' ? 'Tool' : node.title }}</p>
         }
@@ -138,7 +282,7 @@
                         }
                         <label class="ac__go">Go to
                             <select [ngModel]="b.target ?? 'answer'" (ngModelChange)="b.target = $event; edited()">
-                                <option ngValue="answer">Answer</option>
+                                <option ngValue="answer">Output</option>
                                 @for (t of targets; track t.id) { <option [ngValue]="t.id">{{ t.label }}</option> }
                             </select>
                         </label>
@@ -162,17 +306,107 @@
                         [placeholder]="sqlPlaceholder"></textarea>
                     <p class="ac__hint">One read-only SELECT, run as written with no model call. Inputs as <code ngNonBindable>{{name}}</code> are sent as parameters.</p>
                 }
+                @switch ((toolOf(step) ?? '').split(':')[0]) {
+                    @case ('evaluator') {
+                        <p class="ac__hint">Write the criteria as the instruction (e.g. "Gives the well count and names the cluster"). Use <code ngNonBindable>{{key}}</code> to check a named answer instead of the latest. On fail the run goes back with the reason, at most Max iterations times.</p>
+                        <label class="ac__go">When it fails, go back to
+                            <select [ngModel]="option('retryFrom') ?? ''" (ngModelChange)="setOption('retryFrom', $event)">
+                                <option ngValue="">The step before it</option>
+                                @for (s of earlierSteps; track s.id) { <option [ngValue]="s.id">{{ steps.indexOf(s) + 1 }}. {{ s.value.slice(0, 40) }}</option> }
+                            </select>
+                        </label>
+                    }
+                    @case ('guardrail') {
+                        <p class="ac__hint">The instruction describes the check (e.g. "Check the reply for personal data"). The rules need no AI; the policy, when written, is checked by the AI.</p>
+                        <label class="ac__go">Check
+                            <select [ngModel]="option('check') ?? 'answer'" (ngModelChange)="setOption('check', $event === 'answer' ? null : $event)">
+                                <option ngValue="answer">The latest answer (or the one named with a key)</option>
+                                <option ngValue="inputs">The inputs, before any step runs</option>
+                            </select>
+                        </label>
+                        <label class="ac__go ac__check"><input type="checkbox" [ngModel]="option('pii') !== false" (ngModelChange)="setOption('pii', $event ? null : false)" /> Personal data (e-mail, phone, card numbers)</label>
+                        <label class="ac__go">Blocked words (comma-separated)
+                            <input type="text" [ngModel]="option('blocked') ?? ''" (ngModelChange)="setOption('blocked', $event)" placeholder="e.g. password, salary" />
+                        </label>
+                        <label class="ac__go">Policy (AI, optional)
+                            <textarea rows="2" [ngModel]="option('policy') ?? ''" (ngModelChange)="setOption('policy', $event)" placeholder="e.g. Only questions about wells and operations; no salaries"></textarea>
+                        </label>
+                        <label class="ac__go">On a violation
+                            <select [ngModel]="option('action') ?? 'block'" (ngModelChange)="setOption('action', $event === 'block' ? null : $event)">
+                                <option ngValue="block">Stop the run (the answer says why)</option>
+                                <option ngValue="warn">Warn and go on</option>
+                            </select>
+                        </label>
+                    }
+                    @case ('compute') {
+                        <label class="ac__go">Compute
+                            <select [ngModel]="option('mode') ?? 'template'" (ngModelChange)="setOption('mode', $event === 'template' ? null : $event)">
+                                <option ngValue="template">Template: the instruction with <code ngNonBindable>{{keys}}</code> filled in</option>
+                                <option ngValue="math">Arithmetic: e.g. <code ngNonBindable>{{wells}} / {{rigs}}</code></option>
+                                <option ngValue="pick">Pick a field from a JSON answer</option>
+                            </select>
+                        </label>
+                        @if (option('mode') === 'pick') {
+                            <div class="ac__rule">
+                                <select aria-label="Answer to read" [ngModel]="option('source') ?? ''" (ngModelChange)="setOption('source', $event)">
+                                    <option ngValue="">Which answer…</option>
+                                    @for (n of listSources(step); track n) { <option [ngValue]="n">{{ n }}</option> }
+                                </select>
+                                <input type="text" aria-label="Path" [ngModel]="option('path') ?? ''" (ngModelChange)="setOption('path', $event)" placeholder="data.items[0].status" />
+                            </div>
+                        }
+                        <p class="ac__hint">No AI call: fast, free and exact. Arithmetic takes the first number of each answer.</p>
+                    }
+                    @case ('merge') {
+                        <label class="ac__go">Answers to join (output keys, comma-separated)
+                            <input type="text" [ngModel]="option('keys') ?? ''" (ngModelChange)="setOption('keys', $event)" placeholder="Empty = every earlier step" />
+                        </label>
+                        <p class="ac__hint">The instruction, if any, becomes the first line. No AI call.</p>
+                    }
+                }
+                <label class="ac__go">Retries on failure
+                    <input type="number" min="0" max="5" [ngModel]="step.retries" (ngModelChange)="setField('retries', $event)" placeholder="0" />
+                    <small>When the tool fails, try again up to this many times (2, 4, 8 s apart).</small>
+                </label>
+                <label class="ac__go">For each
+                    <select [ngModel]="step.forEach ?? ''" (ngModelChange)="setField('forEach', $event)">
+                        <option ngValue="">Run once</option>
+                        @for (n of listSources(step); track n) { <option [ngValue]="n">Each item of {{ n }}</option> }
+                    </select>
+                    <small>Runs once per item (up to 20, 5 at a time); write <code ngNonBindable>{{item}}</code> in the instruction. The answers are joined.</small>
+                </label>
+                <label class="ac__go">Expected output
+                    <textarea rows="2" [ngModel]="step.expectedOutput" (ngModelChange)="setField('expectedOutput', $event)"
+                        placeholder="e.g. One number and the cluster name"></textarea>
+                </label>
+                <label class="ac__go">Output key
+                    <input type="text" [ngModel]="step.outputKey" (ngModelChange)="setField('outputKey', $event)" placeholder="e.g. well_count" />
+                    <small>Later instructions can use the answer as <code ngNonBindable>{{key}}</code>.</small>
+                </label>
+                @if (takesModel(step)) {
+                    <label class="ac__go">Model
+                        <input type="text" [ngModel]="step.model" (ngModelChange)="setField('model', $event)" placeholder="The provider's model" />
+                    </label>
+                    <div class="ac__rule">
+                        <label class="ac__go">Temperature
+                            <input type="number" min="0" max="2" step="0.1" [ngModel]="step.temperature" (ngModelChange)="setField('temperature', $event)" placeholder="Default" />
+                        </label>
+                        <label class="ac__go">Max tokens
+                            <input type="number" min="1" max="32000" [ngModel]="step.maxTokens" (ngModelChange)="setField('maxTokens', $event)" placeholder="Default" />
+                        </label>
+                    </div>
+                }
                 @if (routable) {
                     <label class="ac__go">Then go to
                         <select [ngModel]="step.next ?? ''" (ngModelChange)="setNext($event)">
                             <option ngValue="">The following step</option>
-                            <option ngValue="answer">Answer</option>
+                            <option ngValue="answer">Output</option>
                             @for (t of targets; track t.id) { <option [ngValue]="t.id">{{ t.label }}</option> }
                         </select>
                     </label>
                 }
             }
-            <button type="button" class="ac__delete" (click)="deleteSelected()">Delete {{ step.kind === 'router' ? 'router' : 'instruction' }}</button>
+            <button type="button" class="ac__delete" (click)="deleteSelected()">Delete {{ step.kind === 'router' ? 'conditional' : 'instruction' }}</button>
         } @else if (selectedNode; as node) {
             @switch (node.kind) {
                 @case ('start') {
@@ -181,7 +415,112 @@
                     @if (!inputs.length) { <p class="ac__hint">No inputs. Add them in the Form view under Inputs &amp; Outputs.</p> }
                 }
                 @case ('tool') {
-                    <p class="ac__panel-label">{{ node.title }}</p>
+                    @if (selectedCustomTool; as t) {
+                        <label class="ac__go">Name
+                            <input type="text" [ngModel]="t.name" (ngModelChange)="renameSelectedTool($event)" />
+                            <small>The model calls the tool by this name (letters, digits, _).</small>
+                        </label>
+                        <label class="ac__go">Description
+                            <textarea rows="2" [(ngModel)]="t.description" (ngModelChange)="toolChanged()" placeholder="What the tool does: the model reads this"></textarea>
+                        </label>
+                        <fieldset class="ac__branch">
+                            <legend>REST API</legend>
+                            <div class="ac__rule">
+                                <select aria-label="Method" [(ngModel)]="t.method" (ngModelChange)="toolChanged()">
+                                    @for (m of methods; track m) { <option [ngValue]="m">{{ m }}</option> }
+                                </select>
+                                <select aria-label="Auth" [(ngModel)]="t.authScheme" (ngModelChange)="toolChanged()">
+                                    <option ngValue="none">No auth</option>
+                                    <option ngValue="bearer">Bearer token</option>
+                                    <option ngValue="basic">Basic (user:password)</option>
+                                    <option ngValue="api_key">Api-Key (X-Api-Key header)</option>
+                                </select>
+                                <input type="text" aria-label="URL" [(ngModel)]="t.url" (ngModelChange)="toolChanged()" placeholder="https://api.example.com/wells/{well}" />
+                            </div>
+                            @if (t.authScheme !== 'none') {
+                                <input type="password" aria-label="Secret" autocomplete="off" [(ngModel)]="t.authSecret" (ngModelChange)="toolChanged()"
+                                    [placeholder]="t.hasAuthSecret ? 'Stored — leave blank to keep it' : 'Token or user:password'" />
+                            }
+                            @for (h of t.headers; track $index) {
+                                <div class="ac__rule">
+                                    <input type="text" aria-label="Header name" [(ngModel)]="h.name" (ngModelChange)="toolChanged()" placeholder="Header" />
+                                    <input type="text" aria-label="Header value" [(ngModel)]="h.value" (ngModelChange)="toolChanged()" placeholder="Value or {param}" />
+                                </div>
+                            }
+                            <button type="button" class="ac__link" (click)="t.headers.push({ name: '', value: '' }); toolChanged()">+ Header</button>
+                            @if (t.method === 'POST' || t.method === 'PUT' || t.method === 'PATCH') {
+                                <label class="ac__go">Body (JSON template)
+                                    <textarea rows="3" [(ngModel)]="t.body" (ngModelChange)="toolChanged()" placeholder='{"well": {well}}'></textarea>
+                                </label>
+                            }
+                            <label class="ac__go">Response path (optional)
+                                <input type="text" [(ngModel)]="t.responsePath" (ngModelChange)="toolChanged()" placeholder="data.items[0].status" />
+                            </label>
+                        </fieldset>
+                        <fieldset class="ac__branch">
+                            <legend>Parameters</legend>
+                            <small class="ac__hint">The model fills them; use them as <code>{{ '{' }}name{{ '}' }}</code> in the URL, headers or body. Unused ones go in the query string.</small>
+                            @for (p of t.parameters; track $index) {
+                                <div class="ac__rule">
+                                    <input type="text" aria-label="Parameter name" [(ngModel)]="p.name" (ngModelChange)="toolChanged()" placeholder="name" />
+                                    <select aria-label="Type" [(ngModel)]="p.type" (ngModelChange)="toolChanged()">
+                                        @for (ty of paramTypes; track ty) { <option [ngValue]="ty">{{ ty }}</option> }
+                                    </select>
+                                    <input type="text" aria-label="Description" [(ngModel)]="p.description" (ngModelChange)="toolChanged()" placeholder="What it is" />
+                                </div>
+                                <div class="ac__row">
+                                    <label><input type="checkbox" [(ngModel)]="p.required" (ngModelChange)="toolChanged()" /> Required</label>
+                                    <button type="button" class="ac__link" (click)="t.parameters.splice($index, 1); toolChanged()">Remove</button>
+                                </div>
+                            }
+                            <button type="button" class="ac__link" (click)="t.parameters.push({ name: 'param' + (t.parameters.length + 1), type: 'str', description: '', required: true }); toolChanged()">+ Parameter</button>
+                        </fieldset>
+                        <fieldset class="ac__branch">
+                            <legend>Try it</legend>
+                            @for (p of t.parameters; track $index) {
+                                <input type="text" [attr.aria-label]="'Value for ' + p.name" [placeholder]="p.name + ' (' + p.type + ')'"
+                                    [ngModel]="tryArgs[p.name]" (ngModelChange)="tryArgs[p.name] = $event" />
+                            }
+                            <button type="button" class="ac__link" [disabled]="trying" (click)="tryTool(t)">{{ trying ? 'Calling…' : 'Call the API' }}</button>
+                            @if (tryResult; as r) { <pre class="ac__try" [class.ac__try--bad]="!r.ok">{{ r.text }}</pre> }
+                        </fieldset>
+                    } @else {
+                        <p class="ac__panel-label">{{ node.title }}</p>
+                        @switch (builtinOf(node.id)) {
+                            @case ('url_context') {
+                                <p class="ac__hint">Write the page addresses (https://…) in the instruction; up to 3 are read and the model answers from their text. Private network addresses are refused.</p>
+                            }
+                            @case ('exit_loop') {
+                                <p class="ac__hint">Write the stop condition as the instruction (for example "Stop when every well has a status"). Each round the model checks the results; when the goal is met the loop ends here and the answer is written.</p>
+                            }
+                            @case ('approval') {
+                                <p class="ac__hint">The run pauses here and the Test panel shows the latest answer, or the one you name with <code ngNonBindable>{{key}}</code> in the instruction (an earlier step's output key). Approve it, edit it (later steps get your version) or reject it (the run ends with your comment). A paused run can be resumed any time, also after restarts.</p>
+                            }
+                            @case ('load_memory') { <p class="ac__hint">The memories that match the instruction (up to 5) go into the prompt.</p> }
+                            @case ('preload_memory') { <p class="ac__hint">All memories go into the prompt. Best for small memory banks.</p> }
+                        }
+                        @if (builtinOf(node.id) === 'load_memory' || builtinOf(node.id) === 'preload_memory') {
+                            <fieldset class="ac__branch">
+                                <legend>Memory</legend>
+                                <small class="ac__hint">After each successful Test Agent run the model keeps up to 3 new facts (the newest 200 are kept).</small>
+                                @if (!agentId) {
+                                    <p class="ac__hint">Save the agent first: memories belong to a saved agent.</p>
+                                } @else if (memoryError) {
+                                    <p class="ac__hint">{{ memoryError }}</p>
+                                } @else if (memories === null) {
+                                    <p class="ac__hint">Loading…</p>
+                                } @else {
+                                    @for (m of memories; track m.id) {
+                                        <div class="ac__row">
+                                            <span class="ac__memory">{{ m.text }}</span>
+                                            <button type="button" class="ac__link" [attr.aria-label]="'Forget ' + m.text" (click)="forget(m.id)">Forget</button>
+                                        </div>
+                                    } @empty { <p class="ac__hint">Nothing remembered yet.</p> }
+                                    @if (memories.length) { <button type="button" class="ac__link" (click)="forget()">Forget all</button> }
+                                }
+                            </fieldset>
+                        }
+                    }
                     <p class="ac__hint">Used by:</p>
                     @for (u of usersOf(node.id.slice(5)); track u) { <p class="ac__chip">{{ u }}</p> }
                     @if (!usersOf(node.id.slice(5)).length) { <p class="ac__hint">No instruction uses it yet. Pick it under Tool on an instruction.</p> }
@@ -202,6 +541,8 @@
             }
         } @else {
             <p class="ac__hint">Select a node on the canvas to see and edit its properties.</p>
+        }
+        }
         }
     </aside>
     }

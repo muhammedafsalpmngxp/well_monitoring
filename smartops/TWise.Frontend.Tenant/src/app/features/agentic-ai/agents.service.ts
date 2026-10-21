@@ -19,6 +19,15 @@ export interface AgentStep {
   kind?: StepKind; routeBy?: 'rules' | 'ai'; branches?: AgentBranch[] | null; next?: string | null;
   /** Saved SQL steps: the SELECT they run; {{input}} placeholders are bound as parameters. */
   sql?: string | null;
+  /** agentflow Agent / Task fields: expected output and output key ({{key}} later) on every step; model, temperature
+   *  and max tokens for the built-in Ask AI tool. */
+  expectedOutput?: string | null; outputKey?: string | null; model?: string | null; temperature?: number | null; maxTokens?: number | null;
+  /** For Each: the input or output key holding a list; the step runs once per item ({{item}}). */
+  forEach?: string | null;
+  /** Retry a failed step this many more times (0–5). */
+  retries?: number | null;
+  /** Settings of the Evaluator / Guardrail / Compute / Merge steps. */
+  options?: Record<string, unknown> | null;
 }
 
 export type StepKind = 'step' | 'router' | 'setup';
@@ -34,6 +43,7 @@ export function understoodText(e: { by: 'question' | 'setup'; values: Record<str
   const from = e.by === 'question' ? 'From your question' : 'Setup step';
   return `${from}: ${set || 'nothing set'}${e.note ? ` (${e.note})` : ''}`;
 }
+
 export interface AgentInput { name: string; type: string; required: boolean; description?: string | null; }
 export interface AgentOutput { name: string; type: string; description?: string | null; }
 
@@ -42,6 +52,43 @@ export interface AskDataOptions { businessRules: string | null; examples: string
 
 /** Agent types: the AgenticUIFramework's LangGraph `process` values. */
 export type AgentType = 'sequential' | 'parallel' | 'supervisor' | 'loop';
+
+export type ToolParamType = 'str' | 'int' | 'float' | 'bool' | 'list' | 'dict';
+export interface AgentToolParam { name: string; type: ToolParamType; description?: string | null; required: boolean; }
+/** A Tool node: a REST call the model can make (tool { agent: 'api', action: name }). authSecret is write-only:
+ *  empty keeps the stored secret; responses never include it (hasAuthSecret). */
+export interface AgentCustomTool {
+  name: string; description?: string | null; parameters: AgentToolParam[];
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; url: string; headers: { name: string; value: string }[];
+  body?: string | null; responsePath?: string | null; authScheme: 'none' | 'bearer' | 'basic' | 'api_key';
+  authSecret?: string | null; hasAuthSecret?: boolean; timeout: number;
+}
+
+/** Evals: a test case (inputs + what a good answer is), and the results of Run all. */
+export interface AgentEvalRule { op: 'contains' | 'not_contains' | 'number'; value: string; }
+export interface AgentEvalCase { id: number; name: string; inputs: Record<string, string>; expectation: string | null; rules: AgentEvalRule[]; createdBy: string; updatedAt: string; }
+export interface AgentEvalResult { caseId: number; name: string; passed: boolean; reasons: string[]; answer: string | null; runId: number | null; seconds: number; }
+export interface AgentEvalRun { id: number; versionNo: number | null; draft: boolean; passed: number; total: number; runBy: string; startedAt: string; seconds: number; results: AgentEvalResult[] | null; }
+export type AgentEvalEvent =
+  | { type: 'case'; data: { caseId: number; name: string; phase: 'start' | 'end' } & Partial<AgentEvalResult> }
+  | { type: 'done'; data: { evalRunId: number; passed: number; total: number; versionNo: number | null; draft: boolean; seconds: number } }
+  | { type: 'error'; data: { message: string } };
+
+/** A trigger: runs the published agent on a cron (in timeZone) or once, and may mail the answer. */
+export interface AgentSchedule {
+  id: number; cron: string | null; runOnceAt: string | null; timeZone: string; inputs: Record<string, string>; emailTo: string[];
+  isActive: boolean; nextRunAt: string | null; lastRunAt: string | null; lastRunId: number | null; lastStatus: string | null;
+  createdBy: string; nextRuns: string[];
+}
+export interface SaveAgentSchedule {
+  cron: string | null; runOnceAt: string | null; timeZone: string; inputs: Record<string, string>; emailTo: string[]; isActive: boolean;
+}
+
+/** A fact an agent with Load / Preload Memory keeps between runs. */
+export interface AgentMemory { id: number; text: string; runId: number | null; createdAt: string; }
+
+/** One saved version of an agent: every Save as Draft / Publish that changed it. */
+export interface AgentVersion { versionNo: number; status: 'draft' | 'published'; createdBy: string; createdAt: string; }
 
 export interface SaveAgentRequest {
   name: string;
@@ -58,6 +105,8 @@ export interface SaveAgentRequest {
   type: AgentType;
   /** Supervisor rounds / loop repeats at most. */
   maxIterations: number;
+  customTools: AgentCustomTool[];
+  notes?: AgentNote[];
 }
 
 /** One saved test run (core.AiAgentRuns); agentId is null for a test of an agent that was never saved. */
@@ -83,6 +132,9 @@ export interface AgentRun {
 export interface AgentStats {
   runs: number; successRate: number | null; avgSeconds: number | null; lastRunAt: string | null; llm?: AgentLlmUsage | null;
 }
+
+/** A sticky note on the canvas: editor only, never sent to runs or exports. */
+export interface AgentNote { id: string; text: string; x: number; y: number; color: 'yellow' | 'blue' | 'green' | 'pink'; }
 
 export interface Agent extends SaveAgentRequest {
   id: number;
@@ -117,10 +169,13 @@ export type AgentRunEvent =
   | { type: 'step'; data: Partial<AgentStepResult> & { step: number; phase: 'start' | 'end' } }
   | { type: 'status'; data: { step?: number; stage: string; seconds?: number } }
   | { type: 'node'; data: { step: number; node: string } }
-  | { type: 'decision'; data: { by: 'supervisor' | 'loop' | 'router'; next?: string; task?: string; done?: boolean; reason?: string; round?: number; router?: string; branch?: string } }
+  | { type: 'decision'; data: { by: 'supervisor' | 'loop' | 'router' | 'exit_loop' | 'approval'; next?: string; task?: string; done?: boolean; reason?: string; round?: number; router?: string; branch?: string; decision?: string; reviewer?: string; step?: number } }
+  /** Human Approval: the run is waiting; resume it with the token. */
+  | { type: 'approval'; data: { runId: number; token: string; step: number; question: string; draft: string } }
   | { type: 'ping'; data: Record<string, never> }   // keeps the stream open while a step waits
   | { type: 'inputs'; data: { by: 'question' | 'setup'; values: Record<string, string>; note?: string } }
-  | { type: 'done'; data: { runId: number; ok: boolean; answer: string; steps: AgentStepResult[]; seconds: number; llm?: AgentLlmUsage | null } }
+  | { type: 'done'; data: { runId: number; ok: boolean; answer: string; steps: AgentStepResult[]; seconds: number; output?: Record<string, unknown> | null;
+      usage?: { model: string; calls: number; input: number; output: number }[]; llm?: AgentLlmUsage | null } }
   | { type: 'error'; data: { message: string; runId?: number } };
 
 /** Agentic AI → AI Agents, against the Tenant API's /api/agents. */
@@ -132,6 +187,37 @@ export class AgentsService {
 
   list(): Observable<Agent[]> { return this.http.get<Agent[]>(this.api); }
   get(id: number): Observable<Agent> { return this.http.get<Agent>(`${this.api}/${id}`); }
+  evals(id: number): Observable<{ cases: AgentEvalCase[]; runs: AgentEvalRun[] }> {
+    return this.http.get<{ cases: AgentEvalCase[]; runs: AgentEvalRun[] }>(`${this.api}/${id}/evals`);
+  }
+  saveEvalCase(id: number, body: { name: string; inputs: Record<string, string>; expectation: string | null; rules: AgentEvalRule[] }, caseId?: number): Observable<AgentEvalCase> {
+    return caseId ? this.http.put<AgentEvalCase>(`${this.api}/${id}/evals/cases/${caseId}`, body) : this.http.post<AgentEvalCase>(`${this.api}/${id}/evals/cases`, body);
+  }
+  deleteEvalCase(id: number, caseId: number): Observable<void> { return this.http.delete<void>(`${this.api}/${id}/evals/cases/${caseId}`); }
+  evalRun(id: number, runId: number): Observable<AgentEvalRun> { return this.http.get<AgentEvalRun>(`${this.api}/${id}/evals/runs/${runId}`); }
+  /** Run all: each case's result as it finishes, then the score. */
+  runEvals(id: number, body: { agent: SaveAgentRequest; draft: boolean }): Observable<AgentEvalEvent> {
+    return this.events(`${id}/evals/run`, body) as unknown as Observable<AgentEvalEvent>;
+  }
+  schedules(id: number): Observable<AgentSchedule[]> { return this.http.get<AgentSchedule[]>(`${this.api}/${id}/schedules`); }
+  saveSchedule(id: number, s: SaveAgentSchedule, scheduleId?: number): Observable<AgentSchedule> {
+    return scheduleId ? this.http.put<AgentSchedule>(`${this.api}/${id}/schedules/${scheduleId}`, s) : this.http.post<AgentSchedule>(`${this.api}/${id}/schedules`, s);
+  }
+  deleteSchedule(id: number, scheduleId: number): Observable<void> { return this.http.delete<void>(`${this.api}/${id}/schedules/${scheduleId}`); }
+  runScheduleNow(id: number, scheduleId: number): Observable<void> { return this.http.post<void>(`${this.api}/${id}/schedules/${scheduleId}/run`, {}); }
+  previewSchedule(s: { cron: string | null; runOnceAt: string | null; timeZone: string }): Observable<{ problem: string | null; next: string[] }> {
+    return this.http.post<{ problem: string | null; next: string[] }>(`${this.api}/schedules/preview`, s);
+  }
+  memories(id: number): Observable<AgentMemory[]> { return this.http.get<AgentMemory[]>(`${this.api}/${id}/memories`); }
+  forgetMemory(id: number, memoryId?: number): Observable<void> {
+    return this.http.delete<void>(`${this.api}/${id}/memories${memoryId ? '/' + memoryId : ''}`);
+  }
+  /** The agent's latest runs (for the analyzer's real average). */
+  runsOf(id: number, take = 10): Observable<{ status: string; usage: { model: string; calls: number; input: number; output: number }[] | null }[]> {
+    return this.http.get<{ status: string; usage: { model: string; calls: number; input: number; output: number }[] | null }[]>(`${this.api}/${id}/runs?take=${take}`);
+  }
+  versions(id: number): Observable<AgentVersion[]> { return this.http.get<AgentVersion[]>(`${this.api}/${id}/versions`); }
+  version(id: number, versionNo: number): Observable<SaveAgentRequest> { return this.http.get<SaveAgentRequest>(`${this.api}/${id}/versions/${versionNo}`); }
   tools(): Observable<{ tools: AgentToolOption[]; message: string | null }> { return this.http.get<{ tools: AgentToolOption[]; message: string | null }>(`${this.api}/tools`); }
   create(req: SaveAgentRequest): Observable<Agent> { return this.http.post<Agent>(this.api, req); }
   update(id: number, req: SaveAgentRequest): Observable<Agent> { return this.http.put<Agent>(`${this.api}/${id}`, req); }
@@ -148,6 +234,12 @@ export class AgentsService {
   exportAskData(req: { token: string; format: 'xlsx' | 'docx'; question: string; answer: string; verified: boolean; askData: AskDataOptions | null }): Observable<HttpResponse<Blob>> {
     return this.http.post(`${this.api}/askdata/export`, req, { observe: 'response', responseType: 'blob' });
   }
+
+  /** One call of a Tool with sample values (no model); agentId fills in the saved secret. */
+  tryTool(tool: AgentCustomTool, args: Record<string, unknown>, agentId: number | null): Observable<{ status: number; result: string }> {
+    return this.http.post<{ status: number; result: string }>(`${this.api}/tools/try`, { tool, args, agentId });
+  }
+
   /** An agentflow.json v1 as an agent for the page (not saved), plus what could not be used. */
   importAgentFlow(flow: unknown): Observable<{ agent: SaveAgentRequest; warnings: string[] }> {
     return this.http.post<{ agent: SaveAgentRequest; warnings: string[] }>(`${this.api}/agentflow/import`, flow);
@@ -157,14 +249,25 @@ export class AgentsService {
    * Runs the configuration as it is on screen (saved or not) and streams its progress. Uses fetch
    * rather than HttpClient because HttpClient buffers the whole body (same as AiService).
    */
-  test(agent: SaveAgentRequest, inputs: Record<string, string>, agentId: number | null): Observable<AgentRunEvent> {
+  /** threadId continues a conversation: the agent gets that thread's earlier answers. */
+  test(agent: SaveAgentRequest, inputs: Record<string, string>, agentId: number | null, threadId: string | null = null): Observable<AgentRunEvent> {
+    return this.events('test', { agent, inputs, agentId, threadId });
+  }
+
+  /** Human Approval: continue a waiting run; the rest streams like test. */
+  resume(runId: number, token: string, decision: 'approve' | 'edit' | 'reject', text: string): Observable<AgentRunEvent> {
+    return this.events(`runs/${runId}/resume`, { token, decision, text });
+  }
+
+  /** POSTs to the agents API and reads its server-sent events. */
+  private events(path: string, body: unknown): Observable<AgentRunEvent> {
     return new Observable<AgentRunEvent>(subscriber => {
       const controller = new AbortController();
       const run = async () => {
-        const res = await fetch(`${this.api}/test`, {
+        const res = await fetch(`${this.api}/${path}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.tokens.getAccessToken() ?? ''}` },
-          body: JSON.stringify({ agent, inputs, agentId }),
+          body: JSON.stringify(body),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {

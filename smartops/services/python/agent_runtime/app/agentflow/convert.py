@@ -16,7 +16,7 @@ import re
 from typing import Any
 
 from app.agentflow.schema import (AgentFlow, AgentSpec, LangGraphConfig, LlmProviderSpec, Meta, RouterSpec, RouteSpec,
-                                  StateChannelSpec, TaskSpec, ToolSpec)
+                                  StateChannelSpec, TaskSpec, ToolParameterSpec, ToolSpec)
 
 # The Tenant API's provider names (Settings > AI > Providers) as agentflow.json's. "custom" is any
 # OpenAI-compatible endpoint, which agentflow calls vllm (it needs the base URL).
@@ -89,6 +89,14 @@ def _routers(steps: list[dict[str, Any]]) -> list[RouterSpec]:
     return out
 
 
+def _step_llm(step: dict[str, Any]) -> LlmProviderSpec | None:
+    """A step's model settings as the agent's llm_provider (only when one is set)."""
+    if not any(step.get(k) is not None for k in ("model", "temperature", "maxTokens")):
+        return None
+    return LlmProviderSpec(provider="openai", model=step.get("model") or "gpt-4o-mini",
+                           temperature=step.get("temperature"), max_tokens=step.get("maxTokens"))
+
+
 def to_agentflow(agent: dict[str, Any]) -> dict[str, Any]:
     tools = agent.get("tools") or []
     steps = agent.get("steps") or []
@@ -98,7 +106,8 @@ def to_agentflow(agent: dict[str, Any]) -> dict[str, Any]:
 
     agents = [AgentSpec(name=_key(i), role=agent.get("role") or "", goal=agent.get("goal") or "",
                         system_prompt=agent.get("systemPrompt") or None,
-                        tools=[_tool_name(s.get("tool") or first)], output_key=f"{_key(i)}_output")
+                        tools=[_tool_name(s.get("tool") or first)], output_key=s.get("outputKey") or f"{_key(i)}_output",
+                        llm_provider=_step_llm(s))
               for i, s in work]
     if kind == "supervisor":
         agents.insert(0, AgentSpec(name="supervisor", role=agent.get("role") or "Supervisor",
@@ -113,11 +122,17 @@ def to_agentflow(agent: dict[str, Any]) -> dict[str, Any]:
             process=kind if kind in TYPES else "sequential",
             max_iterations=int(agent.get("maxIterations") or 5),
             agents=agents,
-            tasks=[TaskSpec(name=f"{_key(i)}_task", description=s.get("text", ""), agent=_key(i))
+            tasks=[TaskSpec(name=f"{_key(i)}_task", description=s.get("text", ""), agent=_key(i),
+                            expected_output=s.get("expectedOutput") or "")
                    for i, s in work],
             routers=_routers(steps),
             tools=[ToolSpec(name=_tool_name(t), description=f"wellmonitoring tool {t.get('agent')} / {t.get('action')}",
-                            agent=t.get("agent"), action=t.get("action")) for t in tools],
+                            agent=t.get("agent"), action=t.get("action")) for t in tools if t.get("agent") != "api"]
+                  + [ToolSpec(name=c["name"], description=c.get("description") or "",
+                              parameters=[ToolParameterSpec(name=p["name"], type=p.get("type") or "str",
+                                                            description=p.get("description") or "") for p in c.get("parameters") or []],
+                              rest={k: v for k, v in c.items() if k not in ("name", "description", "parameters", "authSecret")})
+                     for c in agent.get("customTools") or []],
             state_channels=[StateChannelSpec(name=i["name"], type="str", description=i.get("description") or "")
                             for i in agent.get("inputs") or []],
         ),
@@ -131,6 +146,7 @@ def to_agentflow(agent: dict[str, Any]) -> dict[str, Any]:
         "inputs": agent.get("inputs") or [],
         "outputs": agent.get("outputs") or [],
         "askData": agent.get("askData"),
+        "customTools": [{k: v for k, v in c.items() if k != "authSecret"} for c in agent.get("customTools") or []],
     }
     return out
 
@@ -158,12 +174,20 @@ def from_agentflow(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
 
     # Tools: ours are ToolSpecs carrying agent/action; others cannot run here.
     tool_by_name: dict[str, dict[str, str]] = {}
+    custom_tools: list[dict[str, Any]] = list(extra.get("customTools") or [])
     for t in cfg.tools:
         extras = t.model_extra or {}
         if extras.get("agent"):
             tool_by_name[t.name] = {"agent": extras["agent"], "action": extras.get("action") or ""}
+        elif isinstance(extras.get("rest"), dict):
+            tool_by_name[t.name] = {"agent": "api", "action": t.name}
+            if not any(c.get("name") == t.name for c in custom_tools):
+                custom_tools.append({"name": t.name, "description": t.description,
+                                     "parameters": [{"name": p.name, "type": p.type, "description": p.description, "required": True}
+                                                    for p in t.parameters], **extras["rest"]})
         else:
-            warnings.append(f"Tool '{t.name}' is not a wellmonitoring tool and was left out.")
+            warnings.append(f"Tool '{t.name}' has Python code, which this builder does not run; it was left out. "
+                            "Recreate it as a Tool with a REST call.")
     tools = extra.get("tools") or list({(v["agent"], v["action"]): v for v in tool_by_name.values()}.values())
     if not tools:
         tools = [DEFAULT_TOOL]
@@ -171,20 +195,26 @@ def from_agentflow(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
 
     workers = [a for a in cfg.agents if not (kind == "supervisor" and a is cfg.agents[0])]
     agent_tool = {a.name: next((tool_by_name[n] for n in a.tools if n in tool_by_name), None) for a in workers}
+    by_name = {a.name: a for a in workers}
     if cfg.tasks:
-        raw = [(t.description, agent_tool.get(t.agent or "")) for t in cfg.tasks]
+        raw = [(t.description, agent_tool.get(t.agent or ""), by_name.get(t.agent or ""), t.expected_output) for t in cfg.tasks]
     else:
-        raw = [(a.goal or a.role or a.name, agent_tool.get(a.name)) for a in workers]
+        raw = [(a.goal or a.role or a.name, agent_tool.get(a.name), a, "") for a in workers]
     saved_steps = extra.get("steps") or []
     layout = {s.get("key"): s for s in saved_steps}
     steps = []
     if saved_steps and all("text" in s for s in saved_steps):   # our own export: every step as it was, routers too
         steps = [{k: v for k, v in s.items() if k != "key"} for s in saved_steps]
         raw = []
-    for i, (text, tool) in enumerate(raw, 1):
+    for i, (text, tool, spec, expected) in enumerate(raw, 1):
         saved = layout.get(_key(i)) or {}
+        llm = spec.llm_provider if spec else None
+        key = spec.output_key if spec and spec.output_key and re.fullmatch(r"[A-Za-z_]\w{0,49}", spec.output_key) else None
         steps.append({"text": text, "tool": saved.get("tool", tool if tool and tool != tools[0] else None),
-                      "id": saved.get("id"), "x": saved.get("x"), "y": saved.get("y"), "sql": saved.get("sql")})
+                      "id": saved.get("id"), "x": saved.get("x"), "y": saved.get("y"),
+                      "expectedOutput": expected or None, "outputKey": key,
+                      "model": llm.model if llm else None, "temperature": llm.temperature if llm else None,
+                      "maxTokens": llm.max_tokens if llm else None})
     if not steps:
         raise ValueError("The flow has no tasks or agents to turn into instructions.")
 
@@ -204,5 +234,6 @@ def from_agentflow(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         "outputs": extra.get("outputs") or [],
         "status": "draft",
         "askData": extra.get("askData"),
+        **({"customTools": custom_tools} if custom_tools else {}),
     }
     return agent, warnings

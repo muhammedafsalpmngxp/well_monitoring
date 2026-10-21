@@ -1904,3 +1904,212 @@
 .na-sql { font-family: Consolas, 'Courier New', monospace; font-size: 13px; resize: vertical; }
 .na-instr-tag--sql { background: color-mix(in srgb, var(--color-primary, #21409A) 12%, transparent); }
 .na-setup-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-primary); cursor: pointer; }
+
+.na-autosaved {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.na-autosave-offer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+
+    button {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--color-primary);
+        font-weight: 600;
+        cursor: pointer;
+    }
+}
+
+.na-versions {
+    display: grid;
+    grid-template-columns: minmax(260px, 380px) 1fr;
+    gap: 16px;
+    margin: 0 0 12px;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-card);
+    font-size: 13px;
+
+    p { margin: 0 0 8px; }
+    ul { margin: 0 0 12px; padding-left: 18px; }
+
+    &__list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 260px;
+        overflow: auto;
+    }
+
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: none;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover, &--on { border-color: var(--color-primary); }
+    }
+
+    &__status {
+        padding: 1px 6px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
+        font-size: 11px;
+
+        &--pub { background: color-mix(in srgb, var(--color-success) 15%, transparent); }
+    }
+
+    @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+.na-nav-status--optional .na-nav-status__text { color: var(--color-text-secondary); font-style: italic; }
+
+.na-test-output {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    margin: 8px 0 0;
+    padding: 8px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+    font-size: 12px;
+
+    dt { font-weight: 600; }
+    dd { margin: 0; overflow-wrap: anywhere; }
+}
+
+// Page messages: a floating alert at the top right, under the header buttons.
+.na-toast {
+    position: fixed;
+    top: 128px;
+    right: 24px;
+    z-index: 1100;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: min(440px, calc(100vw - 32px));
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-success);
+    border-radius: 8px;
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.16);
+
+    &--bad { border-left-color: var(--color-danger); }
+
+    span { flex: 1; }
+
+    &__close {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+        top: 112px;
+        right: 16px;
+    }
+}
+
+.na-approval {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--color-warning, #f59e0b) 60%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-warning, #f59e0b) 8%, var(--color-bg-card));
+
+    p { margin: 0; }
+    &__title { font-weight: 600; }
+    &__question { color: var(--color-text-secondary); font-size: 13px; }
+    &__actions { display: flex; justify-content: flex-end; gap: 8px; }
+}
+
+.na-trigger {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+
+    &--off { opacity: 0.65; }
+    &__main { display: flex; flex-direction: column; gap: 2px; }
+    &__zone, &__meta { color: var(--color-text-secondary); font-size: 12px; }
+    &__actions { display: flex; flex-wrap: wrap; gap: 12px; }
+    &__next { margin: 0 0 8px; padding-left: 18px; font-size: 12px; }
+}
+
+.na-trigger-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px dashed var(--color-border);
+    border-radius: 8px;
+}
+
+.na-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font-size: 13px;
+    cursor: pointer;
+
+    &--bad { color: var(--color-danger); }
+}
+
+.na-conversation {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 8px;
+    font-size: 13px;
+
+    span { color: var(--color-text-secondary); font-size: 12px; }
+}
+
+.na-test-tabs {
+    display: flex;
+    margin: 0 0 10px;
+    border-bottom: 1px solid var(--color-border);
+
+    button {
+        padding: 6px 14px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        color: var(--color-text-secondary);
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    &--on { border-bottom-color: var(--color-primary) !important; color: var(--color-primary) !important; font-weight: 600; }
+}
+
+.na-test-cost { margin: 6px 0 0; color: var(--color-text-secondary); font-size: 12px; }

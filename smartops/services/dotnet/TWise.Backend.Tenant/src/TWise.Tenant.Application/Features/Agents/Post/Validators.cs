@@ -9,7 +9,13 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
 {
     public static readonly string[] Statuses = ["draft", "published"];
     public static readonly string[] Types = ["sequential", "parallel", "supervisor", "loop"];
+    public static readonly string[] Methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+    public static readonly string[] ParamTypes = ["str", "int", "float", "bool", "list", "dict"];
+    public static readonly string[] AuthSchemes = ["none", "bearer", "basic", "api_key"];
+    /// <summary>Node ids the canvas and the runtime use themselves.</summary>
+    public static readonly string[] ReservedIds = ["start", "answer", "supervisor", "check", "remember"];
     public static readonly string[] RuleOps = ["equals", "not_equals", "contains", "not_contains", "gt", "gte", "lt", "lte", "empty", "not_empty", "else"];
+    public static readonly string[] NoteColors = ["yellow", "blue", "green", "pink"];
 
     public SaveAiAgentRequestValidator()
     {
@@ -26,11 +32,27 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
         RuleForEach(x => x.Steps).ChildRules(s =>
         {
             s.RuleFor(x => x.Text).NotEmpty().WithMessage("An instruction is empty.").MaximumLength(2000);
-            s.RuleFor(x => x.Id).MaximumLength(64);
+            s.RuleFor(x => x.Id).MaximumLength(64)
+                .Must(id => id is null || !ReservedIds.Contains(id)).WithMessage("A step id cannot be start, answer, supervisor, check or remember (the canvas uses them).");
             s.RuleFor(x => x.Sql).MaximumLength(MaxSql).WithMessage($"A step's SQL can be up to {MaxSql} characters.");
             s.RuleFor(x => x.Kind).Must(k => k is "step" or "router" or AgentMapping.SetupKind)
                 .WithMessage("A step is an instruction, a router or the setup step.");
+            s.RuleFor(x => x.ExpectedOutput).MaximumLength(2000);
+            s.RuleFor(x => x.OutputKey).Matches("^[A-Za-z_][A-Za-z0-9_]{0,49}$").When(x => x.OutputKey is not null)
+                .WithMessage("Output keys use letters, digits and _ (they are used as {{key}} in later instructions).");
+            s.RuleFor(x => x.Model).MaximumLength(100);
+            s.RuleFor(x => x.Temperature).InclusiveBetween(0, 2).When(x => x.Temperature is not null).WithMessage("Temperature must be between 0 and 2.");
+            s.RuleFor(x => x.MaxTokens).InclusiveBetween(1, 32000).When(x => x.MaxTokens is not null).WithMessage("Max tokens must be between 1 and 32000.");
             s.RuleFor(x => x.RouteBy).Must(r => r is "rules" or "ai").WithMessage("A router routes by rules or by AI.");
+            s.RuleFor(x => x.Options).Must(o => o is null || o.Value.ValueKind == System.Text.Json.JsonValueKind.Object && o.Value.GetRawText().Length <= 4000)
+                .WithMessage("Step options are a small JSON object.");
+            s.RuleFor(x => x).Must(x => x.Tool?.Agent != AgentMapping.ComputeTool || AgentMapping.ComputeModes.Contains(AgentMapping.Option(x, "mode") ?? "template"))
+                .WithMessage("Compute mode is template, pick or math.");
+            s.RuleFor(x => x.Retries).InclusiveBetween(0, 5).When(x => x.Retries is not null).WithMessage("Retries must be between 0 and 5.");
+            s.RuleFor(x => x.ForEach).Matches("^[A-Za-z_][A-Za-z0-9_]{0,49}$").When(x => x.ForEach is not null)
+                .WithMessage("For each names an input or an output key.");
+            s.RuleFor(x => x.Tool!.Action).Must(a => long.TryParse(a, out var id) && id > 0)
+                .When(x => x.Tool?.Agent == AgentMapping.SubAgentTool).WithMessage("Pick the agent a sub-agent step runs.");
             s.RuleFor(x => x.Branches).NotEmpty().When(x => x.Kind == "router").WithMessage("A router needs at least one branch.")
                 .Must(b => b is null || b.Count <= 10).WithMessage("A router can have up to 10 branches.");
             s.RuleForEach(x => x.Branches).ChildRules(b =>
@@ -39,6 +61,42 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
                 b.RuleFor(x => x.Label).MaximumLength(200);
                 b.RuleFor(x => x.Value).MaximumLength(500);
             });
+        });
+        RuleFor(x => x.CustomTools).Must(t => t is null || t.Count <= 20).WithMessage("An agent can have up to 20 tools.")
+            .Must(t => t is null || t.Select(x => x.Name).Distinct(StringComparer.Ordinal).Count() == t.Count).WithMessage("Tool names must be unique.");
+        RuleForEach(x => x.CustomTools).SetValidator(new CustomToolValidator());
+        RuleFor(x => x.Notes).Must(n => n is null || n.Count <= 50).WithMessage("An agent can have up to 50 notes.");
+        RuleForEach(x => x.Notes).ChildRules(n =>
+        {
+            n.RuleFor(x => x.Id).NotEmpty().MaximumLength(64);
+            n.RuleFor(x => x.Text).MaximumLength(2000);
+            n.RuleFor(x => x.Color).Must(c => NoteColors.Contains(c)).WithMessage("Unknown note colour.");
+        });
+        // Rules across steps and tools: only when both are there (the rules for those report them missing).
+        When(r => r.Steps is not null && r.Tools is not null, () =>
+        {
+            RuleFor(x => x).Must(r =>
+                {
+                    var keys = r.Steps.Where(s => s.OutputKey is not null).Select(s => s.OutputKey!).ToList();
+                    return keys.Distinct(StringComparer.Ordinal).Count() == keys.Count
+                        && !keys.Intersect((r.Inputs ?? []).Select(i => i.Name), StringComparer.Ordinal).Any();
+                })
+                .WithMessage("Output keys must be unique and differ from the input names.");
+            RuleFor(x => x).Must(r => r.Tools.Concat(r.Steps.Where(s => s.Tool is not null).Select(s => s.Tool!))
+                    .Where(t => t.Agent == AgentMapping.ApiTool).All(t => (r.CustomTools ?? []).Any(c => c.Name == t.Action)))
+                .WithMessage("A step uses a Tool that is not defined on this agent.");
+            RuleFor(x => x).Must(r => r.Steps.Where(s => s.ForEach is not null).All(s => s.Kind == "step"
+                    && ((r.Inputs ?? []).Any(i => i.Name == s.ForEach) || r.Steps.Any(o => o != s && o.OutputKey == s.ForEach))))
+                .WithMessage("For each must name an input or another step's output key.");
+            RuleFor(x => x).Must(r => (r.Type ?? "").Trim().ToLowerInvariant() is "sequential" or "loop" || !AgentMapping.UsesTool(r, AgentMapping.EvaluatorTool))
+                .WithMessage("Evaluator works in Sequential and Loop agents (it may send the run back).");
+            RuleFor(x => x).Must(r => r.Steps.Where(s => s.Tool?.Agent == AgentMapping.EvaluatorTool && AgentMapping.Option(s, "retryFrom") is not null)
+                    .All(s => r.Steps.TakeWhile(o => o != s).Any(o => o.Id == AgentMapping.Option(s, "retryFrom"))))
+                .WithMessage("An Evaluator can only send the run back to an earlier step.");
+            RuleFor(x => x).Must(r => (r.Type ?? "").Trim().ToLowerInvariant() != "parallel" || !AgentMapping.UsesTool(r, AgentMapping.ApprovalTool))
+                .WithMessage("Human Approval works in Sequential, Loop and Supervisor agents (not Parallel).");
+            RuleFor(x => x).Must(r => (r.Type ?? "").Trim().ToLowerInvariant() == "loop" || !AgentMapping.UsesTool(r, AgentMapping.ExitLoopTool))
+                .WithMessage("Exit Loop works in Loop agents only.");
         });
         RuleFor(x => x).Must(RoutesAreValid)
             .WithMessage("Routers and step links work in sequential and loop agents, need step ids, and must point to existing steps.");
@@ -177,19 +235,35 @@ public sealed class SaveAiAgentRequestValidator : AbstractValidator<SaveAiAgentR
             return [i + 1 < r.Steps.Count ? i + 1 : null];
         }
 
+        // A circle: plain step links only. A router branch may go back (draft ↔ review): the run caps how often a step
+        // is gone back to (maxIterations), as the runtime does.
         var state = new int[r.Steps.Count];   // 1 = on the current path, 2 = done
         string? Visit(int i)
         {
             if (state[i] == 2) return null;
             if (state[i] == 1) return r.Steps[i].Text;
             state[i] = 1;
-            foreach (var n in Next(i))
-                if (n is { } m && Visit(m) is { } hit) return hit;
+            if (r.Steps[i].Kind != "router")
+                foreach (var n in Next(i))
+                    if (n is { } m && Visit(m) is { } hit) return hit;
             state[i] = 2;
             return null;
         }
-        var circle = Visit(0);
-        return (circle, state.Select(s => s != 0).ToArray());
+        string? circle = null;
+        for (var i = 0; i < r.Steps.Count && circle is null; i++) circle = Visit(i);
+
+        // Reached: every link from the first step, router branches included.
+        var reached = new bool[r.Steps.Count];
+        var todo = new Stack<int>([0]);
+        while (todo.Count > 0)
+        {
+            var i = todo.Pop();
+            if (reached[i]) continue;
+            reached[i] = true;
+            foreach (var n in Next(i))
+                if (n is { } m && !reached[m]) todo.Push(m);
+        }
+        return (circle, reached);
     }
 }
 
@@ -201,6 +275,45 @@ public sealed class ExportAskDataQueryValidator : AbstractValidator<ExportAskDat
         RuleFor(x => x.Request.Format).Must(f => f is "xlsx" or "docx").WithMessage("Format must be xlsx or docx.");
         RuleFor(x => x.Request.Question).MaximumLength(2000);
         RuleFor(x => x.Request.Answer).MaximumLength(20000);
+    }
+}
+
+/// <summary>One Tool node: a REST call the model may make.</summary>
+public sealed class CustomToolValidator : AbstractValidator<AiAgentCustomToolDto>
+{
+    public CustomToolValidator()
+    {
+        RuleFor(x => x.Name).Matches("^[A-Za-z_][A-Za-z0-9_]{0,63}$").WithMessage("Tool names use letters, digits and _ (the model calls the tool by it).");
+        RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.Method).Must(m => SaveAiAgentRequestValidator.Methods.Contains(m)).WithMessage("Method must be GET, POST, PUT, PATCH or DELETE.");
+        RuleFor(x => x.Url).Must(u => Uri.TryCreate(u, UriKind.Absolute, out var uri) && (uri.Scheme == "https" || (uri.Scheme == "http" && uri.IsLoopback)))
+            .WithMessage("The tool URL must be an absolute https URL (http only for localhost).").MaximumLength(2000);
+        RuleFor(x => x.AuthScheme).Must(a => SaveAiAgentRequestValidator.AuthSchemes.Contains(a)).WithMessage("Auth must be none, bearer, basic or api_key.");
+        RuleFor(x => x.Timeout).InclusiveBetween(1, 120);
+        RuleFor(x => x.Body).MaximumLength(20000);
+        RuleFor(x => x.Parameters).Must(p => p is null || p.Count <= 20).WithMessage("A tool can have up to 20 parameters.");
+        RuleForEach(x => x.Parameters).ChildRules(p =>
+        {
+            p.RuleFor(x => x.Name).Matches("^[A-Za-z_][A-Za-z0-9_]{0,49}$").WithMessage("Parameter names use letters, digits and _.");
+            p.RuleFor(x => x.Type).Must(t => SaveAiAgentRequestValidator.ParamTypes.Contains(t)).WithMessage("Unknown parameter type.");
+        });
+        RuleForEach(x => x.Headers).ChildRules(h => h.RuleFor(x => x.Name).Matches("^[A-Za-z0-9-]{1,100}$").WithMessage("Header names use letters, digits and -."));
+    }
+}
+
+public sealed class TryAgentToolQueryValidator : AbstractValidator<TryAgentToolQuery>
+{
+    public TryAgentToolQueryValidator() => RuleFor(x => x.Request.Tool).SetValidator(new CustomToolValidator());
+}
+
+public sealed class ResumeAiAgentRunStreamValidator : AbstractValidator<ResumeAiAgentRunStream>
+{
+    public ResumeAiAgentRunStreamValidator()
+    {
+        RuleFor(x => x.Request.Token).NotEmpty().MaximumLength(200)
+            .Must((s, t) => t.StartsWith($"agent-{s.TenantId}-", StringComparison.Ordinal)).WithMessage("This approval does not belong to the run.");
+        RuleFor(x => x.Request.Decision).Must(d => d is "approve" or "edit" or "reject").WithMessage("Decide approve, edit or reject.");
+        RuleFor(x => x.Request.Text).MaximumLength(20000);
     }
 }
 
@@ -237,5 +350,10 @@ internal static class SavedSteps
 
 public sealed class TestAiAgentStreamValidator : AbstractValidator<TestAiAgentStream>
 {
-    public TestAiAgentStreamValidator() => RuleFor(x => x.Request.Agent).SetValidator(new SaveAiAgentRequestValidator());
+    public TestAiAgentStreamValidator()
+    {
+        RuleFor(x => x.Request.Agent).SetValidator(new SaveAiAgentRequestValidator());
+        RuleFor(x => x.Request.ThreadId).Matches("^[A-Za-z0-9-]{1,64}$").When(x => x.Request.ThreadId is not null)
+            .WithMessage("A conversation id uses letters, digits and -.");
+    }
 }

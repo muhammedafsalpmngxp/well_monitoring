@@ -237,6 +237,10 @@ export type AiAskEvent =
   | { type: 'trace'; data: AiTraceStep[] }
   | { type: 'error'; data: string };
 
+/** One model's price (USD per 1M tokens) and class, for agent cost estimates. */
+export interface AiModelPrice { model: string; modelClass: 'frontier' | 'standard' | 'fast'; inputPer1M: number; outputPer1M: number; }
+export interface AiModelPrices { activeModel: string | null; fastModel: string | null; prices: AiModelPrice[]; }
+
 @Injectable({ providedIn: 'root' })
 export class AiService {
   private readonly api = environment.tenantApiUrl;
@@ -249,6 +253,15 @@ export class AiService {
 
   saveSettings(request: SaveAiSettingsRequest): Observable<AiSettingsDto> {
     return this.http.put<AiSettingsDto>(`${this.api}${API_ENDPOINTS.AI.SETTINGS}`, request);
+  }
+
+  /** The model price catalog (USD per 1M tokens) and the active provider's models, for agent cost estimates. */
+  modelPrices(): Observable<AiModelPrices> {
+    return this.http.get<AiModelPrices>(`${this.api}${API_ENDPOINTS.AI.MODEL_PRICES}`);
+  }
+
+  saveModelPrices(prices: AiModelPrice[]): Observable<AiModelPrices> {
+    return this.http.put<AiModelPrices>(`${this.api}${API_ENDPOINTS.AI.MODEL_PRICES}`, prices);
   }
 
   providers(): Observable<AiProviderDto[]> {

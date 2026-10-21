@@ -339,3 +339,235 @@
 
 // Saved SQL: the step's SELECT, monospaced.
 .ac__panel textarea.ac__sql { font-family: Consolas, 'Courier New', monospace; font-size: 12px; min-height: 96px; }
+// ── Validation pill ──────────────────────────────────────────────────────
+.ac__zoom .ac__pill { color: var(--color-success); font-weight: 600; }
+.ac__zoom .ac__pill--bad { color: var(--color-danger); }
+
+.ac__issues {
+    position: absolute;
+    left: 12px;
+    top: 48px;
+    z-index: 3;
+    max-width: min(420px, calc(100% - 24px));
+    max-height: 60%;
+    overflow-y: auto;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-card);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+
+    button {
+        width: 100%;
+        padding: 6px 8px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--color-text-primary);
+        font: inherit;
+        font-size: 13px;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover, &:focus-visible { background: color-mix(in srgb, var(--color-danger) 8%, transparent); }
+    }
+}
+
+.ac__section { margin: 6px 0 0; font-size: 11px; font-weight: 600; color: var(--color-text-muted); }
+
+.ac__try {
+    max-height: 200px;
+    margin: 6px 0 0;
+    padding: 8px;
+    overflow: auto;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-success) 8%, var(--color-bg-card));
+    font-size: 12px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+
+    &--bad { background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg-card)); }
+}
+
+.ac__memory {
+    flex: 1;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.ac__panel-tabs {
+    display: flex;
+    gap: 2px;
+
+    button {
+        padding: 4px 10px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        color: var(--color-text-secondary);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    &--on { border-bottom-color: var(--color-primary) !important; color: var(--color-primary) !important; }
+}
+
+.ac__metric-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+
+.ac__metric {
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+
+    span, small { color: var(--color-text-secondary); font-size: 11px; }
+    strong { font-size: 15px; }
+}
+
+.ac__scores {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 8px;
+    margin: 0 0 8px;
+    font-size: 12px;
+
+    small { color: var(--color-text-secondary); }
+}
+
+.ac__score { font-weight: 700; }
+.ac__score--good { color: var(--color-success); }
+.ac__score--mid { color: var(--color-warning, #b45309); }
+.ac__score--bad { color: var(--color-danger); }
+
+.ac__finding {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0 0 6px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--color-border);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--color-text-secondary) 6%, transparent);
+    font-size: 12px;
+
+    em { font-style: normal; font-weight: 600; }
+    &--error { border-left-color: var(--color-danger); }
+    &--warning { border-left-color: var(--color-warning, #f59e0b); }
+    &--info { border-left-color: var(--color-primary); }
+}
+
+.ac__steps-cost {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 8px;
+    font-size: 12px;
+
+    small { grid-column: 1 / -1; margin: 0 0 4px; color: var(--color-text-secondary); }
+}
+
+.ac__link-label {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--color-bg-card);
+    color: var(--color-warning, #b45309);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.ac__cmd {
+    position: absolute;
+    top: 56px;
+    left: 50%;
+    z-index: 20;
+    width: min(420px, calc(100% - 32px));
+    transform: translateX(-50%);
+    padding: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-card);
+    box-shadow: 0 12px 32px rgba(16, 24, 40, 0.2);
+
+    ul { max-height: 320px; margin: 6px 0 0; padding: 0; overflow: auto; list-style: none; }
+
+    button {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        padding: 6px 8px;
+        border: 0;
+        border-radius: 6px;
+        background: none;
+        color: inherit;
+        font-size: 13px;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    kbd { color: var(--color-text-secondary); font-size: 11px; }
+}
+
+.ac__cmd--on { background: color-mix(in srgb, var(--color-primary) 12%, transparent) !important; }
+
+.ac__cmd-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+}
+
+.ac__cmd-head { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; }
+.ac__cmd-row { display: flex; justify-content: space-between; padding: 4px 8px; font-size: 13px; }
+
+// ── Sticky notes (editor only) ──
+.ac__note {
+    width: 200px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+    background: #fff4b8;
+    color: #3a3200;
+    &--blue { background: #d6e9ff; color: #0c2a4d; }
+    &--green { background: #d9f5dc; color: #10391a; }
+    &--pink { background: #ffdcea; color: #4d1029; }
+    &.f-selected { outline: 2px solid var(--ac-accent, #2563eb); }
+}
+.ac__note-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: grab;
+    span { flex: 1; }
+}
+.ac__note-btn {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 4px;
+    &:focus-visible { outline: 2px solid currentColor; }
+}
+.ac__note-text {
+    display: block;
+    width: 100%;
+    min-height: 80px;
+    box-sizing: border-box;
+    border: 0;
+    border-top: 1px solid rgba(0, 0, 0, .1);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    padding: 6px;
+    resize: vertical;
+    &:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+}

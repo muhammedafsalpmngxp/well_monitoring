@@ -139,3 +139,30 @@ def test_heartbeat_stops_the_run_when_the_caller_stops_reading():
     count = len(produced)
     _t.sleep(0.1)
     assert len(produced) == count
+def test_ask_ai_uses_the_step_settings_and_output_key_feeds_later_steps():
+    seen = {}
+
+    def chat(llm, messages):
+        seen.setdefault("calls", []).append((llm.model, llm.temperature, llm.max_tokens, messages[1][1]))
+        return "Marmul", {"input": 1, "output": 1}
+    calls = []
+    req = RunRequest.model_validate({
+        "agent": {"name": "T", "steps": [
+            {"text": "Which cluster is biggest?", "tool": {"agent": "ask_ai", "action": "answer"}, "outputKey": "cluster",
+             "model": "gpt-x", "temperature": 0.7, "maxTokens": 300, "expectedOutput": "One cluster name"},
+            {"text": "How many wells in {{cluster}}?"}],
+            "tools": [{"agent": "db_assistant", "action": "chat"}]},
+        "llm": {"baseUrl": "http://llm", "model": "m"}, "prompts": runtime_texts(),
+    })
+    done = _done(run_events(req, run_tool=tool(calls), chat=chat))
+    assert seen["calls"][0][:3] == ("gpt-x", 0.7, 300)
+    assert calls == ["How many wells in Marmul?"]            # {{cluster}} from step 1's output key
+    assert done["steps"][0]["output_key"] == "cluster"
+
+
+def test_output_keys_must_be_unique():
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="unique"):
+        RunRequest.model_validate({"agent": {"name": "T", "steps": [{"text": "a", "outputKey": "x"}, {"text": "b", "outputKey": "x"}],
+                                             "tools": [{"agent": "db_assistant", "action": "chat"}]}})
