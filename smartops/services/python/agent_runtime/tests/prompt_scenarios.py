@@ -63,6 +63,14 @@ def _state(**kw) -> dict[str, Any]:
     return base
 
 
+def _value_matches() -> str:
+    """The VALUE MATCHES block for "wells in marmul on the kap flowline", built from the tenant's texts."""
+    from app.askdata.tools.value_match import Match, block
+    return block([Match("marmul", "well.well_master.cluster_name", "Marmul", 1427),
+                  Match("marmul", "well.well_master.plant_description", "Marmul ODC", 935, approx=True),
+                  Match("kap flowline", "well.flowline.flowline_name", "KAP Flowline", 12)], ["wells"])
+
+
 def askdata_scenarios() -> list[tuple[str, str, dict[str, Any], list[str]]]:
     """(name, node, state, canned replies)."""
     return [
@@ -84,6 +92,8 @@ def askdata_scenarios() -> list[tuple[str, str, dict[str, Any], list[str]]]:
         ("sql_author/verifier-no-sql", "sql_author", _state(verify_feedback="Use the cluster column."), ["```sql\nSELECT 1\n```"]),
         ("sql_author/followup-normal", "sql_author", _state(is_followup=True, history=HISTORY, mode="normal"),
          ["```sql\nSELECT 1\n```"]),
+        ("sql_author/value-matches", "sql_author", _state(question="Wells in marmul on the kap flowline",
+                                                         value_matches=_value_matches()), ["```sql\nSELECT 1\n```"]),
         ("analysis/plain", "analysis", _state(steps=[STEP]), ["analysis text"]),
         ("analysis/truncated-followup", "analysis", _state(steps=[WIDE], is_followup=True, history=HISTORY), ["analysis text"]),
         ("analysis/no-columns-no-rows", "analysis", _state(steps=[NO_COLUMNS, NO_ROWS]), ["analysis text"]),

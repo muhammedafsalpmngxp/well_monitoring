@@ -33,10 +33,15 @@ public sealed class AiConversationRepository(TenantDbContext db) : IAiConversati
 
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 
+    // Traces older than 30 days are removed at most once an hour per process, not on every answer (a round trip).
+    private static long nextCleanup;
+
     public async Task AddTraceAsync(AiTrace trace, CancellationToken ct)
     {
-        var cutoff = DateTime.UtcNow.AddDays(-30);
-        await db.AiTraces.Where(t => t.CreatedAt < cutoff).ExecuteDeleteAsync(ct);
+        var now = DateTime.UtcNow;
+        var due = Interlocked.Read(ref nextCleanup);
+        if (now.Ticks >= due && Interlocked.CompareExchange(ref nextCleanup, now.AddHours(1).Ticks, due) == due)
+            await db.AiTraces.Where(t => t.CreatedAt < now.AddDays(-30)).ExecuteDeleteAsync(ct);
         db.AiTraces.Add(trace);
         await db.SaveChangesAsync(ct);
     }

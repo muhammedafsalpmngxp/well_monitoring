@@ -1,4 +1,9 @@
+import os
+
 import pytest
+
+# Column profiles build in the background from a real database; tests have none.
+os.environ.setdefault("ASKDATA_PROFILES", "off")
 
 from app.models import ResumeRequest, RunRequest
 from tests.seeded_prompts import runtime_texts

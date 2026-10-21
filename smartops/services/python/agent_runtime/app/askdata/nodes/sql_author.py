@@ -10,6 +10,8 @@ from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
 from app.askdata.common.text import extract_sql
+from app.askdata.settings import current_run
+from app.askdata.tools import value_match
 
 log = get_agent_logger("db_assistant")
 
@@ -35,12 +37,14 @@ def _already_gathered(steps: list[dict]) -> str:
 
 def sql_author_node(state: AgentState) -> dict:
     target = state.get("sub_question") or state["question"]
+    matches = state.get("value_matches") or value_match.awaited(current_run().value_matches)[0]
     parts = [
         msg("sql_schema"),
         state.get("schema", ""),
         "",
         history_for(state),
         _already_gathered(state.get("steps", [])),
+        "\n" + matches if matches else "",
         msg("sql_request", TARGET=target),
     ]
     # Carry the orchestrator's plan (data needed + requested result size) on the single-query path.

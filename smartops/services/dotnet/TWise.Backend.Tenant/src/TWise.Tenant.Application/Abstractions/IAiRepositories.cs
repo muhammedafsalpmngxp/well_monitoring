@@ -35,6 +35,8 @@ public interface IAiFeatureRoleRepository
 public interface IAiUsageRepository
 {
     Task AddAsync(AiUsageLog log, CancellationToken ct);
+    /// <summary>Several rows in one save (one round trip), e.g. every model call of one Ask Data question.</summary>
+    Task AddRangeAsync(IReadOnlyList<AiUsageLog> logs, CancellationToken ct);
     Task<int> CountTodayAsync(long tenantId, CancellationToken ct);
     /// <summary>Per-day totals for the last <paramref name="days"/> UTC days, oldest first.</summary>
     Task<IReadOnlyList<AiUsageDayDto>> GetDailyAsync(long tenantId, int days, CancellationToken ct);

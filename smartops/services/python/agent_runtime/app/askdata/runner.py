@@ -6,7 +6,10 @@ plus usage, or ``error``. As in twise, routes that run no verification (chitchat
 """
 from __future__ import annotations
 
+import contextvars
 import logging
+import os
+import threading
 import time
 from functools import lru_cache
 from typing import Any, Iterator, Mapping
@@ -19,7 +22,8 @@ from app.askdata.prompts import KEYS as PROMPT_KEYS, build_prompts, knowledge
 from app.prompt_text import missing
 from app.askdata.tools import export as export_svc
 from app.askdata.settings import AskDataRun, AskDataSettings, DbTarget, run_context
-from app.askdata.tools.schema_introspect import build_schema_text, build_value_hints
+from app.askdata.tools import column_profile, value_match
+from app.askdata.tools.schema_introspect import _cache_path, _value_cache_path, build_schema_text, build_value_hints
 
 log = logging.getLogger("askdata.runner")
 
@@ -48,14 +52,46 @@ def _schema(run: AskDataRun) -> str:
     key = (run.db.server, run.db.port, run.db.name, s.allowed_schemas, s.excluded_tables, s.excluded_columns)
     if key in _SCHEMAS:
         return _SCHEMAS[key]
-    schema = build_schema_text()
-    hints = build_value_hints()
+    # After a restart the schema cached on disk answers at once; checking it against the live database (a fingerprint
+    # query of a few seconds) runs in the background, and a changed database is rebuilt for the next question.
+    cached = _cached_schema()
+    if cached:
+        _SCHEMAS[key] = cached
+        threading.Thread(target=contextvars.copy_context().run, args=(_load_schema, key), name="askdata-schema",
+                         daemon=True).start()
+        return cached
+    return _load_schema(key)
+
+
+def _load_schema(key: tuple) -> str:
+    try:
+        schema = build_schema_text()
+        hints = build_value_hints()
+    except Exception as exc:  # noqa: BLE001 - only the background check gets here with a schema already in use
+        if key in _SCHEMAS:
+            log.warning("schema: background check failed (%s) - the cached schema stays in use", exc)
+            return _SCHEMAS[key]
+        raise
     full = schema + (("\n\n" + hints) if hints else "")
     # An empty schema (nothing readable, or the database briefly unreachable) is not kept: the next question reads it
     # again instead of answering from nothing until the service restarts.
     if schema.strip():
         _SCHEMAS[key] = full
     return full
+
+
+def _cached_schema() -> str:
+    """The schema block and value hints as last built for this database and settings ("" when not on disk)."""
+    try:
+        with open(_cache_path(), encoding="utf-8") as fh:
+            schema = fh.read().strip()
+        hints = ""
+        if os.path.exists(_value_cache_path()):
+            with open(_value_cache_path(), encoding="utf-8") as fh:
+                hints = fh.read().strip()
+    except (OSError, RuntimeError):     # RuntimeError: no Ask Data run, so no cache to look in
+        return ""
+    return schema + (("\n\n" + hints) if hints else "") if schema else ""
 
 
 @lru_cache(maxsize=1)
@@ -102,23 +138,37 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
             settings.org_name,
         )
         yield {"event": "status", "data": {"stage": "Reading the database structure"}}
-        schema = _schema(run)
+        # What each column holds (built in the background; none until the first build finishes), and the stored
+        # values the question's words match, so filters use real values instead of guessed spellings.
+        profiles = column_profile.current()
+        schema = column_profile.annotate(_schema(run), profiles)
+        if profiles:
+            run.value_matches = value_match.start(question, schema, profiles)
+        route: list[tuple[str, float, list, dict]] = []    # for the log: node, seconds, AI calls, what it returned
         # Each label below is sent when its node finishes; this one covers the first node while it runs.
         yield {"event": "status", "data": {"stage": STAGE_LABELS["orchestrator"]}}
         final: dict[str, Any] = {}
+        mark, used = time.monotonic(), len(run.usage)
         for kind, chunk in _graphs()[mode].stream(
                 {"question": question, "history": history, "schema": schema, "mode": mode},
                 config={"recursion_limit": RECURSION_LIMIT}, stream_mode=["updates", "values"]):
             if kind == "updates" and isinstance(chunk, dict):
-                for node in chunk:
-                    trace.node(f"Ask Data ({mode})", node)
+                now = time.monotonic()
+                for node, update in chunk.items():
+                    route.append((node, now - mark, run.usage[used:], update if isinstance(update, dict) else {}))
+                    used = len(run.usage)
                     yield {"event": "node", "data": {"phase": "start", "node": node}}
                     if node in STAGE_LABELS:
                         yield {"event": "status", "data": {"stage": STAGE_LABELS[node]}}
+                mark = now
             elif kind == "values" and isinstance(chunk, dict):
                 final = chunk
         # Inside the run: the export token is signed with this run's settings.
         response = _response(final, mode, time.monotonic() - started, run.usage)
+        if run.value_matches is not None:
+            block, seconds = value_match.awaited(run.value_matches)
+            route.insert(0, ("value match", seconds, [], {"value_matches": block}))
+    trace.route(f"Ask Data ({mode})", question, route, response)
     yield {"event": "done", "data": response}
 
 

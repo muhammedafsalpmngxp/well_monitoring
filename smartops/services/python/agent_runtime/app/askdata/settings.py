@@ -61,6 +61,8 @@ class AskDataRun:
     usage: list[dict[str, Any]] = field(default_factory=list)
     # The tenant's prompt texts {key: text} for this run, from the Tenant API (core.AiPrompt).
     texts: dict[str, str] = field(default_factory=dict)
+    # The VALUE MATCHES block being built for this question (tools/value_match.start): a Future of (block, seconds).
+    value_matches: Any = None
 
 
 _RUN: ContextVar[AskDataRun | None] = ContextVar("askdata_run", default=None)

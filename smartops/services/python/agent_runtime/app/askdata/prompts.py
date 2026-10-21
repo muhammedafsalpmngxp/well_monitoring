@@ -38,6 +38,7 @@ MESSAGE_NAMES = (
     "verifier_data", "verifier_analysis", "verifier_concerns", "verifier_concern", "verifier_final",
     "verifier_unreadable", "synth_no_data", "synth_no_data_error", "synth_question", "synth_data", "synth_analysis",
     "synth_unverified", "synth_final", "chitchat", "chitchat_entities",
+    "value_matches", "value_match", "value_match_value", "value_unmatched",
 )
 # Every key one Ask Data run needs; checked before the run starts.
 KEYS = (tuple(f"askdata.{n}" for n in SYSTEM_NAMES + KNOWLEDGE_NAMES)

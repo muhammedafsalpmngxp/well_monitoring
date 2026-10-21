@@ -340,7 +340,8 @@ export class AskAiPanelComponent implements OnInit {
             if (turn.spec) turn.chart = this.presets.suggest(turn.spec, ev.data, question, sourceType as 'view' | 'import', Number(id), this.sourceName || this.datasets.find(d => `${d.sourceType}:${d.sourceId}` === this.selectedKey)?.name || '');
             break;
           case 'answer': turn.answer += ev.data; turn.status = ''; break;
-          case 'done': if (ev.data && 'conversationId' in ev.data) { this.conversationId = ev.data.conversationId; this.sourceName = ev.data.sourceName; turn.messageId = ev.data.messageId; this.loadConversations(); } break;
+          // The answer is complete at done; the server may still be saving its trace, so the panel does not wait.
+          case 'done': if (ev.data && 'conversationId' in ev.data) { this.conversationId = ev.data.conversationId; this.sourceName = ev.data.sourceName; turn.messageId = ev.data.messageId; this.loadConversations(); } this.busy = false; turn.status = ''; break;
           case 'suggestions': turn.suggestions = ev.data; break;
           case 'clarify': turn.clarify = ev.data; turn.status = ''; break;
           case 'insights': turn.insights = ev.data; break;

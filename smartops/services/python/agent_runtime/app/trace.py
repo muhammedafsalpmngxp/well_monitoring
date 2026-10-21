@@ -1,5 +1,6 @@
 """Readable terminal logs of what the agent runtime does: each request, each graph node and agent step, each AI call
 (model, time, tokens) and each SQL query (rows, time), for Ask Data, agents and the Agentic Features.
+After each Ask Data question, one route summary: Step 1:, Step 2:, ... with what each step produced (route).
 
 Output goes to the terminal through ``rich`` when it is installed (plain lines otherwise). Logging only: nothing here
 changes a run's flow or its results, and a logging failure never reaches a request. No secrets are written: no
@@ -141,6 +142,95 @@ def sql(who: str, rows: int | None, seconds: float, text: str = "", *, truncated
 def node(flow: str, name: str, detail: str = "") -> None:
     """A graph node or agent step started / finished (Ask Data nodes, agent steps, tools, job stages)."""
     log.info(f"[bold cyan]{_esc(flow)}[/] -> [bold]{_esc(name)}[/]{(' ' + _esc(detail)) if detail else ''}")
+
+
+def _cut(text: Any, limit: int) -> str:
+    one = re.sub(r"\s+", " ", str(text or "")).strip()
+    return one if len(one) <= limit else one[:limit] + " ..."
+
+
+def _produced(node: str, update: dict) -> list[tuple[str, str]]:
+    """What a node decided or made, from the state it returned, as (style, plain text) lines: the route, the SQL,
+    the rows, a verdict, the answer."""
+    u = update
+    if node == "value match":
+        text = (u.get("value_matches") or "").split("\n")
+        found = [("", line[2:]) for line in text if line.startswith("- ")]
+        missing = [("dim", line) for line in text if line.startswith("No stored value")]
+        return found + missing or [("dim", "no matches")]
+    if u.get("validation_error"):
+        return [("red", "rejected: " + _cut(u["validation_error"], 400))]
+    if u.get("exec_error"):
+        return [("red", "failed: " + _cut(u["exec_error"], 400))]
+    if node == "validator":
+        return [("green", "ok")]
+    if node == "verifier" and "verify_ok" in u:
+        return [("green", "ok")] if u["verify_ok"] else [("yellow", "rejected: " + _cut(u.get("verify_feedback"), 400))]
+    if u.get("sql"):
+        return [("dim", _short_sql(u["sql"], 1200))]
+    if node == "executor" and u.get("steps"):
+        step = u["steps"][-1]
+        n = len(step.get("rows") or [])
+        cols = ", ".join(str(c) for c in (step.get("columns") or []))
+        return [("", f"{n} row{'s' if n != 1 else ''}{' (truncated)' if step.get('truncated') else ''}: {_cut(cols, 200)}")]
+    if "route" in u:
+        flags = [k for k in ("needs_analysis", "multi_step", "wants_chart", "is_followup") if u.get(k)]
+        return [("bold", f"route={u['route']}" + (f" ({', '.join(flags)})" if flags else ""))]
+    if u.get("clarify_question"):
+        return [("", "asks: " + _cut(u["clarify_question"], 400))]
+    if u.get("answer"):
+        return [("", f'"{_cut(u["answer"], 400)}"')]
+    if u.get("next_action"):
+        return [("", f"next: {u['next_action']}" + (f" - {_cut(u['sub_question'], 300)}" if u.get("sub_question") else ""))]
+    if "chart" in u:
+        return [("", f"chart: {(u['chart'] or {}).get('type') or 'none'}")]
+    if u.get("analysis"):
+        return [("", _cut(u["analysis"], 400))]
+    return []
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    import textwrap
+    return textwrap.wrap(text, width, break_long_words=True, break_on_hyphens=False) or [""]
+
+
+@_safe
+def route(flow: str, question: str, steps: list[tuple[str, float, list, dict]], result: dict) -> None:
+    """One summary per question, after it is answered: Step 1:, Step 2:, ... in the order the nodes ran, each with its
+    time, AI tokens (in / out) and what it produced; a retry shows as the same node again.
+
+        Ask Data (deep) "how many wells are in marmul"  route sql · verified · 20.3s · 4 AI calls · 49,057 / 464 tokens
+        ├─ Step 1:  value match     0.0s
+        │            "marmul": ref.cluster.cluster_name = 'Marmul' (1 row); ...
+        ├─ Step 2:  orchestrator    5.8s  AI 2,552 / 125    route=sql
+        ├─ Step 3:  sql_author      5.5s  AI 34,381 / 273
+        │            SELECT COUNT(DISTINCT wm.well_id) AS well_count FROM well.well_master AS wm ...
+        ...
+        └─ Step 7:  synthesize      2.2s  AI 4,861 / 13     "There are 448 wells in Marmul."
+    """
+    usage = result.get("usage") or []
+    t_in, t_out = sum(u.get("input", 0) for u in usage), sum(u.get("output", 0) for u in usage)
+    verified = "[green]verified[/]" if result.get("verified") else "[yellow]not verified[/]"
+    lines = [f"[bold cyan]{_esc(flow)}[/] [bold]\"{_esc(_cut(question, 120))}\"[/]  route {_esc(result.get('route'))} · "
+             f"{verified} · {result.get('seconds', 0):.1f}s · {len(usage)} AI call{'s' if len(usage) != 1 else ''} · "
+             f"{t_in:,} / {t_out:,} tokens"]
+    # rich puts the time and level (20 columns) and the tree (13) before each line.
+    width = max(50, int(os.environ["AGENT_LOG_WIDTH"]) - 36) if os.environ.get("AGENT_LOG_WIDTH", "").isdigit() else 80
+    for i, (name, seconds, calls, update) in enumerate(steps):
+        branch, cont = ("└─", "  ") if i == len(steps) - 1 else ("├─", "│ ")
+        ai = ("AI " + " + ".join(f"{c.get('input', 0):,} / {c.get('output', 0):,}" for c in calls)) if calls else ""
+        out = _produced(name, update)
+        # A short result stays on the step's line; the SQL and value matches go below it, wrapped under the step.
+        inline = out.pop(0) if len(out) == 1 and len(out[0][1]) <= 50 else None
+        head = f"{branch} {f'Step {i + 1}:':<9}[bold]{_esc(name):<14}[/] {seconds:5.1f}s  [magenta]{ai:<20}[/]"
+        if inline:
+            style, text = inline
+            head += f" [{style}]{_esc(text)}[/]" if style else f" {_esc(text)}"
+        lines.append(head.rstrip())
+        for style, text in out:
+            for part in _wrap(text, width):
+                lines.append(f"{cont}           " + (f"[{style}]{_esc(part)}[/]" if style else _esc(part)))
+    log.info("\n".join(lines))
 
 
 @_safe

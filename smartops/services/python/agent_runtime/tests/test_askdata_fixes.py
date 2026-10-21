@@ -89,3 +89,29 @@ def test_quoted_names_are_not_keywords_but_writes_are_still_refused():
                 "SELECT 1 AS [x]] DROP TABLE t --]", 'SELECT "a" FROM t; UPDATE t SET a = 1'):
         with pytest.raises(ReadOnlyViolation):
             assert_read_only(bad)
+
+
+def test_after_a_restart_the_cached_schema_answers_at_once_and_is_checked_in_the_background(monkeypatch):
+    import threading
+    checked = threading.Event()
+
+    def load(key):
+        runner._SCHEMAS[key] = "TABLE well.new_table"
+        checked.set()
+        return runner._SCHEMAS[key]
+
+    monkeypatch.setattr(runner, "_SCHEMAS", {})
+    monkeypatch.setattr(runner, "_cached_schema", lambda: "TABLE well.well_master")
+    monkeypatch.setattr(runner, "_load_schema", load)
+
+    class Db:
+        server, port, name = "s", 1433, "d"
+
+    class Settings:
+        allowed_schemas, excluded_tables, excluded_columns = ("well",), (), ()
+
+    class Run:
+        db, settings = Db(), Settings()
+
+    assert runner._schema(Run()) == "TABLE well.well_master"        # no database round trip before the question
+    assert checked.wait(5) and runner._schema(Run()) == "TABLE well.new_table"   # a changed database: the next question

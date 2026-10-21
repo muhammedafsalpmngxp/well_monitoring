@@ -187,7 +187,9 @@ public static class DependencyInjection
         // Agentic AI: agents built on Create New Agent run in the Python agent runtime (LangGraph).
         services.AddHttpClient<IAgentRuntimeClient, AgentRuntimeClient>(client =>
         {
-            client.BaseAddress = new Uri((configuration["AgentRuntime:BaseUrl"] ?? "http://localhost:8006").TrimEnd('/') + "/");
+            // 127.0.0.1, not localhost: on Windows "localhost" tries IPv6 first and uvicorn listens on IPv4 only, which
+            // costs ~2 s on every new connection (each Ask Data question opens one for its stream).
+            client.BaseAddress = new Uri((configuration["AgentRuntime:BaseUrl"] ?? "http://127.0.0.1:8006").TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromMinutes(10);   // a run streams until every step is done
             if (configuration["AgentRuntime:ApiKey"] is { Length: > 0 } key) client.DefaultRequestHeaders.Add("X-API-Key", key);
         });

@@ -307,6 +307,10 @@ server-sent events:
 A step that runs more than once (supervisor, loop) has `attempt` 1, 2, … in its `step` events.
 An Ask Data step's `end` event also carries `route` (sql, clarify, chitchat), `verified`, `needs_analysis`,
 `data` (columns and the rows shown), `chart` and `export_token` (for `POST /api/agents/askdata/export`).
+Before writing its SQL, an Ask Data step links words in the question to values stored in the data (status
+"Matching words to the data"), so "wells in marmul" filters on the stored spelling, e.g. `'Marmul'` or `'MARMUL'`.
+It uses column profiles that the runtime builds in the background from the tables Ask Data may read; for up to a
+day after a runtime start (or until the first build finishes) questions are answered without them.
 A Saved SQL step's `end` event carries `data` (columns and rows, up to the row limit) and its SQL; the setup step's
 events also carry `setup: true`.
 A `ping` event arrives every 15 s while a step is still working; ignore it.

@@ -61,7 +61,6 @@ public sealed partial class AiAskService
             }
         }
         if (done is not { } d) { yield return Error(failed ?? "Ask Data ended without an answer. Check that the agent runtime is running."); yield break; }
-        await LogAskDataUsageAsync(d, tenantId, userId);
 
         var steps = d.TryGetProperty("steps", out var st) && st.ValueKind == JsonValueKind.Array ? st.EnumerateArray().ToList() : [];
         var verified = !d.TryGetProperty("verified", out var v) || v.ValueKind != JsonValueKind.False;
@@ -79,6 +78,8 @@ public sealed partial class AiAskService
         var answer = Str(d, "answer") ?? "";
         if (!verified) answer += "\n\n_The figures could not be verified: treat them as indicative._";
         yield return new AiAskEvent("answer", answer);
+        // After the answer is on screen: every save below is a round trip to the tenant database.
+        await LogAskDataUsageAsync(d, tenantId, userId);
 
         // An Ask Data answer has SQL, not a spec: QuerySpecJson stays null, so likes, alerts and reports skip it.
         if (conv.Id == 0) await conversations.AddAsync(conv, ct);
@@ -87,10 +88,11 @@ public sealed partial class AiAskService
         var assistant = new AiChatMessage { ConversationId = conv.Id, Role = "assistant", Content = answer };
         await conversations.AddMessageAsync(assistant, ct);
         await conversations.SaveAsync(ct);
-        try { await conversations.AddTraceAsync(new AiTrace { MessageId = assistant.Id, TraceJson = JsonSerializer.Serialize(trace, Json) }, ct); }
-        catch (Exception ex) when (ex is not OperationCanceledException) { /* answer already saved */ }
         if (tracing) yield return new AiAskEvent("trace", trace);
         yield return new AiAskEvent("done", new { conversationId = conv.Id, sourceName = conv.SourceName, messageId = assistant.Id });
+        // The trace is saved after "done": the panel does not wait for it. Fresh token: the request may be ending.
+        try { await conversations.AddTraceAsync(new AiTrace { MessageId = assistant.Id, TraceJson = JsonSerializer.Serialize(trace, Json) }, CancellationToken.None); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { /* answer already saved */ }
     }
 
     /// <summary>Earlier turns as the runtime expects them: {user, assistant} pairs, oldest first.</summary>
@@ -140,12 +142,11 @@ public sealed partial class AiAskService
     private async Task LogAskDataUsageAsync(JsonElement done, long tenantId, long userId)
     {
         if (!done.TryGetProperty("usage", out var rows) || rows.ValueKind != JsonValueKind.Array) return;
-        foreach (var u in rows.EnumerateArray())
-            await usage.AddAsync(new AiUsageLog
-            {
-                TenantId = tenantId, UserId = userId.ToString(), Purpose = "ask", Model = Str(u, "model") ?? "",
-                PromptTokens = Int(u, "input"), CompletionTokens = Int(u, "output"), Succeeded = true,
-            }, CancellationToken.None);
+        await usage.AddRangeAsync(rows.EnumerateArray().Select(u => new AiUsageLog
+        {
+            TenantId = tenantId, UserId = userId.ToString(), Purpose = "ask", Model = Str(u, "model") ?? "",
+            PromptTokens = Int(u, "input"), CompletionTokens = Int(u, "output"), Succeeded = true,
+        }).ToList(), CancellationToken.None);
     }
 
     /// <summary>A transport failure becomes a message instead of an exception (C# forbids yield inside try/catch).</summary>

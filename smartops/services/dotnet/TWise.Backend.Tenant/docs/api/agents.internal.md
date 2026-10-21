@@ -192,6 +192,35 @@ the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_
 `allowedSchemas` can only narrow the tenant's allowed schemas and its `maxRows` only lower the tenant's
 (`runner.settings_for`); `sys` and `INFORMATION_SCHEMA` are never readable.
 
+**Column profiles and value matching** (not in twise; `tools/column_profile.py`, `tools/value_match.py`):
+* `column_profile.current()` returns `profiles.json` from the schema cache dir (one per database and visibility
+  settings) and, when it is missing or older than 24 h, rebuilds it in a background thread (a copy of the run's
+  context). A question never waits: the first ones after a start run without profiles. The build profiles only the
+  SCHEMA block's tables and columns (so never a hidden or secret column), one aggregate query per table (rows,
+  non-empty, distinct, min/max) plus a value list (top 500 with counts) for text and bit columns with ≤ 500 values;
+  tables over 200,000 rows are profiled on `TOP 200000` (counts marked ≈). QA: 90 tables, 1,262 columns in ~3.3 min.
+* `annotate()` appends ` | <profile>` to each column line: all values when ≤ 12, else the 3 most common (not for
+  id-like names), date ranges, number ranges (not ids), "always empty" or ≥ 20 % empty. QA: +~7k tokens per SQL
+  Author call.
+* `value_match.for_question()` takes the question's search words (no stop words, no table / column names, numbers
+  ≥ 4 digits, short words whole-word only), matches them against the value lists, and for words still unmatched runs
+  ONE read-only `UNION ALL` LIKE query over the label columns (`*name`, `*code`, `*status`, ...) of tables (not
+  views) ≤ 200,000 rows, within 3 s (QA: 16 columns, ~0.8 s; the first lookup after a start pays the cold connection).
+  The result goes to the SQL Author as the `askdata.msg.value_matches` / `value_match` / `value_match_value` /
+  `value_unmatched` block (only candidates; the SQL Author picks the column). Any failure = no block.
+  It runs in a background thread while the orchestrator works (`value_match.start`; the SQL Author waits with
+  `awaited`), so it adds no time to a question. The runtime log prints one route summary per question
+  (`trace.route`: Step 1:, Step 2:, ... with time, AI tokens and what each step produced).
+* `ASKDATA_PROFILES=off` switches both off (the tests set it).
+
+**Ask your data panel (`POST /api/ai/ask`, `AiAskService.AskData.cs`), tenant-database round trips:** the tenant DB is
+remote on QA (each save ~0.5-1.5 s), so the path keeps them few. `AiSettingsRepository` and `AiFeatureRoleRepository`
+read once per request (scoped; a question checked the settings 4 times and the grants twice). The usage rows of one
+question are one `AddRangeAsync` save, after the answer event. The trace is saved after `done` and the panel stops
+"Working" on `done`, not on the stream's end. The 30-day trace cleanup runs at most once an hour per process. Left:
+the provider and the daily-quota count (2 reads), the prompts stamp (1), the conversation insert and the messages
+(2 saves; there are no navigation properties to save them in one).
+
 **Which database:** Ask Data reads `AgentRuntime:AskDataConnection`, else `ConnectionStrings:AlTasnimBI`
 (the Tenant API sends it with each run). The twise agents (DB Assistant, Data Anomaly, Well Slippage,
 Daily Report on ports 8001-8004) read the database in twise-agentic's own `backend/.env` (`DB_*`, AlTasnimBI
@@ -221,13 +250,14 @@ on QA) with their own OpenAI key.
 
 | Where | Key | Default | Meaning |
 |---|---|---|---|
-| Tenant API | `AgentRuntime:BaseUrl` | `http://localhost:8006` | the agent runtime |
+| Tenant API | `AgentRuntime:BaseUrl` | `http://127.0.0.1:8006` | the agent runtime (not `localhost`: on Windows that tries IPv6 first, ~2 s per new connection) |
 | Tenant API | `AgentRuntime:ApiKey` | empty | sent as `X-API-Key`; must match the runtime's key |
 | Runtime env | `AGENT_RUNTIME_API_KEY` | empty | required `X-API-Key` when set |
 | Runtime env | `AGENT_RUNTIME_TWISE_URL` | empty | twise supervisor (e.g. `http://localhost:8000`); empty = its agents are not offered and never called |
 | Runtime env | `AGENT_RUNTIME_TWISE_API_KEY` | empty | twise `X-API-Key` |
 | Runtime env | `AGENT_RUNTIME_STEP_TIMEOUT` | `180` | seconds per step |
 | Runtime env | `AGENT_RUNTIME_ALLOW_PRIVATE_URLS` | `false` | let Tools call private network addresses |
+| Runtime env | `ASKDATA_PROFILES` | `on` | `off` = no column profiles and no value matching in Ask Data |
 
 Set both keys outside local development: the runtime receives the tenant's decrypted AI key in the
 request body, so it must only be reachable from the Tenant API.

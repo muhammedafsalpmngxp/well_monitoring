@@ -9,7 +9,8 @@ class AgentState(TypedDict, total=False):
     # Input
     question: str                 # current user question
     history: list[dict[str, str]] # prior turns: [{"user":..., "assistant":...}, ...]
-    schema: str                   # schema block + value hints (injected once per run)
+    schema: str                   # schema block + column profiles + value hints (injected once per run)
+    value_matches: str            # stored values the question's words match (tools/value_match.py), or ""
     # "normal" = the short, fast pipeline. Anything else (including unset) = the full pipeline,
     # so an old client or a malformed request always gets the thorough path, never the weak one.
     mode: str

@@ -23,8 +23,17 @@ import logging
 import os
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import Any, Iterator
+
+# FastAPI 0.115 hands pydantic >= 2.12 the camelCase aliases of request bodies in a form it warns about
+# (UnsupportedFieldAttributeWarning, one per field on an endpoint's first request). The aliases still work.
+try:
+    from pydantic.warnings import UnsupportedFieldAttributeWarning
+    warnings.filterwarnings("ignore", category=UnsupportedFieldAttributeWarning)
+except ImportError:  # older pydantic: no such warning
+    pass
 
 # Local runs: smartops/shared/python. In Docker PYTHONPATH already has /shared.
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "shared" / "python"))

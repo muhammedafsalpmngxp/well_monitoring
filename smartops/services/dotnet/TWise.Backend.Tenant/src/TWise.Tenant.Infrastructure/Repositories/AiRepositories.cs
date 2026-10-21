@@ -6,15 +6,24 @@ using TWise.Tenant.Infrastructure.Persistence;
 
 namespace TWise.Tenant.Infrastructure.Repositories;
 
+/// <summary>Read once per request (scoped): one question checks the settings up to four times, and each read is a
+/// round trip to the tenant database. The row is tracked, so a save in the same request edits the same instance.</summary>
 public sealed class AiSettingsRepository(TenantDbContext db) : IAiSettingsRepository
 {
-    public Task<AiSettings?> GetAsync(long tenantId, CancellationToken ct) =>
-        db.AiSettings.FirstOrDefaultAsync(s => s.TenantId == tenantId, ct);
+    private readonly Dictionary<long, AiSettings?> read = [];
+
+    public async Task<AiSettings?> GetAsync(long tenantId, CancellationToken ct)
+    {
+        if (!read.TryGetValue(tenantId, out var s))
+            read[tenantId] = s = await db.AiSettings.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct);
+        return s;
+    }
 
     public async Task UpsertAsync(AiSettings settings, CancellationToken ct)
     {
         if (settings.Id == 0) db.AiSettings.Add(settings);
         await db.SaveChangesAsync(ct);
+        read[settings.TenantId] = settings;
     }
 }
 
@@ -64,16 +73,24 @@ public sealed class AiProviderRepository(TenantDbContext db) : IAiProviderReposi
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }
 
+/// <summary>Read once per request (scoped), like the settings: each feature check reads the grants.</summary>
 public sealed class AiFeatureRoleRepository(TenantDbContext db) : IAiFeatureRoleRepository
 {
-    public async Task<IReadOnlyList<AiFeatureRole>> GetAsync(long tenantId, CancellationToken ct) =>
-        await db.AiFeatureRoles.Where(r => r.TenantId == tenantId).ToListAsync(ct);
+    private readonly Dictionary<long, IReadOnlyList<AiFeatureRole>> read = [];
+
+    public async Task<IReadOnlyList<AiFeatureRole>> GetAsync(long tenantId, CancellationToken ct)
+    {
+        if (!read.TryGetValue(tenantId, out var grants))
+            read[tenantId] = grants = await db.AiFeatureRoles.Where(r => r.TenantId == tenantId).ToListAsync(ct);
+        return grants;
+    }
 
     public async Task ReplaceAsync(long tenantId, IReadOnlyList<AiFeatureRole> grants, CancellationToken ct)
     {
         await db.AiFeatureRoles.Where(r => r.TenantId == tenantId).ExecuteDeleteAsync(ct);
         db.AiFeatureRoles.AddRange(grants);
         await db.SaveChangesAsync(ct);
+        read.Remove(tenantId);
     }
 }
 
@@ -82,6 +99,13 @@ public sealed class AiUsageRepository(TenantDbContext db) : IAiUsageRepository
     public async Task AddAsync(AiUsageLog log, CancellationToken ct)
     {
         db.AiUsageLogs.Add(log);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task AddRangeAsync(IReadOnlyList<AiUsageLog> logs, CancellationToken ct)
+    {
+        if (logs.Count == 0) return;
+        db.AiUsageLogs.AddRange(logs);
         await db.SaveChangesAsync(ct);
     }
 

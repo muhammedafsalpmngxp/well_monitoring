@@ -118,6 +118,10 @@ public static partial class AiPromptCatalog
         M("synth_final", "Answer writer: closing line", "The last line of the answer writer's message."),
         M("chitchat", "Chitchat: message", "The message the chitchat reply answers."),
         M("chitchat_entities", "Chitchat: entity names", "Names of things in the database the reply may use as examples."),
+        M("value_matches", "SQL author: value matches", "Stored values that contain words of the question, found before the SQL is written."),
+        M("value_match", "SQL author: one matched word", "One word of the question and the stored values that contain it."),
+        M("value_match_value", "SQL author: one matched value", "One stored value, its column and how many rows hold it."),
+        M("value_unmatched", "SQL author: words with no match", "Words of the question that no stored value contains."),
 
         // ── Agents (agent runtime) ────────────────────────────────────────────────────────────────────────────
         G("agent.supervisor", "Supervisor", "Supervisor agents: picks the next step, or FINISH.", "next"),
