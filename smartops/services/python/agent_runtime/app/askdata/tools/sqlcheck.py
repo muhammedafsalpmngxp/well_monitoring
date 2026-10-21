@@ -40,6 +40,40 @@ def _blocks(schema: str) -> list[tuple[str, str]]:
     return out
 
 
+# The value hints are appended to the schema block (runner._schema), under this heading.
+_HINTS_MARK = "\nVALUE HINTS"
+
+
+def schema_for_sql(sqls: list[str], schema: str) -> tuple[str, int, int]:
+    """The schema block cut down to the tables the executed SQL names (and their value-hint lines).
+
+    For the Verifier, which judges a query that is already written and so needs only the tables it reads. A table
+    counts as named when "schema.table" or its bare name appears in the SQL (brackets ignored); a false match only
+    keeps an extra block. When no table is recognised the whole block is returned, so the worst case is today's.
+    Returns (text, tables kept, tables in the schema).
+    """
+    tables_part, mark, hints_part = schema.partition(_HINTS_MARK)
+    blocks = _blocks(tables_part)
+    text = " ".join(sqls).lower().replace("[", "").replace("]", "").replace('"', "")
+
+    def named(table: str) -> bool:
+        sch, _, tbl = table.lower().partition(".")
+        return bool(re.search(rf"(?<![\w.]){re.escape(sch)}\.{re.escape(tbl)}(?!\w)", text)
+                    or re.search(rf"(?<![\w.]){re.escape(tbl)}(?!\w)", text))
+
+    kept = [(table, block) for table, block in blocks if named(table)]
+    if not kept:
+        return schema, len(blocks), len(blocks)
+    names = {table.lower() for table, _ in kept}
+    out = "\n\n".join(block.strip() for _, block in kept)
+    hint_lines = hints_part.splitlines()
+    hints = [line for line in hint_lines[1:]
+             if line.startswith("- ") and line[2:].split(" ", 1)[0].lower() in names]
+    if hints:
+        out += "\n\n" + (mark + hint_lines[0]).strip() + "\n" + "\n".join(hints)
+    return out, len(kept), len(blocks)
+
+
 def check(sql: str, schema: str) -> list[str]:
     """Return a list of human-readable concerns. Empty means nothing suspicious was found.
 
