@@ -220,7 +220,7 @@
           </button>
           <button type="button" class="ask__link" *ngIf="t.spec || t.sql" (click)="t.showQuery = !t.showQuery">{{ t.showQuery ? 'Hide query' : 'Show query' }}</button>
           <button type="button" class="ask__link" *ngIf="can('trace') && (t.trace || t.messageId)" (click)="toggleTrace(t)">{{ t.showTrace ? 'Hide steps' : 'Show steps' }}</button>
-          <button type="button" class="ask__link" *ngIf="t.messageId && t.spec?.groupBy?.length && (t.result?.rows?.length || 0) >= 3" [disabled]="t.reportLoading" (click)="toggleReport(t)" title="Trend, anomalies and recommendations for this answer">{{ t.report ? 'Hide report' : t.reportLoading ? 'Building report…' : 'Insight report' }}</button>
+          <button type="button" class="ask__link" *ngIf="t.messageId && (t.spec?.groupBy?.length || (t.sql && t.insights?.length)) && (t.result?.rows?.length || 0) >= 3" [disabled]="t.reportLoading" (click)="toggleReport(t)" title="Trend, anomalies and recommendations for this answer">{{ t.report ? 'Hide report' : t.reportLoading ? 'Building report…' : 'Insight report' }}</button>
           <button type="button" class="ask__link" *ngIf="can('alerts') && t.messageId && t.spec" (click)="toggleAlertForm(t)">Alert me</button>
           <button type="button" class="ask__link" *ngIf="t.chart && can('chart')" (click)="openInChartBuilder(t)"
             [title]="t.spec?.filters?.length ? 'Filters are not carried over; add them in the builder' : ''">Open as {{ t.chart.chartType }} chart</button>

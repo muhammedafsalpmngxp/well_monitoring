@@ -283,6 +283,13 @@ class AskDataAskRequest(_Camel):
     ask_data_settings: AskDataTenantSettings | None = None
 
 
+class AskDataRowsRequest(_Camel):
+    """An Ask Data answer's SQL run again for its insight report (checked like an export)."""
+    sql: str = Field(min_length=1, max_length=20_000)
+    db: Db
+    ask_data_settings: AskDataTenantSettings | None = None
+
+
 class AskDataStartersRequest(_Camel):
     """Starter questions for an empty Ask your data panel, built from the column profiles (no AI call)."""
     db: Db

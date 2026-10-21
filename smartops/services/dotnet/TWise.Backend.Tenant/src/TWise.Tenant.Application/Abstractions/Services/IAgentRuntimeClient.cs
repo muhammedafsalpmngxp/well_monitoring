@@ -42,6 +42,10 @@ public interface IAgentRuntimeClient
     /// until the profiles are built. Throws HttpRequestException when the runtime is down.</summary>
     Task<IReadOnlyList<string>> AskDataStartersAsync(AgentRuntimeAskData askData, CancellationToken ct);
 
+    /// <summary>An Ask Data answer's SQL run again for its insight report, checked like an export: { data: { columns, rows,
+    /// truncated } }. Throws InvalidOperationException with the reason when it may no longer run.</summary>
+    Task<JsonElement> AskDataRowsAsync(string sql, AgentRuntimeAskData askData, CancellationToken ct);
+
     /// <summary>The tools a step can use, with a message when twise is down. Throws HttpRequestException when the runtime is down.</summary>
     Task<AgentToolsDto> ListToolsAsync(CancellationToken ct);
 

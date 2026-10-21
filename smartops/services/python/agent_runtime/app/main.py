@@ -11,6 +11,7 @@ Endpoints:
   POST /api/agent-runtime/tools/try   calls one Tool (REST) once with sample values
   POST /api/agent-runtime/askdata/export   an Ask Data answer's data as xlsx / docx (signed token, no model call)
   POST /api/agent-runtime/askdata/starters   suggested first questions for Ask your data (column profiles, no AI)
+  POST /api/agent-runtime/askdata/rows   an answer's SQL run again (checked like an export), for its insight report
   POST /api/agent-runtime/askdata/ask   Ask your data: one question on the Ask Data database; events:
                                   status, node (ping when quiet), then done or error
   POST /api/agent-runtime/run     runs one agent configuration; server-sent events:
@@ -51,7 +52,7 @@ from app.errors import user_message
 from app import trace
 from app.graph import RUN_KEYS, approval_update, build_graph, missing_inputs, uses
 from app.prompt_text import missing as missing_prompts
-from app.models import AskDataAskRequest, AskDataExportRequest, AskDataStartersRequest, JudgeRequest, ResumeRequest, RunRequest, ToolTryRequest
+from app.models import AskDataAskRequest, AskDataExportRequest, AskDataRowsRequest, AskDataStartersRequest, JudgeRequest, ResumeRequest, RunRequest, ToolTryRequest
 from app import sqlstep
 from app.prepare import Prepared, asks_question, prepare
 from app.sqlstep import SQL_QUERY_TOOL
@@ -184,6 +185,18 @@ def askdata_starters(req: AskDataStartersRequest) -> dict[str, list[str]]:
         return {"questions": runner.starters(req.db, req.ask_data_settings)}
     except ValueError as exc:   # Ask Data is not set up for this tenant
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/agent-runtime/askdata/rows", dependencies=[Depends(require_key)])
+def askdata_rows(req: AskDataRowsRequest) -> dict[str, Any]:
+    """An Ask Data answer's SQL run again for its insight report: 400 with the reason when it may no longer run."""
+    from app.askdata import runner
+    from app.askdata.tools.export import ExportError
+
+    try:
+        return runner.rows(req.sql, req.db, req.ask_data_settings)
+    except (ExportError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc).replace("cannot be exported", "cannot run again")) from exc
 
 
 @app.post("/api/agent-runtime/askdata/export", dependencies=[Depends(require_key)])

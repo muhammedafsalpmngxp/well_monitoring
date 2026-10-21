@@ -931,12 +931,25 @@ public sealed partial class AiAskService(
     {
         if (!await FeatureOnAsync(tenantId, AiFeatureCatalog.Ask, ct)) throw new InvalidOperationException("Ask your data is not enabled for your role. An admin can grant it under Settings → AI Features.");
         var (msg, conv) = await OwnedAssistantMessageAsync(messageId, tenantId, userId, ct);
-        if (msg?.QuerySpecJson is null || conv is null) return null;
+        if (msg is null || conv is null) return null;
+        // Ask Data answers are SQL, not a spec: their report runs the answer's SQL again (AiAskService.AskData.cs).
+        if (msg.QuerySpecJson is null)
+            return conv.SourceType == AskDataSource ? await AskDataReportAsync(conv, msg, tenantId, userId, ct) : null;
         var spec = JsonSerializer.Deserialize<AiQuerySpec>(msg.QuerySpecJson, Json)!;
         var result = await RunSpecAsync(conv.SourceType, conv.SourceId, tenantId, spec, ct);
+        return await ReportFromAsync(conv, msg, spec, result, JsonSerializer.Serialize(spec, Json), tenantId, userId, ct);
+    }
+
+    private const string NeedsGroups = "A report needs an answer with at least 3 groups, such as a \"by month\" or \"by well\" question.";
+
+    /// <summary>The report of an answer's rows: trend, findings and anomalies worked out in code, then up to 3
+    /// recommendations from the AI over those checked figures. <paramref name="query"/> is the spec or the SQL.</summary>
+    private async Task<AiInsightReportDto> ReportFromAsync(AiConversation conv, AiChatMessage msg, AiQuerySpec spec, AiQueryResult result,
+        string query, long tenantId, long userId, CancellationToken ct)
+    {
         var facts = Insights.Report(spec, result);
         if (facts.Trend.Count + facts.Findings.Count + facts.Anomalies.Count == 0)
-            throw new InvalidOperationException("A report needs an answer with at least 3 groups, such as a \"by month\" or \"by well\" question.");
+            throw new InvalidOperationException(NeedsGroups);
         var question = (await conversations.GetMessagesAsync(conv.Id, ct)).LastOrDefault(m => m.Role == "user" && m.Id < msg.Id)?.Content ?? conv.Title;
 
         var all = facts.Trend.Concat(facts.Findings).Concat(facts.Anomalies).ToList();
@@ -944,7 +957,7 @@ public sealed partial class AiAskService(
         {
             new("system", AiPrompts.Text(AiPrompts.Report, await PromptsAsync(tenantId, conv.SourceType, conv.SourceId, ct)) +
                 " Reply with JSON only: {\"recommendations\":[\"...\"]} with at most 3 strings, or an empty array."),
-            new("user", $"Question: {question}\nQuery: {JsonSerializer.Serialize(spec, Json)}\nChecked findings:\n- {string.Join("\n- ", all)}"),
+            new("user", $"Question: {question}\nQuery: {query}\nChecked findings:\n- {string.Join("\n- ", all)}"),
         };
         var raw = (await ai.CompleteAsync(tenantId, userId.ToString(), "report", messages, ct)).Content.Trim();
         List<string> recommendations;

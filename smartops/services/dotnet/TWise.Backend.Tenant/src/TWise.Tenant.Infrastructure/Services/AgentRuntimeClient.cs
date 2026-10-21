@@ -167,6 +167,19 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
             : [];
     }
 
+    public async Task<JsonElement> AskDataRowsAsync(string sql, AgentRuntimeAskData askData, CancellationToken ct)
+    {
+        using var res = await http.PostAsJsonAsync("api/agent-runtime/askdata/rows", new { sql, db = AskDataDb(), askDataSettings = askData }, Json, ct);
+        if ((int)res.StatusCode == 400)
+        {
+            var detail = await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
+            throw new InvalidOperationException(detail.TryGetProperty("detail", out var d) ? d.GetString() : "The query could not run again.");
+        }
+        if (!res.IsSuccessStatusCode)
+            throw new HttpRequestException($"{(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync(ct))}");
+        return await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
+    }
+
     public async Task<AskDataExportFile> ExportAskDataAsync(AskDataExportRequest request, AgentRuntimeAskData askData, CancellationToken ct)
     {
         using var res = await http.PostAsJsonAsync("api/agent-runtime/askdata/export", new

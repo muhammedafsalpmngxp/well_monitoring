@@ -7,6 +7,7 @@ plus usage, or ``error``. As in twise, routes that run no verification (chitchat
 from __future__ import annotations
 
 import contextvars
+import dataclasses
 import logging
 import os
 import threading
@@ -173,6 +174,9 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
         if run.value_matches is not None:
             block, seconds = value_match.awaited(run.value_matches)
             route.insert(0, ("value match", seconds, [], {"value_matches": block}))
+        # Each step with its time and AI tokens, for the answer's "Show steps" (no prompt texts).
+        response["timeline"] = [{"node": name, "seconds": round(seconds, 2), "input": sum(c.get("input", 0) for c in calls),
+                                 "output": sum(c.get("output", 0) for c in calls)} for name, seconds, calls, _u in route]
     trace.route(f"Ask Data ({mode})", question, route, response)
     yield {"event": "done", "data": response}
 
@@ -198,6 +202,18 @@ def starters(db: Any, tenant: Any) -> list[str]:
     with run_context(run):
         profiles = column_profile.current()
         return suggest.starters(profiles, run.settings.notes, _schema(run)) if profiles else []
+
+
+def rows(sql: str, db: Any, tenant: Any) -> dict[str, Any]:
+    """An Ask Data answer's rows again, for its insight report. The SQL comes from the answer's saved steps (Tenant API),
+    never from the browser, and is checked against the current schema like an export (one read-only SELECT over what
+    Ask Data may read); it runs read-only within the tenant's rows per query and query time limit."""
+    base = settings_for(None, tenant)
+    run = AskDataRun(settings=dataclasses.replace(base, export_max_rows=base.max_rows, export_query_timeout=base.query_timeout),
+                     db=target(db))
+    with run_context(run):
+        columns, data, capped = export_svc.fetch_all(sql, _schema(run))
+    return {"data": {"columns": columns, "rows": data, "truncated": capped}}
 
 
 def without_export_hints(answer: str) -> str:

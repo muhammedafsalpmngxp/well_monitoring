@@ -97,3 +97,22 @@ def test_the_starters_endpoint_returns_none_until_profiles_exist():
     assert r.status_code == 200 and r.json() == {"questions": []}            # profiles are off in tests
     r = TestClient(app).post("/api/agent-runtime/askdata/starters", json={**body, "askDataSettings": {}})
     assert r.status_code == 400                                               # not set up
+
+
+def test_an_answers_rows_run_again_only_when_still_allowed(monkeypatch):
+    from app.main import app
+    monkeypatch.setattr(runner, "_schema", lambda run: "TABLE well.well_master\n  - well_id int\n  - lift_type varchar(20)")
+    calls = []
+
+    def fetch_all(sql, schema):
+        calls.append(sql)
+        from app.askdata.tools.export import ExportError
+        if "SELECT *" in sql:
+            raise ExportError("This query cannot be exported: SELECT * is not allowed.")
+        return ["lift_type", "n"], [["PCP", 294], ["WI", 99]], False
+    monkeypatch.setattr(runner.export_svc, "fetch_all", fetch_all)
+    body = {"db": {"server": "s", "name": "n", "user": "u", "password": "p"}, "askDataSettings": {"allowedSchemas": ["well"]}}
+    ok = TestClient(app).post("/api/agent-runtime/askdata/rows", json={**body, "sql": "SELECT lift_type, COUNT(*) AS n FROM well.well_master GROUP BY lift_type"})
+    assert ok.status_code == 200 and ok.json() == {"data": {"columns": ["lift_type", "n"], "rows": [["PCP", 294], ["WI", 99]], "truncated": False}}
+    bad = TestClient(app).post("/api/agent-runtime/askdata/rows", json={**body, "sql": "SELECT * FROM well.well_master"})
+    assert bad.status_code == 400 and "cannot run again" in bad.json()["detail"]

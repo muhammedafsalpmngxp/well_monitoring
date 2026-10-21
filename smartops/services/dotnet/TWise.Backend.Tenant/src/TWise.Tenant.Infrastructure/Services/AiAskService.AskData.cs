@@ -68,6 +68,14 @@ public sealed partial class AiAskService
         var verified = !d.TryGetProperty("verified", out var v) || v.ValueKind != JsonValueKind.False;
         trace.Add(new("ask", Ms(started), $"Ask Data (route {Str(d, "route") ?? "sql"}): {string.Join(" → ", nodes)}"
             + (verified ? "" : " — the verifier did not accept the figures")));
+        // Each step the runtime ran, with its time and AI tokens (no prompt texts: they stay in the runtime).
+        if (d.TryGetProperty("timeline", out var tl) && tl.ValueKind == JsonValueKind.Array)
+            foreach (var (s, i) in tl.EnumerateArray().Select((s, i) => (s, i)))
+            {
+                var tokens = Int(s, "input") + Int(s, "output") > 0 ? $" · AI {Int(s, "input"):N0} in / {Int(s, "output"):N0} out tokens" : "";
+                trace.Add(new($"Step {i + 1}", s.TryGetProperty("seconds", out var sec) && sec.TryGetDouble(out var x) ? (int)(x * 1000) : 0,
+                    (Str(s, "node") ?? "") + tokens));
+            }
         foreach (var s in steps)
             trace.Add(new("query", 0, $"{Str(s, "sql")}\n{(s.TryGetProperty("row_count", out var rc) ? rc.ToString() : "?")} rows"
                 + (Rejected(s) ? " (rejected, not used for the answer)" : "")));
@@ -76,7 +84,13 @@ public sealed partial class AiAskService
         var accepted = steps.Where(s => !Rejected(s)).ToList();
         var sql = Str(d, "sql") ?? (accepted.Count > 0 ? Str(accepted[^1], "sql") : null);
         if (!string.IsNullOrWhiteSpace(sql)) yield return new AiAskEvent("sql", new { sql, verified, queries = accepted.Count });
-        if (Result(d) is { } result) yield return new AiAskEvent("result", result with { Labels = AskDataLabels(result.Columns, askData.Notes) });
+        if (Result(d) is { } result)
+        {
+            yield return new AiAskEvent("result", result with { Labels = AskDataLabels(result.Columns, askData.Notes) });
+            // Highest and lowest group, shares, ties and blanks, worked out in code from the answer's own rows.
+            if (AskDataInsights.Spec(sql, result) is { } shape && Insights.Find(shape, result) is { Count: > 0 } findings)
+                yield return new AiAskEvent("insights", findings);
+        }
         var answer = Str(d, "answer") ?? "";
         if (!verified) answer += "\n\n_The figures could not be verified: treat them as indicative._";
         yield return new AiAskEvent("answer", answer);
@@ -116,6 +130,20 @@ public sealed partial class AiAskService
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Array
             ? v.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToList()
             : null;
+
+    /// <summary>The insight report of an Ask Data answer: its SQL (from the saved steps) runs again, checked like an export,
+    /// and the report is worked out from those rows.</summary>
+    private async Task<AiInsightReportDto> AskDataReportAsync(AiConversation conv, AiChatMessage msg, long tenantId, long userId, CancellationToken ct)
+    {
+        var saved = await conversations.GetTraceAsync(msg.Id, ct);
+        var sql = AskDataInsights.AcceptedSql(saved is null ? null : JsonSerializer.Deserialize<List<AiTraceStep>>(saved.TraceJson, Json))
+            ?? throw new InvalidOperationException("This answer has no query to report on (an answer's steps are kept 30 days).");
+        var askData = await AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, tenantId, ct);
+        var result = Result(await runtime.AskDataRowsAsync(sql, askData, ct))
+            ?? throw new InvalidOperationException(NeedsGroups);
+        var shape = AskDataInsights.Spec(sql, result) ?? throw new InvalidOperationException(NeedsGroups);
+        return await ReportFromAsync(conv, msg, shape, result with { Labels = AskDataLabels(result.Columns, askData.Notes) }, sql, tenantId, userId, ct);
+    }
 
     /// <summary>Earlier turns as the runtime expects them: {user, assistant} pairs, oldest first.</summary>
     private static List<Dictionary<string, string>> HistoryPairs(IReadOnlyList<AiChatMessage> history)

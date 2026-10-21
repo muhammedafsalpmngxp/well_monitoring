@@ -61,3 +61,27 @@ refuse `askdata`.
     there are none);
   - `followups` show as "Ask next:" chips under the answer;
   - `suggestions` keep their "Nothing matched" place above it.
+
+## Key findings, insight report and step timeline
+
+- **Finding the shape:** `AskDataInsights.Spec(sql, result)` reads the spec `Insights` needs from an Ask Data
+  answer:
+  - **groups** are the columns whose values are not all numbers, plus number columns named like a period (`year`,
+    `month`, `*_year`, ...);
+  - **the measure** is the first number column whose value varies (a constant like `COUNT(*) OVER ()` is skipped);
+  - **its Agg** is count/sum when the SQL computes that alias with COUNT/COUNT_BIG/SUM, else avg (no totals or
+    shares).
+- **Key findings:** `AskDataAsync` yields `insights` when `Insights.Find` has any.
+- **Report:**
+  - `ReportAsync` sends a message without a spec to `AskDataReportAsync` for askdata conversations.
+  - The SQL comes from the saved trace (`AskDataInsights.AcceptedSql`: the last `query` step not marked rejected).
+  - It runs again through the runtime's `POST /askdata/rows`, which uses `runner.rows`, which uses
+    `export.fetch_all`. That re-checks `is_select_only` and `access_problems` against the current schema, on a
+    read-only connection, at most `max_rows` rows within `query_timeout`.
+  - The SQL never comes from the browser.
+  - The shared tail (`ReportFromAsync`) is the dataset report's: the AI gets the question, the query (the SQL here)
+    and the checked findings.
+- **Timeline:**
+  - The runtime's done response carries `timeline` [{node, seconds, input, output}] from the route log.
+  - The Tenant API adds one trace step per entry ("Step N", ms, "node · AI in / out tokens").
+- **UI:** the "Insight report" link also shows for Ask Data answers with SQL and key findings (and at least 3 rows).

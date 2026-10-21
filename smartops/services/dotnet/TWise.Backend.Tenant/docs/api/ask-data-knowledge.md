@@ -64,3 +64,17 @@ An Ask Data answer can be followed by one of these events (after `answer`):
 |---|---|---|
 | `followups` | `["Same for Marmul", "Break this down by lift type", "Show this by month of eng start date"]` | the answer found something: next questions that continue it (ask them in the same conversation) |
 | `suggestions` | `["How many wells are there by lift type?", ...]` | nothing was found, or small talk: questions that work here |
+
+## Key findings, insight report and steps
+
+Ask Data answers that group rows (e.g. "wells by lift type") now get the same help as dataset answers:
+
+- **Key findings** (`insights` event after `result`): highest and lowest group, share of the total, ties, blank
+  groups, outliers and the trend over time. They are worked out in code from the answer's own rows, not by the AI.
+  Shares and totals are given only when the numbers add up (the query counts or sums).
+- **Insight report** (`POST /api/ai/messages/{id}/report`, the "Insight report" link): the answer's query runs again,
+  checked like an export against what Ask Data may read now. Trend, findings and anomalies are worked out from those
+  rows, and the AI adds up to 3 recommendations from the checked figures. 400 when the answer has fewer than 3 groups,
+  its steps are older than 30 days, or its query reads something no longer allowed.
+- **Show steps**: besides the route and each query, every step now shows its time and AI tokens ("Step 2 · 3,800 ms
+  · orchestrator · AI 2,469 in / 52 out tokens"). Prompt texts are not shown.
