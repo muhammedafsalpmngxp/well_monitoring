@@ -52,9 +52,10 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
         await foreach (var ev in StreamAsync("api/agent-runtime/resume", body, ct)) yield return ev;
     }
 
-    public async Task<AgentJudgeResult> JudgeAsync(AgentRuntimeLlm llm, string question, string answer, string expectation, CancellationToken ct)
+    public async Task<AgentJudgeResult> JudgeAsync(AgentRuntimeLlm llm, string question, string answer, string expectation,
+        IReadOnlyDictionary<string, string> prompts, CancellationToken ct)
     {
-        using var res = await http.PostAsJsonAsync("api/agent-runtime/eval/judge", new { llm, question, answer, expectation }, Json, ct);
+        using var res = await http.PostAsJsonAsync("api/agent-runtime/eval/judge", new { llm, question, answer, expectation, prompts }, Json, ct);
         if (!res.IsSuccessStatusCode)
             throw new HttpRequestException($"{(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync(ct))}");
         var body = await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);

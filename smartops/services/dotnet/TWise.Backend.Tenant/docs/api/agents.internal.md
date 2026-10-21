@@ -181,7 +181,11 @@ of its own: a tenant with no allowed schemas is refused ("not set up"). LLM time
 per-node reasoning table are in `llm.py`. Prompts come only from the tenant database: the Tenant API
 reads `core.AiPrompt` (history in `core.AiPromptHistory`, edited in AI Settings > AI Prompts) and
 sends the `askdata.*` and `agent.*` texts with every request as `prompts`; the runtime has no built-in text
-and refuses a run that lacks one. Export (`tools/export.py`, `export_formats.py`) signs the answer's SQL with
+and refuses a run that lacks one. The step prompts (`graph.STEP_KEYS`: Ask AI, REST tool, URL Context, memory,
+Evaluator, Guardrail, For Each, structured output, remembering, the evals judge) are read only by the step that
+needs them; Exit Loop uses `agent.loop_check` with the step's own instruction. A new key goes in
+`Resources/ai-prompts.seed.json` and `AiPromptCatalog`, plus a scenario in the runtime's `tests/prompt_scenarios.py`
+(regenerate `tests/fixtures/prompt_baseline.json` with `tests/capture_prompt_baseline.py`). Export (`tools/export.py`, `export_formats.py`) signs the answer's SQL with
 `ASKDATA_EXPORT_SECRET` (set it outside local development; without it links stop working on restart).
 Differences on purpose: the executor also refuses anything but one SELECT and opens read-only connections;
 the model is the tenant's AI provider (twise used its own OPENAI_MODEL / OPENAI_FAST_MODEL); an agent's

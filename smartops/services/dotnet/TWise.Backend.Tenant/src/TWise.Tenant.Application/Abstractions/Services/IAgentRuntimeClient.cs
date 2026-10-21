@@ -53,8 +53,10 @@ public interface IAgentRuntimeClient
     /// when the agent or a sub-agent uses ask_data.</summary>
     IAsyncEnumerable<AgentRuntimeEvent> RunAsync(AgentRunContext run, CancellationToken ct);
 
-    /// <summary>Eval: whether the answer meets the expectation, judged by the tenant's model (temperature 0).</summary>
-    Task<AgentJudgeResult> JudgeAsync(AgentRuntimeLlm llm, string question, string answer, string expectation, CancellationToken ct);
+    /// <summary>Eval: whether the answer meets the expectation, judged by the tenant's model (temperature 0) with the
+    /// tenant's prompts (agent.eval_judge*).</summary>
+    Task<AgentJudgeResult> JudgeAsync(AgentRuntimeLlm llm, string question, string answer, string expectation,
+        IReadOnlyDictionary<string, string> prompts, CancellationToken ct);
 
     /// <summary>Continues a run paused at Human Approval from its saved state; events as RunAsync.</summary>
     IAsyncEnumerable<AgentRuntimeEvent> ResumeAsync(AgentRunContext run, AgentResume resume, CancellationToken ct);

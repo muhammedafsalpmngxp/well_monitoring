@@ -17,6 +17,7 @@ import json
 import operator
 import re
 from typing import Any, Iterator
+from app.prompt_text import fill, text as prompt
 
 EVALUATOR, GUARDRAIL, COMPUTE, MERGE = "evaluator", "guardrail", "compute", "merge"
 
@@ -40,12 +41,11 @@ PII = {
 }
 
 
-def judge(llm, chat, criteria: str, answer: str) -> tuple[bool, str, dict[str, int]]:
-    """Whether the answer meets the criteria, by the model at temperature 0."""
+def judge(llm, chat, criteria: str, answer: str, texts=None) -> tuple[bool, str, dict[str, int]]:
+    """Whether the answer meets the criteria, by the model at temperature 0 (prompts agent.evaluator*)."""
     from app.askdata.common.text import extract_json
-    system = ("You check an AI agent's answer against criteria. Decide only whether the answer meets them. "
-              'Reply with JSON only: {"pass": true|false, "reason": "<one sentence; say what is missing when it fails>"}')
-    reply, tokens = chat(llm.model_copy(update={"temperature": 0}), [("system", system), ("user", f"CRITERIA:\n{criteria}\n\nANSWER:\n{answer[:20000]}")])
+    user = fill(prompt(texts, "agent.evaluator_message"), CRITERIA=criteria, ANSWER=answer[:20000])
+    reply, tokens = chat(llm.model_copy(update={"temperature": 0}), [("system", prompt(texts, "agent.evaluator")), ("user", user)])
     v = extract_json(reply, default={})
     v = v if isinstance(v, dict) else {}
     return v.get("pass") is True, str(v.get("reason") or reply)[:500], tokens
@@ -62,12 +62,11 @@ def violations(text: str, options: dict[str, Any]) -> list[str]:
     return found
 
 
-def policy(llm, chat, rule: str, text: str) -> tuple[bool, str, dict[str, int]]:
-    """Guardrail AI check: does the text break the policy?"""
+def policy(llm, chat, rule: str, text: str, texts=None) -> tuple[bool, str, dict[str, int]]:
+    """Guardrail AI check: does the text break the policy? (prompts agent.guardrail*)"""
     from app.askdata.common.text import extract_json
-    system = ("You enforce a content policy. Decide whether the text breaks the policy. "
-              'Reply with JSON only: {"violates": true|false, "reason": "<one sentence>"}')
-    reply, tokens = chat(llm.model_copy(update={"temperature": 0}), [("system", system), ("user", f"POLICY:\n{rule}\n\nTEXT:\n{text[:20000]}")])
+    user = fill(prompt(texts, "agent.guardrail_message"), POLICY=rule, TEXT=text[:20000])
+    reply, tokens = chat(llm.model_copy(update={"temperature": 0}), [("system", prompt(texts, "agent.guardrail")), ("user", user)])
     v = extract_json(reply, default={})
     v = v if isinstance(v, dict) else {}
     return v.get("violates") is True, str(v.get("reason") or "")[:500], tokens

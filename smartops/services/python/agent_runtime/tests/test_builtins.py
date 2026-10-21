@@ -4,6 +4,8 @@ import json
 import httpx
 import pytest
 
+from tests.seeded_prompts import runtime_texts
+
 from app import builtins
 from app.main import run_events
 from app.models import AgentOutput, Llm, RunRequest
@@ -38,14 +40,14 @@ def test_url_context_reads_the_page_text_and_follows_a_safe_redirect(monkeypatch
         seen.append(messages[1][1])
         return "Well A is online", {"input": 1, "output": 1}
     events = list(builtins.url_context("Status at https://example.com/old?", [], LLM, chat, "",
-                                       transport=httpx.MockTransport(handler)))
+                                       transport=httpx.MockTransport(handler), texts=runtime_texts()))
     assert events[-1]["data"]["answer"] == "Well A is online"
     assert "Well A is online" in seen[0] and "bad()" not in seen[0] and "PAGE https://example.com/old" in seen[0]
 
 
 def test_url_context_refuses_private_hosts_and_needs_a_url():
     events = list(builtins.url_context("Read http://10.0.0.5/x and https://192.168.1.1/", [], LLM,
-                                       lambda llm, m: (m[1][1], {}), ""))
+                                       lambda llm, m: (m[1][1], {}), "", texts=runtime_texts()))
     assert events[-1]["event"] == "error" and "No page could be read" in events[-1]["data"]["message"]
     assert list(builtins.url_context("no link here", [], LLM, lambda *a: ("", {}), ""))[-1]["event"] == "error"
 
@@ -81,7 +83,7 @@ def test_exit_loop_ends_the_loop_when_the_goal_is_met():
     decisions = iter([{"done": False, "reason": "no status yet"}, {"done": True, "reason": "status found"}])
     def chat(llm, messages):
         system = messages[0][1]
-        if "can stop" in system:
+        if "Stop when found" in system:   # Exit Loop: the loop check with the step's own words
             return json.dumps(next(decisions)), {"input": 1, "output": 1}
         if "repeats its steps" in system:   # the round's own check: only after round 1
             checks.append(1)

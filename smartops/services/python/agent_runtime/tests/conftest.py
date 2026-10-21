@@ -6,7 +6,7 @@ from tests.seeded_prompts import runtime_texts
 
 @pytest.fixture
 def seeded_prompts():
-    """Runs a test builds without `prompts` get the seeded ones, as the Tenant API sends them with every run."""
+    """Requests a test builds without `prompts` get the seeded ones, as the Tenant API sends them with every call."""
     models = (RunRequest, ResumeRequest)
     saved = [m.model_fields["prompts"].default for m in models]
     for m in models:

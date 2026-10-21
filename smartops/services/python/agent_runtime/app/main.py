@@ -135,10 +135,14 @@ def eval_judge(req: JudgeRequest) -> dict[str, Any]:
     from app.askdata.common.text import extract_json
     from app.graph import _chat
 
-    system = ("You grade an AI agent's answer for a test case. Decide only whether the answer meets the expectation; "
-              "ignore style and length unless the expectation mentions them. Numbers must match when the expectation "
-              'gives one. Reply with JSON only: {"pass": true|false, "reason": "<one sentence>"}')
-    user = f"QUESTION / INPUTS:\n{req.question}\n\nEXPECTATION:\n{req.expectation}\n\nANSWER:\n{req.answer}"
+    from app.prompt_text import PromptMissing, fill, text as prompt
+
+    try:
+        system = prompt(req.prompts, "agent.eval_judge")
+        user = fill(prompt(req.prompts, "agent.eval_judge_message"), QUESTION=req.question, EXPECTATION=req.expectation,
+                    ANSWER=req.answer)
+    except PromptMissing as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
         reply, tokens = _chat(req.llm.model_copy(update={"temperature": 0}), [("system", system), ("user", user)])
     except Exception as exc:  # noqa: BLE001 - the case is reported as not judged

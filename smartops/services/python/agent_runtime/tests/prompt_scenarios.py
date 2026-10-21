@@ -212,4 +212,85 @@ def _agents(adapter, graph) -> list[dict[str, Any]]:
     rec = AgentRecorder('{"values": {"well_id": "35543"}, "note": ""}')
     values, _, _ = extract(asking, "Slippage for well 35543", llm, kw["texts"], chat=rec, today="2026-10-19")
     out.append({"scenario": "question/extract", "calls": rec.calls, "output": {"values": values}})
+    out += _steps(graph, cfg, bare, llm, kw["texts"], state)
+    return out
+
+
+def _steps(graph, cfg, bare, llm, texts, state) -> list[dict[str, Any]]:
+    """The agent builder's steps: Ask AI, REST tool, URL Context, memory, Evaluator, Guardrail, For Each, Exit Loop,
+    structured output, remembering after a run, and the evals judge."""
+    import httpx
+
+    from app import api_tool, builtins, main, nodes
+    from app.models import AgentConfig, JudgeRequest, Step
+    from app.prompt_text import fill, text as prompt
+
+    out = []
+
+    def add(name, rec, output=None):
+        out.append({"scenario": name, "calls": rec.calls, "output": output or {}})
+
+    history = [{"user": "Count wells per cluster", "assistant": "Nimr 42"}]
+    step = Step.model_validate({"text": "Which cluster is biggest?", "expectedOutput": "One cluster name"})
+    rec = AgentRecorder("Nimr")
+    list(graph._ask_ai(step, cfg, llm, rec, "Which cluster is biggest?", history, texts))
+    add("step/ask_ai", rec)
+
+    # A REST tool step: its instructions as the tool loop gets them.
+    rec = AgentRecorder("")
+    rec.calls.append({"messages": [["system", graph._system_text(cfg, step, fill(prompt(texts, "agent.tool_use"), TOOL="well_status"),
+                                                                 texts)]]})
+    add("step/tool", rec)
+
+    check = api_tool.check_url
+    api_tool.check_url = lambda url: (_ for _ in ()).throw(ValueError("private host")) if "10.0.0.5" in url else None
+    try:
+        page = httpx.MockTransport(lambda r: httpx.Response(200, headers={"content-type": "text/plain"}, text="Well A is online"))
+        rec = AgentRecorder("Well A is online")
+        list(builtins.url_context("Status at https://example.com/a and http://10.0.0.5/b", history, llm, rec, "", page, texts))
+        add("step/url_context", rec)
+    finally:
+        api_tool.check_url = check
+
+    for kind, memories in (("load_memory", ["Nimr has 42 wells", "The rig moved on Monday"]), ("preload_memory", [])):
+        rec = AgentRecorder("42")
+        list(builtins.memory(kind, memories, "How many wells in Nimr?", [], llm, rec, "", texts))
+        add(f"step/{kind}", rec)
+
+    rec = AgentRecorder('{"facts": ["Nimr has 42 wells"]}')
+    graph._remember_node(llm, rec, ["The rig moved on Monday"], texts)({**state, "ok": True, "answer": "Nimr has 42 wells."})
+    add("remember", rec)
+
+    rec = AgentRecorder('{"pass": true, "reason": "names the cluster"}')
+    nodes.judge(llm, rec, "Names the cluster and its well count", "Nimr has 42 wells.", texts)
+    add("evaluator", rec)
+
+    rec = AgentRecorder('{"violates": false, "reason": "no salaries"}')
+    nodes.policy(llm, rec, "No salaries", "Nimr has 42 wells.", texts)
+    add("guardrail", rec)
+
+    rec = AgentRecorder('{"items": ["33785", "35543"]}')
+    items, _ = graph._items("Wells to review: 33785 and 35543", llm, rec, texts)
+    add("for_each", rec, {"items": items})
+
+    rec = AgentRecorder('{"done": true, "reason": "found"}')
+    graph._exit_node(2, Step.model_validate({"text": "Stop when the status is found"}), bare, llm, rec, texts)(dict(state))
+    add("exit_loop", rec)
+
+    shaped = AgentConfig.model_validate({
+        "name": "Counts", "steps": [{"text": "a"}], "tools": [{"agent": "ask_data", "action": "deep"}],
+        "outputs": [{"name": "cluster", "type": "string", "description": "The biggest cluster"}, {"name": "wells", "type": "number"}]})
+    rec = AgentRecorder('{"cluster": "Nimr", "wells": 42}')
+    fields, _ = graph._fields(shaped, llm, rec, "Nimr has 42 wells.", texts)
+    add("output", rec, {"fields": fields})
+
+    rec = AgentRecorder('{"pass": true, "reason": "42 matches"}')
+    chat = graph._chat
+    graph._chat = rec
+    try:
+        verdict = main.eval_judge(JudgeRequest(llm=llm, question="cluster: Nimr", answer="Nimr has 42 wells.",
+                                               expectation="Says 42 wells", prompts=texts))
+    finally:
+        graph._chat = chat
+    add("eval_judge", rec, {"pass": verdict["pass"]})
     return out

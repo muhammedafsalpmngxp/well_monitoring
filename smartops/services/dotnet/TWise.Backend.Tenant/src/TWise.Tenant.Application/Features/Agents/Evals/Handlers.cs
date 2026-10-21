@@ -7,6 +7,7 @@ using FluentValidation;
 using MediatR;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
+using TWise.Tenant.Application.Features.Ai;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
 
@@ -145,7 +146,8 @@ public sealed class DeleteAiAgentEvalCaseHandler(IAiAgentRepository agents) : IR
 /// are checked and, when it has an expectation, the tenant's model judges the answer. The eval run is saved with the
 /// score and the version it tested.
 /// </summary>
-public sealed class RunAiAgentEvalHandler(IAiAgentRepository agents, ISender sender, IAgentRuntimeClient runtime, IAiService ai)
+public sealed class RunAiAgentEvalHandler(IAiAgentRepository agents, ISender sender, IAgentRuntimeClient runtime, IAiService ai,
+    IAiPromptStore prompts)
     : IStreamRequestHandler<RunAiAgentEvalStream, AiAskEvent>
 {
     public async IAsyncEnumerable<AiAskEvent> Handle(RunAiAgentEvalStream s, [EnumeratorCancellation] CancellationToken ct)
@@ -166,12 +168,14 @@ public sealed class RunAiAgentEvalHandler(IAiAgentRepository agents, ISender sen
         var agent = s.Request.Agent ?? AgentMapping.ToRequest(AgentMapping.ToDto(saved, null));
         AgentRuntimeLlm? judge = null;
         string? noJudge = null;
+        IReadOnlyDictionary<string, string> texts = new Dictionary<string, string>();
         if (cases.Any(c => c.Expectation is not null))
         {
             try
             {
                 var (p, key) = await ai.ResolveProviderAsync(s.TenantId, ct);
                 judge = new AgentRuntimeLlm(p.Provider, p.BaseUrl, p.Model, key, p.FastModel);
+                texts = AiPromptCatalog.RuntimeTexts(await prompts.GetAsync(s.TenantId, ct));
             }
             catch (InvalidOperationException ex) { noJudge = ex.Message; }
         }
@@ -205,7 +209,8 @@ public sealed class RunAiAgentEvalHandler(IAiAgentRepository agents, ISender sen
                     {
                         try
                         {
-                            var j = await runtime.JudgeAsync(judge, string.Join("; ", inputs.Select(i => $"{i.Key}: {i.Value}")), answer, c.Expectation, ct);
+                            var j = await runtime.JudgeAsync(judge, string.Join("; ", inputs.Select(i => $"{i.Key}: {i.Value}")), answer, c.Expectation,
+                                texts, ct);
                             verdict = j.Pass ? null : "Judge: " + j.Reason;
                         }
                         catch (HttpRequestException ex) { verdict = "Not judged: " + ex.Message; }

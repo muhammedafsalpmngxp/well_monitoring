@@ -2071,6 +2071,230 @@
      "well_id": "35543"
     }
    }
+  },
+  {
+   "scenario": "step/ask_ai",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "Role: Drilling analyst\nGoal: Report well status\nAnswer in tables.\nAnswer the instruction using only the earlier results below and general knowledge; say what is missing.\nExpected output: One cluster name"
+      ],
+      [
+       "user",
+       "EARLIER RESULTS:\nQ: Count wells per cluster\nA: Nimr 42\n\nINSTRUCTION: Which cluster is biggest?"
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "step/tool",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "Role: Drilling analyst\nGoal: Report well status\nAnswer in tables.\nUse the well_status tool to answer the instruction.\nExpected output: One cluster name"
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "step/url_context",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "\nAnswer from the pages below; say when a page could not be read."
+      ],
+      [
+       "user",
+       "EARLIER RESULTS:\nQ: Count wells per cluster\nA: Nimr 42\n\nPAGE https://example.com/a:\nWell A is online\n\nPAGE http://10.0.0.5/b: not read — private host\n\nINSTRUCTION: Status at https://example.com/a and http://10.0.0.5/b"
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "step/load_memory",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "\nUse the agent's memories below where they help; say when they do not cover it."
+      ],
+      [
+       "user",
+       "MEMORIES:\n- Nimr has 42 wells\n\nINSTRUCTION: How many wells in Nimr?"
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "step/preload_memory",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "\nUse the agent's memories below where they help; say when they do not cover it."
+      ],
+      [
+       "user",
+       "MEMORIES:\n(none yet)\n\nINSTRUCTION: How many wells in Nimr?"
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "remember",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "You keep an agent's long-term memory. From the run below pick at most 3 short, lasting facts worth remembering for later runs (names, numbers, preferences, findings). Skip anything already known or temporary. Reply with JSON only: {\"facts\": [\"...\", ...]}"
+      ],
+      [
+       "user",
+       "ALREADY KNOWN:\n- The rig moved on Monday\n\nRUN:\nINPUTS: {\"well_id\": \"33785\", \"cluster\": \"Nimr\"}\nQ: Count wells per cluster\nA: Nimr 42\nFINAL ANSWER: Nimr has 42 wells."
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "evaluator",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "You check an AI agent's answer against criteria. Decide only whether the answer meets them. Reply with JSON only: {\"pass\": true|false, \"reason\": \"<one sentence; say what is missing when it fails>\"}"
+      ],
+      [
+       "user",
+       "CRITERIA:\nNames the cluster and its well count\n\nANSWER:\nNimr has 42 wells."
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "guardrail",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "You enforce a content policy. Decide whether the text breaks the policy. Reply with JSON only: {\"violates\": true|false, \"reason\": \"<one sentence>\"}"
+      ],
+      [
+       "user",
+       "POLICY:\nNo salaries\n\nTEXT:\nNimr has 42 wells."
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "for_each",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "List the items (names, ids) the text below enumerates. Reply with JSON only: {\"items\": [\"...\", ...]}"
+      ],
+      [
+       "user",
+       "Wells to review: 33785 and 35543"
+      ]
+     ]
+    }
+   ],
+   "output": {
+    "items": [
+     "33785",
+     "35543"
+    ]
+   }
+  },
+  {
+   "scenario": "exit_loop",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "Stop when the status is found\nYou check an agent that repeats its steps. Decide whether the results now meet the goal.\nReply with JSON only: {\"done\": true|false, \"reason\": \"<one sentence>\"}"
+      ],
+      [
+       "user",
+       "INPUTS:\nwell_id: 33785\ncluster: Nimr\n\nRESULTS SO FAR:\n[step_1] Count wells per cluster\nNimr 42\n\n[step_2] Count crews\nFAILED: timeout"
+      ]
+     ]
+    }
+   ],
+   "output": {}
+  },
+  {
+   "scenario": "output",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "Fill the fields below from the answer. Use only facts in the answer; null when it does not say.\nFIELDS:\n- cluster (string): The biggest cluster\n- wells (number)\nReply with JSON only: an object with exactly these keys."
+      ],
+      [
+       "user",
+       "Nimr has 42 wells."
+      ]
+     ]
+    }
+   ],
+   "output": {
+    "fields": {
+     "cluster": "Nimr",
+     "wells": 42
+    }
+   }
+  },
+  {
+   "scenario": "eval_judge",
+   "calls": [
+    {
+     "messages": [
+      [
+       "system",
+       "You grade an AI agent's answer for a test case. Decide only whether the answer meets the expectation; ignore style and length unless the expectation mentions them. Numbers must match when the expectation gives one. Reply with JSON only: {\"pass\": true|false, \"reason\": \"<one sentence>\"}"
+      ],
+      [
+       "user",
+       "QUESTION / INPUTS:\ncluster: Nimr\n\nEXPECTATION:\nSays 42 wells\n\nANSWER:\nNimr has 42 wells."
+      ]
+     ]
+    }
+   ],
+   "output": {
+    "pass": true
+   }
   }
  ]
 }

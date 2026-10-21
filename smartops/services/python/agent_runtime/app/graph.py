@@ -45,7 +45,14 @@ RUN_KEYS = tuple(f"agent.{n}" for n in (
     "progress_inputs", "progress_input", "progress_results", "progress_none", "progress_step", "progress_failed",
     "answer", "answer_role", "answer_goal", "answer_step", "answer_result", "answer_failed"))
 EXTRACT_KEYS = ("agent.extract_inputs", "agent.extract_input")
-AGENT_KEYS = RUN_KEYS + EXTRACT_KEYS
+# Read only by the steps that need them (Ask AI, REST tools, URL Context, memory, Evaluator, Guardrail, For Each,
+# structured output, evals): a missing one stops that step with a message naming it (prompt_text.PromptMissing).
+STEP_KEYS = tuple(f"agent.{n}" for n in (
+    "expected_output", "ask_ai", "tool_use", "step_earlier", "earlier_result", "step_instruction", "url_context",
+    "url_page", "url_page_failed", "memory_use", "memories", "memory_none", "remember", "remember_message", "remember_run",
+    "evaluator", "evaluator_message", "guardrail", "guardrail_message", "for_each_items", "output_fields", "output_field",
+    "eval_judge", "eval_judge_message"))
+AGENT_KEYS = RUN_KEYS + EXTRACT_KEYS + STEP_KEYS
 Texts = Mapping[str, str]
 from app import api_tool, builtins, nodes
 
@@ -124,13 +131,13 @@ def build_graph(cfg: AgentConfig, llm: Llm | None, session_id: str, run_tool: Ru
         g.add_node(name, _router_node(i, step, cfg, llm, chat, to, names, texts=texts) if step.kind == "router"
                    else _exit_node(i, step, cfg, llm, chat, texts) if step_tool(cfg, step).agent == builtins.EXIT_LOOP
                    else _approval_node(i, step) if step_tool(cfg, step).agent == builtins.APPROVAL
-                   else _evaluator_node(i, step, cfg, llm, chat, to, names) if step_tool(cfg, step).agent == nodes.EVALUATOR
-                   else _guardrail_node(i, step, cfg, llm, chat) if step_tool(cfg, step).agent == nodes.GUARDRAIL
+                   else _evaluator_node(i, step, cfg, llm, chat, to, names, texts) if step_tool(cfg, step).agent == nodes.EVALUATOR
+                   else _guardrail_node(i, step, cfg, llm, chat, texts) if step_tool(cfg, step).agent == nodes.GUARDRAIL
                    else _step_node(i, step, cfg, session_id, run_tool, llm, chat, memories or [], subagents, depth, db,
                                    thread or [], run_sql=run_sql, texts=texts, sub_settings=sub_settings))
     g.add_node("answer", _answer_node(cfg, llm, chat, texts=texts))
     if llm is not None and uses(cfg, *builtins.MEMORY):
-        g.add_node("remember", _remember_node(llm, chat, memories or []))
+        g.add_node("remember", _remember_node(llm, chat, memories or [], texts))
         g.add_edge("answer", "remember")
         g.add_edge("remember", END)
     else:
@@ -315,7 +322,8 @@ def _tuned(llm: Llm | None, step: Step) -> Llm | None:
 
 def _system_text(cfg: AgentConfig, step: Step, task: str, texts: Texts | None = None) -> str:
     return "\n".join(p for p in [profile(cfg, texts), task,
-                                 f"Expected output: {step.expected_output}" if step.expected_output else ""] if p)
+                                 fill_prompt(prompt(texts, "agent.expected_output"), EXPECTED=step.expected_output)
+                                 if step.expected_output else ""] if p)
 
 
 def _ask_ai(step: Step, cfg: AgentConfig, llm: Llm | None, chat, text: str, history: list[dict[str, str]],
@@ -325,11 +333,9 @@ def _ask_ai(step: Step, cfg: AgentConfig, llm: Llm | None, chat, text: str, hist
         yield {"event": "error", "data": {"message": "No AI provider is active. An admin can add one under AI Settings."}}
         return
     tuned = _tuned(llm, step)
-    system = _system_text(cfg, step, texts=texts, task="Answer the instruction using only the earlier results below and general knowledge; say what is missing.")
-    earlier = "\n\n".join(f"Q: {h['user']}\nA: {h['assistant']}" for h in history)
+    system = _system_text(cfg, step, texts=texts, task=prompt(texts, "agent.ask_ai"))
     yield {"event": "status", "data": {"stage": "Thinking"}}
-    answer, tokens = chat(tuned, [("system", system), ("user", (f"EARLIER RESULTS:\n{earlier}\n\n" if earlier else "")
-                                                       + f"INSTRUCTION: {text}")])
+    answer, tokens = chat(tuned, [("system", system), ("user", builtins.step_message(texts, history, text))])
     yield {"event": "done", "data": {"answer": answer, "usage": [{"agent": "agent_runtime.ask_ai", "model": tuned.model,
                                                                    "calls": 1, **tokens}]}}
 
@@ -351,9 +357,10 @@ def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: 
         if tool.agent == ASK_AI:
             return _ask_ai(step, cfg, llm, chat, text, history, texts)
         if tool.agent == builtins.URL_CONTEXT:
-            return builtins.url_context(text, history, _tuned(llm, step), chat, _system(cfg, step, ""))
+            return builtins.url_context(text, history, _tuned(llm, step), chat, _system(cfg, step, ""), texts=texts)
         if tool.agent in builtins.MEMORY:
-            return builtins.memory(tool.agent, memories or [], text, history, _tuned(llm, step), chat, _system(cfg, step, ""))
+            return builtins.memory(tool.agent, memories or [], text, history, _tuned(llm, step), chat, _system(cfg, step, ""),
+                                   texts)
         if tool.agent == nodes.COMPUTE:
             return nodes.compute(step, values)
         if tool.agent == nodes.MERGE:
@@ -365,7 +372,7 @@ def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: 
             if custom is None:
                 return iter([{"event": "error", "data": {"message": f"Tool '{tool.action}' is not defined on this agent."}}])
             return api_tool.run_step(custom, text, history, _tuned(llm, step),
-                                     _system(cfg, step, f"Use the {custom.name} tool to answer the instruction."))
+                                     _system(cfg, step, fill_prompt(prompt(texts, "agent.tool_use"), TOOL=custom.name)))
         return run_tool(tool.agent, tool.action, text, history, session_id)
 
     def run_one(text: str, history: list[dict[str, str]], values: dict[str, str], write) -> dict[str, Any]:
@@ -411,15 +418,15 @@ def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: 
 
     def for_each(values: dict[str, str], history: list[dict[str, str]], write) -> dict[str, Any]:
         """Map: the step once per item, MAX_PARALLEL at a time; the answers are joined (the answer node reduces)."""
-        items, usage = _items(values.get(step.for_each or ""), llm, chat)
+        items, usage = _items(values.get(step.for_each or ""), llm, chat, texts)
         if not items:
             return {"answer": "", "sql": [], "usage": usage, "extra": {},
                     "error": f"For each: {{{{{step.for_each}}}}} has no items (run the step that fills it first)."}
         write({"event": "status", "data": {"step": i, "stage": f"{len(items)} items"}})
-        texts = [fill(step.text, {**values, "item": item}) for item in items]
+        item_texts = [fill(step.text, {**values, "item": item}) for item in items]
         done = []
         with ThreadPoolExecutor(max_workers=MAX_PARALLEL) as pool:
-            futures = {pool.submit(contextvars.copy_context().run, run_one, t, history, values, None): n for n, t in enumerate(texts)}
+            futures = {pool.submit(contextvars.copy_context().run, run_one, t, history, values, None): n for n, t in enumerate(item_texts)}
             for k, f in enumerate(as_completed(futures), start=1):
                 done.append((futures[f], f.result()))
                 write({"event": "status", "data": {"step": i, "stage": f"{k} of {len(items)} items done"}})
@@ -461,7 +468,7 @@ def _step_node(i: int, step: Step, cfg: AgentConfig, session_id: str, run_tool: 
     return node
 
 
-def _items(value: str | None, llm: Llm | None, chat) -> tuple[list[str], list[dict[str, Any]]]:
+def _items(value: str | None, llm: Llm | None, chat, texts: Texts | None = None) -> tuple[list[str], list[dict[str, Any]]]:
     """For Each: the list in a value — a JSON array, else the model picks the items out of the text, else lines /
     commas. At most MAX_ITEMS."""
     if not value or not value.strip():
@@ -475,8 +482,7 @@ def _items(value: str | None, llm: Llm | None, chat) -> tuple[list[str], list[di
     usage: list[dict[str, Any]] = []
     if llm is not None:
         from app.askdata.common.text import extract_json
-        reply, tokens = chat(llm, [("system", "List the items (names, ids) the text below enumerates. "
-                                              'Reply with JSON only: {"items": ["...", ...]}'), ("user", value[:12000])])
+        reply, tokens = chat(llm, [("system", prompt(texts, "agent.for_each_items")), ("user", value[:12000])])
         usage = [{"agent": "agent_runtime.for_each", "model": llm.model, "calls": 1, **tokens}]
         data = extract_json(reply, default={})
         items = data.get("items") if isinstance(data, dict) else None
@@ -538,7 +544,7 @@ def _exit_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, text
             done, reason, ok = False, "No AI provider is active, so the loop goes on.", False
         else:
             done, reason, tokens = builtins.judge_goal(_tuned(llm, step), chat, "\n".join(p for p in [profile(cfg, texts), text] if p),
-                                                       _progress(state, texts))
+                                                       _progress(state, texts), texts)
             ok, usage = True, [{"agent": "agent_runtime.exit_loop", "model": llm.model, "calls": 1, **tokens}]
         write({"event": "decision", "data": {"by": "exit_loop", "done": done, "reason": reason, "step": i}})
         result = {"step": i, "attempt": attempt, "question": text, "agent": builtins.EXIT_LOOP, "action": "check",
@@ -558,7 +564,7 @@ def _checked_text(step: Step, state: AgentState) -> str:
     return _approval_draft(step, state)
 
 
-def _evaluator_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, to, names: list[str]):
+def _evaluator_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, to, names: list[str], texts: Texts | None = None):
     """Evaluator: pass → the following step; fail → back to options.retryFrom (default the previous step), at most
     max_iterations times, then on with the failure recorded."""
     end = "check" if cfg.type == "loop" else "answer"
@@ -575,7 +581,7 @@ def _evaluator_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat,
         if llm is None:
             passed, reason = False, "No AI provider is active, so the answer could not be checked."
         else:
-            passed, reason, tokens = nodes.judge(_tuned(llm, step), chat, criteria, _checked_text(step, state))
+            passed, reason, tokens = nodes.judge(_tuned(llm, step), chat, criteria, _checked_text(step, state), texts)
             usage = [{"agent": "agent_runtime.evaluator", "model": llm.model, "calls": 1, **tokens}]
         route = forward
         if not passed and back:
@@ -592,7 +598,7 @@ def _evaluator_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat,
     return node
 
 
-def _guardrail_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat):
+def _guardrail_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat, texts: Texts | None = None):
     """Guardrail: rules (and an AI policy when the instruction has one) on the inputs or the latest answer."""
     opts = step.options or {}
 
@@ -608,7 +614,7 @@ def _guardrail_node(i: int, step: Step, cfg: AgentConfig, llm: Llm | None, chat)
         contains, usage = [f.removeprefix("contains ") for f in nodes.violations(text, opts)], []
         broken = ""
         if rule and llm is not None:
-            bad, why, tokens = nodes.policy(_tuned(llm, step), chat, rule, text)
+            bad, why, tokens = nodes.policy(_tuned(llm, step), chat, rule, text, texts)
             usage = [{"agent": "agent_runtime.guardrail", "model": llm.model, "calls": 1, **tokens}]
             broken = f"{'break' if on_inputs else 'breaks'} the policy ({why.rstrip('.')})" if bad else ""
         found = contains + ([broken] if broken else [])
@@ -676,25 +682,24 @@ def approval_update(i: int, step: Step, state: AgentState, reply: dict[str, Any]
     return events, out
 
 
-def _remember_node(llm: Llm, chat, memories: list[str]):
+def _remember_node(llm: Llm, chat, memories: list[str], texts: Texts | None = None):
     """After the answer: the facts from this run worth keeping in the agent's memory."""
     def node(state: AgentState) -> dict[str, Any]:
         if not state.get("ok"):
             return {"new_memories": []}
         get_stream_writer()({"event": "status", "data": {"stage": "Updating memory"}})
-        facts, tokens = builtins.remember(llm, chat, memories, state.get("inputs") or {}, _work(state), state.get("answer", ""))
+        facts, tokens = builtins.remember(llm, chat, memories, state.get("inputs") or {}, _work(state), state.get("answer", ""),
+                                          texts)
         return {"new_memories": facts, "usage": [{"agent": "agent_runtime.memory", "model": llm.model, "calls": 1, **tokens}]}
 
     return node
 
 
-def _fields(cfg: AgentConfig, llm: Llm, chat, answer: str) -> tuple[dict[str, Any], dict[str, int]]:
+def _fields(cfg: AgentConfig, llm: Llm, chat, answer: str, texts: Texts | None = None) -> tuple[dict[str, Any], dict[str, int]]:
     """The answer's Outputs as typed fields (one model call); a field the answer does not give is null."""
-    spec = "\n".join(f"- {o.name} ({o.type}){': ' + o.description if o.description else ''}" for o in cfg.outputs)
-    reply, tokens = chat(llm, [
-        ("system", "Fill the fields below from the answer. Use only facts in the answer; null when it does not say.\n"
-                   f"FIELDS:\n{spec}\nReply with JSON only: an object with exactly these keys."),
-        ("user", answer[:20000])])
+    spec = "\n".join(fill_prompt(prompt(texts, "agent.output_field"), NAME=o.name, TYPE=o.type,
+                                 DESCRIPTION=": " + o.description if o.description else "") for o in cfg.outputs)
+    reply, tokens = chat(llm, [("system", fill_prompt(prompt(texts, "agent.output_fields"), FIELDS=spec)), ("user", answer[:20000])])
     from app.askdata.common.text import extract_json
     data = extract_json(reply, default={})
     data = data if isinstance(data, dict) else {}
@@ -724,7 +729,7 @@ def _answer_node(cfg: AgentConfig, llm: Llm | None, chat, texts: Texts | None = 
         out = _answer(state)
         if out.get("ok") and cfg.outputs and llm is not None:
             get_stream_writer()({"event": "status", "data": {"stage": "Filling the output fields"}})
-            fields, tokens = _fields(cfg, llm, chat, out["answer"])
+            fields, tokens = _fields(cfg, llm, chat, out["answer"], texts)
             out = {**out, "output": fields,
                    "usage": out.get("usage", []) + [{"agent": "agent_runtime.output", "model": llm.model, "calls": 1, **tokens}]}
         return out

@@ -15,8 +15,13 @@ public sealed class AgentEvalTests
     private readonly Mock<ISender> _sender = new();
     private readonly Mock<IAgentRuntimeClient> _runtime = new();
     private readonly Mock<IAiService> _ai = new();
+    private readonly Mock<IAiPromptStore> _prompts = new();
 
-    private RunAiAgentEvalHandler Sut => new(_repo.Object, _sender.Object, _runtime.Object, _ai.Object);
+    private RunAiAgentEvalHandler Sut => new(_repo.Object, _sender.Object, _runtime.Object, _ai.Object, _prompts.Object);
+
+    public AgentEvalTests() =>
+        _prompts.Setup(p => p.GetAsync(It.IsAny<long>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+            new Dictionary<string, string> { ["agent.eval_judge"] = "Grade it.", ["agent.eval_judge_message"] = "{ANSWER}" });
 
     private static AiAgent Saved() => new()
     {
@@ -58,7 +63,8 @@ public sealed class AgentEvalTests
         _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>())).ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m" }, "key"));
         _sender.SetupSequence(x => x.CreateStream(It.IsAny<IStreamRequest<AiAskEvent>>(), It.IsAny<CancellationToken>()))
             .Returns(Stream("Nimr has 393 wells.", 21)).Returns(Stream("Lekhwair: 2 wells behind plan.", 22));
-        _runtime.Setup(r => r.JudgeAsync(It.IsAny<AgentRuntimeLlm>(), "cluster: Lekhwair", "Lekhwair: 2 wells behind plan.", "Names the late wells", It.IsAny<CancellationToken>()))
+        _runtime.Setup(r => r.JudgeAsync(It.IsAny<AgentRuntimeLlm>(), "cluster: Lekhwair", "Lekhwair: 2 wells behind plan.", "Names the late wells",
+            It.Is<IReadOnlyDictionary<string, string>>(p => p.ContainsKey("agent.eval_judge")), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AgentJudgeResult(false, "It gives a count but no well names."));
         AiAgentEvalRun? saved = null;
         _repo.Setup(r => r.AddEvalRunAsync(It.IsAny<AiAgentEvalRun>(), It.IsAny<CancellationToken>()))
@@ -85,7 +91,8 @@ public sealed class AgentEvalTests
             new AiAgentEvalCase { Id = 2, Name = "Late", InputsJson = "{}", Expectation = "Names the late wells", RulesJson = "[]" }]);
         _ai.Setup(a => a.ResolveProviderAsync(7, It.IsAny<CancellationToken>())).ReturnsAsync((new AiProvider { Provider = "openai", BaseUrl = "http://llm", Model = "m" }, "key"));
         _sender.Setup(x => x.CreateStream(It.IsAny<IStreamRequest<AiAskEvent>>(), It.IsAny<CancellationToken>())).Returns(Stream("W1 and W2", 3));
-        _runtime.Setup(r => r.JudgeAsync(It.IsAny<AgentRuntimeLlm>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _runtime.Setup(r => r.JudgeAsync(It.IsAny<AgentRuntimeLlm>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("502: judge down"));
         AiAgentEvalRun? saved = null;
         _repo.Setup(r => r.AddEvalRunAsync(It.IsAny<AiAgentEvalRun>(), It.IsAny<CancellationToken>()))

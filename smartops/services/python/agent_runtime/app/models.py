@@ -276,3 +276,4 @@ class JudgeRequest(_Camel):
     question: str = Field(default="", max_length=4000)
     answer: str = Field(max_length=40000)
     expectation: str = Field(min_length=1, max_length=4000)
+    prompts: dict[str, str] = {}   # the tenant's AI prompt texts (agent.eval_judge*)
