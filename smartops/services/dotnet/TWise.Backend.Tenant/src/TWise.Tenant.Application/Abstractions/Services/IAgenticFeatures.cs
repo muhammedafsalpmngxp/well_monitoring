@@ -83,6 +83,52 @@ public interface IAgenticJobSignal
     void Claimed(long jobId);
 }
 
+/// <summary>A saved verified answer as the agent runtime takes it back ("knownAnswers"): reused only when Key is the
+/// key of the answer being asked for.</summary>
+public sealed record KnownAnswerPayload(string Key, string Draft, JsonElement? Verification, string? Model);
+
+/// <summary>
+/// Verified AI answers of an Agentic Feature in core.AiFeatureAnswer (infra/sql/add-ai-feature-answers.sql). Without
+/// that table both methods do nothing (logged once): answers are then kept only in the agent runtime's memory.
+/// </summary>
+public interface IAiFeatureAnswerStore
+{
+    /// <summary>The report date's most recently used answers, newest first (at most <paramref name="take"/>).</summary>
+    Task<IReadOnlyList<KnownAnswerPayload>> RecentAsync(long tenantId, string feature, DateOnly reportDate, int take,
+        CancellationToken ct);
+
+    /// <summary>The answer of this kind and scope last used for the date (null when none), for the page to show at once
+    /// while it checks that the data did not change. One indexed read: no AI provider, no agent runtime.</summary>
+    Task<SavedAiAnswerDto?> LatestAsync(long tenantId, string feature, DateOnly reportDate, string kind, string? scope,
+        CancellationToken ct);
+
+    /// <summary>Saves the reply's answer when it is verified and has an answer_key (a reused one is marked used), then
+    /// keeps only the date's <paramref name="keep"/> most recently used answers.</summary>
+    Task SaveAsync(long tenantId, string feature, DateOnly reportDate, string kind, string? scope, string? user,
+        JsonElement reply, int keep, CancellationToken ct);
+}
+
+/// <summary>A Daily Report AI brief: the day, a well (WellId) or a task (TaskDailyId) of ReportDate, with Today the
+/// users' date (deadlines are counted from it).</summary>
+public sealed record DailyBrief(DateOnly ReportDate, string Scope, long? WellId, long? TaskDailyId, DateOnly Today);
+
+/// <summary>
+/// Daily Report's AI: briefs and questions through the agent runtime, with the date's saved answers sent along (so
+/// an answer on unchanged data comes back at once, without an AI call) and every new verified answer saved.
+/// InvalidOperationException: AI is off, no provider is active or the daily quota is used up.
+/// </summary>
+public interface IDailyReportAgent
+{
+    Task<JsonElement> BriefAsync(long tenantId, string? userId, DailyBrief brief, CancellationToken ct);
+
+    /// <summary>The brief as the runtime streams it: stage / delta / restart while it works, then result or error.
+    /// Failures before the first event (AI off, a refusal) are thrown as by BriefAsync.</summary>
+    IAsyncEnumerable<AgentRuntimeEvent> BriefStreamAsync(long tenantId, string? userId, DailyBrief brief, CancellationToken ct);
+
+    Task<JsonElement> AskAsync(long tenantId, string? userId, DateOnly reportDate, string question, DateOnly today,
+        CancellationToken ct);
+}
+
 /// <summary>Calls a feature endpoint of the agent runtime with the tenant's envelope and logs the AI usage it reports.</summary>
 public interface IAgenticFeatureGateway
 {

@@ -12,6 +12,7 @@ from app.features.dailyreport import data
 from app.features.dailyreport.agent import service as agent_service
 from app.features.dailyreport.agent import tools, verifier
 from app.features.dailyreport.agent.graph import heuristic_plan, validate_plan
+from app.features.dailyreport.api import KnownAnswer
 from app.features.dailyreport.settings import load_settings
 from app.features.dailyreport.texts import parse_entries
 from tests.features.dailyreport.conftest import (
@@ -192,7 +193,8 @@ class TestBrief:
         assert result["available"] and result["verified"], result["verification"]
         assert result["explanation"] == GOOD_WELL_ANSWER
         assert [s["tool"] for s in result["plan"]] == ["well_overview", "milestones"]
-        assert [t["node"] for t in result["trace"]] == ["plan", "tool", "tool", "write", "verify"]
+        assert [t["node"] for t in result["trace"]] == ["plan", "load", "tool", "tool", "write", "verify"]
+        assert result["trace"][1]["loaded"] == ["activity", "dataset", "details", "milestones"]
         assert fake_model.count("planner") == 0
         assert result["models"]["writer"] == "writer-model"
         assert result["evidence"]["well_task_activity"]
@@ -246,7 +248,7 @@ class TestBrief:
 
     def test_revisions_are_bounded_and_an_unverified_answer_says_so(self, world, fake_model):
         fake_model.answers["writer"] = ["Well 30349 has 47 open tasks."]
-        result = _brief(scope="well", well_id=QUIET_WELL)
+        result = _brief(scope="well", well_id=QUIET_WELL, ctx={"settings": {"patchSentences": False}})
         assert result["available"] and not result["verified"]
         assert result["revisions"] == 2 and fake_model.count("writer") == 3
         assert result["verification"]["issues"]
@@ -306,6 +308,180 @@ class TestBrief:
         first = next(c for c in fake_model.calls if c["agent"] == "verifier")
         assert first["system"] == seed_prompts()["dailyreport.verifier_system"] and first["json_mode"]
         assert first["user"].startswith("Tool results:\n[") and first["user"].endswith("Draft:\n" + GOOD_WELL_ANSWER)
+
+
+class TestSpeed:
+    """Look-ups at the same time, saved answers that survive a restart, and the streamed brief."""
+
+    def test_one_worker_runs_everything_in_turn_with_the_same_answer(self, world, fake_model):
+        fake_model.answers["writer"] = [GOOD_WELL_ANSWER]
+        result = _brief(scope="well", well_id=QUIET_WELL, ctx={"settings": {"parallelWorkers": 1}})
+        assert result["verified"] and result["explanation"] == GOOD_WELL_ANSWER
+        assert [t["node"] for t in result["trace"]] == ["plan", "tool", "tool", "write", "verify"]
+
+    def test_each_query_of_the_day_brief_runs_once_however_many_tools_read_it(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well 101 reported 1 task on the date."]
+        result = _brief(scope="day")
+        assert result["verified"], result["verification"]
+        for key in (data.DAILY_DETAILS, data.DAILY_SUMMARY, data.WELL_ACTIVITY, data.MILESTONES):
+            assert world.count(key) == 1, key
+        assert [t["tool"] for t in result["trace"] if t["node"] == "tool"] == [
+            "day_overview", "deadline_pressure", "data_quality"]
+
+    def test_a_saved_answer_is_reused_after_a_restart(self, world, fake_model):
+        fake_model.answers["writer"] = [GOOD_WELL_ANSWER]
+        first = _brief(scope="well", well_id=QUIET_WELL)
+        assert first["answer_key"]
+        data.ANSWER_CACHE.clear()                      # the service restarted: its memory is gone
+        saved = KnownAnswer(key=first["answer_key"], draft=first["explanation"],
+                            verification=first["verification"], model=first["model"])
+        second = _brief(scope="well", well_id=QUIET_WELL, known=[saved])
+        assert second["cached"] is True and second["explanation"] == GOOD_WELL_ANSWER and second["verified"]
+        assert fake_model.count("writer") == 1 and second["usage"] == []
+
+    def test_a_saved_answer_on_other_data_is_never_reused(self, world, fake_model):
+        fake_model.answers["writer"] = [GOOD_WELL_ANSWER]
+        stale = KnownAnswer(key="0" * 64, draft="Well 30349 has 99 open tasks.", verification={"passed": True})
+        result = _brief(scope="well", well_id=QUIET_WELL, known=[stale])
+        assert result["cached"] is False and result["explanation"] == GOOD_WELL_ANSWER
+
+    def test_an_unverified_answer_has_no_key_to_save(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well 30349 has 47 open tasks."]
+        assert _brief(scope="well", well_id=QUIET_WELL)["answer_key"] is None
+
+    def test_the_brief_reports_its_progress_and_streams_its_text(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well 30349 has 47 open tasks.", GOOD_WELL_ANSWER]
+        events = []
+        result = _brief(scope="well", well_id=QUIET_WELL, events=lambda name, data_: events.append((name, data_)),
+                        ctx={"settings": {"patchSentences": False}})
+        stages = [d["stage"] for n, d in events if n == "stage"]
+        assert stages == ["data", "writing", "checking", "revising", "checking"]
+        assert [n for n, _ in events].count("restart") == 1
+        after_restart = events[[n for n, _ in events].index("restart"):]
+        streamed = "".join(d["text"] for n, d in after_restart if n == "delta")
+        assert streamed == GOOD_WELL_ANSWER == result["explanation"]
+
+    def test_a_reused_answer_says_so_and_streams_nothing(self, world, fake_model):
+        fake_model.answers["writer"] = [GOOD_WELL_ANSWER]
+        _brief(scope="well", well_id=QUIET_WELL)
+        events = []
+        _brief(scope="well", well_id=QUIET_WELL, events=lambda name, data_: events.append((name, data_)))
+        assert ("stage", {"stage": "reused"}) in events and not any(n == "delta" for n, _ in events)
+
+    def test_status_codes_read_as_plain_words_and_backticks_go(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well `101` reported `1` task, 1 ON_PLAN."]
+        events = []
+        result = _brief(scope="day", events=lambda name, data_: events.append((name, data_)))
+        assert result["explanation"] == "Well 101 reported 1 task, 1 on plan." and result["verified"]
+        streamed = ""
+        for name, d in events:
+            if name == "delta":
+                streamed = d["text"] if d.get("replace") else streamed + d["text"]
+        assert streamed == result["explanation"]
+
+    def test_the_words_are_the_tenants_and_whole_codes_only(self):
+        from app.features.dailyreport.agent.wording import plain
+        words = load_settings(seed_settings()).status_word_map()
+        assert plain("2 ENDED_NOT_COMPLETED, 3 COMPLETED, 4 NO_ACTUAL", words) == (
+            "2 ended, not completed, 3 completed, 4 no actual entered")
+        assert plain("UNKNOWN_CODE stays", words) == "UNKNOWN_CODE stays"
+        assert plain("5 ON_PLAN", {"ON_PLAN": "as planned"}) == "5 as planned"
+
+    def test_an_answer_saved_before_the_plain_words_is_not_reused(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well 101 reported 1 task."]
+        first = _brief(scope="day")
+        other = _brief(scope="day", ctx={"settings": {"statusWords": ["ON_PLAN=as planned"]}})
+        assert first["answer_key"] != other["answer_key"] and other["cached"] is False
+
+    def test_a_cut_off_answer_is_asked_again_with_twice_the_budget(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well 101 reported 1 task, and", "Well 101 reported 1 task."]
+        fake_model.cut_off_next = 1
+        result = _brief(scope="day")
+        assert result["explanation"] == "Well 101 reported 1 task." and result["verified"]
+        budgets = [c["max_tokens"] for c in fake_model.calls if c["agent"] == "day_writer"]
+        assert budgets == [seed_settings()["dayWriterMaxTokens"], 2 * seed_settings()["dayWriterMaxTokens"]]
+
+    def test_an_answer_cut_off_twice_is_never_shown(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well 101 reported 1 task, and"]
+        fake_model.cut_off_next = 2
+        result = _brief(scope="day")
+        assert result["available"] is False and result["explanation"] is None
+        assert "token budget" in result["error"] and result["answer_key"] is None
+
+    def test_the_provider_says_when_a_reply_was_cut_off(self):
+        from types import SimpleNamespace
+        from app.features.common.llm import cut_off
+        assert cut_off(SimpleNamespace(response_metadata={"finish_reason": "length"}))
+        assert cut_off(SimpleNamespace(response_metadata={"stop_reason": "max_tokens"}))
+        assert not cut_off(SimpleNamespace(response_metadata={"finish_reason": "stop"}))
+        assert not cut_off(SimpleNamespace())
+
+    def test_the_writer_thinks_as_long_as_the_setting_says_and_only_the_writer(self, world, fake_model):
+        fake_model.answers["planner"] = ['{"steps": [{"tool": "day_overview", "args": {}}]}']
+        fake_model.answers["writer"] = ["Well 101 reported 1 task."]
+        _brief(scope="day")
+        _ask("What happened on the day?", settings={"writerEffort": "high"})
+        efforts = {c["agent"]: c["effort"] for c in fake_model.calls}
+        assert efforts["day_writer"] == "low" and efforts["writer"] == "high"
+        assert efforts["planner"] == ""          # the planner is never told
+
+    def test_default_effort_sends_none_and_changes_the_reuse_key(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well 101 reported 1 task."]
+        low = _brief(scope="day")
+        default = _brief(scope="day", ctx={"settings": {"writerEffort": "default"}})
+        assert fake_model.calls[-1]["effort"] == "" and default["cached"] is False
+        assert low["answer_key"] != default["answer_key"]
+
+    # ---- fixing only the rejected sentences ----------------------------------------------------------------------
+    DRAFT = ("Well 30349 reported nothing on the date. It has 47 open tasks. "
+             "Of those, 2 are ongoing and 1 is incomplete.")
+
+    def test_only_the_rejected_sentence_is_rewritten_and_the_rest_is_kept(self, world, fake_model):
+        fake_model.answers["writer"] = [self.DRAFT, '{"sentences": ["It has 3 open tasks."]}']
+        events = []
+        result = _brief(scope="well", well_id=QUIET_WELL, events=lambda name, data_: events.append((name, data_)))
+        assert result["verified"] and result["revisions"] == 1
+        assert result["explanation"] == ("Well 30349 reported nothing on the date. It has 3 open tasks. "
+                                         "Of those, 2 are ongoing and 1 is incomplete.")
+        patch_call = fake_model.calls[1]
+        assert patch_call["json_mode"] and "1. It has 47 open tasks." in patch_call["user"]
+        assert "exactly 1 sentence(s)" in patch_call["user"]
+        verify, write = [t for t in result["trace"] if t["node"] == "verify"][0], result["trace"][-2]
+        assert verify["reasons"] == ["the figure 47 is not in the evidence"] and write["mode"] == "patch"
+        # The page swaps the corrected text in place, without starting the brief again.
+        assert ("delta", {"text": result["explanation"], "replace": True}) in events
+        assert not any(name == "restart" for name, _ in events)
+
+    def test_an_unusable_patch_falls_back_to_rewriting_the_whole_draft(self, world, fake_model):
+        fake_model.answers["writer"] = [self.DRAFT, "not json", GOOD_WELL_ANSWER]
+        result = _brief(scope="well", well_id=QUIET_WELL)
+        assert result["verified"] and result["explanation"] == GOOD_WELL_ANSWER
+        assert "Write a corrected answer that fixes every issue." in fake_model.calls[-1]["user"]
+
+    def test_a_patch_that_still_fails_is_followed_by_a_whole_rewrite(self, world, fake_model):
+        fake_model.answers["writer"] = [self.DRAFT, '{"sentences": ["It has 48 open tasks."]}', GOOD_WELL_ANSWER]
+        result = _brief(scope="well", well_id=QUIET_WELL)
+        assert result["verified"] and result["revisions"] == 2 and result["explanation"] == GOOD_WELL_ANSWER
+
+    def test_most_of_the_draft_wrong_is_rewritten_whole(self, world, fake_model):
+        fake_model.answers["writer"] = ["Well 30349 has 47 open tasks. It reported 9 tasks.", GOOD_WELL_ANSWER]
+        _brief(scope="well", well_id=QUIET_WELL)
+        assert not any(c["json_mode"] for c in fake_model.calls if c["agent"] == "writer")
+
+    def test_sentences_split_and_splice_back_exactly(self):
+        from app.features.dailyreport.agent import patch
+        text = "* Well 30013 reported 15.78 M. It has 3 open tasks.\n* Well 101 reported 1 task."
+        parts = patch.split(text)
+        assert "".join(parts) == text
+        positions = patch.faulty(parts, [("figure", "3")])
+        assert patch.splice(parts, positions, ["It has 4 open tasks."]) == (
+            "* Well 30013 reported 15.78 M. It has 4 open tasks.\n* Well 101 reported 1 task.")
+        assert patch.faulty(parts, [("figure", "999")]) is None
+
+    def test_a_reasoning_block_is_never_streamed(self):
+        from app.features.dailyreport.agent.graph import _visible
+        assert _visible("<think>plan the answer") == ""
+        assert _visible("<think>plan</think>Well 30349 has") == "Well 30349 has"
 
 
 class TestAsk:

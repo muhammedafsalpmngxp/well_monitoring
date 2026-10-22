@@ -201,6 +201,10 @@ public static class DependencyInjection
         services.AddScoped<IAiFeatureQueryStore, AiFeatureQueryStore>();
         services.AddScoped<IAgenticFeatureContext, AgenticFeatureContext>();
         services.AddScoped<IAgenticFeatureGateway, AgenticFeatureGateway>();
+        // Daily Report's AI: saved answers (core.AiFeatureAnswer) and the day brief prepared in the background.
+        services.AddScoped<IAiFeatureAnswerStore, AiFeatureAnswerStore>();
+        services.AddScoped<IDailyReportAgent, DailyReportAgent>();
+        services.AddHostedService<DailyBriefWorker>();
         services.AddScoped<IDataAnomalyService, DataAnomalyService>();
         services.AddSingleton<IAgenticJobSignal, AgenticJobSignal>();
         services.AddScoped<AgenticJobRunner>();

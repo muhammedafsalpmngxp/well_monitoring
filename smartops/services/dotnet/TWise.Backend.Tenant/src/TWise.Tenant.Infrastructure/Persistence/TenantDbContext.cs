@@ -28,6 +28,7 @@ public class TenantDbContext(DbContextOptions<TenantDbContext> options) : DbCont
     public DbSet<AiSettings> AiSettings => Set<AiSettings>();
     public DbSet<AiProvider> AiProviders => Set<AiProvider>();
     public DbSet<AiFeatureQuery> AiFeatureQueries => Set<AiFeatureQuery>();
+    public DbSet<AiFeatureAnswer> AiFeatureAnswers => Set<AiFeatureAnswer>();
     public DbSet<AiFeatureJob> AiFeatureJobs => Set<AiFeatureJob>();
     public DbSet<AnomalyRule> AnomalyRules => Set<AnomalyRule>();
     public DbSet<AnomalyProbe> AnomalyProbes => Set<AnomalyProbe>();

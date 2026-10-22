@@ -21,6 +21,10 @@ class MilestoneService:
     def _outstanding_rows(self) -> List[Dict[str, Any]]:
         return self._ctx.memo(("milestones",), lambda: self._ctx.data.rows(data.MILESTONES, {}))
 
+    def warm(self) -> None:
+        """Loads the outstanding milestones ahead of the tools that read them."""
+        self._outstanding_rows()
+
     def upcoming_and_overdue(self, window_days: int, *, today: date) -> Tuple[List[MilestoneAlert], List[MilestoneAlert]]:
         """``upcoming``: 0 <= days_remaining <= window_days, soonest first. ``overdue``: days_remaining < 0, most
         recently missed first (kept apart so a long backlog never buries what is still approaching)."""

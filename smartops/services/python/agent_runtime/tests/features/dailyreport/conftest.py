@@ -186,6 +186,8 @@ class FakeModel:
         self.answers: Dict[str, List[str]] = {"planner": [], "writer": [], "verifier": []}
         self.calls: List[Dict[str, Any]] = []
         self.failing: set = set()
+        #: How many of the next replies stop at their token budget (cut off).
+        self.cut_off_next = 0
 
     @staticmethod
     def queue_of(agent: str) -> str:
@@ -193,18 +195,27 @@ class FakeModel:
 
     def __call__(self, system: str, user: str, *, agent: str, temperature: Optional[float] = 0.0, fast: bool = False,
                  effort: str = "", verbosity: str = "", max_tokens: Optional[int] = None,
-                 json_mode: bool = False) -> str:
+                 json_mode: bool = False, on_delta: Optional[Callable[[str], None]] = None) -> str:
         run = current()
         if run.request.llm is None:
             raise common_llm.AiUnavailable("No AI provider is active for this tenant.")
         self.calls.append({"agent": agent, "system": system, "user": user, "fast": fast, "max_tokens": max_tokens,
-                           "json_mode": json_mode, "temperature": temperature})
+                           "json_mode": json_mode, "temperature": temperature, "effort": effort})
         if agent in self.failing:
             raise RuntimeError("provider said no (test)")
         queue = self.answers[self.queue_of(agent)]
         text = queue.pop(0) if len(queue) > 1 else (queue[0] if queue else "")
         model = (run.request.llm.fast_model or run.request.llm.model) if fast else run.request.llm.model
-        run.usage.append({"agent": f"{run.feature}.{agent}", "model": model, "calls": 1, "input": 10, "output": 5})
+        entry = {"agent": f"{run.feature}.{agent}", "model": model, "calls": 1, "input": 10, "output": 5}
+        if self.cut_off_next > 0:          # this reply ran out of its token budget
+            self.cut_off_next -= 1
+            entry["cut_off"] = True
+        run.usage.append(entry)
+        if on_delta is not None:          # streamed: the text in two pieces, as a provider sends it
+            half = len(text) // 2
+            for piece in (text[:half], text[half:]):
+                if piece:
+                    on_delta(piece)
         return text
 
     def count(self, agent: str) -> int:

@@ -14,6 +14,7 @@ from __future__ import annotations
 import time
 
 from functools import lru_cache
+from typing import Callable
 
 from app.askdata.settings import current_run
 from app import trace
@@ -36,11 +37,14 @@ _REJECTED: set[tuple[str, str]] = set()
 
 @lru_cache(maxsize=32)
 def chat_model(provider: str, base_url: str, model: str, api_key: str | None, temperature: float | None,
-               effort: str = "", verbosity: str = "", max_tokens: int | None = None, json_mode: bool = False):
+               effort: str = "", verbosity: str = "", max_tokens: int | None = None, json_mode: bool = False,
+               stream_usage: bool = False):
     from langchain_openai import ChatOpenAI
 
     headers = {"api-key": api_key} if provider == "azure" and api_key else None
     kwargs: dict = {"temperature": temperature} if temperature is not None else {}
+    if stream_usage:
+        kwargs["stream_usage"] = True       # a streamed reply still reports its token counts (stream_options)
     if effort:
         kwargs["reasoning_effort"] = effort
     if verbosity:
@@ -59,38 +63,78 @@ _OPTIONAL = (
     ("verbosity", ("verbosity",)),
     ("reasoning_effort", ("reasoning", "effort")),
     ("response_format", ("response_format", "json_object", "json mode")),
+    ("stream_options", ("stream_options", "include_usage")),
 )
 
 
 def invoke(llm, messages: list[tuple[str, str]], temperature: float | None, fast: bool = False,
-           effort: str = "", verbosity: str = "", max_tokens: int | None = None, json_mode: bool = False):
+           effort: str = "", verbosity: str = "", max_tokens: int | None = None, json_mode: bool = False,
+           on_delta: Callable[[str], None] | None = None):
     """One call. A model that rejects an optional parameter (temperature, verbosity, reasoning_effort, JSON mode) is
-    asked again without it, as often as it rejects another one (twise provider.chat dropped them all at once)."""
+    asked again without it, as often as it rejects another one (twise provider.chat dropped them all at once).
+
+    ``on_delta``: the reply is streamed, each piece of text passed to it as it arrives; the reply returned is the
+    whole message, as without streaming. A provider that refuses streaming (an error naming it, before any text) is
+    asked again without streaming, and remembered."""
     model = (llm.fast_model or llm.model) if fast else llm.model
     if fast or llm.provider == "ollama":
         effort, verbosity = "", ""          # the fast tier and Ollama never get these
-    sent = {"temperature": temperature, "verbosity": verbosity, "reasoning_effort": effort, "response_format": json_mode}
+    stream = on_delta is not None and (model, "stream") not in _REJECTED
+    sent = {"temperature": temperature, "verbosity": verbosity, "reasoning_effort": effort, "response_format": json_mode,
+            "stream_options": stream}
     for name, _ in _OPTIONAL:
         if (model, name) in _REJECTED:
-            sent[name] = None if name == "temperature" else ("" if name != "response_format" else False)
+            sent[name] = _DROPPED[name]
 
     started = time.perf_counter()
     while True:
+        streamed = [False]
         try:
-            reply = chat_model(llm.provider, llm.base_url, model, llm.api_key, sent["temperature"],
-                               sent["reasoning_effort"], sent["verbosity"], max_tokens,
-                               bool(sent["response_format"])).invoke(messages)
+            chat = chat_model(llm.provider, llm.base_url, model, llm.api_key, sent["temperature"],
+                              sent["reasoning_effort"], sent["verbosity"], max_tokens,
+                              bool(sent["response_format"]), bool(stream and sent["stream_options"]))
+            reply = _stream(chat, messages, on_delta, streamed) if stream else chat.invoke(messages)
             trace.llm(model, time.perf_counter() - started, getattr(reply, "usage_metadata", None), fast=fast)
             return model, reply
         except Exception as exc:  # noqa: BLE001
             text = str(exc).lower()
             rejected = next((name for name, words in _OPTIONAL
                              if sent[name] not in (None, "", False) and any(w in text for w in words)), None)
+            if rejected is None and stream and not streamed[0] and "stream" in text:
+                rejected = "stream"           # streaming refused before any text came: ask the ordinary way
             if rejected is None:
                 trace.llm(model, time.perf_counter() - started, None, fast=fast, error=exc)
                 raise
             _REJECTED.add((model, rejected))
-            sent[rejected] = None if rejected == "temperature" else ("" if rejected != "response_format" else False)
+            if rejected == "stream":
+                stream = False
+            else:
+                sent[rejected] = _DROPPED[rejected]
+
+
+#: What a rejected optional parameter is sent as from then on (nothing).
+_DROPPED = {"temperature": None, "verbosity": "", "reasoning_effort": "", "response_format": False,
+            "stream_options": False}
+
+
+def _stream(chat, messages, on_delta: Callable[[str], None], streamed: list[bool]):
+    """The streamed reply as one message (chunks added up, usage included), each text piece passed on as it comes."""
+    reply = None
+    for chunk in chat.stream(messages):
+        reply = chunk if reply is None else reply + chunk
+        piece = _text(chunk.content)
+        if piece:
+            streamed[0] = True
+            on_delta(piece)
+    if reply is None:
+        raise RuntimeError("The AI service sent an empty stream.")
+    return reply
+
+
+def _text(content) -> str:
+    if isinstance(content, list):   # some providers send content parts
+        return "".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in content)
+    return content if isinstance(content, str) else str(content or "")
 
 
 def chat(system: str, user: str, temperature: float | None = 0.0, fast: bool = False) -> str:

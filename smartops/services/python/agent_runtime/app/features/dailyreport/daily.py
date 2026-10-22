@@ -10,6 +10,7 @@ import logging
 from datetime import date
 from typing import Dict, List, Optional
 
+from app.features.common.parallel import run_parallel
 from app.features.dailyreport import data
 from app.features.dailyreport.errors import BadRequest
 from app.features.dailyreport.models import DailyDataset, DailyTask, DayCounters, QuantityStatus
@@ -28,8 +29,15 @@ class DailyService:
 
     def _load(self, report_date: date) -> DailyDataset:
         source = self._ctx.data
-        rows = source.rows(data.DAILY_DETAILS, {"report_date": report_date}, report_date=report_date)
-        counter_rows = source.rows(data.DAILY_SUMMARY, {"report_date": report_date}, report_date=report_date)
+        values = {"report_date": report_date}
+        # The two queries are independent: run them at the same time.
+        rows, counter_rows = run_parallel([
+            lambda: source.rows(data.DAILY_DETAILS, values, report_date=report_date),
+            lambda: source.rows(data.DAILY_SUMMARY, values, report_date=report_date),
+        ], self._ctx.settings.parallel_workers)
+        for result in (rows, counter_rows):
+            if isinstance(result, BaseException):
+                raise result
         tasks: List[DailyTask] = []
         skipped = 0
         for row in rows:

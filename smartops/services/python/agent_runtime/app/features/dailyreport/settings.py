@@ -37,6 +37,17 @@ class DailyReportSettings(BaseModel):
     dataset_cache_max_entries: int = Field(ge=1)
     answer_cache_ttl_seconds: int = Field(ge=0)
     answer_cache_max_entries: int = Field(ge=1)
+    #: The Tenant API's: how many saved answers per date it keeps (core.AiFeatureAnswer) and sends as known_answers.
+    saved_answers_per_date: int = Field(ge=0)
+
+    # ---- prepared briefs (the Tenant API's background worker; listed so every seed key is a known setting) ------
+    prepare_briefs: bool
+    prepare_every_minutes: int = Field(ge=1)
+    prepare_days: int = Field(ge=1)
+    prepare_time_zone: str = Field(min_length=1)
+
+    # ---- performance -----------------------------------------------------------------------------------------
+    parallel_workers: int = Field(ge=1)
 
     # ---- database --------------------------------------------------------------------------------------------
     db_ansi_codepage: str = Field(min_length=1)
@@ -54,6 +65,8 @@ class DailyReportSettings(BaseModel):
     # ---- agent -----------------------------------------------------------------------------------------------
     agent_max_tool_calls: int = Field(ge=1)
     agent_max_revisions: int = Field(ge=0)
+    #: A rejected draft: rewrite only the sentences the verifier can point to (agent/patch.py), whole draft as fallback.
+    patch_sentences: bool
     deadline_window_days: int = Field(ge=0)
     question_min_length: int = Field(ge=1)
     question_max_length: int = Field(ge=1)
@@ -71,6 +84,8 @@ class DailyReportSettings(BaseModel):
     writer_max_tokens: int = Field(ge=1)
     day_writer_max_tokens: int = Field(ge=1)
     verifier_max_tokens: int = Field(ge=1)
+    #: reasoning_effort sent with the writer's calls (main model only); "default" sends none.
+    writer_effort: Literal["default", "minimal", "low", "medium", "high"]
 
     # ---- agent tools -----------------------------------------------------------------------------------------
     list_wells_default_limit: int = Field(ge=1)
@@ -97,6 +112,8 @@ class DailyReportSettings(BaseModel):
 
     # ---- vocabulary ------------------------------------------------------------------------------------------
     milestone_labels: list[str]
+    #: CODE=words: how a status code reads in the AI's text (agent/wording.py), e.g. ON_PLAN=on plan.
+    status_words: list[str]
     crew_in_progress_code: str
 
     @model_validator(mode="after")
@@ -106,7 +123,15 @@ class DailyReportSettings(BaseModel):
         for entry in self.milestone_labels:
             if "=" not in entry or not entry.split("=", 1)[0].strip():
                 raise ValueError(f"milestoneLabels entry {entry!r} is not CODE=Label")
+        for entry in self.status_words:
+            code, _, words = entry.partition("=")
+            if not code.strip() or not words.strip():
+                raise ValueError(f"statusWords entry {entry!r} is not CODE=words")
         return self
+
+    def status_word_map(self) -> dict[str, str]:
+        """statusWords as {CODE: words}."""
+        return {code.strip(): words.strip() for code, _, words in (e.partition("=") for e in self.status_words)}
 
     # ------------------------------------------------------------------------------------------------------------
     def milestone_label(self, code: str) -> str:

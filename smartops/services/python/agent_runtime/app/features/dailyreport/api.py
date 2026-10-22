@@ -12,8 +12,10 @@ shapes (snake_case fields): routes_daily / routes_wells / routes_export / routes
     POST /well           {reportDate, wellId}                           one well's tasks (or its open work)
     POST /milestones     {windowDays?, today}                           upcoming / overdue lifecycle deadlines
     POST /export         {reportDate}                                   .xlsx workbook
-    POST /agent/brief    {reportDate, scope: day|well|task, wellId?, taskDailyId?, today}
-    POST /agent/ask      {reportDate, question, today}
+    POST /agent/brief    {reportDate, scope: day|well|task, wellId?, taskDailyId?, today, knownAnswers?}
+    POST /agent/brief/stream   the same, as server-sent events: stage / delta / restart while it works, then exactly
+                         one result {the brief} or error {message, status}
+    POST /agent/ask      {reportDate, question, today, knownAnswers?}
 
 Errors: bad input or something an admin must fix (prompt, setting, query, table) -> 400 {detail}; well not found ->
 404; database or AI provider unavailable -> 503. An AI brief / answer never fails on the AI: it answers
@@ -21,15 +23,21 @@ Errors: bad input or something an admin must fix (prompt, setting, query, table)
 """
 from __future__ import annotations
 
+import contextvars
 import logging
+import queue
 import re
+import threading
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response, StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from app.askdata.common.readonly import ReadOnlyViolation
 from app.features.common.access import AccessDenied
@@ -66,6 +74,7 @@ from app.features.dailyreport.schemas import (
 )
 from app.features.dailyreport.settings import SettingsInvalid
 from app.prompt_text import PromptMissing
+from app.streaming import sse, with_heartbeat
 
 log = logging.getLogger("agent_runtime.dailyreport")
 
@@ -119,18 +128,31 @@ class ExportRequest(FeatureRequest):
     report_date: date
 
 
+class KnownAnswer(BaseModel):
+    """A verified answer the Tenant API saved (core.AiFeatureAnswer): reused only when its key, the content hash of
+    everything it rests on, is the key of the answer being asked for."""
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="ignore")
+
+    key: str = Field(min_length=1, max_length=128)
+    draft: str = Field(min_length=1)
+    verification: Optional[Dict[str, Any]] = None
+    model: Optional[str] = None
+
+
 class BriefRequest(FeatureRequest):
     report_date: date
     scope: str = "day"
     well_id: Optional[int] = None
     task_daily_id: Optional[int] = None
     today: date
+    known_answers: List[KnownAnswer] = []
 
 
 class AskRequest(FeatureRequest):
     report_date: date
     question: str
     today: date
+    known_answers: List[KnownAnswer] = []
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -388,9 +410,10 @@ def export(req: ExportRequest) -> Response:
 # ---------------------------------------------------------------------------------------------------------------
 # the agents
 # ---------------------------------------------------------------------------------------------------------------
-@router.post("/agent/brief")
-def agent_brief(req: BriefRequest) -> Dict[str, Any]:
-    """The dashboard's AI summaries (day / well / task): fixed tool plan, writer, deterministic verifier."""
+Emit = Callable[[str, Dict[str, Any]], None]
+
+
+def _brief_work(req: BriefRequest, events: Optional[Emit] = None) -> Callable[[ReportContext], Any]:
     def work(ctx: ReportContext):
         report_date = _check_date(ctx, req.report_date)
         scope = (req.scope or "day").strip().lower()
@@ -402,7 +425,7 @@ def agent_brief(req: BriefRequest) -> Dict[str, Any]:
             raise BadRequest("taskDailyId is required for a task brief.")
         try:
             return agent_service.brief(ctx, report_date, today=req.today, scope=scope, well_id=req.well_id,
-                                       task_daily_id=req.task_daily_id)
+                                       task_daily_id=req.task_daily_id, known=req.known_answers, events=events)
         except CONFIG_ERRORS:
             raise
         except Exception as exc:  # noqa: BLE001 - the dashboard must survive anything here
@@ -410,7 +433,48 @@ def agent_brief(req: BriefRequest) -> Dict[str, Any]:
             return {"report_date": report_date, "kind": "brief", "scope": scope, "available": False,
                     "error": f"The agent could not complete this summary ({type(exc).__name__}).", "evidence": {},
                     "usage": list(ctx.run.usage)}
-    return _call(req, work)
+    return work
+
+
+@router.post("/agent/brief")
+def agent_brief(req: BriefRequest) -> Dict[str, Any]:
+    """The dashboard's AI summaries (day / well / task): fixed tool plan, writer, deterministic verifier."""
+    return _call(req, _brief_work(req))
+
+
+@router.post("/agent/brief/stream")
+def agent_brief_stream(req: BriefRequest) -> StreamingResponse:
+    """The same brief, streamed: the page shows the text as it is written, then the checked answer replaces it."""
+    return StreamingResponse((sse(name, data) for name, data in with_heartbeat(_streamed(req, lambda emit: _brief_work(req, emit)))),
+                             media_type="text/event-stream")
+
+
+def _streamed(req: FeatureRequest, make: Callable[[Emit], Callable[[ReportContext], Any]]) -> Iterator[Tuple[str, Dict[str, Any]]]:
+    """Runs one agent request on its own thread and yields what it reports as it goes, then exactly one ``result``
+    (the same body the plain endpoint returns) or ``error`` {message, status} (the plain endpoint's HTTP error)."""
+    items: "queue.Queue" = queue.Queue()
+    end = object()
+
+    def emit(name: str, data: Dict[str, Any]) -> None:
+        items.put((name, data))
+
+    def run() -> None:
+        try:
+            items.put(("result", jsonable_encoder(_call(req, make(emit)))))
+        except HTTPException as exc:
+            items.put(("error", {"message": str(exc.detail), "status": exc.status_code}))
+        except Exception:  # noqa: BLE001 - reported as an event; the details go to the log
+            log.exception("daily report streamed request failed")
+            items.put(("error", {"message": "The agent could not complete this request.", "status": 500}))
+        finally:
+            items.put(end)
+
+    threading.Thread(target=contextvars.copy_context().run, args=(run,), daemon=True).start()
+    while True:
+        item = items.get()
+        if item is end:
+            return
+        yield item
 
 
 @router.post("/agent/ask")
@@ -423,7 +487,7 @@ def agent_ask(req: AskRequest) -> Dict[str, Any]:
         if not s.question_min_length <= len(question) <= s.question_max_length:
             raise BadRequest(f"The question must be {s.question_min_length} to {s.question_max_length} characters.")
         try:
-            return agent_service.ask(ctx, report_date, question, today=req.today)
+            return agent_service.ask(ctx, report_date, question, today=req.today, known=req.known_answers)
         except CONFIG_ERRORS:
             raise
         except Exception as exc:  # noqa: BLE001

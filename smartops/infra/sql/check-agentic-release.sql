@@ -29,6 +29,7 @@ FROM (VALUES
     ('add-ai-askdata-settings.sql',  'core.AiSettings.askdata_chat_mode',  CASE WHEN COL_LENGTH('core.AiSettings', 'askdata_chat_mode') IS NULL THEN 0 ELSE 1 END),
     ('add-agentic-features.sql',     'core.AiFeatureJob',                  CASE WHEN OBJECT_ID('core.AiFeatureJob', 'U') IS NULL THEN 0 ELSE 1 END),
     ('add-agentic-features.sql',     'core.AiFeatureQuery',                CASE WHEN OBJECT_ID('core.AiFeatureQuery', 'U') IS NULL THEN 0 ELSE 1 END),
+    ('add-ai-feature-answers.sql',   'core.AiFeatureAnswer',               CASE WHEN OBJECT_ID('core.AiFeatureAnswer', 'U') IS NULL THEN 0 ELSE 1 END),
     ('add-agentic-features.sql',     'core.AnomalyRule',                   CASE WHEN OBJECT_ID('core.AnomalyRule', 'U') IS NULL THEN 0 ELSE 1 END),
     ('add-agentic-features.sql',     'core.AiSettings.anomaly_settings_json', CASE WHEN COL_LENGTH('core.AiSettings', 'anomaly_settings_json') IS NULL THEN 0 ELSE 1 END),
     ('add-agentic-features.sql',     'core.AiSettings.crew_settings_json', CASE WHEN COL_LENGTH('core.AiSettings', 'crew_settings_json') IS NULL THEN 0 ELSE 1 END),

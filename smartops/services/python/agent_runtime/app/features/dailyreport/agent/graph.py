@@ -3,13 +3,19 @@
     plan    a FIXED plan for the dashboard's own briefs (day / well / task): no planning call, as repeatable as
             before; the PLANNER model only for an open question, its plan validated against the tool catalogue and
             capped at agentMaxToolCalls. Planner unavailable or unusable: a keyword heuristic (settings).
-    act     runs the plan's tools: read-only, deterministic, never a model.
-    write   one writer call over every tool result, or a verified answer reused for identical input.
+    act     runs the plan's tools: read-only, deterministic, never a model. The look-ups they need are loaded at the
+            same time first, then the tools run at the same time (parallelWorkers; results keep the plan's order).
+    write   one writer call over every tool result, or a verified answer reused for identical input (in memory, or
+            one the Tenant API saved and sent back as known_answers).
     verify  the deterministic check (verifier.py), plus an optional model second opinion (llmVerify). A failed draft
             returns to write with its issues, at most agentMaxRevisions times.
 
 Built per request (nodes close over the request's context). Every node appends to ``trace`` (what it did, how long,
 which model), returned beside the answer. Every text a model reads is a dailyreport.* prompt.
+
+Streaming: given ``events``, the graph reports its progress as it goes: ``stage`` {stage: data | writing | revising |
+checking | reused}, ``delta`` {text, replace?} as the writer's text arrives, ``restart`` when a rejected draft is
+written again. The answer itself is still the graph's final state (checked before it counts as verified).
 """
 from __future__ import annotations
 
@@ -18,14 +24,16 @@ import logging
 import re
 import time
 from datetime import date
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from app.features.common import llm
 from app.features.common.context import run_context
+from app.features.common.parallel import run_parallel
 from app.features.common.text import extract_json, strip_think
-from app.features.dailyreport.agent import tools, verifier
+from app.features.dailyreport.agent import patch, tools, verifier, wording
+from app.prompt_text import PromptMissing
 from app.features.dailyreport.data import ANSWER_CACHE, content_key, date_tag
 
 logger = logging.getLogger(__name__)
@@ -44,6 +52,7 @@ class AgentState(TypedDict, total=False):
     draft: Optional[str]
     answer_key: Optional[str]
     verification: Dict[str, Any]
+    problems: List[Any]           # (kind, text) the code check rejected, for patching only those sentences
     revisions: int
     retry: bool
     cached: bool
@@ -54,6 +63,31 @@ class AgentState(TypedDict, total=False):
 
 class AiFailure(RuntimeError):
     """The model could not be asked or gave no text (message is safe to show)."""
+
+
+#: What each tool reads, so act() can load it all at the same time before the tools run (ReportContext.warm).
+_TOOL_NEEDS: Dict[str, frozenset] = {
+    "day_overview": frozenset({"dataset", "activity"}),
+    "well_overview": frozenset({"dataset", "activity", "details"}),
+    "task_detail": frozenset({"dataset"}),
+    "list_wells": frozenset({"dataset", "activity"}),
+    "milestones": frozenset({"milestones"}),
+    "deadline_pressure": frozenset({"dataset", "activity", "milestones"}),
+    "crew_options": frozenset({"dataset"}),
+    "data_quality": frozenset({"dataset"}),
+}
+
+Events = Callable[[str, Dict[str, Any]], None]
+
+#: The most a cut-off answer is asked again with (the token settings' own maximum).
+_MAX_TOKENS = 100_000
+
+
+def _visible(raw: str) -> str:
+    """The part of a reply still being written that a reader may see: no reasoning block, even an unfinished one."""
+    text = strip_think(raw)
+    cut = text.find("<think>")
+    return text[:cut].rstrip() if cut != -1 else text
 
 
 def _trace(state: AgentState, node: str, started: float, **detail: Any) -> List[Dict[str, Any]]:
@@ -134,11 +168,40 @@ def validate_plan(raw: Any, max_steps: int, reason_max_chars: int) -> List[Dict[
 class AgentGraph:
     """One request's agent: the nodes close over its context (settings, prompts, data, tools)."""
 
-    def __init__(self, ctx, report_date: date, today: date) -> None:
+    def __init__(self, ctx, report_date: date, today: date, events: Optional[Events] = None) -> None:
         self.ctx = ctx
         self.settings = ctx.settings
         self.texts = ctx.texts
         self.env = tools.ToolEnv(ctx, report_date, today)
+        self.events = events
+        self.words = ctx.settings.status_word_map()
+
+    def plain(self, text: str) -> str:
+        """The writer's text in plain words (wording.py): what is checked, streamed, shown and saved."""
+        return wording.plain(text, self.words)
+
+    def emit(self, name: str, data: Dict[str, Any]) -> None:
+        if self.events is not None:
+            self.events(name, data)
+
+    def _delta_sink(self) -> Optional[Callable[[str], None]]:
+        """Forwards the writer's text as it arrives (only what a reader may see; see _visible)."""
+        if self.events is None:
+            return None
+        raw: List[str] = []
+        sent = [""]
+
+        def on_delta(piece: str) -> None:
+            raw.append(piece)
+            visible = self.plain(_visible("".join(raw)))
+            if visible == sent[0]:
+                return
+            if visible.startswith(sent[0]):
+                self.emit("delta", {"text": visible[len(sent[0]):]})
+            else:
+                self.emit("delta", {"text": visible, "replace": True})
+            sent[0] = visible
+        return on_delta
 
     # ---- model calls --------------------------------------------------------------------------------------------
     def model_name(self, tier: str) -> Optional[str]:
@@ -147,10 +210,14 @@ class AgentGraph:
             return None
         return (provider.fast_model or provider.model) if tier == "fast" else provider.model
 
-    def chat(self, role: str, system: str, user: str, *, tier: str, max_tokens: int, json_mode: bool = False) -> str:
+    def chat(self, role: str, system: str, user: str, *, tier: str, max_tokens: int, json_mode: bool = False,
+             on_delta: Optional[Callable[[str], None]] = None, effort: str = "") -> str:
+        extra: Dict[str, Any] = {"on_delta": on_delta} if on_delta is not None else {}
+        if effort:
+            extra["effort"] = effort
         try:
             text = llm.chat(system, user, agent=role, temperature=self.settings.temperature, fast=tier == "fast",
-                            max_tokens=max_tokens, json_mode=json_mode)
+                            max_tokens=max_tokens, json_mode=json_mode, **extra)
         except llm.AiUnavailable as exc:
             raise AiFailure(str(exc)) from None
         except Exception as exc:  # noqa: BLE001 - a provider error is "unavailable", never a crash
@@ -160,6 +227,15 @@ class AgentGraph:
         if not text:
             raise AiFailure("The AI service returned no text.")
         return text
+
+    def writer_effort(self) -> str:
+        """The writer's reasoning effort (writerEffort; Daily Report only), "" for none. The fast tier never gets it."""
+        effort = self.settings.writer_effort
+        return "" if effort == "default" else effort
+
+    def _cut_off(self) -> bool:
+        """The last model call stopped at its token budget (common.llm marks it in the usage)."""
+        return bool(self.ctx.run.usage and self.ctx.run.usage[-1].get("cut_off"))
 
     def writer_profile(self, state: AgentState) -> tuple[str, int, int]:
         """(tier, max tokens, word limit): the front page's day brief has its own."""
@@ -179,7 +255,8 @@ class AgentGraph:
                                self.model_name(s.verifier_tier), s.verifier_max_issues]
         return content_key("answer", self.ctx.data.identity,
                            [provider.provider, provider.base_url] if provider else None,
-                           self.model_name(tier), s.temperature, max_tokens, system, user, verifier_texts)
+                           self.model_name(tier), s.temperature, max_tokens, system, user, verifier_texts,
+                           ["plain-words", sorted(self.words.items())], ["effort", self.writer_effort()])
 
     # ---- nodes --------------------------------------------------------------------------------------------------
     def plan(self, state: AgentState) -> Dict[str, Any]:
@@ -221,9 +298,23 @@ class AgentGraph:
 
     def act(self, state: AgentState) -> Dict[str, Any]:
         trace = list(state.get("trace", []))
+        steps = state.get("plan", [])[: self.settings.agent_max_tool_calls]
+        workers = self.settings.parallel_workers
+        if steps:
+            self.emit("stage", {"stage": "data"})
+        if workers > 1 and steps:
+            # Every look-up the plan's tools read, at the same time; the tools then mostly read what is loaded.
+            needs = frozenset().union(*(_TOOL_NEEDS.get(step["tool"], frozenset()) for step in steps))
+            started = time.perf_counter()
+            self.ctx.warm(self.env.report_date, **{need: True for need in needs})
+            trace.append({"node": "load", "loaded": sorted(needs), "parallel": workers,
+                          "duration_s": round(time.perf_counter() - started, 3)})
+        outcomes = run_parallel([lambda step=step: tools.run_tool(self.env, step["tool"], step.get("args"))
+                                 for step in steps], workers)
         results: List[tools.ToolResult] = []
-        for step in state.get("plan", [])[: self.settings.agent_max_tool_calls]:
-            result = tools.run_tool(self.env, step["tool"], step.get("args"))
+        for step, result in zip(steps, outcomes):
+            if isinstance(result, BaseException):
+                raise result          # a configuration error (run_tool returns every other failure as data)
             results.append(result)
             trace.append({"node": "tool", "tool": result.tool, "args": result.args, "why": step.get("why"),
                           "ok": result.ok, "error": result.error, "duration_s": round(result.duration_s, 3)})
@@ -266,6 +357,7 @@ class AgentGraph:
             answer_key = self.answer_key(system, user, tier, max_tokens)
             cached = ANSWER_CACHE.get(answer_key, self.settings.answer_cache_ttl_seconds)
             if cached is not None:
+                self.emit("stage", {"stage": "reused"})
                 models["writer"] = cached["model"]
                 return {"draft": cached["draft"], "verification": cached["verification"], "cached": True,
                         "answer_key": answer_key, "models": models,
@@ -273,26 +365,83 @@ class AgentGraph:
                                                 model=cached["model"])}
         else:
             issues = state.get("verification", {}).get("issues", [])
+            if revisions == 1 and self.settings.patch_sentences:
+                patched = self.patch_draft(state, system, user, tier, max_tokens, issues, models, started)
+                if patched is not None:
+                    return patched
             user += "\n\n" + self.texts.fill("writer_revision", ISSUES="- " + "\n- ".join(issues),
                                              DRAFT=state.get("draft") or "")
 
         model = self.model_name(tier)
+        if revisions:
+            self.emit("restart", {})
+        self.emit("stage", {"stage": "revising" if revisions else "writing"})
+        role = "day_writer" if state.get("scope") == "day" and state["kind"] == "brief" else "writer"
+        effort = self.writer_effort()
         try:
-            text = self.chat("day_writer" if state.get("scope") == "day" and state["kind"] == "brief" else "writer",
-                             system, user, tier=tier, max_tokens=max_tokens)
+            text = self.chat(role, system, user, tier=tier, max_tokens=max_tokens, on_delta=self._delta_sink(),
+                             effort=effort)
+            if self._cut_off():
+                # The reply ran out of its token budget (a reasoning model thinks first): once more with twice the
+                # budget. A text that ends mid-sentence is never shown, however correct its figures are.
+                self.emit("restart", {})
+                text = self.chat(role, system, user, tier=tier, max_tokens=min(max_tokens * 2, _MAX_TOKENS),
+                                 on_delta=self._delta_sink(), effort=effort)
+                if self._cut_off():
+                    raise AiFailure(f"The AI's answer ran out of its token budget ({max_tokens * 2}) before it ended. "
+                                    "An admin can raise it under AI Settings > Daily Report > AI models.")
         except AiFailure as exc:
             return {"draft": None, "error": str(exc),
                     "trace": _trace(state, "write", started, mode="failed", error=str(exc), model=model)}
         models["writer"] = model
+        text = self.plain(text)       # plain words before the figures are checked; the figures are unchanged
         usage = self.ctx.run.usage[-1] if self.ctx.run.usage else {}
         return {"draft": text, "cached": False, "answer_key": answer_key, "models": models,
                 "trace": _trace(state, "write", started, mode="revision" if revisions else "draft", model=model,
+                                output_tokens=usage.get("output"))}
+
+    def patch_draft(self, state: AgentState, system: str, user: str, tier: str, max_tokens: int, issues: List[str],
+              models: Dict[str, str], started: float) -> Optional[Dict[str, Any]]:
+        """The first correction: rewrite only the sentences that state what the verifier rejected (patch.py), keep
+        every other sentence as it was. None when that cannot be done (a problem in no one sentence, too much of the
+        draft, no patch prompt, an unusable reply): the caller then rewrites the whole draft as before."""
+        draft = state.get("draft") or ""
+        problems = state.get("problems") or []
+        parts = patch.split(draft)
+        positions = patch.faulty(parts, problems) if problems else None
+        if positions is None:
+            return None
+        try:
+            ask = self.texts.fill("writer_patch", ISSUES="- " + "\n- ".join(issues), DRAFT=draft, COUNT=len(positions),
+                                  SENTENCES=patch.numbered(parts, positions))
+        except PromptMissing:
+            return None
+        self.emit("stage", {"stage": "revising"})
+        role = "day_writer" if state.get("scope") == "day" and state["kind"] == "brief" else "writer"
+        model = self.model_name(tier)
+        try:
+            reply = self.chat(role, system, user + "\n\n" + ask, tier=tier, max_tokens=max_tokens, json_mode=True,
+                              effort=self.writer_effort())
+        except AiFailure:
+            return None
+        parsed = extract_json(reply)
+        sentences = parsed.get("sentences") if isinstance(parsed, dict) else None
+        if (self._cut_off() or not isinstance(sentences, list) or len(sentences) != len(positions)
+                or not all(isinstance(s, str) and s.strip() for s in sentences)):
+            return None
+        text = patch.splice(parts, positions, [self.plain(s) for s in sentences])
+        self.emit("delta", {"text": text, "replace": True})
+        models["writer"] = model
+        usage = self.ctx.run.usage[-1] if self.ctx.run.usage else {}
+        return {"draft": text, "cached": False, "answer_key": state.get("answer_key"), "models": models,
+                "trace": _trace(state, "write", started, mode="patch", sentences=len(positions), model=model,
                                 output_tokens=usage.get("output"))}
 
     def verify(self, state: AgentState) -> Dict[str, Any]:
         started = time.perf_counter()
         if state.get("cached") or not state.get("draft") or state.get("unanswerable_reason"):
             return {"trace": _trace(state, "verify", started, mode="skipped")}
+        self.emit("stage", {"stage": "checking"})
         s = self.settings
         inputs = [result.for_model() for result in state.get("results", [])]
         evidence = inputs + [{"report_date": state["report_date"]}]
@@ -323,8 +472,11 @@ class AgentGraph:
         retry = bool(issues) and state.get("revisions", 0) < s.agent_max_revisions
         update: Dict[str, Any] = {
             "verification": verification, "models": models, "retry": retry,
+            # What each rejection is about, when the code check found them all (the AI second opinion's issues
+            # point at nothing in particular): write() then fixes only the sentences concerned.
+            "problems": list(check.problems) if issues and len(issues) == len(check.issues) else [],
             "trace": _trace(state, "verify", started, passed=not issues, issues=len(issues),
-                            next="revise" if retry else "finish"),
+                            reasons=issues[:5] or None, next="revise" if retry else "finish"),
         }
         if retry:
             update["revisions"] = state.get("revisions", 0) + 1

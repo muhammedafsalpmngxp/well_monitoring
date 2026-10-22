@@ -21,6 +21,28 @@ public class AiFeatureQuery
     public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
 }
 
+/// <summary>
+/// A verified AI answer of an Agentic Feature (Daily Report's briefs and questions), core.AiFeatureAnswer. AnswerKey
+/// is the agent runtime's content hash of everything the answer rests on (data, prompts, model, settings): the answer
+/// is sent back with later requests and reused only for exactly that input, so a restart of the runtime loses none
+/// and a brief prepared in the background is ready when the page opens.
+/// </summary>
+public class AiFeatureAnswer
+{
+    public long TenantId { get; set; }
+    public string Feature { get; set; } = "";
+    public string AnswerKey { get; set; } = "";
+    public DateOnly ReportDate { get; set; }
+    public string Kind { get; set; } = "";
+    public string? Scope { get; set; }
+    public string Draft { get; set; } = "";
+    public string? Verification { get; set; }
+    public string? Model { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UsedAt { get; set; } = DateTime.UtcNow;
+}
+
 /// <summary>A long operation of an Agentic Feature (Data Anomaly compile / run / discover), core.AiFeatureJob. At most
 /// one queued or running job per tenant and feature (a filtered unique index).</summary>
 public class AiFeatureJob

@@ -11,6 +11,7 @@ import logging
 from datetime import date
 from typing import Any, Dict, List, Optional
 
+from app.features.common.parallel import run_parallel
 from app.features.dailyreport import data
 from app.features.dailyreport.models import DailyDataset, LogicalTask, TaskState, WellTaskActivity
 from app.features.dailyreport.validation import as_date, to_int
@@ -55,6 +56,13 @@ class WellActivityService:
 
     def incomplete_tasks(self, report_date: date, well_id: int) -> List[LogicalTask]:
         return list(self._detail_rows(report_date).get(well_id, []))
+
+    def warm(self, report_date: date, *, details: bool = False) -> None:
+        """Loads the counters (and, for a well's own evidence, every well's open tasks) at the same time."""
+        pieces = [lambda: self._activity_rows(report_date)]
+        if details:
+            pieces.append(lambda: self._detail_rows(report_date))
+        run_parallel(pieces, self._ctx.settings.parallel_workers)
 
     # ------------------------------------------------------------------------------------------------------------
     def evidence(self, report_date: date, dataset: DailyDataset, well_id: int) -> Optional[Dict[str, Any]]:

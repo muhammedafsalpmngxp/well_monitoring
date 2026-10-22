@@ -72,6 +72,10 @@ public record DailyReportDayRequest(DateOnly? ReportDate, bool Refresh, string? 
 /// <summary>Daily Report: deadlines due within WindowDays (the setting when null) of Today (the user's date).</summary>
 public record DailyReportMilestonesRequest(int? WindowDays, DateOnly? Today);
 
+/// <summary>A verified AI answer saved earlier for a report date (core.AiFeatureAnswer), shown at once while the page checks
+/// it is still current. UsedAt: when it was last written or confirmed against the data.</summary>
+public record SavedAiAnswerDto(string Explanation, string? Model, DateTime CreatedAt, DateTime UsedAt);
+
 /// <summary>Daily Report AI brief: Scope day, well (WellId) or task (TaskDailyId). Today is the user's date.</summary>
 public record DailyReportBriefRequest(DateOnly? ReportDate, string? Scope, long? WellId, long? TaskDailyId, DateOnly? Today);
 
