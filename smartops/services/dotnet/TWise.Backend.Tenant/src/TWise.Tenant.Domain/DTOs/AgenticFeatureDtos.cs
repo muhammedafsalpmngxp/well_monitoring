@@ -60,6 +60,10 @@ public record SlippageQueryRequest(string? Key, string? WellId);
 /// model again instead of reusing an answer that rests on the same data.</summary>
 public record SlippageAdviseRequest(string? WellId, string? TaskCode, bool Fresh);
 
+/// <summary>Crew Management: the fleet overview, or (with WellId) one well's crew plan / AI brief. Fresh reads the
+/// fleet-wide results again instead of the short-lived cache.</summary>
+public record CrewManagementRequest(string? WellId, bool Fresh);
+
 /// <summary>Daily Report: a figure of one report date. Refresh reads the database again instead of the short-lived cache.
 /// The group filters (Status, Wbs, ActivityCode, Uom) select the tasks behind one summary figure; WellId one well.</summary>
 public record DailyReportDayRequest(DateOnly? ReportDate, bool Refresh, string? Status, string? Wbs, string? ActivityCode,

@@ -355,3 +355,44 @@ public sealed class DataAnomalyController(IDataAnomalyService anomaly, IAgenticF
     public Task<IActionResult> CancelJob(long id, CancellationToken ct) =>
         FeatureAsync(async t => Ok(await anomaly.CancelJobAsync(t, id, UserName(), ct)));
 }
+
+/// <summary>
+/// Agentic Features → Crew Management: every crew's availability and team, crew capacity against the delayed work each
+/// crew type is needed for, and per live well the crew on each delayed activity with the free crews to approach (all
+/// from the verified SQL, no AI), plus an AI brief that narrates a well's crew plan. Advisory only: nothing is assigned.
+/// </summary>
+[ApiController]
+[Authorize]
+[Route("api/agentic-features/crew-management")]
+public sealed class CrewManagementController(IAgenticFeatureGateway gateway, ILogger<CrewManagementController> logger)
+    : AgenticFeatureControllerBase(logger)
+{
+    private const string Module = "agentic-ai.crew-management";
+    private const string Feature = AgenticFeatureCatalog.Crew;
+
+    /// <summary>Every crew and its availability, capacity vs delayed work per crew type, and the wells needing crews.</summary>
+    [HttpPost("overview")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public Task<IActionResult> Overview([FromBody] CrewManagementRequest? request, CancellationToken ct) => FeatureAsync(async t =>
+        Ok(await gateway.CallAsync(t, UserId(), Feature, "overview", new { fresh = request?.Fresh ?? false }, needsAi: false, ct)));
+
+    /// <summary>One well's delayed activities, the crew on each and the free crews to approach. 404 for an unknown well.</summary>
+    [HttpPost("well")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> Well([FromBody] CrewManagementRequest request, CancellationToken ct) => FeatureAsync(async t =>
+        Ok(await gateway.CallAsync(t, UserId(), Feature, "well", new { wellId = request.WellId, fresh = request.Fresh }, needsAi: false, ct)));
+
+    /// <summary>The well's crew plan with an AI brief (calls the AI; a provider failure comes back as briefError).</summary>
+    [HttpPost("brief")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> Brief([FromBody] CrewManagementRequest request, CancellationToken ct) => FeatureAsync(async t =>
+        Ok(await gateway.CallAsync(t, UserId(), Feature, "brief", new { wellId = request.WellId, fresh = request.Fresh }, needsAi: true, ct)));
+}

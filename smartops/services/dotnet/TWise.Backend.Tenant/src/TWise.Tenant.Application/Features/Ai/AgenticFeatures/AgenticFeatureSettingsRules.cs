@@ -30,6 +30,7 @@ public static partial class AgenticFeatureSettingsRules
         AgenticFeatureCatalog.Slippage => s.SlippageSettingsJson,
         AgenticFeatureCatalog.DailyReport => s.DailyReportSettingsJson,
         AgenticFeatureCatalog.Anomaly => s.AnomalySettingsJson,
+        AgenticFeatureCatalog.Crew => s.CrewSettingsJson,
         _ => throw new KeyNotFoundException($"Unknown Agentic Feature '{feature}'."),
     };
 
@@ -40,6 +41,7 @@ public static partial class AgenticFeatureSettingsRules
             case AgenticFeatureCatalog.Slippage: s.SlippageSettingsJson = json; break;
             case AgenticFeatureCatalog.DailyReport: s.DailyReportSettingsJson = json; break;
             case AgenticFeatureCatalog.Anomaly: s.AnomalySettingsJson = json; break;
+            case AgenticFeatureCatalog.Crew: s.CrewSettingsJson = json; break;
             default: throw new KeyNotFoundException($"Unknown Agentic Feature '{feature}'.");
         }
     }
@@ -119,6 +121,7 @@ public static partial class AgenticFeatureSettingsRules
             case AgenticFeatureCatalog.Slippage: s.SlippageSettingsJson = null; break;
             case AgenticFeatureCatalog.DailyReport: s.DailyReportSettingsJson = null; break;
             case AgenticFeatureCatalog.Anomaly: s.AnomalySettingsJson = null; break;
+            case AgenticFeatureCatalog.Crew: s.CrewSettingsJson = null; break;
             default: throw new KeyNotFoundException($"Unknown Agentic Feature '{feature}'.");
         }
     }

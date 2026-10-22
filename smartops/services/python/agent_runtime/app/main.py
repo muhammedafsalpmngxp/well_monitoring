@@ -58,6 +58,7 @@ from app import sqlstep
 from app.prepare import Prepared, asks_question, prepare
 from app.sqlstep import SQL_QUERY_TOOL
 from app.features.anomaly.api import router as anomaly_router
+from app.features.crew.api import router as crew_router
 from app.features.dailyreport.api import router as dailyreport_router
 from app.features.slippage.api import router as slippage_router
 from app.streaming import sse as _sse, with_heartbeat  # noqa: F401  (with_heartbeat: imported by tests)
@@ -96,6 +97,7 @@ app.include_router(slippage_router, prefix=f"{_FEATURES}/slippage", dependencies
 app.include_router(dailyreport_router, prefix=f"{_FEATURES}/dailyreport", dependencies=[Depends(require_key)],
                    tags=["Daily Report"])
 app.include_router(anomaly_router, prefix=f"{_FEATURES}/anomaly", dependencies=[Depends(require_key)], tags=["Data Anomaly"])
+app.include_router(crew_router, prefix=f"{_FEATURES}/crew", dependencies=[Depends(require_key)], tags=["Crew Management"])
 
 
 ASK_DATA_TOOL = {

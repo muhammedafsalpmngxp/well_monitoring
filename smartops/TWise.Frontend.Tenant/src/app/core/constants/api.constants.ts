@@ -80,6 +80,7 @@ export const API_ENDPOINTS = {
     SLIPPAGE: '/agentic-features/slippage',
     DAILY_REPORT: '/agentic-features/daily-report',
     DATA_ANOMALY: '/agentic-features/data-anomaly',
+    CREW_MANAGEMENT: '/agentic-features/crew-management',
   },
   AI: {
     SETTINGS: '/ai/settings',

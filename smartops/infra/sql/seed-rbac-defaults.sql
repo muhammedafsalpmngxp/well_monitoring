@@ -81,6 +81,7 @@ BEGIN
     ('admin', 'agentic-ai.slippage',        1,1,1,1),
     ('admin', 'agentic-ai.daily-report',    1,1,1,1),
     ('admin', 'agentic-ai.data-anomaly',    1,1,1,1),
+    ('admin', 'agentic-ai.crew-management', 1,1,1,1),
     ('admin', 'user-management.users',      1,1,1,1),
     ('admin', 'user-management.roles',      1,1,1,1),
     ('admin', 'settings.database-view',     1,1,1,1);

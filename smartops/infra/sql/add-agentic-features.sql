@@ -37,6 +37,8 @@ IF COL_LENGTH('core.AiSettings', 'dailyreport_settings_json') IS NULL
     ALTER TABLE core.AiSettings ADD dailyreport_settings_json nvarchar(max) NULL;
 IF COL_LENGTH('core.AiSettings', 'anomaly_settings_json') IS NULL
     ALTER TABLE core.AiSettings ADD anomaly_settings_json nvarchar(max) NULL;
+IF COL_LENGTH('core.AiSettings', 'crew_settings_json') IS NULL
+    ALTER TABLE core.AiSettings ADD crew_settings_json nvarchar(max) NULL;
 
 -- ── Verified SQL of Slippage and Daily Report ────────────────────────────────
 IF OBJECT_ID('core.AiFeatureQuery', 'U') IS NULL

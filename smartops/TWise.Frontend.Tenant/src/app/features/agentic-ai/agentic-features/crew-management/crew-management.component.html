@@ -1,0 +1,492 @@
+<app-page-header title="Crew Management"
+  subtitle="Who is free, who is busy, where crews are short, and which free crew to send to each delayed activity."
+  [breadcrumbs]="breadcrumbs">
+  <div class="cm__head-actions">
+    <span class="cm__muted" *ngIf="loadedAt">Read {{ loadedAt | date: 'HH:mm' }}</span>
+    <button type="button" class="btn btn-secondary btn-sm" (click)="refresh()" [disabled]="overview.loading || plan.loading">
+      Refresh
+    </button>
+  </div>
+</app-page-header>
+
+<!-- Availability: coloured dot + words (the colour is never the only signal). -->
+<ng-template #availTpl let-v>
+  <span class="cm__status" [attr.data-tone]="availability(v).tone" [title]="availability(v).hint">{{ availability(v).label }}</span>
+</ng-template>
+<ng-template #pillTpl let-label let-tone="tone">
+  <span class="cm__pill" [attr.data-tone]="tone">{{ label }}</span>
+</ng-template>
+<ng-template #dash><span class="cm__muted">—</span></ng-template>
+
+<ng-template #lookupTpl let-id="id">
+  <form class="cm__lookup" (ngSubmit)="submitLookup()" novalidate>
+    <div class="cm__field">
+      <label [for]="id">Open a well's crew plan</label>
+      <input [id]="id" name="lookup" type="text" inputmode="numeric" autocomplete="off" placeholder="Well id, e.g. 35552"
+        [(ngModel)]="lookup" [attr.aria-invalid]="lookupTouched && !lookupValid" [attr.aria-describedby]="id + '-hint'" />
+    </div>
+    <button type="submit" class="btn btn-secondary btn-sm">Open</button>
+    <p class="cm__hint" [id]="id + '-hint'">
+      <span *ngIf="lookupTouched && !lookupValid" class="cm__bad-text">Enter the well's number.</span>
+      <span *ngIf="!(lookupTouched && !lookupValid)">Any well, also one not listed below.</span>
+    </p>
+  </form>
+</ng-template>
+
+<div class="page-content cm">
+
+  <!-- ═══════════════════════════════════ WELL VIEW ═══════════════════════════════════ -->
+  <ng-container *ngIf="wellId; else overviewTpl">
+    <section class="cm__card cm__well-head" aria-labelledby="cm-well-title">
+      <div class="cm__well-title">
+        <button type="button" class="cm__link" (click)="backToOverview()">← All crews and wells</button>
+        <div class="cm__title-row">
+          <h2 id="cm-well-title">Well {{ wellId }} · Crew plan</h2>
+          <ng-container *ngIf="plan.data as p">
+            <ng-container *ngTemplateOutlet="pillTpl; context: { $implicit: p.well_status === 'LIVE' ? 'Live' : 'Completed', tone: p.well_status === 'LIVE' ? 'info' : 'ok' }"></ng-container>
+          </ng-container>
+        </div>
+        <p class="cm__muted" *ngIf="plan.data as p">
+          Expected rig-on {{ date(p.ex_rig_on_date) }}<ng-container *ngIf="p.rig_on_date"> · rig on {{ date(p.rig_on_date) }}</ng-container>
+          · last task record {{ date(p.well_last_recorded_on) }} · crew data as of {{ date(p.data_as_of) }}
+        </p>
+      </div>
+      <ng-container *ngTemplateOutlet="lookupTpl; context: { id: 'cm-lookup-well' }"></ng-container>
+    </section>
+
+    <app-loader *ngIf="plan.loading" size="lg" message="Reading the well's delayed activities and every crew's workload…"></app-loader>
+    <p *ngIf="plan.error" class="cm__alert cm__alert--bad" role="alert">{{ plan.error }}</p>
+
+    <ng-container *ngIf="plan.data as p">
+      <p *ngIf="staleDays as d" class="cm__alert cm__alert--warn" role="status">
+        This well was last recorded {{ d }} days ago ({{ date(p.well_last_recorded_on) }}): its delays are as last recorded, the work may have moved since.
+      </p>
+
+      <p *ngIf="p.well_status === 'COMPLETED'" class="cm__empty">This well is completed: no crew is needed.</p>
+
+      <ng-container *ngIf="p.well_status === 'LIVE'">
+        <div class="cm__kpis" aria-live="polite">
+          <div class="cm__kpi" [attr.data-tone]="p.summary.delayed_activities ? 'warn' : null">
+            <span class="cm__kpi-label">Delayed activities</span>
+            <span class="cm__kpi-value">{{ p.summary.delayed_activities }}</span>
+            <span class="cm__kpi-hint">{{ p.summary.overdue }} overdue · {{ p.summary.start_slipping }} start slipping</span>
+          </div>
+          <div class="cm__kpi" [attr.data-tone]="p.summary.without_recorded_crew ? 'bad' : null">
+            <span class="cm__kpi-label">No crew recorded</span>
+            <span class="cm__kpi-value">{{ p.summary.without_recorded_crew }}</span>
+            <span class="cm__kpi-hint">Delayed activities with no crew on the task</span>
+          </div>
+          <div class="cm__kpi" [attr.data-tone]="p.summary.with_free_crew ? 'ok' : null">
+            <span class="cm__kpi-label">Free crew found</span>
+            <span class="cm__kpi-value">{{ p.summary.with_free_crew }}</span>
+            <span class="cm__kpi-hint">Activities with a free crew of the right type</span>
+          </div>
+          <div class="cm__kpi" [attr.data-tone]="p.summary.without_free_crew ? 'bad' : null">
+            <span class="cm__kpi-label">No free crew</span>
+            <span class="cm__kpi-value">{{ p.summary.without_free_crew }}</span>
+            <span class="cm__kpi-hint">Every crew of the type is busy or inactive<ng-container *ngIf="p.summary.crew_type_not_resolved"> · {{ p.summary.crew_type_not_resolved }} crew type not resolved</ng-container></span>
+          </div>
+          <div class="cm__kpi" [attr.data-tone]="p.summary.max_days_overdue ? 'bad' : null">
+            <span class="cm__kpi-label">Worst overdue</span>
+            <span class="cm__kpi-value">{{ days(p.summary.max_days_overdue) }}</span>
+            <span class="cm__kpi-hint">Past a target end date</span>
+          </div>
+        </div>
+
+        <!-- AI brief -->
+        <section class="cm__card" aria-labelledby="cm-brief-title">
+          <header class="cm__card-head">
+            <div>
+              <h3 id="cm-brief-title">Crew brief</h3>
+              <p>The AI turns this crew plan into a short brief for the site. It narrates the ranked suggestions below; it never picks a crew of its own.</p>
+            </div>
+            <div class="cm__actions">
+              <button type="button" class="btn btn-primary btn-sm" (click)="writeBrief()" [disabled]="brief.loading || !needCrew.length">
+                {{ brief.data ? 'Write again' : 'Write crew brief' }}
+              </button>
+              <button *ngIf="brief.open" type="button" class="btn btn-secondary btn-sm" (click)="closeBrief()">Close</button>
+            </div>
+          </header>
+          <div *ngIf="brief.open" class="cm__brief" aria-live="polite" [attr.aria-busy]="brief.loading">
+            <app-loader *ngIf="brief.loading" size="sm" message="Writing the crew brief. This can take up to a minute."></app-loader>
+            <p *ngIf="!brief.loading && brief.error" class="cm__alert cm__alert--warn" role="alert">{{ brief.error }}</p>
+            <ng-container *ngIf="!brief.loading && brief.html">
+              <p class="cm__muted">AI-generated. Confirm every crew with the site before mobilising.</p>
+              <p *ngIf="brief.data?.unverified_references?.length" class="cm__alert cm__alert--warn" role="status">
+                The brief names {{ brief.data!.unverified_references.join(', ') }}, which the crew plan does not contain. Check before acting on it.
+              </p>
+              <div class="agent-md" [innerHTML]="brief.html"></div>
+            </ng-container>
+          </div>
+        </section>
+
+        <!-- Delayed activities -->
+        <section class="cm__card" aria-labelledby="cm-act-title">
+          <header class="cm__card-head">
+            <div>
+              <h3 id="cm-act-title">Delayed activities and the crew for each</h3>
+              <p>Most overdue first. The crew on the task, what the planner can do, and the free crews of the type the activity needs, best first.</p>
+            </div>
+          </header>
+          <p *ngIf="!needCrew.length" class="cm__empty">No delayed activity on this well needs a crew.</p>
+          <ol class="cm__activities">
+            <li *ngFor="let a of needCrew; trackBy: trackActivity" class="cm__activity" [attr.data-tone]="delay(a.delay_status).tone">
+              <div class="cm__activity-head">
+                <div class="cm__activity-name">
+                  <strong>{{ activityName(a) }}</strong>
+                  <span *ngIf="a.activity_code" class="cm__code">{{ a.activity_code }}</span>
+                  <span class="cm__muted" *ngIf="a.wbs && a.activity_description">· {{ a.wbs }}</span>
+                </div>
+                <div class="cm__chips">
+                  <ng-container *ngTemplateOutlet="pillTpl; context: { $implicit: delay(a.delay_status).label, tone: delay(a.delay_status).tone }"></ng-container>
+                  <span class="cm__bad-text" *ngIf="a.days_overdue">{{ days(a.days_overdue) }} overdue</span>
+                </div>
+              </div>
+              <dl class="cm__facts">
+                <div><dt>Target</dt><dd>{{ date(a.target_start) }} → {{ date(a.target_end) }}</dd></div>
+                <div><dt>Started</dt><dd>{{ date(a.actual_start) }}</dd></div>
+                <div><dt>Needs crew type</dt><dd>{{ typeLabel(a.required_crew_type.crew_type_code, a.required_crew_type.crew_type_name, a.required_crew_type.crew_type_id) }}
+                  <span class="cm__muted" *ngIf="a.required_crew_type.source === 'TASK_RECORD'"> (from the task record)</span></dd></div>
+                <div><dt>Crew on it</dt>
+                  <dd *ngIf="a.assigned_crew.recorded; else noCrew">
+                    Crew {{ a.assigned_crew.crew_id }}<span *ngIf="a.assigned_crew.supervisor"> ({{ a.assigned_crew.supervisor }})</span>
+                    <ng-container *ngIf="a.assigned_crew.availability_status"> · <ng-container *ngTemplateOutlet="availTpl; context: { $implicit: a.assigned_crew.availability_status }"></ng-container></ng-container>
+                  </dd>
+                  <ng-template #noCrew><dd class="cm__warn-text">No crew recorded on the task</dd></ng-template>
+                </div>
+              </dl>
+              <div class="cm__suggestion">
+                <span class="cm__action" [attr.data-tone]="action(a.action).tone">{{ action(a.action).label }}</span>
+                <ol *ngIf="a.recommended_crews.length; else noRec" class="cm__candidates">
+                  <li *ngFor="let c of a.recommended_crews; let i = index; trackBy: trackCrew">
+                    <span class="cm__rank">{{ i + 1 }}</span>
+                    <div>
+                      <p><strong>Crew {{ c.crew_id }}</strong><span *ngIf="c.supervisor"> · {{ c.supervisor }}</span>
+                        <span class="cm__muted" *ngIf="c.members"> · {{ c.members }} people</span></p>
+                      <p class="cm__sub">
+                        <ng-container *ngIf="c.activity_experience as e; else noExp">
+                          Completed this activity {{ e.completed_count }}× on {{ e.distinct_wells }} well(s)<ng-container *ngIf="e.typical_completion_days !== null">, typically in {{ days(e.typical_completion_days) }}</ng-container>
+                        </ng-container>
+                        <ng-template #noExp>Has not completed this activity before (right crew type)</ng-template>
+                        · {{ c.queued_tasks }} queued · last record {{ date(c.last_recorded_on) }}
+                      </p>
+                      <p class="cm__sub cm__warn-text" *ngIf="c.same_team_top_pick_for?.length">
+                        Same team is also the top pick for: {{ c.same_team_top_pick_for!.join('; ') }}. It can take them in sequence, or the next crew can share the load.
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+                <ng-template #noRec><p class="cm__sub">{{ a.no_recommendation_reason }}</p></ng-template>
+              </div>
+            </li>
+          </ol>
+
+          <div *ngIf="closeOut.length" class="cm__closeout">
+            <button type="button" class="cm__link" (click)="showCloseOut = !showCloseOut" [attr.aria-expanded]="showCloseOut" aria-controls="cm-closeout">
+              {{ showCloseOut ? 'Hide' : 'Show' }} {{ closeOut.length }} activit{{ closeOut.length === 1 ? 'y' : 'ies' }} awaiting close-out (100% done, record open, no crew needed)
+            </button>
+            <ul id="cm-closeout" *ngIf="showCloseOut" class="cm__plain">
+              <li *ngFor="let a of closeOut; trackBy: trackActivity">{{ activityName(a) }}<span *ngIf="a.activity_code" class="cm__code">{{ a.activity_code }}</span>
+                <span class="cm__muted"> · target end {{ date(a.target_end) }}</span></li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Crew plan by crew type -->
+        <section class="cm__card" *ngIf="p.crew_types.length" aria-labelledby="cm-plan-title">
+          <header class="cm__card-head">
+            <div>
+              <h3 id="cm-plan-title">Crew plan by crew type</h3>
+              <p>The delayed work on this well grouped by the crew type it needs, the state of every crew of that type, and the free crews to approach first.</p>
+            </div>
+          </header>
+          <div class="cm__table-wrap">
+            <table class="cm__table">
+              <caption class="cm__sr">Crew plan by crew type for well {{ wellId }}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Crew type</th><th scope="col" class="cm__num">Delayed</th><th scope="col" class="cm__num">Worst overdue</th>
+                  <th scope="col" class="cm__num">Free</th><th scope="col" class="cm__num">Busy</th><th scope="col" class="cm__num">Team busy</th>
+                  <th scope="col" class="cm__num">Inactive</th><th scope="col">Approach first</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let t of p.crew_types; trackBy: trackType">
+                  <th scope="row">{{ typeLabel(t.crew_type_code, t.crew_type_name, t.crew_type_id) }}</th>
+                  <td class="cm__num">{{ t.delayed_activities }}</td>
+                  <td class="cm__num">{{ days(t.max_days_overdue) }}</td>
+                  <td class="cm__num"><span [class.cm__bad-text]="!t.free">{{ t.free }}</span></td>
+                  <td class="cm__num">{{ t.busy }}</td>
+                  <td class="cm__num">{{ t.team_busy }}</td>
+                  <td class="cm__num">{{ t.inactive }}</td>
+                  <td class="cm__wrap">
+                    <ng-container *ngIf="t.free_crews.length; else noneFree">
+                      <span *ngFor="let c of t.free_crews; let last = last">Crew {{ c.crew_id }}<span class="cm__muted" *ngIf="c.completed_this_wells_activities"> ({{ c.completed_this_wells_activities }}× this well's activities)</span><span *ngIf="!last">, </span></span>
+                    </ng-container>
+                    <ng-template #noneFree><span class="cm__muted">No free crew of this type</span></ng-template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <p class="cm__disclaimer">{{ p.rules.free_crew_definition }} Ranking: {{ p.rules.ranking }} Every suggestion is advisory: nothing is assigned here.</p>
+      </ng-container>
+    </ng-container>
+  </ng-container>
+
+  <!-- ═══════════════════════════════════ OVERVIEW ═══════════════════════════════════ -->
+  <ng-template #overviewTpl>
+    <app-loader *ngIf="overview.loading && !overview.data" size="lg" message="Reading every crew's tasks across the fleet. The first read can take a minute."></app-loader>
+    <p *ngIf="overview.error" class="cm__alert cm__alert--bad" role="alert">{{ overview.error }}
+      <button type="button" class="cm__link" (click)="loadOverview(true)">Try again</button>
+    </p>
+
+    <ng-container *ngIf="overview.data as o">
+      <p *ngIf="o.truncated" class="cm__alert cm__alert--warn" role="status">Some lists hit the query row limit and are incomplete (AI Settings → Ask Data &amp; Features → Crew Management).</p>
+
+      <div class="cm__kpis" aria-live="polite">
+        <div class="cm__kpi">
+          <span class="cm__kpi-label">Crews</span>
+          <span class="cm__kpi-value">{{ o.kpis.crews }}</span>
+          <span class="cm__kpi-hint">{{ o.kpis.members }} people in crews · data as of {{ date(o.data_as_of) }}</span>
+        </div>
+        <div class="cm__kpi" data-tone="ok">
+          <span class="cm__kpi-label">Free</span>
+          <span class="cm__kpi-value">{{ o.kpis.free }}</span>
+          <span class="cm__kpi-hint">Nothing in progress, recorded in the last {{ o.rules.crew_recent_days }} days</span>
+        </div>
+        <div class="cm__kpi" [attr.data-tone]="o.kpis.busy ? 'warn' : null">
+          <span class="cm__kpi-label">Busy</span>
+          <span class="cm__kpi-value">{{ o.kpis.busy }}<small> + {{ o.kpis.team_busy }} team busy</small></span>
+          <span class="cm__kpi-hint">Work in progress on a live well</span>
+        </div>
+        <div class="cm__kpi">
+          <span class="cm__kpi-label">Inactive</span>
+          <span class="cm__kpi-value">{{ o.kpis.inactive }}</span>
+          <span class="cm__kpi-hint">No team task record recently</span>
+        </div>
+        <div class="cm__kpi" [attr.data-tone]="o.kpis.crew_types_short ? 'bad' : null">
+          <span class="cm__kpi-label">Crew types short</span>
+          <span class="cm__kpi-value">{{ o.kpis.crew_types_short }}</span>
+          <span class="cm__kpi-hint">Fewer free crews than delayed activities needing them</span>
+        </div>
+        <div class="cm__kpi" [attr.data-tone]="o.kpis.delayed_activities ? 'warn' : null">
+          <span class="cm__kpi-label">Delayed activities</span>
+          <span class="cm__kpi-value">{{ o.kpis.delayed_activities }}</span>
+          <span class="cm__kpi-hint">On {{ o.kpis.wells_with_delays }} live wells · {{ o.kpis.without_recorded_crew }} with no crew recorded</span>
+        </div>
+      </div>
+
+      <!-- Fleet availability -->
+      <section class="cm__card" aria-labelledby="cm-avail-title">
+        <header class="cm__card-head">
+          <div>
+            <h3 id="cm-avail-title">Crew availability</h3>
+            <p>Derived from task records only: there is no roster, leave or location data, so confirm a crew with the site before mobilising it. Select a state to list its crews.</p>
+          </div>
+        </header>
+        <div class="cm__bar" role="img" [attr.aria-label]="'Free ' + o.kpis.free + ', busy ' + o.kpis.busy + ', team busy ' + o.kpis.team_busy + ', inactive ' + o.kpis.inactive">
+          <span *ngFor="let s of availabilityKeys" class="cm__bar-seg" [attr.data-tone]="availability(s).tone" [style.width.%]="share(s)"></span>
+        </div>
+        <div class="cm__legend">
+          <button *ngFor="let s of availabilityKeys" type="button" class="cm__legend-item" (click)="filterStatus(s)" [attr.aria-pressed]="crewStatus === s">
+            <ng-container *ngTemplateOutlet="availTpl; context: { $implicit: s }"></ng-container>
+            <strong>{{ count(s) }}</strong>
+            <span class="cm__muted">{{ availability(s).hint }}</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Capacity vs demand -->
+      <section class="cm__card" aria-labelledby="cm-cap-title">
+        <header class="cm__card-head">
+          <div>
+            <h3 id="cm-cap-title">Crew capacity against delayed work</h3>
+            <p>Per crew type: the delayed activities on live wells that need it, and its crews by availability. Short types first. Select a type to see its crews.</p>
+          </div>
+          <div class="cm__filters">
+            <div class="cm__field">
+              <label for="cm-cov">Coverage</label>
+              <select id="cm-cov" [(ngModel)]="coverageFilter" (ngModelChange)="applyTypes()">
+                <option value="">All</option>
+                <option value="NO_FREE_CREW">No free crew</option>
+                <option value="SHORT">Short of crews</option>
+                <option value="COVERED">Covered</option>
+                <option value="NO_DELAYED_WORK">No delayed work</option>
+              </select>
+            </div>
+            <div class="cm__field">
+              <label for="cm-type-q">Crew type</label>
+              <input id="cm-type-q" type="search" [(ngModel)]="typeSearch" (ngModelChange)="applyTypes()" placeholder="Code or name" />
+            </div>
+          </div>
+        </header>
+        <p *ngIf="o.kpis.crew_type_not_resolved" class="cm__muted">{{ o.kpis.crew_type_not_resolved }} delayed activities are not mapped to a crew type (activity master), so they are not counted against any type.</p>
+        <p *ngIf="!typeRows.length" class="cm__empty">No crew type matches.</p>
+        <div class="cm__table-wrap" *ngIf="typeRows.length">
+          <table class="cm__table">
+            <caption class="cm__sr">Crew capacity against delayed work, per crew type</caption>
+            <thead>
+              <tr>
+                <th scope="col">Crew type</th><th scope="col">Coverage</th>
+                <th scope="col" class="cm__num">Delayed</th><th scope="col" class="cm__num">Wells</th>
+                <th scope="col" class="cm__num">No crew recorded</th><th scope="col" class="cm__num">Worst overdue</th>
+                <th scope="col" class="cm__num">Free</th><th scope="col" class="cm__num">Busy</th><th scope="col" class="cm__num">Team busy</th>
+                <th scope="col" class="cm__num">Inactive</th><th scope="col" class="cm__num">People</th><th scope="col"><span class="cm__sr">Crews</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let t of typeRows; trackBy: trackType">
+                <th scope="row">{{ typeLabel(t.crew_type_code, t.crew_type_name, t.crew_type_id) }}</th>
+                <td>
+                  <ng-container *ngTemplateOutlet="pillTpl; context: { $implicit: coverage(t.coverage).label, tone: coverage(t.coverage).tone }"></ng-container>
+                  <span class="cm__muted" *ngIf="t.free_shortfall && t.coverage === 'SHORT'"> {{ t.free_shortfall }} short</span>
+                </td>
+                <td class="cm__num">{{ t.delayed_activities }}</td>
+                <td class="cm__num">{{ t.wells }}</td>
+                <td class="cm__num">{{ t.without_recorded_crew }}</td>
+                <td class="cm__num">{{ t.delayed_activities ? days(t.max_days_overdue) : empty }}</td>
+                <td class="cm__num"><span [class.cm__bad-text]="t.delayed_activities && !t.free">{{ t.free }}</span></td>
+                <td class="cm__num">{{ t.busy }}</td>
+                <td class="cm__num">{{ t.team_busy }}</td>
+                <td class="cm__num">{{ t.inactive }}</td>
+                <td class="cm__num">{{ t.members || empty }}</td>
+                <td class="cm__cell-action">
+                  <button *ngIf="t.crews" type="button" class="cm__link" (click)="showTypeCrews(t)">{{ t.crews }} crew{{ t.crews === 1 ? '' : 's' }}</button>
+                  <span *ngIf="!t.crews" class="cm__bad-text">No crew of this type</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Crew board -->
+      <section class="cm__card" id="cm-board" aria-labelledby="cm-board-title">
+        <header class="cm__card-head">
+          <div>
+            <h3 id="cm-board-title">Crew board</h3>
+            <p>Every crew seen on a task: its type, supervisor, team and workload across the fleet. Free crews with the shortest queue first.</p>
+          </div>
+        </header>
+        <div class="cm__filters">
+          <div class="cm__field">
+            <label for="cm-crew-q">Search</label>
+            <input id="cm-crew-q" type="search" [(ngModel)]="crewSearch" (ngModelChange)="applyCrews()" placeholder="Crew id, supervisor, type" />
+          </div>
+          <div class="cm__field">
+            <label for="cm-crew-status">Availability</label>
+            <select id="cm-crew-status" [(ngModel)]="crewStatus" (ngModelChange)="applyCrews()">
+              <option value="">All</option>
+              <option *ngFor="let s of availabilityKeys" [value]="s">{{ availability(s).label }}</option>
+            </select>
+          </div>
+          <div class="cm__field">
+            <label for="cm-crew-type">Crew type</label>
+            <select id="cm-crew-type" [(ngModel)]="crewType" (ngModelChange)="applyCrews()">
+              <option value="">All</option>
+              <option *ngFor="let t of crewTypeOptions" [value]="t.id">{{ t.label }}</option>
+            </select>
+          </div>
+          <button *ngIf="crewFiltered" type="button" class="cm__link cm__filters-clear" (click)="clearCrewFilters()">Clear filters</button>
+          <p class="cm__count cm__filters-count" aria-live="polite">{{ crewRows.length }} of {{ o.crews.length }} crews</p>
+        </div>
+        <p *ngIf="!crewRows.length" class="cm__empty">No crew matches these filters.</p>
+        <div class="cm__table-wrap" *ngIf="crewRows.length">
+          <table class="cm__table">
+            <caption class="cm__sr">Crew board</caption>
+            <thead>
+              <tr>
+                <th scope="col" [attr.aria-sort]="crewSort === 'crew' ? 'ascending' : null"><button type="button" class="cm__sort" (click)="sortCrews('crew')">Crew</button></th>
+                <th scope="col">Crew type</th>
+                <th scope="col">Supervisor</th>
+                <th scope="col" [attr.aria-sort]="crewSort === 'status' ? 'ascending' : null"><button type="button" class="cm__sort" (click)="sortCrews('status')">Availability</button></th>
+                <th scope="col">Team</th>
+                <th scope="col" class="cm__num">In progress</th>
+                <th scope="col" class="cm__num" [attr.aria-sort]="crewSort === 'queued' ? 'descending' : null"><button type="button" class="cm__sort" (click)="sortCrews('queued')">Queued</button></th>
+                <th scope="col" class="cm__num" [attr.aria-sort]="crewSort === 'overdue' ? 'descending' : null"><button type="button" class="cm__sort" (click)="sortCrews('overdue')">Overdue open</button></th>
+                <th scope="col" class="cm__num">Open wells</th>
+                <th scope="col" class="cm__num">Completed</th>
+                <th scope="col" [attr.aria-sort]="crewSort === 'recent' ? 'ascending' : null"><button type="button" class="cm__sort" (click)="sortCrews('recent')">Last record</button></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of crewPageRows; trackBy: trackCrew">
+                <th scope="row">Crew {{ c.crew_id }}</th>
+                <td class="cm__wrap">{{ typeLabel(c.crew_type_code, c.crew_type_name, c.crew_type_id) }}</td>
+                <td>{{ c.supervisor || empty }}</td>
+                <td><ng-container *ngTemplateOutlet="availTpl; context: { $implicit: c.availability_status }"></ng-container></td>
+                <td>
+                  <ng-container *ngIf="c.members; else dash"><strong>{{ c.members }}</strong> <span class="cm__muted">{{ team(c) }}</span></ng-container>
+                </td>
+                <td class="cm__num">{{ c.in_progress_tasks }}</td>
+                <td class="cm__num">{{ c.queued_tasks }}</td>
+                <td class="cm__num"><span [class.cm__bad-text]="c.overdue_open_tasks">{{ c.overdue_open_tasks }}</span></td>
+                <td class="cm__num">{{ c.open_wells }}</td>
+                <td class="cm__num">{{ c.completed_tasks }}</td>
+                <td>{{ date(c.last_recorded_on) }}<span class="cm__muted" *ngIf="c.days_since_last_record"> · {{ days(c.days_since_last_record) }} before the latest</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="cm__pager" *ngIf="crewPages > 1">
+          <button type="button" class="btn btn-secondary btn-sm" (click)="crewPageIndex = crewPageIndex - 1" [disabled]="crewPageIndex === 0">Previous</button>
+          <span class="cm__count">Page {{ crewPageIndex + 1 }} of {{ crewPages }}</span>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="crewPageIndex = crewPageIndex + 1" [disabled]="crewPageIndex + 1 >= crewPages">Next</button>
+        </div>
+      </section>
+
+      <!-- Wells needing crews -->
+      <section class="cm__card" aria-labelledby="cm-wells-title">
+        <header class="cm__card-head">
+          <div>
+            <h3 id="cm-wells-title">Wells needing crews</h3>
+            <p>Live wells with delayed activities, most delayed first. Open one to see the crew on each activity and the free crews to approach.</p>
+          </div>
+          <ng-container *ngTemplateOutlet="lookupTpl; context: { id: 'cm-lookup' }"></ng-container>
+        </header>
+        <div class="cm__filters">
+          <div class="cm__field">
+            <label for="cm-well-q">Well</label>
+            <input id="cm-well-q" type="search" inputmode="numeric" [(ngModel)]="wellSearch" (ngModelChange)="applyWells()" placeholder="Well id" />
+          </div>
+          <p class="cm__count cm__filters-count" aria-live="polite">{{ wellRows.length }} of {{ o.wells.length }} wells</p>
+        </div>
+        <p *ngIf="!wellRows.length" class="cm__empty">No live well with delayed activities matches.</p>
+        <div class="cm__table-wrap" *ngIf="wellRows.length">
+          <table class="cm__table">
+            <caption class="cm__sr">Live wells with delayed activities</caption>
+            <thead>
+              <tr>
+                <th scope="col">Well</th><th scope="col" class="cm__num">Delayed activities</th><th scope="col" class="cm__num">No crew recorded</th>
+                <th scope="col" class="cm__num">Awaiting close-out</th><th scope="col" class="cm__num">Worst overdue</th>
+                <th scope="col">Expected rig-on</th><th scope="col">Last record</th><th scope="col"><span class="cm__sr">Open</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let w of wellPageRows; trackBy: trackWell">
+                <th scope="row"><button type="button" class="cm__id" (click)="openWell(w.well_id)">{{ w.well_id }}</button></th>
+                <td class="cm__num">{{ w.delayed_activities }}</td>
+                <td class="cm__num"><span [class.cm__bad-text]="w.without_recorded_crew">{{ w.without_recorded_crew }}</span></td>
+                <td class="cm__num">{{ w.awaiting_close_out }}</td>
+                <td class="cm__num">{{ days(w.max_days_overdue) }}</td>
+                <td>{{ date(w.ex_rig_on_date) }}</td>
+                <td>{{ date(w.last_recorded_on) }}</td>
+                <td class="cm__cell-action"><button type="button" class="btn btn-secondary btn-sm" (click)="openWell(w.well_id)">Crew plan</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="cm__pager" *ngIf="wellPages > 1">
+          <button type="button" class="btn btn-secondary btn-sm" (click)="wellPageIndex = wellPageIndex - 1" [disabled]="wellPageIndex === 0">Previous</button>
+          <span class="cm__count">Page {{ wellPageIndex + 1 }} of {{ wellPages }}</span>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="wellPageIndex = wellPageIndex + 1" [disabled]="wellPageIndex + 1 >= wellPages">Next</button>
+        </div>
+      </section>
+
+      <p class="cm__disclaimer">{{ o.rules.free_crew_definition }}</p>
+    </ng-container>
+  </ng-template>
+</div>

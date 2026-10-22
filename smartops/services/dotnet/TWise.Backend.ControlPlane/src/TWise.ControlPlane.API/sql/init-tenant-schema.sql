@@ -1224,6 +1224,7 @@ CREATE TABLE core.AiSettings (
     slippage_settings_json    nvarchar(max) NULL,
     dailyreport_settings_json nvarchar(max) NULL,
     anomaly_settings_json     nvarchar(max) NULL,
+    crew_settings_json        nvarchar(max) NULL,
     created_by         nvarchar(100)  NULL,
     created_at         datetime2      NOT NULL CONSTRAINT DF_core_AiSettings_created DEFAULT SYSUTCDATETIME(),
     modified_by        nvarchar(100)  NULL,

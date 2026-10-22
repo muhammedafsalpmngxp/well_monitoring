@@ -42,7 +42,7 @@ does nothing.
 
 | # | Script | Adds |
 |---|---|---|
-| 11 | `add-agentic-features-permission.sql` | Modules `agentic-ai.features`, `.slippage`, `.daily-report`, `.data-anomaly` and their role permissions |
+| 11 | `add-agentic-features-permission.sql` | Modules `agentic-ai.features`, `.slippage`, `.daily-report`, `.data-anomaly`, `.crew-management` and their role permissions |
 
 Users see the new menu items after their next login.
 

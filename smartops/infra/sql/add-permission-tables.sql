@@ -63,7 +63,8 @@ BEGIN
     ('agentic-ai.features',     'agentic-ai', 'Agentic Features', 'agentic-ai', 3, 1, 0, SYSUTCDATETIME(), SYSUTCDATETIME()),
     ('agentic-ai.slippage',     'agentic-ai', 'Slippage',     'agentic-ai', 4, 1, 0, SYSUTCDATETIME(), SYSUTCDATETIME()),
     ('agentic-ai.daily-report', 'agentic-ai', 'Daily Report', 'agentic-ai', 5, 1, 0, SYSUTCDATETIME(), SYSUTCDATETIME()),
-    ('agentic-ai.data-anomaly', 'agentic-ai', 'Data Anomaly', 'agentic-ai', 6, 1, 0, SYSUTCDATETIME(), SYSUTCDATETIME());
+    ('agentic-ai.data-anomaly', 'agentic-ai', 'Data Anomaly', 'agentic-ai', 6, 1, 0, SYSUTCDATETIME(), SYSUTCDATETIME()),
+    ('agentic-ai.crew-management', 'agentic-ai', 'Crew Management', 'agentic-ai', 7, 1, 0, SYSUTCDATETIME(), SYSUTCDATETIME());
 
     -- User & Role Management
     INSERT INTO control.FeatureModule (module_code, parent_code, display_name, feature_code, sort_order, is_active, is_deleted, created_at, modified_at) VALUES

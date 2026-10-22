@@ -30,6 +30,7 @@ public class AiSettings : BaseEntity
     public string? SlippageSettingsJson { get; set; }
     public string? DailyReportSettingsJson { get; set; }
     public string? AnomalySettingsJson { get; set; }
+    public string? CrewSettingsJson { get; set; }
 }
 
 /// <summary>

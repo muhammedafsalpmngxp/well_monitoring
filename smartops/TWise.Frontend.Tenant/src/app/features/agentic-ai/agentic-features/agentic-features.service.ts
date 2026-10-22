@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { API_ENDPOINTS } from '../../../core/constants/api.constants';
 
-/** One Agentic Feature on the landing page (only those the user may open). route: slippage | daily-report | data-anomaly. */
+/** One Agentic Feature on the landing page (only those the user may open). route: slippage | daily-report | data-anomaly | crew-management. */
 export interface AgenticFeatureSummary {
   feature: string; title: string; description: string; route: string; moduleCode: string;
   /** AI is switched on for the tenant (Settings → AI Providers). */
@@ -196,5 +196,23 @@ export class AgenticFeaturesService {
       });
       return () => s.unsubscribe();
     });
+  }
+
+  // ── Crew Management ─────────────────────────────────────────────────────────────────────────────────────────
+
+  /** Every crew and its availability, capacity vs delayed work per crew type, the wells needing crews (no AI).
+   *  fresh reads the fleet-wide results again instead of the server's short-lived cache. */
+  crewOverview<T = any>(fresh = false): Observable<T> {
+    return this.http.post<T>(`${this.api}${this.ep.CREW_MANAGEMENT}/overview`, { fresh });
+  }
+
+  /** One well's delayed activities, the crew on each and the free crews to approach (no AI). */
+  crewWell<T = any>(wellId: string, fresh = false): Observable<T> {
+    return this.http.post<T>(`${this.api}${this.ep.CREW_MANAGEMENT}/well`, { wellId, fresh });
+  }
+
+  /** The well's crew plan with an AI brief (the tenant's AI provider and quota). */
+  crewBrief<T = any>(wellId: string): Observable<T> {
+    return this.http.post<T>(`${this.api}${this.ep.CREW_MANAGEMENT}/brief`, { wellId, fresh: false });
   }
 }

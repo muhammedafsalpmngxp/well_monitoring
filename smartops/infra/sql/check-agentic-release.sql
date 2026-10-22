@@ -31,6 +31,7 @@ FROM (VALUES
     ('add-agentic-features.sql',     'core.AiFeatureQuery',                CASE WHEN OBJECT_ID('core.AiFeatureQuery', 'U') IS NULL THEN 0 ELSE 1 END),
     ('add-agentic-features.sql',     'core.AnomalyRule',                   CASE WHEN OBJECT_ID('core.AnomalyRule', 'U') IS NULL THEN 0 ELSE 1 END),
     ('add-agentic-features.sql',     'core.AiSettings.anomaly_settings_json', CASE WHEN COL_LENGTH('core.AiSettings', 'anomaly_settings_json') IS NULL THEN 0 ELSE 1 END),
+    ('add-agentic-features.sql',     'core.AiSettings.crew_settings_json', CASE WHEN COL_LENGTH('core.AiSettings', 'crew_settings_json') IS NULL THEN 0 ELSE 1 END),
     ('add-ai-agents.sql',            'core.AiAgents',                      CASE WHEN OBJECT_ID('core.AiAgents', 'U') IS NULL THEN 0 ELSE 1 END),
     ('add-ai-agents.sql',            'core.AiAgents.custom_tools_json',    CASE WHEN COL_LENGTH('core.AiAgents', 'custom_tools_json') IS NULL THEN 0 ELSE 1 END),
     ('add-ai-agents.sql',            'core.AiAgents.notes_json',           CASE WHEN COL_LENGTH('core.AiAgents', 'notes_json') IS NULL THEN 0 ELSE 1 END),
@@ -52,6 +53,6 @@ ORDER BY CASE WHEN c.present = 1 THEN 1 ELSE 0 END, c.script;
 
 -- ── Control-plane database (run separately on it, e.g. smartops_control_plane) ──
 -- SELECT module_code, CASE WHEN COUNT(*) > 0 THEN 'ok' ELSE 'MISSING' END AS status
--- FROM (VALUES ('agentic-ai.features'), ('agentic-ai.slippage'), ('agentic-ai.daily-report'), ('agentic-ai.data-anomaly')) m(module_code)
+-- FROM (VALUES ('agentic-ai.features'), ('agentic-ai.slippage'), ('agentic-ai.daily-report'), ('agentic-ai.data-anomaly'), ('agentic-ai.crew-management')) m(module_code)
 -- LEFT JOIN control.FeatureModule f ON f.module_code = m.module_code AND f.is_deleted = 0
 -- GROUP BY m.module_code;   -- MISSING → add-agentic-features-permission.sql
