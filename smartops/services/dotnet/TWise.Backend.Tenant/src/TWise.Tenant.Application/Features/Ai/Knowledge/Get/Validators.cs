@@ -10,7 +10,8 @@ public sealed class GetAiDatasetNotesQueryValidator : AbstractValidator<GetAiDat
 
 public sealed class GetAiDatasetMetricsQueryValidator : AbstractValidator<GetAiDatasetMetricsQuery>
 {
-    public GetAiDatasetMetricsQueryValidator() => RuleFor(x => x.SourceType).Must(AiSources.IsSourceType).WithMessage(AiSources.Message);
+    public GetAiDatasetMetricsQueryValidator() =>
+        RuleFor(x => x.SourceType).Must((x, s) => AiSources.IsKnowledgeSource(s, x.SourceId)).WithMessage(AiSources.KnowledgeMessage);
 }
 
 public sealed class GetAiDatasetTermsQueryValidator : AbstractValidator<GetAiDatasetTermsQuery>
@@ -21,10 +22,12 @@ public sealed class GetAiDatasetTermsQueryValidator : AbstractValidator<GetAiDat
 
 public sealed class GetAiNoteProposalsQueryValidator : AbstractValidator<GetAiNoteProposalsQuery>
 {
-    public GetAiNoteProposalsQueryValidator() => RuleFor(x => x.SourceType).Must(AiSources.IsSourceType).WithMessage(AiSources.Message);
+    public GetAiNoteProposalsQueryValidator() =>
+        RuleFor(x => x.SourceType).Must((x, s) => AiSources.IsKnowledgeSource(s, x.SourceId)).WithMessage(AiSources.KnowledgeMessage);
 }
 
 public sealed class GetAiExamplesQueryValidator : AbstractValidator<GetAiExamplesQuery>
 {
-    public GetAiExamplesQueryValidator() => RuleFor(x => x.SourceType).Must(AiSources.IsSourceType).WithMessage(AiSources.Message);
+    public GetAiExamplesQueryValidator() =>
+        RuleFor(x => x.SourceType).Must((x, s) => AiSources.IsKnowledgeSource(s, x.SourceId)).WithMessage(AiSources.KnowledgeMessage);
 }

@@ -32,6 +32,26 @@ class ColumnNote(NamedTuple):
     note: str = ""
 
 
+class Metric(NamedTuple):
+    """A shared KPI definition (tools/knowledge.py): agg (count, countDistinct, sum, avg, min, max) of a column."""
+    name: str
+    agg: str
+    column: str = ""
+    description: str = ""
+
+
+class Example(NamedTuple):
+    """A question and the SQL that answered it, liked by a user and approved by an admin."""
+    question: str
+    sql: str
+
+
+class Link(NamedTuple):
+    """A join an admin confirmed where the database has no foreign key: "schema.table.column" -> "schema.table.column"."""
+    from_column: str
+    to_column: str
+
+
 @dataclass(frozen=True)
 class AskDataSettings:
     """Per-run limits and visibility: the tenant's Ask Data settings (AI Settings > Ask Data & Features, sent by the Tenant API),
@@ -49,6 +69,9 @@ class AskDataSettings:
     export_prefix: str = "ask-data"
     terms: tuple[Term, ...] = ()
     notes: tuple[ColumnNote, ...] = ()
+    metrics: tuple[Metric, ...] = ()
+    examples: tuple[Example, ...] = ()
+    links: tuple[Link, ...] = ()
     # Export (tools/export.py): full re-read of an answer's SQL, no model call.
     export_max_rows: int = 1_000_000
     export_query_timeout: int = 600

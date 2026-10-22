@@ -22,8 +22,8 @@ from app.askdata.nodes._common import answer_steps
 from app.askdata.prompts import KEYS as PROMPT_KEYS, build_prompts, knowledge
 from app.prompt_text import missing
 from app.askdata.tools import export as export_svc
-from app.askdata.settings import AskDataRun, AskDataSettings, ColumnNote, DbTarget, Term, run_context
-from app.askdata.tools import column_profile, suggest, value_match
+from app.askdata.settings import AskDataRun, AskDataSettings, ColumnNote, DbTarget, Example, Link, Metric, Term, run_context
+from app.askdata.tools import column_profile, links as table_links, suggest, value_match
 from app.askdata.tools.knowledge import annotate as annotate_notes, known_words
 from app.askdata.tools.schema_introspect import _cache_path, _value_cache_path, build_schema_text, build_value_hints
 
@@ -145,10 +145,9 @@ def ask(question: str, history: list[dict[str, str]], *, mode: str, options: Any
         profiles = column_profile.current()
         # The tenant's column names and notes (AI Settings > Ask Data & Features > Terms & column names) go after the
         # profiles; a term's words and a business name are definitions, not values to look up.
-        schema = annotate_notes(column_profile.annotate(_schema(run), profiles), settings.notes)
+        schema = annotate_notes(column_profile.annotate(_schema(run), profiles), settings.notes, settings.links)
         if profiles:
-            run.value_matches = value_match.start(question, schema, profiles,
-                                                  known_words(question, settings.terms, settings.notes))
+            run.value_matches = value_match.start(question, schema, profiles, known_words(question, settings))
         route: list[tuple[str, float, list, dict]] = []    # for the log: node, seconds, AI calls, what it returned
         # Each label below is sent when its node finishes; this one covers the first node while it runs.
         yield {"event": "status", "data": {"stage": STAGE_LABELS["orchestrator"]}}
@@ -193,6 +192,14 @@ def _suggestions(question: str, response: dict[str, Any], profiles: dict, notes:
     if response.get("route") == "sql" and found and suggest.reads_tables(response.get("sql") or ""):
         return {"follow_ups": suggest.follow_ups(response.get("sql") or "", profiles, notes)}
     return {"suggestions": [q for q in suggest.starters(profiles, notes, schema) if q.lower() != question.strip().lower()]}
+
+
+def links(db: Any, tenant: Any) -> list[dict]:
+    """Suggested table links from the cached column profiles ([] until the first build finishes, which this starts)."""
+    run = AskDataRun(settings=settings_for(None, tenant), db=target(db))
+    with run_context(run):
+        profiles = column_profile.current()
+        return table_links.suggest(profiles, _schema(run)) if profiles else []
 
 
 def starters(db: Any, tenant: Any) -> list[str]:
@@ -269,7 +276,11 @@ def settings_for(options: Any, tenant: Any = None) -> AskDataSettings:
                          (t.value or "").strip(), (t.meaning or "").strip())
                     for t in tenant.terms or () if t.term.strip()),
         notes=tuple(ColumnNote(n.column.strip().lower(), (n.display_name or "").strip(), (n.note or "").strip())
-                    for n in tenant.notes or () if n.column.strip()))
+                    for n in tenant.notes or () if n.column.strip()),
+        metrics=tuple(Metric(m.name.strip(), m.agg.strip(), (m.column or "").strip(), (m.description or "").strip())
+                      for m in tenant.metrics or () if m.name.strip()),
+        examples=tuple(Example(e.question.strip(), e.sql.strip()) for e in tenant.examples or ()),
+        links=tuple(Link(k.from_.strip(), k.to.strip()) for k in tenant.links or ()))
 
 
 def target(db: Any) -> DbTarget:

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai;
 using TWise.Tenant.Application.Features.Ai.AskDataSettings;
@@ -42,7 +43,7 @@ public sealed partial class AiAskService
         yield return new AiAskEvent("status", "Understanding your question…");
         // What Ask Data may read and its limits come from the tenant's AI Settings; so does how much history it keeps.
         // ... with the tenant's business terms and column names (Terms & column names).
-        var askData = await AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, tenantId, ct);
+        var askData = await AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, cache, tenantId, ct);
         var texts = AiPromptCatalog.RuntimeTexts(await prompts.GetAsync(tenantId, ct));
         await foreach (var ev in Guarded(runtime.AskDataAsync(question, history.TakeLast(askData.HistoryTurns).ToList(), llm, texts, askData, ct), m => failed = m, ct))
         {
@@ -87,6 +88,8 @@ public sealed partial class AiAskService
         if (Result(d) is { } result)
         {
             yield return new AiAskEvent("result", result with { Labels = AskDataLabels(result.Columns, askData.Notes) });
+            // A chart for the panel: the runtime's when the question asked for one, else read from the answer's groups.
+            if (AskDataChart(d, sql, result, question) is { } chart) yield return new AiAskEvent("chartspec", chart);
             // Highest and lowest group, shares, ties and blanks, worked out in code from the answer's own rows.
             if (AskDataInsights.Spec(sql, result) is { } shape && Insights.Find(shape, result) is { Count: > 0 } findings)
                 yield return new AiAskEvent("insights", findings);
@@ -135,14 +138,90 @@ public sealed partial class AiAskService
     /// and the report is worked out from those rows.</summary>
     private async Task<AiInsightReportDto> AskDataReportAsync(AiConversation conv, AiChatMessage msg, long tenantId, long userId, CancellationToken ct)
     {
-        var saved = await conversations.GetTraceAsync(msg.Id, ct);
-        var sql = AskDataInsights.AcceptedSql(saved is null ? null : JsonSerializer.Deserialize<List<AiTraceStep>>(saved.TraceJson, Json))
+        var sql = await AnsweredSqlAsync(msg.Id, ct)
             ?? throw new InvalidOperationException("This answer has no query to report on (an answer's steps are kept 30 days).");
-        var askData = await AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, tenantId, ct);
+        var askData = await AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, cache, tenantId, ct);
         var result = Result(await runtime.AskDataRowsAsync(sql, askData, ct))
             ?? throw new InvalidOperationException(NeedsGroups);
         var shape = AskDataInsights.Spec(sql, result) ?? throw new InvalidOperationException(NeedsGroups);
         return await ReportFromAsync(conv, msg, shape, result with { Labels = AskDataLabels(result.Columns, askData.Notes) }, sql, tenantId, userId, ct);
+    }
+
+    public async Task<AskDataViewDto?> SaveAskDataViewAsync(long messageId, long tenantId, long userId, CancellationToken ct)
+    {
+        if (!await FeatureOnAsync(tenantId, AiFeatureCatalog.Chart, ct))
+            throw new InvalidOperationException("Charts from answers are not enabled for your role. An admin can grant them under Settings → AI Features.");
+        var (msg, conv) = await OwnedAssistantMessageAsync(messageId, tenantId, userId, ct);
+        if (msg is null || conv is null || conv.SourceType != AskDataSource) return null;
+        var sql = await AnsweredSqlAsync(msg.Id, ct)
+            ?? throw new InvalidOperationException("This answer has no query to chart (an answer's steps are kept 30 days).");
+        // Checked again like an export (it must still be allowed) and run once, for its columns and chart.
+        var askData = await AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, cache, tenantId, ct);
+        var result = Result(await runtime.AskDataRowsAsync(sql, askData, ct))
+            ?? throw new InvalidOperationException("This answer has no rows to chart.");
+        var question = (await conversations.GetMessagesAsync(conv.Id, ct)).LastOrDefault(m => m.Role == "user" && m.Id < msg.Id)?.Content ?? conv.Title;
+        var shape = AskDataInsights.Spec(sql, result, minRows: 2);
+        var chartType = AskDataInsights.BuilderType(AskDataInsights.Chart(sql, result, question));
+
+        // One view per answer: its name starts with the answer's id, so a second click reuses it.
+        var prefix = $"Ask Data #{msg.Id}";
+        var saved = (await views.GetAllAsync(tenantId, "view", ct)).FirstOrDefault(v => v.ViewName == prefix || v.ViewName.StartsWith(prefix + ":", StringComparison.Ordinal));
+        if (saved is null)
+        {
+            var connection = await AskDataConnectionAsync(tenantId, ct)
+                ?? throw new InvalidOperationException("No data source points at the Ask Data database. An admin can add it under Settings → Data Sources.");
+            var name = $"{prefix}: {question}";
+            var tables = System.Text.RegularExpressions.Regex.Matches(sql, @"(?:from|join)\s+\[?(\w+)\]?\.\[?(\w+)\]?", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                .Select(m => $"{m.Groups[1].Value}.{m.Groups[2].Value}").Distinct(StringComparer.OrdinalIgnoreCase);
+            var view = await views.CreateAsync(new CreateDatabaseViewRequest(connection, name.Length > 128 ? name[..128] : name,
+                $"Saved from Ask your data: {question}"[..Math.Min(500, 26 + question.Length)], false, "[]", "{}", "[]", null, null, sql, sql,
+                string.Join(",", tables), result.Columns.Count), userId, tenantId, ct);
+            return new AskDataViewDto(view.Id, view.ViewName, chartType, shape?.GroupBy?[0], shape?.Measures?[0].Column);
+        }
+        return new AskDataViewDto(saved.Id, saved.ViewName, chartType, shape?.GroupBy?[0], shape?.Measures?[0].Column);
+    }
+
+    /// <summary>The tenant's data source for the Ask Data database: same server (any port) and database name.</summary>
+    private async Task<long?> AskDataConnectionAsync(long tenantId, CancellationToken ct)
+    {
+        var (server, database) = runtime.AskDataDatabase();
+        static string Host(string s) => s.Replace("tcp:", "", StringComparison.OrdinalIgnoreCase).Split(',')[0].Trim();
+        return (await connections.GetAllAsync(tenantId, ct))
+            .FirstOrDefault(c => c.IsActive && !c.IsDeleted && string.Equals(Host(c.Server), server, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(c.DatabaseName, database, StringComparison.OrdinalIgnoreCase))?.Id;
+    }
+
+    /// <summary>The runtime's chart (only when the question asked for one), else one read from the answer's groups.</summary>
+    private static AskDataChartDto? AskDataChart(JsonElement done, string? sql, AiQueryResult result, string question)
+    {
+        if (done.TryGetProperty("chart", out var c) && c.ValueKind == JsonValueKind.Object && Str(c, "type") is "bar" or "line" or "donut"
+            && c.TryGetProperty("labels", out var l) && l.ValueKind == JsonValueKind.Array && c.TryGetProperty("series", out var s) && s.ValueKind == JsonValueKind.Array)
+            return new AskDataChartDto(Str(c, "type")!, Str(c, "title") ?? question, l.EnumerateArray().Select(x => x.ToString()).ToList(),
+                s.EnumerateArray().Select(x => new AskDataChartSeriesDto(Str(x, "name") ?? "",
+                    x.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Array ? d.EnumerateArray().Select(v => v.TryGetDouble(out var n) ? n : 0).ToList() : [])).ToList(),
+                Str(c, "x_axis"), Str(c, "y_axis"));
+        return AskDataInsights.Chart(sql, result, question);
+    }
+
+    /// <summary>The SQL an Ask Data answer was built from, from its saved steps (kept 30 days); null when gone.</summary>
+    private async Task<string?> AnsweredSqlAsync(long messageId, CancellationToken ct)
+    {
+        var saved = await conversations.GetTraceAsync(messageId, ct);
+        return AskDataInsights.AcceptedSql(saved is null ? null : JsonSerializer.Deserialize<List<AiTraceStep>>(saved.TraceJson, Json));
+    }
+
+    /// <summary>A liked Ask Data answer is also read for column notes an admin may approve (rules learned from good
+    /// answers), over the columns of the tables its SQL reads.</summary>
+    private async Task QueueAskDataExtractionAsync(AiConversation conv, string question, string sql, long tenantId, long userId, CancellationToken ct)
+    {
+        var tables = System.Text.RegularExpressions.Regex.Matches(sql, @"(?:from|join)\s+\[?(\w+)\]?\.\[?(\w+)\]?", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Select(m => $"{m.Groups[1].Value}.{m.Groups[2].Value}").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        using var scope = scopes.CreateScope();
+        var catalog = await scope.ServiceProvider.GetRequiredService<IAskDataCatalogReader>().ReadAsync(ct);
+        var columns = catalog.Schemas.SelectMany(s => s.Tables.Where(t => tables.Contains($"{s.Name}.{t.Name}")).SelectMany(t => t.Columns.Select(c => $"{s.Name}.{t.Name}.{c}"))).ToList();
+        if (columns.Count == 0) return;
+        var notes = await knowledge.GetNotesAsync(tenantId, AiSources.AskData, 0, ct);
+        QueueExtraction(tenantId, userId, AiSources.AskData, 0, AskDataName, question, sql, columns, notes, requireColumn: true);
     }
 
     /// <summary>Earlier turns as the runtime expects them: {user, assistant} pairs, oldest first.</summary>

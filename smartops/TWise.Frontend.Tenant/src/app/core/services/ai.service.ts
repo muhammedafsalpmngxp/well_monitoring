@@ -180,7 +180,12 @@ export interface AiMetric { name: string; agg: string; column: string | null; de
 /** A business word for a dataset: a filter (column = value) and/or a free-text meaning. Synonyms comma separated. */
 /** liked/disliked = a user's rating; approved/rejected = the AI's review or an admin; pending = review not done. */
 export type AiExampleStatus = 'liked' | 'approved' | 'pending' | 'rejected' | 'disliked';
-export interface AiExample { id: number; messageId: number; question: string; status: AiExampleStatus; review: string | null; createdAt: string }
+/** A chart for an Ask Data answer: the runtime's when the question asked for one, else read from its groups. */
+export interface AskDataChart { type: 'bar' | 'line' | 'donut'; title: string; labels: string[]; series: { name: string; data: number[] }[]; xAxis: string | null; yAxis: string | null }
+/** The data source an Ask Data answer was saved as, and how the Chart Builder should chart it. */
+export interface AskDataView { viewId: number; viewName: string; chartType: string; xAxis: string | null; measure: string | null }
+/** sql: an Ask Data example's query (Ask Data answers have no spec). */
+export interface AiExample { id: number; messageId: number; question: string; status: AiExampleStatus; review: string | null; createdAt: string; sql?: string | null }
 /** One step behind an answer; prompt and reply only for AI calls. */
 export interface AiTraceStep { step: 'load' | 'context' | 'ask' | 'query' | 'rejected' | 'answer'; ms: number; detail: string | null; prompt: { role: string; content: string }[] | null; reply: string | null }
 export interface AiTerm { term: string; synonyms: string | null; column: string | null; value: string | null; meaning: string | null }
@@ -235,6 +240,7 @@ export type AiAskEvent =
   | { type: 'done'; data: { conversationId: number; sourceName: string; messageId: number } | { cached: boolean } | null }
   | { type: 'suggestions'; data: string[] }
   | { type: 'followups'; data: string[] }
+  | { type: 'chartspec'; data: AskDataChart }
   | { type: 'clarify'; data: AiClarification }
   | { type: 'insights'; data: string[] }
   | { type: 'trace'; data: AiTraceStep[] }
@@ -387,6 +393,26 @@ export class AiService {
     return this.http.get<string[]>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_STARTERS}`);
   }
 
+  /** Saves an own Ask Data answer as a data source (once per answer) so it can be charted or put on a dashboard. */
+  saveAskDataView(messageId: number): Observable<AskDataView> {
+    return this.http.post<AskDataView>(`${this.api}/ai/messages/${messageId}/askdata-view`, {});
+  }
+
+  /** Admin: Ask Data's table links (joins where the database has no foreign key). */
+  askDataLinks(): Observable<AiRelation[]> {
+    return this.http.get<AiRelation[]>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_LINKS}`);
+  }
+
+  /** Admin: suggests links from what the tables hold (no AI call); returns every link. */
+  scanAskDataLinks(): Observable<AiRelation[]> {
+    return this.http.post<AiRelation[]>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_LINKS_SCAN}`, {});
+  }
+
+  /** Admin: a confirmed link, "schema.table.column" each. */
+  addAskDataLink(from: string, to: string): Observable<AiRelation> {
+    return this.http.post<AiRelation>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_LINKS}`, { from, to });
+  }
+
   askDataCatalog(): Observable<AskDataCatalog> {
     return this.http.get<AskDataCatalog>(`${this.api}${API_ENDPOINTS.AI.ASK_DATA_CATALOG}`);
   }
@@ -469,7 +495,7 @@ export class AiService {
   }
 
   /** Admin: examples learned for a dataset (liked first), with their review status. */
-  examples(sourceType: AiSourceType, sourceId: number): Observable<AiExample[]> {
+  examples(sourceType: AiKnowledgeSource, sourceId: number): Observable<AiExample[]> {
     return this.http.get<AiExample[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_EXAMPLES(sourceType, sourceId)}`);
   }
 
@@ -486,7 +512,7 @@ export class AiService {
     return this.http.get<AiDatasetNote[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_NOTES(sourceType, sourceId)}`);
   }
 
-  metrics(sourceType: AiSourceType, sourceId: number): Observable<AiMetric[]> {
+  metrics(sourceType: AiKnowledgeSource, sourceId: number): Observable<AiMetric[]> {
     return this.http.get<AiMetric[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_METRICS(sourceType, sourceId)}`);
   }
 
@@ -505,12 +531,12 @@ export class AiService {
   }
 
   /** Admin: replaces the dataset's metrics. */
-  saveMetrics(sourceType: AiSourceType, sourceId: number, metrics: AiMetric[]): Observable<AiMetric[]> {
+  saveMetrics(sourceType: AiKnowledgeSource, sourceId: number, metrics: AiMetric[]): Observable<AiMetric[]> {
     return this.http.put<AiMetric[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_METRICS(sourceType, sourceId)}`, metrics);
   }
 
   /** Admin: pending AI-extracted proposals for a dataset. */
-  proposals(sourceType: AiSourceType, sourceId: number): Observable<AiNoteProposal[]> {
+  proposals(sourceType: AiKnowledgeSource, sourceId: number): Observable<AiNoteProposal[]> {
     return this.http.get<AiNoteProposal[]>(`${this.api}${API_ENDPOINTS.AI.DATASET_PROPOSALS(sourceType, sourceId)}`);
   }
 

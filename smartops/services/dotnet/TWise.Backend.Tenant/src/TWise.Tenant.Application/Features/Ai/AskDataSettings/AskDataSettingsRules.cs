@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Caching.Memory;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai.Knowledge;
@@ -55,19 +56,58 @@ public static partial class AskDataSettingsRules
             s.ModifiedAt == default ? null : DateTime.SpecifyKind(s.ModifiedAt, DateTimeKind.Utc));
     }
 
-    /// <summary>The settings with the tenant's Ask Data business terms and column names (AI Settings → Ask Data & Features →
-    /// Terms & column names), which every Ask Data run applies: the panel's and agents' Ask Data steps.</summary>
+    /// <summary>How long a tenant's Ask Data knowledge is kept between questions: it is 5 reads of the tenant database.</summary>
+    public static readonly TimeSpan KnowledgeTtl = TimeSpan.FromSeconds(30);
+    /// <summary>Approved examples sent with a run; the runtime picks the few most like the question.</summary>
+    public const int MaxExamples = 50;
+
+    private sealed record Knowledge(IReadOnlyList<AgentRuntimeTerm> Terms, IReadOnlyList<AgentRuntimeColumnNote> Notes,
+        IReadOnlyList<AgentRuntimeMetric> Metrics, IReadOnlyList<AgentRuntimeExample> Examples, IReadOnlyList<AgentRuntimeLink> Links);
+
+    /// <summary>The settings with the tenant's Ask Data knowledge (AI Settings → Ask Data & Features → Terms & column names):
+    /// business terms, column names, metrics, approved examples and confirmed table links. Every Ask Data run applies them
+    /// (the panel's and agents' Ask Data steps); changes reach it within <see cref="KnowledgeTtl"/>.</summary>
     public static async Task<AgentRuntimeAskData> WithKnowledgeAsync(this AgentRuntimeAskData askData, IAiKnowledgeRepository knowledge,
-        long tenantId, CancellationToken ct)
+        IMemoryCache cache, long tenantId, CancellationToken ct)
+    {
+        var k = (await cache.GetOrCreateAsync($"askdata-knowledge:{tenantId}", async e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = KnowledgeTtl;
+            return await LoadKnowledgeAsync(knowledge, tenantId, ct);
+        }))!;
+        return askData with { Terms = k.Terms, Notes = k.Notes, Metrics = k.Metrics, Examples = k.Examples, Links = k.Links };
+    }
+
+    private static async Task<Knowledge> LoadKnowledgeAsync(IAiKnowledgeRepository knowledge, long tenantId, CancellationToken ct)
     {
         var terms = await knowledge.GetTermsAsync(tenantId, AiSources.AskData, 0, ct) ?? [];
         var notes = await knowledge.GetNotesAsync(tenantId, AiSources.AskData, 0, ct) ?? [];
-        return askData with
-        {
-            Terms = terms.Select(t => new AgentRuntimeTerm(t.Term, AiKnowledgeRules.Synonyms(t.Synonyms), t.ColumnName, t.Value, t.Meaning)).ToList(),
-            Notes = notes.Where(n => !string.IsNullOrWhiteSpace(n.ColumnName))
+        var metrics = await knowledge.GetMetricsAsync(tenantId, AiSources.AskData, 0, ct) ?? [];
+        var examples = await knowledge.GetExamplesAsync(tenantId, AiSources.AskData, 0, ct) ?? [];
+        var links = await knowledge.GetRelationsAsync(tenantId, ct) ?? [];
+        return new Knowledge(
+            terms.Select(t => new AgentRuntimeTerm(t.Term, AiKnowledgeRules.Synonyms(t.Synonyms), t.ColumnName, t.Value, t.Meaning)).ToList(),
+            notes.Where(n => !string.IsNullOrWhiteSpace(n.ColumnName))
                 .Select(n => new AgentRuntimeColumnNote(n.ColumnName!, n.DisplayName, string.IsNullOrWhiteSpace(n.Note) ? null : n.Note)).ToList(),
-        };
+            metrics.Select(m => new AgentRuntimeMetric(m.Name, m.Agg, m.ColumnName, m.Description)).ToList(),
+            examples.Where(e => e.Status == AiExampleStatus.Approved).OrderByDescending(e => e.CreatedAt).Take(MaxExamples)
+                .Select(e => ExampleSql(e.QuerySpecJson) is { } sql ? new AgentRuntimeExample(e.Question, sql) : null).OfType<AgentRuntimeExample>().ToList(),
+            links.Where(r => r.FromType == AiSources.AskData && r.Status == DatasetRelations.Confirmed)
+                .Select(r => new AgentRuntimeLink($"{r.FromName}.{r.FromColumn}", $"{r.ToName}.{r.ToColumn}")).ToList());
+    }
+
+    /// <summary>An Ask Data example is stored as {"sql": "..."} in the example's query column (it has no spec).</summary>
+    public static string ExampleJson(string sql) => JsonSerializer.Serialize(new { sql });
+
+    public static string? ExampleSql(string? json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json ?? "");
+            return doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("sql", out var s) && s.ValueKind == JsonValueKind.String
+                ? s.GetString() : null;
+        }
+        catch (JsonException) { return null; }
     }
 
     /// <summary>What the runtime gets with every Ask Data run. No settings row = not set up (no schemas): it refuses.</summary>

@@ -110,6 +110,26 @@ class AskDataColumnNote(_Camel):
     note: str | None = None
 
 
+class AskDataMetric(_Camel):
+    """A shared KPI definition: agg (count, countDistinct, sum, avg, min, max) of a "schema.table.column"."""
+    name: str = Field(min_length=1, max_length=100)
+    agg: str
+    column: str | None = None
+    description: str | None = None
+
+
+class AskDataExample(_Camel):
+    """A question and the SQL that answered it, approved by an admin."""
+    question: str = Field(min_length=1, max_length=2000)
+    sql: str = Field(min_length=1, max_length=20_000)
+
+
+class AskDataLink(_Camel):
+    """A confirmed join: "schema.table.column" (from) -> "schema.table.column" (to)."""
+    from_: str = Field(alias="from", min_length=1, max_length=400)
+    to: str = Field(min_length=1, max_length=400)
+
+
 class AskDataTenantSettings(_Camel):
     """The tenant's Ask Data settings (core.AiSettings, AI Settings > Ask Data & Features), sent by the Tenant API with every run that
     uses Ask Data. The runtime has no schema, table or column names of its own: no allowed schemas = not set up."""
@@ -126,6 +146,9 @@ class AskDataTenantSettings(_Camel):
     export_prefix: str = "ask-data"      # start of exported file names
     terms: list[AskDataTerm] = []        # the business term dictionary
     notes: list[AskDataColumnNote] = []  # column and table names and notes
+    metrics: list[AskDataMetric] = []    # the metrics library
+    examples: list[AskDataExample] = []  # learned examples (approved)
+    links: list[AskDataLink] = []        # confirmed table links
 
 
 class AgentOutput(_Camel):
@@ -286,6 +309,12 @@ class AskDataAskRequest(_Camel):
 class AskDataRowsRequest(_Camel):
     """An Ask Data answer's SQL run again for its insight report (checked like an export)."""
     sql: str = Field(min_length=1, max_length=20_000)
+    db: Db
+    ask_data_settings: AskDataTenantSettings | None = None
+
+
+class AskDataLinksRequest(_Camel):
+    """Suggested table links from the column profiles (no AI call)."""
     db: Db
     ask_data_settings: AskDataTenantSettings | None = None
 

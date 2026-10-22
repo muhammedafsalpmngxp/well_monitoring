@@ -127,6 +127,10 @@ public static partial class AiPromptCatalog
         M("business_term_meaning", "Business term: meaning", "One term defined in plain words."),
         M("column_called", "Column business name", "Added to a column's schema line: what people call it."),
         M("table_note", "Table note line", "The line under a table in the schema with its business name and note."),
+        M("metrics", "Metrics block", "The metrics a question names (Ask Data & Features > Terms & column names), for the orchestrator, SQL author and verifier."),
+        M("metric", "Metric line", "One metric: its name and SQL formula."),
+        M("learned_examples", "Learned examples block", "Approved examples most like the question, for the SQL author."),
+        M("learned_example", "Learned example", "One approved example: the question and its SQL."),
 
         // ── Agents (agent runtime) ────────────────────────────────────────────────────────────────────────────
         G("agent.supervisor", "Supervisor", "Supervisor agents: picks the next step, or FINISH.", "next"),

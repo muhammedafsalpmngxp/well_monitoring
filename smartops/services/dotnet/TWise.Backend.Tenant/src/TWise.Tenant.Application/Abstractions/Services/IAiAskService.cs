@@ -53,6 +53,12 @@ public interface IAiAskService
 
     /// <summary>AI switched on for the tenant and the feature granted to one of the current user's roles.</summary>
     Task<bool> FeatureOnAsync(long tenantId, string featureKey, CancellationToken ct);
+
+    /// <summary>Saves an own Ask Data answer's SQL as a data source (a database view on the tenant's connection to the Ask
+    /// Data database), checked again like an export, so it can be charted or put on a dashboard. Reuses the view saved for
+    /// that answer before. Null when the message is not an own Ask Data answer; InvalidOperationException with the reason
+    /// when it cannot be saved.</summary>
+    Task<AskDataViewDto?> SaveAskDataViewAsync(long messageId, long tenantId, long userId, CancellationToken ct);
 }
 
 public interface IAiAlertRepository

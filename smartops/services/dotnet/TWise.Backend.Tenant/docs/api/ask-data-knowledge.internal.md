@@ -85,3 +85,49 @@ refuse `askdata`.
   - The runtime's done response carries `timeline` [{node, seconds, input, output}] from the route log.
   - The Tenant API adds one trace step per entry ("Step N", ms, "node · AI in / out tokens").
 - **UI:** the "Insight report" link also shows for Ask Data answers with SQL and key findings (and at least 3 rows).
+
+## Learned examples, metrics, table links
+
+- **Storage, with no new tables.**
+  - `core.AiExamples` holds source askdata/0. `query_spec_json` is `{"sql": "..."}` (`AskDataSettingsRules.ExampleJson` / `ExampleSql`); `AiExampleDto.Sql` carries it.
+  - `core.AiMetrics` holds askdata/0, with the column as `schema.table.column`.
+  - `core.AiDatasetRelations` has `from_type = to_type = 'askdata'`, ids 0, the names `schema.table` and the bare columns.
+  - The dataset graph (`GET relations`) leaves these out.
+- **Likes:**
+  - `LikeAsync` and `DislikeAsync` accept askdata conversations (`Rateable`).
+  - A like stores `pending`, and the SQL comes from the saved trace (`AnsweredSqlAsync`).
+  - A like then queues `QueueAskDataExtractionAsync`, which uses the shared `QueueExtraction` with the SQL as the query and `requireColumn`. Its columns are the catalog columns of the tables the SQL reads; approving a proposal upserts the askdata note.
+- **Knowledge for a run:**
+  - `WithKnowledgeAsync(knowledge, cache, tenantId)` loads terms, notes, metrics, approved examples (newest 50) and confirmed links in 5 reads.
+  - The bundle is cached per tenant for `KnowledgeTtl` (30 s), so a question doesn't pay those round trips each time; admin changes apply within 30 s.
+  - Callers: the panel, the report, agent runs, starters and the link scan.
+- **Runtime:**
+  - `settings.Metric` / `Example` / `Link`.
+  - `knowledge.definitions`: terms plus the metrics a question names (`formula`: COUNT(*), COUNT(DISTINCT c), SUM(c), …) for the orchestrator, SQL Author and verifier.
+  - `knowledge.examples_block`: up to 3 approved examples sharing the most content words with the question, for the SQL Author.
+  - `knowledge.annotate(..., links)`: a confirmed link becomes an `  FK: col -> schema.table.col` line in the from-table's block, only when both tables and columns are shown and no FK exists either way. `sqlcheck` and the starter ranking read it like a real FK.
+  - Texts: `askdata.msg.metrics`, `metric`, `learned_examples`, `learned_example`.
+- **Link suggestions:**
+  - `tools/links.py`, behind `POST /askdata/links`.
+  - Candidates are key-like column names (`*_id`, `*_code`, `*_no`, `*_num`, `*_key`; not `id` or `pk_*`) found in two or more tables, pointing to the base table where the values are unique (the biggest such table).
+  - Pairs an FK already joins are skipped, and so are numbers outside the target's min/max.
+  - Overlap is measured only when both columns have value lists. At most 50 are suggested.
+  - The Tenant API's `ScanAskDataLinksHandler` replaces the old suggestions (`RemoveSuggestedRelationsAsync(["askdata:0"])`) and never re-suggests a pair already decided, in either direction.
+- **UI:** the `ask-data-knowledge` section adds the Metrics card (saved with terms and names), Learned examples, Suggested notes and Table links (each action applies at once). In `ask-ai-panel`, 👍/👎 show on Ask Data answers (`t.sql`).
+
+## Charts from Ask Data answers
+
+- **`chartspec`:**
+  - `AiAskService.AskDataChart` takes the runtime's `chart` when it is bar, line or donut (a kpi is skipped).
+  - Otherwise `AskDataInsights.Chart(sql, result, question)`: only for one group column. Labels are `Insights.Label` ((blank) for empty) and data comes from `Num(measure)`. The type is line for a period column or date strings, donut for count/sum with ≤ 6 groups, else bar.
+  - `AskDataInsights.BuilderType` maps to the Chart Builder type: donut → pie.
+- **`SaveAskDataViewAsync`:**
+  - It requires the Chart feature and an own askdata message. The SQL comes from the trace (`AnsweredSqlAsync`).
+  - `AskDataRowsAsync` re-checks the query like an export and gives the columns.
+  - The connection is the tenant's `DatabaseConnections` row with the Ask Data database's server (no port or `tcp:`) and database name (`IAgentRuntimeClient.AskDataDatabase`), active and not deleted. On QA that is 10005 "AlTasnimBI".
+  - The view is `IDatabaseViewService.CreateAsync` with `ManualSql = GeneratedSql = sql` and the builder JSON empty. `ViewSqlWrapper` already handles a view whose SQL has a CTE or ORDER BY.
+  - One view per answer: the name prefix `Ask Data #<id>` is looked up first. A deleted view is created again on the next click.
+- **Panel:**
+  - `withAskDataPreset` saves once, then sets the `AiChartPreset`: view, x = group, y = "Sum (F)" of the measure, since the view has one row per group.
+  - It then runs the same Open in Chart Builder / Add to dashboard flow as a dataset answer.
+  - The Highcharts options come from `chartOptions` (column / line / pie with innerSize). The panel imports `HighchartsChartComponent`.

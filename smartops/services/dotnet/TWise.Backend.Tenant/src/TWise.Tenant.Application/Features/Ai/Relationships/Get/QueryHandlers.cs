@@ -8,7 +8,7 @@ namespace TWise.Tenant.Application.Features.Ai.Relationships;
 public sealed class GetAiRelationGraphHandler(IAiKnowledgeRepository knowledge) : IRequestHandler<GetAiRelationGraphQuery, AiRelationGraphDto>
 {
     public async Task<AiRelationGraphDto> Handle(GetAiRelationGraphQuery q, CancellationToken ct) =>
-        ToGraph(await knowledge.GetRelationsAsync(q.TenantId, ct));
+        ToGraph((await knowledge.GetRelationsAsync(q.TenantId, ct)).Where(r => r.FromType != AiSources.AskData).ToList());
 
     internal static AiRelationGraphDto ToGraph(IReadOnlyList<AiDatasetRelation> rows)
     {

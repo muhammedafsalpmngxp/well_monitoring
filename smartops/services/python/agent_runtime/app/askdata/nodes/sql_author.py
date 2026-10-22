@@ -38,13 +38,16 @@ def _already_gathered(steps: list[dict]) -> str:
 def sql_author_node(state: AgentState) -> dict:
     target = state.get("sub_question") or state["question"]
     matches = state.get("value_matches") or value_match.awaited(current_run().value_matches)[0]
-    terms = knowledge.terms_block(f"{state['question']} {target}", current_run().settings.terms)
+    settings = current_run().settings
+    terms = knowledge.definitions(f"{state['question']} {target}", settings)
+    learned = knowledge.examples_block(state["question"], settings.examples)
     parts = [
         msg("sql_schema"),
         state.get("schema", ""),
         "",
         history_for(state),
         _already_gathered(state.get("steps", [])),
+        "\n" + learned if learned else "",
         "\n" + terms if terms else "",
         "\n" + matches if matches else "",
         msg("sql_request", TARGET=target),

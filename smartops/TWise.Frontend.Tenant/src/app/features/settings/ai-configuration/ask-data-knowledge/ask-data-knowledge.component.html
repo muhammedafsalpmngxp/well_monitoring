@@ -33,6 +33,33 @@
     </div>
   </article>
 
+  <!-- Metrics library -->
+  <article class="ac__card">
+    <header class="ac__card-head">
+      <div>
+        <h3>Metrics</h3>
+        <p>Shared KPI definitions, so the same KPI is always computed the same way. When a question names a metric, Ask Data
+          uses its exact formula, e.g. <strong>Rig uptime</strong> = sum of <code>well.rig_day.uptime_hours</code>.</p>
+      </div>
+      <button type="button" class="btn btn-secondary" (click)="addMetric()">Add metric</button>
+    </header>
+    <p class="ac__empty" *ngIf="!metrics.length">No metrics yet.</p>
+    <div class="adk__rows" *ngIf="metrics.length">
+      <div class="adk__row adk__row--metric adk__head" aria-hidden="true">
+        <span>Metric</span><span>Calculation</span><span>Column</span><span>Description</span><span></span>
+      </div>
+      <div class="adk__row adk__row--metric" *ngFor="let m of metrics; let i = index; trackBy: trackIndex">
+        <input type="text" [(ngModel)]="m.name" [name]="'mname' + i" maxlength="100" placeholder="e.g. Rig uptime" aria-label="Metric" />
+        <select [(ngModel)]="m.agg" [name]="'magg' + i" aria-label="Calculation">
+          <option *ngFor="let a of aggs" [value]="a.key">{{ a.label }}</option>
+        </select>
+        <input type="text" [(ngModel)]="m.column" [name]="'mcol' + i" maxlength="200" list="adk-columns" placeholder="schema.table.column" aria-label="Column" />
+        <input type="text" [(ngModel)]="m.description" [name]="'mdesc' + i" maxlength="500" placeholder="what it measures" aria-label="Description" />
+        <button type="button" class="ac__chip-x" (click)="removeMetric(i)" [attr.aria-label]="'Remove metric ' + (m.name || (i + 1))">×</button>
+      </div>
+    </div>
+  </article>
+
   <!-- Column names and notes -->
   <article class="ac__card">
     <header class="ac__card-head">
@@ -61,7 +88,7 @@
   <datalist id="adk-columns"><option *ngFor="let c of columns" [value]="c"></option></datalist>
   <datalist id="adk-columns-tables"><option *ngFor="let t of tables" [value]="t"></option><option *ngFor="let c of columns" [value]="c"></option></datalist>
 
-  <!-- Save bar -->
+  <!-- Save bar (terms, metrics, names) -->
   <div class="ac__bar" [class.ac__bar--dirty]="dirty">
     <div class="ac__bar-info">
       <ul class="ac__problems" *ngIf="dirty && problems.length">
@@ -77,5 +104,91 @@
       </button>
     </div>
   </div>
+
+  <p class="ac__msg" *ngIf="reviewMessage" [class.ac__msg--ok]="reviewMessage.ok" [class.ac__msg--bad]="!reviewMessage.ok" role="status">{{ reviewMessage.text }}</p>
+
+  <!-- Learned examples: answers users liked, waiting for review -->
+  <article class="ac__card">
+    <header class="ac__card-head">
+      <div>
+        <h3>Learned examples <span class="ac__pill ac__pill--warn" *ngIf="waitingExamples">{{ waitingExamples }} to review</span></h3>
+        <p>Answers users liked (👍 in Ask your data). Once you approve one, it guides questions like it: Ask Data follows its
+          tables, joins and filters. Rejected and unreviewed ones are never used. Each action applies at once.</p>
+      </div>
+    </header>
+    <p class="ac__empty" *ngIf="!examples.length">No liked answers yet.</p>
+    <div class="adk__list" *ngIf="examples.length">
+      <div class="adk__item" *ngFor="let e of examples; trackBy: trackId">
+        <div class="adk__item-main">
+          <span class="ac__pill" [class.ac__pill--ok]="e.status === 'approved'" [class.ac__pill--warn]="e.status === 'pending'">{{ e.status === 'pending' ? 'To review' : e.status }}</span>
+          <strong>{{ e.question }}</strong>
+          <details *ngIf="e.sql"><summary>SQL</summary><pre class="adk__sql">{{ e.sql }}</pre></details>
+        </div>
+        <div class="adk__item-actions">
+          <button type="button" class="ac__link" *ngIf="e.status !== 'approved'" (click)="reviewExample(e, 'approved')">Approve</button>
+          <button type="button" class="ac__link" *ngIf="e.status !== 'rejected'" (click)="reviewExample(e, 'rejected')">Reject</button>
+          <button type="button" class="ac__link" (click)="deleteExample(e)">Delete</button>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- Notes the AI suggested from liked answers -->
+  <article class="ac__card" *ngIf="proposals.length">
+    <header class="ac__card-head">
+      <div>
+        <h3>Suggested notes <span class="ac__pill ac__pill--warn">{{ proposals.length }}</span></h3>
+        <p>Rules the AI read from answers users liked. Approving one adds it to the column's note above; nothing is used until approved.</p>
+      </div>
+    </header>
+    <div class="adk__list">
+      <div class="adk__item" *ngFor="let p of proposals; trackBy: trackId">
+        <div class="adk__item-main">
+          <code>{{ p.column }}</code> {{ p.note }}
+          <small class="ac__muted">{{ p.confidence }} confidence · from "{{ p.question }}"</small>
+        </div>
+        <div class="adk__item-actions">
+          <button type="button" class="ac__link" (click)="reviewProposal(p, 'approve')">Approve</button>
+          <button type="button" class="ac__link" (click)="reviewProposal(p, 'reject')">Reject</button>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- Table links -->
+  <article class="ac__card">
+    <header class="ac__card-head">
+      <div>
+        <h3>Table links <span class="ac__pill ac__pill--warn" *ngIf="suggestedLinks.length">{{ suggestedLinks.length }} to review</span></h3>
+        <p>How tables join where the database has no foreign key. A scan suggests links from what the tables hold (a key-like
+          column such as <code>crew_id</code> in several tables); confirmed links let Ask Data join those tables correctly.</p>
+      </div>
+      <button type="button" class="btn btn-secondary" [disabled]="scanning" (click)="scanLinks()">{{ scanning ? 'Scanning…' : 'Scan for links' }}</button>
+    </header>
+    <p class="ac__empty" *ngIf="!links.length">No links yet. Scan to get suggestions.</p>
+    <div class="adk__list" *ngIf="suggestedLinks.length">
+      <small class="ac__muted">Suggested</small>
+      <div class="adk__item" *ngFor="let l of suggestedLinks; trackBy: trackId">
+        <div class="adk__item-main"><code>{{ linkText(l) }}</code>
+          <small class="ac__muted" *ngIf="l.overlap !== null">{{ l.overlap * 100 | number: '1.0-0' }}% of values shared</small></div>
+        <div class="adk__item-actions">
+          <button type="button" class="ac__link" (click)="setLink(l, 'confirmed')">Confirm</button>
+          <button type="button" class="ac__link" (click)="setLink(l, 'rejected')">Reject</button>
+        </div>
+      </div>
+    </div>
+    <div class="adk__list" *ngIf="confirmedLinks.length">
+      <small class="ac__muted">Confirmed</small>
+      <div class="adk__item" *ngFor="let l of confirmedLinks; trackBy: trackId">
+        <div class="adk__item-main"><code>{{ linkText(l) }}</code></div>
+        <div class="adk__item-actions"><button type="button" class="ac__link" (click)="deleteLink(l)">Remove</button></div>
+      </div>
+    </div>
+    <div class="adk__row adk__row--link">
+      <input type="text" [(ngModel)]="newLink.from" name="linkFrom" maxlength="400" list="adk-columns" placeholder="from: schema.table.column" aria-label="Link from column" />
+      <input type="text" [(ngModel)]="newLink.to" name="linkTo" maxlength="400" list="adk-columns" placeholder="to: schema.table.column (the key)" aria-label="Link to column" />
+      <button type="button" class="btn btn-secondary" (click)="addLink()">Add link</button>
+    </div>
+  </article>
 </ng-container>
 </div>

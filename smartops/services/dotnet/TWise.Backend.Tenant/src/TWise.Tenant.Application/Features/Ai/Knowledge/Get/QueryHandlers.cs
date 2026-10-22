@@ -36,5 +36,8 @@ public sealed class GetAiExamplesHandler(IAiKnowledgeRepository knowledge) : IRe
 
     public async Task<IReadOnlyList<AiExampleDto>> Handle(GetAiExamplesQuery q, CancellationToken ct) =>
         (await knowledge.GetExamplesAsync(q.TenantId, q.SourceType, q.SourceId, ct))
-            .Select(e => new AiExampleDto(e.Id, e.MessageId, e.Question, JsonSerializer.Deserialize<AiQuerySpec>(e.QuerySpecJson, Json), e.CreatedBy, AiDates.Utc(e.CreatedAt), e.Status, e.Review)).ToList();
+            .Select(e => e.SourceType == AiSources.AskData
+                ? new AiExampleDto(e.Id, e.MessageId, e.Question, null, e.CreatedBy, AiDates.Utc(e.CreatedAt), e.Status, e.Review,
+                    AskDataSettings.AskDataSettingsRules.ExampleSql(e.QuerySpecJson))
+                : new AiExampleDto(e.Id, e.MessageId, e.Question, JsonSerializer.Deserialize<AiQuerySpec>(e.QuerySpecJson, Json), e.CreatedBy, AiDates.Utc(e.CreatedAt), e.Status, e.Review)).ToList();
 }

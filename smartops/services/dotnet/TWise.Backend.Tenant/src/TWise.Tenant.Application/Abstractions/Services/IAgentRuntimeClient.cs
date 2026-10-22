@@ -27,7 +27,22 @@ public sealed record AgentRuntimeAskData(
     string ExportPrefix,
     [property: JsonIgnore] string ChatMode = "deep",
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeTerm>? Terms = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeColumnNote>? Notes = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeColumnNote>? Notes = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeMetric>? Metrics = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeExample>? Examples = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeLink>? Links = null);
+
+/// <summary>A shared KPI definition: Agg (count, countDistinct, sum, avg, min, max) of Column ("schema.table.column").</summary>
+public sealed record AgentRuntimeMetric(string Name, string Agg, string? Column, string? Description);
+
+/// <summary>A question and the SQL that answered it, liked by a user and approved by an admin.</summary>
+public sealed record AgentRuntimeExample(string Question, string Sql);
+
+/// <summary>A join an admin confirmed where the database has no foreign key ("schema.table.column" each).</summary>
+public sealed record AgentRuntimeLink(string From, string To);
+
+/// <summary>A join the runtime suggests from the column profiles; Overlap is the share of shared values when measurable.</summary>
+public sealed record AgentRuntimeLinkSuggestion(string From, string To, double? Overlap);
 
 /// <summary>A business term Ask Data applies when a question uses it: a filter (Column = Value) and / or a Meaning.</summary>
 public sealed record AgentRuntimeTerm(string Term, IReadOnlyList<string> Synonyms, string? Column, string? Value, string? Meaning);
@@ -45,6 +60,14 @@ public interface IAgentRuntimeClient
     /// <summary>An Ask Data answer's SQL run again for its insight report, checked like an export: { data: { columns, rows,
     /// truncated } }. Throws InvalidOperationException with the reason when it may no longer run.</summary>
     Task<JsonElement> AskDataRowsAsync(string sql, AgentRuntimeAskData askData, CancellationToken ct);
+
+    /// <summary>Suggested joins between Ask Data tables with no foreign key, from the column profiles (none until they are
+    /// built). Throws InvalidOperationException when Ask Data is not set up, HttpRequestException when the runtime is down.</summary>
+    Task<IReadOnlyList<AgentRuntimeLinkSuggestion>> AskDataLinksAsync(AgentRuntimeAskData askData, CancellationToken ct);
+
+    /// <summary>The Ask Data database's server (no port) and name, to find the tenant's data source for it. Throws
+    /// InvalidOperationException when Ask Data has no database configured.</summary>
+    (string Server, string Database) AskDataDatabase();
 
     /// <summary>The tools a step can use, with a message when twise is down. Throws HttpRequestException when the runtime is down.</summary>
     Task<AgentToolsDto> ListToolsAsync(CancellationToken ct);

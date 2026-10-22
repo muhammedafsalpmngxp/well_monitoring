@@ -209,12 +209,16 @@
           </small>
         </div>
 
+        <div class="ask__chart" *ngIf="t.askChartOptions && !t.hideChart" [attr.aria-label]="'Chart: ' + t.askChart?.title">
+          <highcharts-chart [options]="t.askChartOptions" class="ask__chart-box"></highcharts-chart>
+        </div>
+
         <div class="ask__actions" *ngIf="t.spec || t.sql || t.trace">
-          <button type="button" class="ask__like" *ngIf="t.messageId && t.spec && can('learning')" (click)="toggleLike(t)" [class.ask__like--on]="t.liked"
-            [title]="t.liked ? 'Remove from examples' : 'Good answer: keep as an example for this dataset'" aria-label="Good answer">
+          <button type="button" class="ask__like" *ngIf="t.messageId && (t.spec || t.sql) && can('learning')" (click)="toggleLike(t)" [class.ask__like--on]="t.liked"
+            [title]="t.liked ? 'Remove from examples' : t.spec ? 'Good answer: keep as an example for this dataset' : 'Good answer: suggest it as an example (an admin approves it)'" aria-label="Good answer">
             <svg width="16" height="16" viewBox="0 0 24 24" [attr.fill]="t.liked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.3a2 2 0 0 0 2-1.7l1.4-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
           </button>
-          <button type="button" class="ask__like" *ngIf="t.messageId && t.spec && can('learning')" (click)="toggleDislike(t)" [class.ask__like--off]="t.disliked"
+          <button type="button" class="ask__like" *ngIf="t.messageId && (t.spec || t.sql) && can('learning')" (click)="toggleDislike(t)" [class.ask__like--off]="t.disliked"
             [title]="t.disliked ? 'Remove rating' : 'Wrong answer: never use it as an example'" aria-label="Wrong answer">
             <svg width="16" height="16" viewBox="0 0 24 24" [attr.fill]="t.disliked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
           </button>
@@ -222,14 +226,17 @@
           <button type="button" class="ask__link" *ngIf="can('trace') && (t.trace || t.messageId)" (click)="toggleTrace(t)">{{ t.showTrace ? 'Hide steps' : 'Show steps' }}</button>
           <button type="button" class="ask__link" *ngIf="t.messageId && (t.spec?.groupBy?.length || (t.sql && t.insights?.length)) && (t.result?.rows?.length || 0) >= 3" [disabled]="t.reportLoading" (click)="toggleReport(t)" title="Trend, anomalies and recommendations for this answer">{{ t.report ? 'Hide report' : t.reportLoading ? 'Building report…' : 'Insight report' }}</button>
           <button type="button" class="ask__link" *ngIf="can('alerts') && t.messageId && t.spec" (click)="toggleAlertForm(t)">Alert me</button>
-          <button type="button" class="ask__link" *ngIf="t.chart && can('chart')" (click)="openInChartBuilder(t)"
-            [title]="t.spec?.filters?.length ? 'Filters are not carried over; add them in the builder' : ''">Open as {{ t.chart.chartType }} chart</button>
-          <button type="button" class="ask__link" *ngIf="t.chart && can('chart')" (click)="openAddToDashboard(t)">Add to dashboard</button>
+          <button type="button" class="ask__link" *ngIf="t.askChartOptions" (click)="t.hideChart = !t.hideChart">{{ t.hideChart ? 'Show chart' : 'Hide chart' }}</button>
+          <button type="button" class="ask__link" *ngIf="(t.chart || (t.askChart && t.messageId)) && can('chart')" [disabled]="t.viewBusy" (click)="openInChartBuilder(t)"
+            [title]="t.spec?.filters?.length ? 'Filters are not carried over; add them in the builder' : t.chart ? '' : 'Saves this answer as a data source, then opens it in the Chart Builder'">Open as {{ builderType(t) }} chart</button>
+          <button type="button" class="ask__link" *ngIf="(t.chart || (t.askChart && t.messageId)) && can('chart')" [disabled]="t.viewBusy" (click)="openAddToDashboard(t)">Add to dashboard</button>
         </div>
         <div class="ask__suggest" *ngIf="t.followUps?.length && !t.status">
           <small class="ask__muted">Ask next:</small>
           <button type="button" class="ask__chip" *ngFor="let s of t.followUps" [disabled]="busy" (click)="askSuggestion(s)">{{ s }}</button>
         </div>
+        <small class="ask__muted" *ngIf="t.viewBusy">Saving this answer as a data source…</small>
+        <small class="ask__error" *ngIf="t.viewError">{{ t.viewError }}</small>
         <code class="ask__spec" *ngIf="t.spec && t.showQuery">{{ describe(t.spec) }}</code>
         <pre class="ask__spec ask__sql" *ngIf="!t.spec && t.sql && t.showQuery">{{ t.sql.sql }}</pre>
 

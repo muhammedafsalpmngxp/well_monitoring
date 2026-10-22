@@ -37,7 +37,7 @@ public class AskDataKnowledgeTests
             .ReturnsAsync([new AiDatasetNote { ColumnName = "well.well_master.bl_flaf_scr", DisplayName = "FLAF Score", Note = "" },
                            new AiDatasetNote { ColumnName = null, Note = "dataset-level notes are not used by Ask Data" }]);
 
-        var askData = await AskDataSettingsRules.ToRuntime(null).WithKnowledgeAsync(knowledge.Object, 7, default);
+        var askData = await AskDataSettingsRules.ToRuntime(null).WithKnowledgeAsync(knowledge.Object, NewCache(), 7, default);
 
         askData.Terms.Should().ContainSingle().Which.Synonyms.Should().Equal("downtime", "lost time");
         askData.Notes.Should().ContainSingle().Which.Should().Be(new AgentRuntimeColumnNote("well.well_master.bl_flaf_scr", "FLAF Score", null));
@@ -50,7 +50,7 @@ public class AskDataKnowledgeTests
         var settings = new Mock<IAiSettingsRepository>();
         settings.Setup(s => s.GetAsync(7, It.IsAny<CancellationToken>())).ReturnsAsync(new AiSettings { AskDataAllowedSchemas = "[\"well\"]" });
         var runtime = new Mock<IAgentRuntimeClient>();
-        var handler = new GetAskDataStartersHandler(ask.Object, settings.Object, new Mock<IAiKnowledgeRepository>().Object, runtime.Object);
+        var handler = new GetAskDataStartersHandler(ask.Object, settings.Object, new Mock<IAiKnowledgeRepository>().Object, runtime.Object, NewCache());
 
         (await handler.Handle(new GetAskDataStartersQuery(7), default)).Should().BeEmpty();          // feature off
         runtime.Verify(r => r.AskDataStartersAsync(It.IsAny<AgentRuntimeAskData>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -64,6 +64,9 @@ public class AskDataKnowledgeTests
             .ThrowsAsync(new HttpRequestException("down"));
         (await handler.Handle(new GetAskDataStartersQuery(7), default)).Should().BeEmpty();
     }
+
+    private static Microsoft.Extensions.Caching.Memory.IMemoryCache NewCache() =>
+        new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
 
     private static SaveAiDatasetNotesCommand Notes(params string[] columns) =>
         new(7, "a@b.com", "askdata", 0, columns.Select(c => new AiDatasetNoteDto(c, "", "Name")).ToList());

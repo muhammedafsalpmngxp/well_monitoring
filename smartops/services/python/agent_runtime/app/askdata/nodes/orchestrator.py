@@ -66,7 +66,7 @@ def orchestrator_node(state: AgentState) -> dict:
     log.info("Q: %s", state.get("question", ""))
     user = msg("orchestrator", HISTORY=format_history(state.get("history")), QUESTION=state["question"])
     # The company's words the question uses are defined, so they are not a reason to ask back.
-    terms = knowledge.terms_block(state["question"], current_run().settings.terms)
+    terms = knowledge.definitions(state["question"], current_run().settings)
     if terms:
         user += "\n\n" + terms
     # Deep mode routes on the MAIN model; normal mode keeps the cheap tier. Measured over 11

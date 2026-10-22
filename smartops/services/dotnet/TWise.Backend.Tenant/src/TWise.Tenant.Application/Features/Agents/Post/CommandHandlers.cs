@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Caching.Memory;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai;
@@ -35,7 +36,8 @@ public sealed class TestAiAgentStreamHandler(
     IAiSettingsRepository aiSettings,
     IAiKeyProtector keys,
     IValidator<ResumeAiAgentRunStream> resumeValidator,
-    IAiKnowledgeRepository knowledge) : IStreamRequestHandler<TestAiAgentStream, AiAskEvent>, IStreamRequestHandler<ResumeAiAgentRunStream, AiAskEvent>
+    IAiKnowledgeRepository knowledge,
+    IMemoryCache cache) : IStreamRequestHandler<TestAiAgentStream, AiAskEvent>, IStreamRequestHandler<ResumeAiAgentRunStream, AiAskEvent>
 {
     public async IAsyncEnumerable<AiAskEvent> Handle(TestAiAgentStream s, [EnumeratorCancellation] CancellationToken ct)
     {
@@ -142,7 +144,7 @@ public sealed class TestAiAgentStreamHandler(
         // The runtime has no prompt texts of its own: the tenant's (AI Settings → AI Prompts) go with every run; so do its
         // Ask Data settings (what Ask Data and Saved SQL may read, and their limits; AI Settings → Ask Data & Features).
         var texts = AiPromptCatalog.RuntimeTexts(await prompts.GetAsync(tenantId, ct));
-        var askData = await AskDataSettingsRules.ToRuntime(await aiSettings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, tenantId, ct);
+        var askData = await AskDataSettingsRules.ToRuntime(await aiSettings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, cache, tenantId, ct);
         return (new AgentRunContext(agent, inputs, llm, memories, subagents, thread, sessionId, texts, askData), null);
     }
 

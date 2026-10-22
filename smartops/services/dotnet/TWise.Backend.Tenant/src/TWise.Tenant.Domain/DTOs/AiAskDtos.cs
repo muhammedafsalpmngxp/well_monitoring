@@ -45,6 +45,16 @@ public record AiFilter(string Column, string Op, object? Value);
 
 public record AiSort(string Column, bool Descending);
 
+/// <summary>A chart for an Ask Data answer (Type: bar | line | donut): the runtime's when the question asked for one, else
+/// read from the answer's groups and measure.</summary>
+public record AskDataChartDto(string Type, string Title, IReadOnlyList<string> Labels, IReadOnlyList<AskDataChartSeriesDto> Series, string? XAxis, string? YAxis);
+
+public record AskDataChartSeriesDto(string Name, IReadOnlyList<double> Data);
+
+/// <summary>The data source (database view) an Ask Data answer was saved as, and how to chart it in the Chart Builder:
+/// ChartType bar | line | pie | table, XAxis the group column, Measure the number column.</summary>
+public record AskDataViewDto(long ViewId, string ViewName, string ChartType, string? XAxis, string? Measure);
+
 /// <summary>Labels: display names for result columns that have one (admin-set per dataset), for table headers.</summary>
 public record AiQueryResult(IReadOnlyList<string> Columns, IReadOnlyList<Dictionary<string, object?>> Rows, int TotalRows, int SourceRows, bool SourceTruncated,
     IReadOnlyDictionary<string, string>? Labels = null);

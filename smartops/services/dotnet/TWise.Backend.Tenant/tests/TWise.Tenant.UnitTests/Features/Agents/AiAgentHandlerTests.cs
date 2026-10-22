@@ -39,7 +39,8 @@ public sealed class AiAgentHandlerTests
         [new AiAgentInputDto("cluster")], null, status);
 
     private TestAiAgentStreamHandler TestSut => new(_runtime.Object, _repo.Object, _ai.Object, _usage.Object, new TestAiAgentStreamValidator(),
-        _prompts.Object, _settings.Object, _keys.Object, new ResumeAiAgentRunStreamValidator(), new Mock<IAiKnowledgeRepository>().Object);
+        _prompts.Object, _settings.Object, _keys.Object, new ResumeAiAgentRunStreamValidator(), new Mock<IAiKnowledgeRepository>().Object,
+        new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()));
 
     [Fact]
     public async Task Create_SavesTheAgentForTheTenantAndCaller()

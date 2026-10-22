@@ -8,6 +8,7 @@ using System.Text.Json;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Ai;
+using TWise.Tenant.Application.Features.Ai.AskDataSettings;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
 
@@ -34,7 +35,8 @@ public sealed partial class AiAskService(
     IAiViewQueryRunner viewQueries,
     IAgentRuntimeClient runtime,
     IAiUsageRepository usage,
-    IAiPromptStore prompts) : IAiAskService
+    IAiPromptStore prompts,
+    IDatabaseConnectionRepository connections) : IAiAskService
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private const int HistoryTurns = 6;
@@ -228,7 +230,7 @@ public sealed partial class AiAskService(
         // 6. Learn in the background: note proposals for an admin, and this answer as a reviewed example.
         if (await FeatureOnAsync(tenantId, AiFeatureCatalog.Learning, ct))
         {
-            QueueExtraction(tenantId, userId, conv.SourceType, conv.SourceId, conv.SourceName, question, spec, data.Columns, notes);
+            QueueExtraction(tenantId, userId, conv.SourceType, conv.SourceId, conv.SourceName, question, JsonSerializer.Serialize(spec, Json), data.Columns, notes);
             // An answer that found nothing (no rows, or a total of 0) is a poor example for later questions.
             if (!AskHelp.FoundNothing(spec, result))
                 QueueMemory(tenantId, userId, conv.SourceType, conv.SourceId, conv.SourceName, assistantMessage.Id, question, spec, result, answer.ToString(), data.Columns, reviewHints);
@@ -494,8 +496,10 @@ public sealed partial class AiAskService(
     /// Fire-and-forget on its own DI scope: the request scope (and its DbContext) is gone once the
     /// stream ends. Failures are swallowed on purpose; learning must never break answering.
     /// </summary>
-    private void QueueExtraction(long tenantId, long userId, string sourceType, long sourceId, string sourceName, string question, AiQuerySpec spec,
-        IReadOnlyList<string> columns, IReadOnlyList<AiDatasetNote> existingNotes)
+    /// <summary><paramref name="query"/>: the spec (dataset) or the SQL (Ask Data). With <paramref name="requireColumn"/>, a
+    /// dataset-level note is not proposed (Ask Data has no dataset).</summary>
+    private void QueueExtraction(long tenantId, long userId, string sourceType, long sourceId, string sourceName, string question, string query,
+        IReadOnlyList<string> columns, IReadOnlyList<AiDatasetNote> existingNotes, bool requireColumn = false)
     {
         _ = Task.Run(async () =>
         {
@@ -513,7 +517,7 @@ public sealed partial class AiAskService(
                         AiPrompts.Text(AiPrompts.Extract, texts) + " Reply with JSON only: an array of 0-3 objects " +
                         "{\"column\":\"column name or null\",\"note\":\"one factual sentence\",\"confidence\":\"low|medium|high\"}. " +
                         "Return [] when nothing new was learned."),
-                    new("user", $"Dataset: {sourceName}\nColumns: {string.Join(", ", columns)}\nAlready known:\n{string.Join("\n", known.Concat(pending.Select(p => $"{p.ColumnName ?? "(dataset)"}: {p.Note}")))}\nQuestion: {question}\nQuery used: {JsonSerializer.Serialize(spec, Json)}"),
+                    new("user", $"Dataset: {sourceName}\nColumns: {string.Join(", ", columns)}\nAlready known:\n{string.Join("\n", known.Concat(pending.Select(p => $"{p.ColumnName ?? "(dataset)"}: {p.Note}")))}\nQuestion: {question}\nQuery used: {query}"),
                 };
                 var raw = (await aiSvc.CompleteAsync(tenantId, userId.ToString(), "extract", messages, CancellationToken.None)).Content.Trim();
                 if (raw.StartsWith("```")) { raw = raw[(raw.IndexOf('\n') + 1)..]; var end = raw.LastIndexOf("```", StringComparison.Ordinal); if (end >= 0) raw = raw[..end]; }
@@ -526,7 +530,7 @@ public sealed partial class AiAskService(
                     var note = (it.Note ?? "").Trim();
                     if (note.Length < 8) continue;
                     var col = string.IsNullOrWhiteSpace(it.Column) ? null : columns.FirstOrDefault(c => string.Equals(c, it.Column.Trim(), StringComparison.OrdinalIgnoreCase));
-                    if (!string.IsNullOrWhiteSpace(it.Column) && col is null) continue;
+                    if ((!string.IsNullOrWhiteSpace(it.Column) || requireColumn) && col is null) continue;
                     var dup = existingNotes.Any(n => n.ColumnName == col && n.Note.Contains(note, StringComparison.OrdinalIgnoreCase))
                            || pending.Any(p => p.ColumnName == col && string.Equals(p.Note, note, StringComparison.OrdinalIgnoreCase));
                     if (dup) continue;
@@ -623,15 +627,22 @@ public sealed partial class AiAskService(
     {
         if (!await FeatureOnAsync(tenantId, AiFeatureCatalog.Learning, ct)) throw new InvalidOperationException("Learning is not enabled for your role.");
         var (msg, conv) = await OwnedAssistantMessageAsync(messageId, tenantId, userId, ct);
-        if (msg is null || conv is null || msg.QuerySpecJson is null) return false;
-        return await RateAsync(msg, conv, AiExampleStatus.Liked, userId, ct);
+        if (msg is null || conv is null || !Rateable(msg, conv)) return false;
+        // An Ask Data answer waits for an admin's review before it guides later questions.
+        var askData = conv.SourceType == AskDataSource;
+        if (!await RateAsync(msg, conv, askData ? AiExampleStatus.Pending : AiExampleStatus.Liked, userId, ct)) return false;
+        if (askData && await knowledge.GetExampleByMessageAsync(msg.Id, ct) is { } e && AskDataSettingsRules.ExampleSql(e.QuerySpecJson) is { } sql)
+            await QueueAskDataExtractionAsync(conv, e.Question, sql, tenantId, userId, ct);
+        return true;
     }
+
+    private static bool Rateable(AiChatMessage msg, AiConversation conv) => msg.QuerySpecJson is not null || conv.SourceType == AskDataSource;
 
     public async Task<bool> DislikeAsync(long messageId, long tenantId, long userId, CancellationToken ct)
     {
         if (!await FeatureOnAsync(tenantId, AiFeatureCatalog.Learning, ct)) throw new InvalidOperationException("Learning is not enabled for your role.");
         var (msg, conv) = await OwnedAssistantMessageAsync(messageId, tenantId, userId, ct);
-        if (msg is null || conv is null || msg.QuerySpecJson is null) return false;
+        if (msg is null || conv is null || !Rateable(msg, conv)) return false;
         return await RateAsync(msg, conv, AiExampleStatus.Disliked, userId, ct);
     }
 
@@ -639,7 +650,7 @@ public sealed partial class AiAskService(
     private async Task<bool> RateAsync(AiChatMessage msg, AiConversation conv, string status, long userId, CancellationToken ct)
     {
         // A person's rating replaces the AI review's reason, so status and reason agree.
-        var reason = status == AiExampleStatus.Liked ? "Liked by a user." : "Disliked by a user.";
+        var reason = status switch { AiExampleStatus.Liked => "Liked by a user.", AiExampleStatus.Pending => "Liked by a user; waiting for an admin.", _ => "Disliked by a user." };
         var existing = await knowledge.GetExampleByMessageAsync(msg.Id, ct);
         if (existing is not null)
         {
@@ -650,10 +661,13 @@ public sealed partial class AiAskService(
         }
         var question = (await conversations.GetMessagesAsync(conv.Id, ct)).Where(m => m.Role == "user" && m.Id < msg.Id).OrderByDescending(m => m.Id).FirstOrDefault();
         if (question is null) return false;
+        // An Ask Data answer has no spec: its example keeps the SQL it was built from.
+        var query = msg.QuerySpecJson ?? (await AnsweredSqlAsync(msg.Id, ct) is { } sql ? AskDataSettingsRules.ExampleJson(sql) : null);
+        if (query is null) return false;
         await knowledge.AddExampleAsync(new AiExample
         {
             TenantId = conv.TenantId, SourceType = conv.SourceType, SourceId = conv.SourceId, MessageId = msg.Id,
-            Question = question.Content, QuerySpecJson = msg.QuerySpecJson!, Status = status, Review = reason, CreatedBy = userId.ToString(),
+            Question = question.Content, QuerySpecJson = query, Status = status, Review = reason, CreatedBy = userId.ToString(),
         }, ct);
         return true;
     }

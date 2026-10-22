@@ -87,6 +87,14 @@ def _named_schema() -> str:
 
 
 TERMS_QUESTION = "What is the NPT of dry wells?"
+METRICS_QUESTION = "What was the rig uptime on the rigs?"
+
+
+def _metrics_and_examples():
+    """The tenant's metrics library and approved examples in every scenario's run; only questions that use them get the blocks."""
+    from app.askdata.settings import Example, Metric
+    return ((Metric("Rig uptime", "sum", "well.rig_day.uptime_hours", "hours the rig worked"),),
+            (Example("Uptime hours on rigs last week", "SELECT SUM(uptime_hours) FROM well.rig_day"),))
 
 
 def askdata_scenarios() -> list[tuple[str, str, dict[str, Any], list[str]]]:
@@ -116,6 +124,7 @@ def askdata_scenarios() -> list[tuple[str, str, dict[str, Any], list[str]]]:
         ("sql_author/column-names", "sql_author", _state(question="Average daily progress?", schema=_named_schema()),
          ["```sql\nSELECT 1\n```"]),
         ("orchestrator/business-terms", "orchestrator", _state(question=TERMS_QUESTION), ['{"route":"sql"}']),
+        ("sql_author/metrics-examples", "sql_author", _state(question=METRICS_QUESTION), ["```sql\nSELECT 1\n```"]),
         ("verifier/business-terms", "verifier", _state(question=TERMS_QUESTION, steps=[STEP]), ['{"ok": true}']),
         ("analysis/plain", "analysis", _state(steps=[STEP]), ["analysis text"]),
         ("analysis/truncated-followup", "analysis", _state(steps=[WIDE], is_followup=True, history=HISTORY), ["analysis text"]),
@@ -156,7 +165,8 @@ def run_askdata(adapter, concerns: list[str] | None = None) -> list[dict[str, An
     out = []
     for knowledge in ("default", "agent"):
         br, fs = (None, None) if knowledge == "default" else ("AGENT RULE: wells are counted by well_id.", "Q: wells?\nSELECT 1")
-        run = AskDataRun(settings=AskDataSettings(max_rows=500, terms=_terms()),
+        metrics, examples = _metrics_and_examples()
+        run = AskDataRun(settings=AskDataSettings(max_rows=500, terms=_terms(), metrics=metrics, examples=examples),
                          db=DbTarget(server="s", name="n", user="u", password="p"))
         with run_context(run):
             run.prompts = adapter.prompt_set(500, br, fs)

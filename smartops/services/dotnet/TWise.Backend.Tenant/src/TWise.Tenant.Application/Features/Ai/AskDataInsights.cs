@@ -16,10 +16,11 @@ public static partial class AskDataInsights
     [GeneratedRegex(@"^(year|yr|month|quarter|qtr|week|period)(_?(no|num|number))?$|_(year|month|quarter|week)$", RegexOptions.IgnoreCase)]
     private static partial Regex PeriodColumn();
 
-    /// <summary>The spec of a grouped answer with a number per group (at least 3 rows), else null.</summary>
-    public static AiQuerySpec? Spec(string? sql, AiQueryResult result)
+    /// <summary>The spec of a grouped answer with a number per group (at least <paramref name="minRows"/> rows: findings
+    /// need 3, a chart 2), else null.</summary>
+    public static AiQuerySpec? Spec(string? sql, AiQueryResult result, int minRows = 3)
     {
-        if (result.Rows.Count < 3) return null;
+        if (result.Rows.Count < minRows) return null;
         var groups = result.Columns.Where(c => !IsNumber(result, c) || PeriodColumn().IsMatch(c)).ToList();
         // A number that is the same in every row (e.g. COUNT(*) OVER () as a total) says nothing per group.
         var measure = result.Columns.FirstOrDefault(c => IsNumber(result, c) && !groups.Contains(c)
@@ -27,6 +28,25 @@ public static partial class AskDataInsights
         if (groups.Count == 0 || measure is null) return null;
         return new AiQuerySpec(null, groups, [new AiMeasure(Agg(sql, measure), measure, measure)], null, null, null);
     }
+
+    /// <summary>A chart read from a grouped answer with one group column (null otherwise): a line over periods, a donut for
+    /// a few parts of a total, else bars.</summary>
+    public static AskDataChartDto? Chart(string? sql, AiQueryResult result, string title)
+    {
+        if (Spec(sql, result, minRows: 2) is not { GroupBy: [var x], Measures: [var m] }) return null;
+        var labels = result.Rows.Select(r => Insights.Label(r.GetValueOrDefault(x))).ToList();
+        var data = result.Rows.Select(r => QuerySpecEngine.Num(r.GetValueOrDefault(m.Column)) ?? 0).ToList();
+        var type = IsPeriod(result, x) ? "line" : m.Agg is "count" or "sum" && labels.Count <= 6 ? "donut" : "bar";
+        var name = Wording.Words(m.Alias ?? m.Agg);
+        return new AskDataChartDto(type, title.Length > 120 ? title[..120] : title, labels, [new AskDataChartSeriesDto(name, data)], Wording.Words(x), name);
+    }
+
+    /// <summary>The Chart Builder's type for a chart: bar, line, pie (a donut), else table.</summary>
+    public static string BuilderType(AskDataChartDto? chart) => chart?.Type switch { "line" => "line", "donut" => "pie", "bar" => "bar", _ => "table" };
+
+    private static bool IsPeriod(AiQueryResult result, string column) =>
+        PeriodColumn().IsMatch(column)
+        || result.Rows.Take(5).All(r => r.GetValueOrDefault(column) is string s && DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _));
 
     /// <summary>The SQL the answer was built from, from its saved trace: the last query step not marked rejected
     /// (AiAskService.AskDataAsync writes them as "sql\n42 rows").</summary>

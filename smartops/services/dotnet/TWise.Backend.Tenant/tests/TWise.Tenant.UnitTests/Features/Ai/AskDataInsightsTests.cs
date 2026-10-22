@@ -41,7 +41,8 @@ public class AskDataInsightsTests
             .Measures![0].Agg.Should().Be("avg");
 
         var two = new AiQueryResult(["cluster", "n"], [new() { ["cluster"] = "Nimr", ["n"] = 393L }, new() { ["cluster"] = "Marmul", ["n"] = 448L }], 2, 2, false);
-        AskDataInsights.Spec("SELECT ...", two).Should().BeNull();
+        AskDataInsights.Spec("SELECT ...", two).Should().BeNull();                        // too few groups for findings
+        AskDataInsights.Chart("SELECT cluster, COUNT(*) AS n FROM t GROUP BY cluster", two, "wells")!.Type.Should().Be("donut");   // a chart of 2
         var numbers = new AiQueryResult(["well_id"], Enumerable.Range(1, 5).Select(i => new Dictionary<string, object?> { ["well_id"] = (long)i }).ToList(), 5, 5, false);
         AskDataInsights.Spec("SELECT well_id FROM t", numbers).Should().BeNull();       // nothing to group by
     }
@@ -54,6 +55,26 @@ public class AskDataInsightsTests
         var spec = AskDataInsights.Spec("SELECT YEAR(d) AS year, COUNT(*) AS wells FROM t GROUP BY YEAR(d)", years)!;
         spec.GroupBy.Should().Equal("year");
         Insights.Report(spec, years).Trend.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void A_grouped_answer_gets_a_chart_bars_for_many_groups_a_donut_for_few_a_line_over_periods()
+    {
+        var bars = AskDataInsights.Chart(LiftTypeSql, LiftTypes(), "wells by lift type")!;
+        bars.Type.Should().Be("bar");
+        bars.Labels.Should().HaveCount(9).And.StartWith("(blank)");
+        bars.Series.Should().ContainSingle().Which.Data.Should().Contain(294);
+        AskDataInsights.BuilderType(bars).Should().Be("bar");
+
+        var clusters = new AiQueryResult(["cluster", "wells"], [
+            new() { ["cluster"] = "Marmul", ["wells"] = 448L }, new() { ["cluster"] = "Nimr", ["wells"] = 393L }, new() { ["cluster"] = "Amal", ["wells"] = 0L }], 3, 3, false);
+        var donut = AskDataInsights.Chart("SELECT cluster, COUNT(*) AS wells FROM t GROUP BY cluster", clusters, "wells per cluster")!;
+        (donut.Type, AskDataInsights.BuilderType(donut)).Should().Be(("donut", "pie"));
+
+        var months = new AiQueryResult(["month", "wells"], new[] { "2026-01-01", "2026-02-01", "2026-03-01" }
+            .Select((m, i) => new Dictionary<string, object?> { ["month"] = m, ["wells"] = (long)(5 + i) }).ToList(), 3, 3, false);
+        AskDataInsights.Chart("SELECT ...", months, "wells by month")!.Type.Should().Be("line");
+        AskDataInsights.BuilderType(null).Should().Be("table");
     }
 
     [Fact]

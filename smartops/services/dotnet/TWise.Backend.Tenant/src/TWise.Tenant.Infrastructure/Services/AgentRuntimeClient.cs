@@ -167,6 +167,22 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
             : [];
     }
 
+    public async Task<IReadOnlyList<AgentRuntimeLinkSuggestion>> AskDataLinksAsync(AgentRuntimeAskData askData, CancellationToken ct)
+    {
+        using var res = await http.PostAsJsonAsync("api/agent-runtime/askdata/links", new { db = AskDataDb(), askDataSettings = askData }, Json, ct);
+        if ((int)res.StatusCode == 400)
+        {
+            var detail = await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
+            throw new InvalidOperationException(detail.TryGetProperty("detail", out var d) ? d.GetString() : "Ask Data is not set up.");
+        }
+        if (!res.IsSuccessStatusCode)
+            throw new HttpRequestException($"{(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync(ct))}");
+        var body = await res.Content.ReadFromJsonAsync<JsonElement>(Json, ct);
+        if (!body.TryGetProperty("links", out var links) || links.ValueKind != JsonValueKind.Array) return [];
+        return links.EnumerateArray().Select(l => new AgentRuntimeLinkSuggestion(l.GetProperty("from").GetString() ?? "", l.GetProperty("to").GetString() ?? "",
+            l.TryGetProperty("overlap", out var o) && o.ValueKind == JsonValueKind.Number ? o.GetDouble() : null)).ToList();
+    }
+
     public async Task<JsonElement> AskDataRowsAsync(string sql, AgentRuntimeAskData askData, CancellationToken ct)
     {
         using var res = await http.PostAsJsonAsync("api/agent-runtime/askdata/rows", new { sql, db = AskDataDb(), askDataSettings = askData }, Json, ct);
@@ -329,6 +345,12 @@ public sealed partial class AgentRuntimeClient(HttpClient http, IConfiguration c
     private static partial Regex FeaturePath();
 
     /// <summary>The Ask Data database as the runtime expects it (server, port, name, user, password).</summary>
+    public (string Server, string Database) AskDataDatabase()
+    {
+        var b = new SqlConnectionStringBuilder(AskDataConnection(config));
+        return (b.DataSource.Split(',')[0].Replace("tcp:", "", StringComparison.OrdinalIgnoreCase).Trim(), b.InitialCatalog);
+    }
+
     private object AskDataDb()
     {
         var b = new SqlConnectionStringBuilder(AskDataConnection(config));

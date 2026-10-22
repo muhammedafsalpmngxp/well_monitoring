@@ -12,6 +12,7 @@ Endpoints:
   POST /api/agent-runtime/askdata/export   an Ask Data answer's data as xlsx / docx (signed token, no model call)
   POST /api/agent-runtime/askdata/starters   suggested first questions for Ask your data (column profiles, no AI)
   POST /api/agent-runtime/askdata/rows   an answer's SQL run again (checked like an export), for its insight report
+  POST /api/agent-runtime/askdata/links   suggested joins between tables with no foreign key (column profiles, no AI)
   POST /api/agent-runtime/askdata/ask   Ask your data: one question on the Ask Data database; events:
                                   status, node (ping when quiet), then done or error
   POST /api/agent-runtime/run     runs one agent configuration; server-sent events:
@@ -52,7 +53,7 @@ from app.errors import user_message
 from app import trace
 from app.graph import RUN_KEYS, approval_update, build_graph, missing_inputs, uses
 from app.prompt_text import missing as missing_prompts
-from app.models import AskDataAskRequest, AskDataExportRequest, AskDataRowsRequest, AskDataStartersRequest, JudgeRequest, ResumeRequest, RunRequest, ToolTryRequest
+from app.models import AskDataAskRequest, AskDataExportRequest, AskDataLinksRequest, AskDataRowsRequest, AskDataStartersRequest, JudgeRequest, ResumeRequest, RunRequest, ToolTryRequest
 from app import sqlstep
 from app.prepare import Prepared, asks_question, prepare
 from app.sqlstep import SQL_QUERY_TOOL
@@ -183,6 +184,18 @@ def askdata_starters(req: AskDataStartersRequest) -> dict[str, list[str]]:
 
     try:
         return {"questions": runner.starters(req.db, req.ask_data_settings)}
+    except ValueError as exc:   # Ask Data is not set up for this tenant
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/agent-runtime/askdata/links", dependencies=[Depends(require_key)])
+def askdata_links(req: AskDataLinksRequest) -> dict[str, list[dict]]:
+    """Suggested joins between Ask Data tables that have no foreign key, for an admin to confirm (none until the column
+    profiles exist)."""
+    from app.askdata import runner
+
+    try:
+        return {"links": runner.links(req.db, req.ask_data_settings)}
     except ValueError as exc:   # Ask Data is not set up for this tenant
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

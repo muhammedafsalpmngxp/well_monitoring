@@ -104,6 +104,8 @@ export const API_ENDPOINTS = {
     ASK_DATA_SETTINGS: '/ai/settings/ask-data',
     ASK_DATA_CATALOG: '/ai/settings/ask-data/catalog',
     ASK_DATA_STARTERS: '/ai/askdata/starters',
+    ASK_DATA_LINKS: '/ai/askdata/links',
+    ASK_DATA_LINKS_SCAN: '/ai/askdata/links/scan',
     FEATURE_SETTINGS: '/ai/settings/features',
     FEATURE_SETTING: (feature: string) => `/ai/settings/features/${encodeURIComponent(feature)}`,
     PROMPT_LIBRARY_ITEM: (key: string) => `/ai/prompt-library/${encodeURIComponent(key)}`,

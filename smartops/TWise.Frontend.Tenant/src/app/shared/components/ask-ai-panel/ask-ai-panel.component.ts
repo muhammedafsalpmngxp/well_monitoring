@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
-import { AiAskDataSql, AiClarification, AiClarifyOption, AiConversation, AiDataset, AiDatasetNote, AiFeatures, AiAlert, AiAlertKind, AiInsightReport, AiPromptDto, AiExample, AiMetric, AiTraceStep, AiNoteProposal, AiTerm, AiQueryResult, AiQuerySpec, AiService } from '../../../core/services/ai.service';
+import { AskDataChart, AiAskDataSql, AiClarification, AiClarifyOption, AiConversation, AiDataset, AiDatasetNote, AiFeatures, AiAlert, AiAlertKind, AiInsightReport, AiPromptDto, AiExample, AiMetric, AiTraceStep, AiNoteProposal, AiTerm, AiQueryResult, AiQuerySpec, AiService } from '../../../core/services/ai.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AskAiPanelService } from '../../../core/services/ask-ai-panel.service';
 import { Router } from '@angular/router';
@@ -15,6 +15,9 @@ import { normalizeAdvancedChartType } from '../../../core/utils/advanced-chart.u
 import { StringUtil } from '../../../core/utils/string.util';
 import { forkJoin } from 'rxjs';
 import { markdownToHtml } from '../../../core/utils/markdown.util';
+import { HighchartsChartComponent } from 'highcharts-angular';
+import { CommonApiService } from '../../../core/services/common-api.service';
+import type Highcharts from 'highcharts';
 
 /** One rendered turn: the question plus what came back while it streamed. */
 interface Turn {
@@ -36,6 +39,13 @@ interface Turn {
   suggestions?: string[];
   /** Ask Data: next questions for an answer that found something. */
   followUps?: string[];
+  /** Ask Data: the answer's chart, drawn under the table (hidden with "Hide chart"). */
+  askChart?: AskDataChart;
+  askChartOptions?: Highcharts.Options;
+  hideChart?: boolean;
+  /** Saving the answer as a data source for Open as chart / Add to dashboard. */
+  viewBusy?: boolean;
+  viewError?: string;
   /** The AI asks which reading of the question was meant. */
   clarify?: AiClarification;
   /** Findings worked out from the result: trend, top/bottom, share, outliers. */
@@ -61,13 +71,14 @@ interface Turn {
 @Component({
   selector: 'app-ask-ai-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HighchartsChartComponent],
   templateUrl: './ask-ai-panel.component.html',
   styleUrls: ['./ask-ai-panel.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AskAiPanelComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly commonApi = inject(CommonApiService);
   @ViewChild('scroller') private scroller?: ElementRef<HTMLElement>;
 
   datasets: AiDataset[] = [];
@@ -143,6 +154,10 @@ export class AskAiPanelComponent implements OnInit {
   addError = '';
 
   openAddToDashboard(t: Turn): void {
+    this.withAskDataPreset(t, () => this.showAddToDashboard(t));
+  }
+
+  private showAddToDashboard(t: Turn): void {
     this.addTarget = t;
     this.addError = '';
     this.addDashboardId = 'new';
@@ -350,6 +365,7 @@ export class AskAiPanelComponent implements OnInit {
           case 'done': if (ev.data && 'conversationId' in ev.data) { this.conversationId = ev.data.conversationId; this.sourceName = ev.data.sourceName; turn.messageId = ev.data.messageId; this.loadConversations(); } this.busy = false; turn.status = ''; break;
           case 'suggestions': turn.suggestions = ev.data; break;
           case 'followups': turn.followUps = ev.data; break;
+          case 'chartspec': turn.askChart = ev.data; turn.askChartOptions = this.chartOptions(ev.data); break;
           case 'clarify': turn.clarify = ev.data; turn.status = ''; break;
           case 'insights': turn.insights = ev.data; break;
           case 'trace': turn.trace = ev.data; break;
@@ -531,9 +547,58 @@ export class AskAiPanelComponent implements OnInit {
     });
   }
 
+  /** The Chart Builder type an answer opens as: its mapping's, else (Ask Data, not saved yet) its chart's. */
+  builderType(t: Turn): string {
+    return t.chart?.chartType ?? (t.askChart ? ({ line: 'line', donut: 'pie', bar: 'bar' } as Record<string, string>)[t.askChart.type] : 'table');
+  }
+
+  /**
+   * Ask Data answers are SQL with no dataset: the first "Open as chart" or "Add to dashboard" saves the answer as a data
+   * source (a database view, checked again by the server), then charts that view like a dataset answer.
+   */
+  private withAskDataPreset(t: Turn, then: () => void): void {
+    if (t.chart) { then(); return; }
+    if (!t.messageId || t.viewBusy) return;
+    t.viewBusy = true;
+    t.viewError = '';
+    this.ai.saveAskDataView(t.messageId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: v => {
+        t.viewBusy = false;
+        // The view list is cached for the session: the Chart Builder must see the view just saved.
+        this.commonApi.clearCache();
+        const title = t.question.length > 60 ? t.question.slice(0, 57) + '…' : t.question;
+        const charted = v.chartType !== 'table' && !!v.xAxis && !!v.measure;
+        // The view already holds one row per group: summing its number per group gives the answer's figures.
+        t.chart = { sourceType: 'view', sourceId: v.viewId, sourceName: v.viewName, title, chartType: charted ? v.chartType : 'table',
+          xAxis: v.xAxis ?? '', yAxis: charted ? 'Sum (F)' : '', yAggColumn: charted ? v.measure! : '', topN: null };
+        this.cdr.markForCheck();
+        then();
+      },
+      error: err => { t.viewBusy = false; t.viewError = err?.error?.message ?? 'The answer could not be saved as a data source.'; this.cdr.markForCheck(); },
+    });
+  }
+
+  /** Highcharts options for an Ask Data chart: columns, a line, or a donut. */
+  private chartOptions(c: AskDataChart): Highcharts.Options {
+    // Light colours set here: the app's Highcharts theme is dark, and the panel is white.
+    const text = { color: '#344054' };
+    const base: Highcharts.Options = { chart: { height: 240, backgroundColor: '#ffffff' }, title: { text: undefined }, credits: { enabled: false },
+      legend: { itemStyle: text }, tooltip: { backgroundColor: '#ffffff', style: text } };
+    if (c.type === 'donut')
+      return { ...base, tooltip: { ...base.tooltip, pointFormat: '<b>{point.y}</b> ({point.percentage:.1f}%)' },
+        plotOptions: { pie: { dataLabels: { style: { ...text, textOutline: 'none' } } } },
+        series: [{ type: 'pie', name: c.series[0]?.name, innerSize: '55%', data: c.labels.map((l, i) => [l, c.series[0]?.data[i] ?? 0]) }] };
+    const type = c.type === 'line' ? 'line' : 'column';
+    const axis = { labels: { style: text }, title: { style: text }, lineColor: '#d0d5dd', gridLineColor: '#eaecf0' };
+    return { ...base, legend: { ...base.legend, enabled: c.series.length > 1 },
+      xAxis: { ...axis, categories: c.labels, title: { ...axis.title, text: c.xAxis || undefined } },
+      yAxis: { ...axis, title: { ...axis.title, text: c.yAxis || undefined } },
+      series: c.series.map(s => ({ type, name: s.name, data: s.data })) as Highcharts.SeriesOptionsType[] };
+  }
+
   /** Hands the answer's mapping to the Chart Builder, which opens with the dataset and axes preset. */
   openInChartBuilder(t: Turn): void {
-    if (!t.chart) return;
+    if (!t.chart) { this.withAskDataPreset(t, () => this.openInChartBuilder(t)); return; }
     this.presets.set(t.chart);
     this.panel.close();
     this.router.navigate(['/charts-tiles/builder']);

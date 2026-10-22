@@ -36,7 +36,7 @@ def test_column_names_and_notes_are_added_to_the_schema_without_changing_table_l
     assert out[0] == "TABLE well.well_master"                                   # the safety check reads this line
     assert out[2] == '  - bl_flaf_scr float | called "FLAF Score" | 0-100, higher is better'
     assert out[4:6] == ["TABLE ref.crew", "  NOTE: one row per crew"]
-    assert knowledge.known_words("FLAF score of dry wells", TERMS, notes) >= {"flaf", "score", "dry", "well"}
+    assert knowledge.known_words("FLAF score of dry wells", AskDataSettings(terms=TERMS, notes=notes)) >= {"flaf", "score", "dry", "well"}
 
 
 def test_tenant_terms_and_notes_reach_the_run_settings():

@@ -19,7 +19,10 @@ public sealed class SaveAiDatasetMetricsCommandValidator : AbstractValidator<Sav
 {
     public SaveAiDatasetMetricsCommandValidator()
     {
-        RuleFor(x => x.SourceType).Must(AiSources.IsSourceType).WithMessage(AiSources.Message);
+        RuleFor(x => x.SourceType).Must((x, s) => AiSources.IsKnowledgeSource(s, x.SourceId)).WithMessage(AiSources.KnowledgeMessage);
+        RuleForEach(x => x.Metrics).Must(m => string.IsNullOrWhiteSpace(m.Column) || AiSources.IsAskDataColumn(m.Column.Trim(), tableAllowed: false))
+            .When(x => x.SourceType == AiSources.AskData)
+            .WithMessage("Give a metric's column as schema.table.column.");
         RuleFor(x => x.Metrics).Custom((metrics, ctx) =>
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

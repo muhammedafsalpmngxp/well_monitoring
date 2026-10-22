@@ -8,6 +8,8 @@ using TWise.Tenant.Application.Features.Ai.Activity;
 using TWise.Tenant.Application.Features.Ai.AgenticFeatures;
 using TWise.Tenant.Application.Features.Ai.Alerts;
 using TWise.Tenant.Application.Features.Ai.Ask;
+using TWise.Tenant.Application.Features.Ai.AskDataLinks;
+using TWise.Tenant.Application.Features.Ai.AskDataViews;
 using TWise.Tenant.Application.Features.Ai.AskDataSettings;
 using TWise.Tenant.Application.Features.Ai.PromptLibrary;
 using TWise.Tenant.Application.Features.Ai.Builder;
@@ -134,6 +136,31 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
         return Ok(await sender.Send(new GetAskDataStartersQuery(tenantId), ct));
     }
 
+    /// <summary>Ask Data's table links: joins between tables that have no foreign key (suggested, confirmed, rejected). Admin.
+    /// Confirm or reject one with PUT relations/{id}/status; delete with DELETE relations/{id}.</summary>
+    [HttpGet("askdata/links")]
+    [ProducesResponseType(typeof(IReadOnlyList<AiRelationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> AskDataLinks(CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new GetAskDataLinksQuery(t), ct)));
+
+    /// <summary>Suggests links from what the Ask Data tables hold (no AI call) and stores them as suggested. Admin; 400 with
+    /// { message } when Ask Data is not set up or the runtime is down.</summary>
+    [HttpPost("askdata/links/scan")]
+    [ProducesResponseType(typeof(IReadOnlyList<AiRelationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> ScanAskDataLinks(CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new ScanAskDataLinksCommand(t, UserId()), ct)));
+
+    /// <summary>Adds a confirmed link ("schema.table.column" each). Admin.</summary>
+    [HttpPost("askdata/links")]
+    [ProducesResponseType(typeof(AiRelationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> AddAskDataLink([FromBody] AddAskDataLinkRequest request, CancellationToken ct) =>
+        AdminAsync(async t => Ok(await sender.Send(new AddAskDataLinkCommand(t, UserId(), request), ct)));
+
     // ── Conversations (own) ─────────────────────────────────────────────────────
 
     /// <summary>The user's conversations, newest first.</summary>
@@ -183,6 +210,15 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
         if (!TryGetIds(out var tenantId, out var userId)) return Unauthorized();
         return await sender.Send(new UnlikeAiMessageCommand(tenantId, userId, id), ct) ? NoContent() : NotFound();
     }
+
+    /// <summary>Saves an own Ask Data answer as a data source (database view) so it can be opened in the Chart Builder or
+    /// added to a dashboard. Chart AI feature; 400 with { message } when it cannot be saved.</summary>
+    [HttpPost("messages/{id:long}/askdata-view")]
+    [ProducesResponseType(typeof(AskDataViewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> SaveAskDataView(long id, CancellationToken ct) =>
+        SendAiAsync(async (t, u) => await sender.Send(new SaveAskDataViewCommand(t, u, id), ct) is { } v ? Ok(v) : NotFound());
 
     /// <summary>Thumbs-down: the answer is never used as an example. Learning feature.</summary>
     [HttpPost("messages/{id:long}/dislike")]

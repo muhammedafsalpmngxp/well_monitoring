@@ -125,3 +125,7 @@
 @keyframes ask-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
 @media (max-width: 600px) { .ask { width: 100vw; } }
+
+// Ask Data: the answer's chart under its table.
+.ask__chart { margin: 8px 0 4px; }
+.ask__chart-box { display: block; width: 100%; height: 240px; }

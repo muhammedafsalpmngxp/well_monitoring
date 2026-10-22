@@ -24,4 +24,9 @@ public record AiTermDto(string Term, string? Synonyms, string? Column, string? V
 
 public record AiExampleStatusRequest(string Status);
 
-public record AiExampleDto(long Id, long MessageId, string Question, AiQuerySpec? QuerySpec, string CreatedBy, DateTime CreatedAt, string Status, string? Review);
+/// <summary>Sql: an Ask Data example's query (Ask Data answers have no spec).</summary>
+public record AiExampleDto(long Id, long MessageId, string Question, AiQuerySpec? QuerySpec, string CreatedBy, DateTime CreatedAt, string Status, string? Review,
+    string? Sql = null);
+
+/// <summary>An Ask Data table link drawn by an admin: "schema.table.column" each.</summary>
+public record AddAskDataLinkRequest(string From, string To);
