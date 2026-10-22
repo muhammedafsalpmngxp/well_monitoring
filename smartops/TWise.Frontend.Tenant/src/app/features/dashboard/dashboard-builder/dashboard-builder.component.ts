@@ -3,6 +3,7 @@ import { dateRangePopupPlacement } from '../../../shared/components/date-range-p
 import { inferPlantFilter, isPlantFilter } from '../../../core/utils/plant-filter.util';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
+import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { AfterViewInit, ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -2447,13 +2448,13 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
             tableRows,
           };
           this.chartTableCache[chart.id] = this.buildChartTableData(chart.id);
-          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions((activeDesign['chartType'] as string) ?? 'bar', categories, [], chart.title, series, activeDesign), showDataLabels));
+          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions((activeDesign['chartType'] as string) ?? 'bar', categories, [], chart.title, series, activeDesign), activeDesign['sortOrder']), showDataLabels));
         } else {
           const { cats, vals } = this.aggregateChart(rows, activeDesign);
           appendDaxToChartData(daxMeasures, rows, columns, cats, vals);
           this.chartAggData[chart.id]   = { cats, vals, title: chart.title, seriesName: (activeDesign['yAxis'] as string) || (activeDesign['yAggColumn'] as string) || 'Value', xHeader: (activeDesign['xAxisTitle'] as string) || (activeDesign['xAxis'] as string) || 'Parameter' };
           this.chartTableCache[chart.id] = this.buildChartTableData(chart.id);
-          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions((activeDesign['chartType'] as string) ?? 'bar', cats, vals, chart.title, undefined, activeDesign), showDataLabels));
+          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions((activeDesign['chartType'] as string) ?? 'bar', cats, vals, chart.title, undefined, activeDesign), activeDesign['sortOrder']), showDataLabels));
         }
         if (!this.cardChartType[chart.id]) this.cardChartType[chart.id] = toChartView((design['chartType'] as string));
         this.cardChartTypeOptions[chart.id] = chartSwitchOptions(this.cardChartType[chart.id], design);
@@ -3315,7 +3316,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     if (data) {
       this.chartPreviewOptions[id] = {};
       this.cdr.detectChanges();
-      this.chartPreviewOptions[id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions(type, data.cats, data.vals, data.title, data.multiSeries, this.chartDesigns[id]), this.chartShowDataLabels[id]));
+      this.chartPreviewOptions[id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(type, data.cats, data.vals, data.title, data.multiSeries, this.chartDesigns[id]), this.chartDesigns[id]?.sortOrder), this.chartShowDataLabels[id]));
     }
     this.cdr.markForCheck();
   }

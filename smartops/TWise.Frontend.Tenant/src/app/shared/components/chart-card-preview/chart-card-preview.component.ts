@@ -2,6 +2,7 @@ import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnDestroy, 
 import type Highcharts from 'highcharts';
 import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
+import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { Widget, WidgetService } from '../../../core/services/widget.service';
 import { CommonApiService } from '../../../core/services/common-api.service';
 import type { DaxMeasureConfig } from '../../../core/utils/dax-evaluator.util';
@@ -69,7 +70,7 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
   /** Assignments flow through here so the saved "Show Data Labels" preference is applied centrally. */
   get options(): Highcharts.Options | null { return this._options; }
   set options(value: Highcharts.Options | null) {
-    this._options = applyDataLabelPreference(value, this.cachedDesign?.['showDataLabels']);
+    this._options = applyDataLabelPreference(applyChartSort(value, this.cachedDesign?.['sortOrder'] as string | undefined), this.cachedDesign?.['showDataLabels']);
   }
   /** True when there's nothing worth drawing: every series has no data points at all (the
    *  common case for a draft widget whose xAxis/source isn't fully configured yet — Highcharts

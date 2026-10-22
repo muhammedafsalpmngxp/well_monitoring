@@ -349,6 +349,7 @@ public sealed partial class AiAskService(
 
     private static readonly string[] YFunctions = ["Count (F)", "Count Distinct (F)", "Sum (F)", "Average (F)", "Min (F)", "Max (F)"];
     private static readonly string[] LimitModes = ["all", "top", "bottom"];
+    private static readonly string[] SortOrders = ["none", "value-desc", "value-asc", "label-asc", "label-desc"];
 
     public async Task<AiChartEditResponse> EditChartAsync(AiChartEditRequest request, long tenantId, long userId, CancellationToken ct)
     {
@@ -363,7 +364,8 @@ public sealed partial class AiAskService(
                 AiPrompts.Text(AiPrompts.ChartEdit, await PromptsAsync(tenantId, ct)) + " Reply with JSON only: " +
                 "{\"patch\":{...only the fields to change...},\"message\":\"one short sentence\"}. " +
                 "Allowed patch fields: chartType, xAxis, yAxis, yAggColumn, title, xAxisTitle, yAxisTitle, showLegend, showDataLabels, " +
-                "showAxisTitle, includeDataTable, limitCategory (all|top|bottom), topN, bottomN, groupRestAsOthers. " +
+                "showAxisTitle, includeDataTable, limitCategory (all|top|bottom), topN, bottomN, groupRestAsOthers, " +
+                "sortOrder (" + string.Join("|", SortOrders) + "; value = the bar or slice size, label = the category name). " +
                 "xAxis and yAggColumn must be column names from the list. yAxis is the aggregation function, one of: " + string.Join(", ", YFunctions) + ". " +
                 "chartType must be one of the allowed chart types."),
             new("user", $"Instruction: {instruction}\nCurrent: {JsonSerializer.Serialize(request.Current, Json)}\nColumns: {string.Join(", ", request.Columns)}\nAllowed chart types: {string.Join(", ", request.ChartTypes ?? [])}"),
@@ -389,14 +391,15 @@ public sealed partial class AiAskService(
             Pick(p.ChartType, request.ChartTypes ?? []), Col(p.XAxis), Pick(p.YAxis, YFunctions), Col(p.YAggColumn),
             Trim(p.Title, 120), Trim(p.XAxisTitle, 60), Trim(p.YAxisTitle, 60),
             p.ShowLegend, p.ShowDataLabels, p.ShowAxisTitle, p.IncludeDataTable,
-            Pick(p.LimitCategory, LimitModes), p.TopN is > 0 and <= 500 ? p.TopN : null, p.BottomN is > 0 and <= 500 ? p.BottomN : null, p.GroupRestAsOthers);
+            Pick(p.LimitCategory, LimitModes), p.TopN is > 0 and <= 500 ? p.TopN : null, p.BottomN is > 0 and <= 500 ? p.BottomN : null, p.GroupRestAsOthers,
+            Pick(p.SortOrder, SortOrders));
         // A refusal often echoes the current values; keep only real changes so the builder does nothing on "no".
         var cur = request.Current;
         patch = patch with
         {
             ChartType = patch.ChartType == cur.ChartType ? null : patch.ChartType, XAxis = patch.XAxis == cur.XAxis ? null : patch.XAxis,
             YAxis = patch.YAxis == cur.YAxis ? null : patch.YAxis, YAggColumn = patch.YAggColumn == cur.YAggColumn ? null : patch.YAggColumn,
-            Title = patch.Title == cur.Title ? null : patch.Title,
+            Title = patch.Title == cur.Title ? null : patch.Title, SortOrder = patch.SortOrder == cur.SortOrder ? null : patch.SortOrder,
         };
         return new AiChartEditResponse(patch, Trim(parsed.Message, 300) ?? "Done.");
     }

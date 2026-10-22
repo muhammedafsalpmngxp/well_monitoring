@@ -3,6 +3,7 @@ import { dateRangePopupPlacement } from '../../../shared/components/date-range-p
 import { isPlantFilter } from '../../../core/utils/plant-filter.util';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
+import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { highlightLegendPoint } from '../../../core/utils/chart-legend-hover.util';
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { Lock, createElement } from 'lucide';
@@ -116,6 +117,7 @@ interface ChartDesign {
   bottomN?: number;
   limitCategory?: string;
   groupRestAsOthers?: boolean;
+  sortOrder?: string;
   dataSourceMode?: string;
   viewId?: number;
   interactiveFilters?: { id: number; label: string; controlType: string; sourceTable: string; sourceColumn: string; hidden?: boolean; locked?: boolean; lockedValue?: string; lockedValues?: string[] }[];
@@ -2742,7 +2744,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       this.cdr.markForCheck();
       return;
     }
-    const newOptions = this.fillCardChartHeight(applyChartZoom(applyDataLabelPreference(this.buildChartOptions(type, card.cats, card.vals, card.title, card.design, card.multiSeries), card.design.showDataLabels)));
+    const newOptions = this.fillCardChartHeight(applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(type, card.cats, card.vals, card.title, card.design, card.multiSeries), card.design.sortOrder), card.design.showDataLabels)));
     this.chartCards[idx] = { ...card, chartType: type, showMenu: false, dataReady: false };
     this.cdr.detectChanges();
     this.chartCards[idx] = { ...this.chartCards[idx], dataReady: true, options: newOptions };
@@ -2933,7 +2935,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.rafId = requestAnimationFrame(() => {
       this.rafId = null;
       this.chartCards.forEach((card, idx) => {
-        this.chartCards[idx] = { ...card, dataReady: true, options: this.fillCardChartHeight(applyChartZoom(applyDataLabelPreference(this.buildChartOptions(card.chartType, card.cats, card.vals, card.title, card.design, card.multiSeries), card.design.showDataLabels))) };
+        this.chartCards[idx] = { ...card, dataReady: true, options: this.fillCardChartHeight(applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(card.chartType, card.cats, card.vals, card.title, card.design, card.multiSeries), card.design.sortOrder), card.design.showDataLabels))) };
       });
       this.cdr.detectChanges();
     });
@@ -3792,7 +3794,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (card.design.drillDownViewId && card.widgetId) {
       result.options = this.injectDrillDownClick(result.options, card.widgetId, this.isTrendChart(card.design) ? card.trendMode : undefined, card);
     }
-    result.options = this.fillCardChartHeight(applyChartZoom(applyDataLabelPreference(result.options, card.design.showDataLabels)));
+    result.options = this.fillCardChartHeight(applyChartZoom(applyDataLabelPreference(applyChartSort(result.options, card.design.sortOrder), card.design.showDataLabels)));
     return { ...result, additionalFilterNoData: rows.length === 0 &&
       this.effectiveCardFilters(card).some(filter => filter.dashboardAdditional) };
   }

@@ -3,6 +3,7 @@ import { dateRangePopupPlacement } from '../../../shared/components/date-range-p
 import { isPlantFilter } from '../../../core/utils/plant-filter.util';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
+import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
@@ -2333,13 +2334,13 @@ export class BoardBuilderComponent implements OnInit, AfterViewInit, OnDestroy {
             tableRows,
           };
           this.chartTableCache[chart.id] = this.buildChartTableData(chart.id);
-          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions(chartType, categories, [], chart.title, series, activeDesign), showDataLabels));
+          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(chartType, categories, [], chart.title, series, activeDesign), activeDesign['sortOrder']), showDataLabels));
         } else {
           const { cats, vals } = this.aggregateChart(rows, activeDesign);
           appendDaxToChartData(daxMeasures, rows, columns, cats, vals);
           this.chartAggData[chart.id] = { cats, vals, title: chart.title, seriesName: (activeDesign['yAxis'] as string) || (activeDesign['yAggColumn'] as string) || 'Value' };
           this.chartTableCache[chart.id] = this.buildChartTableData(chart.id);
-          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions(chartType, cats, vals, chart.title, undefined, activeDesign), showDataLabels));
+          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(chartType, cats, vals, chart.title, undefined, activeDesign), activeDesign['sortOrder']), showDataLabels));
         }
         if (!this.cardChartType[chart.id]) this.cardChartType[chart.id] = toChartView(design.chartType);
         this.cardChartTypeOptions[chart.id] = chartSwitchOptions(this.cardChartType[chart.id], design);
@@ -3437,7 +3438,7 @@ export class BoardBuilderComponent implements OnInit, AfterViewInit, OnDestroy {
     if (data) {
       this.chartPreviewOptions[id] = {};
       this.cdr.detectChanges();
-      this.chartPreviewOptions[id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions(type, data.cats, data.vals, data.title, data.multiSeries, this.chartDesigns[id]), this.chartShowDataLabels[id]));
+      this.chartPreviewOptions[id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(type, data.cats, data.vals, data.title, data.multiSeries, this.chartDesigns[id]), this.chartDesigns[id]?.sortOrder), this.chartShowDataLabels[id]));
     }
     this.cdr.markForCheck();
   }

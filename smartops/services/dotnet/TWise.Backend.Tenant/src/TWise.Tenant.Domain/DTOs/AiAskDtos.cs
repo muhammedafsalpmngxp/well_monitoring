@@ -97,7 +97,7 @@ public record AiFilterSuggestion(string SourceTable, string SourceColumn, string
 public record AiChartState(
     string? ChartType, string? XAxis, string? YAxis, string? YAggColumn, string? Title, string? XAxisTitle, string? YAxisTitle,
     bool? ShowLegend, bool? ShowDataLabels, bool? ShowAxisTitle, bool? IncludeDataTable,
-    string? LimitCategory, int? TopN, int? BottomN, bool? GroupRestAsOthers);
+    string? LimitCategory, int? TopN, int? BottomN, bool? GroupRestAsOthers, string? SortOrder = null);
 
 /// <summary>Instruction plus what the builder currently shows and what it may choose from.</summary>
 public record AiChartEditRequest(string Instruction, AiChartState Current, IReadOnlyList<string> Columns, IReadOnlyList<string> ChartTypes);

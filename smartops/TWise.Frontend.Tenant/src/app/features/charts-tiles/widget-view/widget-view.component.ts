@@ -10,6 +10,7 @@ import { forecastScenarioPeriods, hasScenarioDatePeriods } from '../../../core/u
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyScenarioChartReadability } from '../../../core/utils/scenario-chart-readability.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
+import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { highlightLegendPoint } from '../../../core/utils/chart-legend-hover.util';
 import { WidgetService, Widget } from '../../../core/services/widget.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -1928,7 +1929,7 @@ export class WidgetViewComponent implements OnInit, OnDestroy {
   private rebuildChartOptions(): void {
     this.chartOptions = applyDataLabelPreference(
       applyScenarioChartReadability(
-        this.buildOptionsFor(this.chartView, this.chartSize, key => this.selectCategory(key)),
+        applyChartSort(this.buildOptionsFor(this.chartView, this.chartSize, key => this.selectCategory(key)), this.design['sortOrder'] as string | undefined),
         this.scenarioForecastLabels.length > 0,
       ),
       this.design['showDataLabels'] as boolean | undefined,
@@ -1981,7 +1982,7 @@ export class WidgetViewComponent implements OnInit, OnDestroy {
   private rebuildChartOptions2(): void {
     this.chartOptions2 = applyChartZoom(applyDataLabelPreference(
       applyScenarioChartReadability(
-        this.buildOptionsFor(this.chartView2, this.chartSize2, key => this.selectCategory2(key)),
+        applyChartSort(this.buildOptionsFor(this.chartView2, this.chartSize2, key => this.selectCategory2(key)), this.design['sortOrder'] as string | undefined),
         this.scenarioForecastLabels.length > 0,
       ),
       this.design['showDataLabels'] as boolean | undefined,

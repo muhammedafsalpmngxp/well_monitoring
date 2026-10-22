@@ -206,6 +206,7 @@ export interface AiChartState {
   title?: string | null; xAxisTitle?: string | null; yAxisTitle?: string | null;
   showLegend?: boolean | null; showDataLabels?: boolean | null; showAxisTitle?: boolean | null; includeDataTable?: boolean | null;
   limitCategory?: string | null; topN?: number | null; bottomN?: number | null; groupRestAsOthers?: boolean | null;
+  sortOrder?: string | null;
 }
 export interface AiChartEditRequest { instruction: string; current: AiChartState; columns: string[]; chartTypes: string[] }
 export interface AiChartEditResponse { patch: AiChartState; message: string }

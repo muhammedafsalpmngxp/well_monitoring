@@ -2,6 +2,7 @@ import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
 import { dateRangePopupPlacement } from '../../../shared/components/date-range-popup/date-range-popup.placement';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
+import { applyChartSort, CHART_SORT_ORDERS, ChartSortOrder } from '../../../core/utils/chart-sort.util';
 import { highlightLegendPoint } from '../../../core/utils/chart-legend-hover.util';
 import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
 import { Location } from '@angular/common';
@@ -211,6 +212,7 @@ interface ChartTabState {
   topN: number;
   bottomN: number;
   groupRestAsOthers: boolean;
+  sortOrder: ChartSortOrder;
   multiYColumns: string[];
   interactiveFilters: InteractiveFilter[];
   conditionalFilters: ConditionalFilter[];
@@ -1666,6 +1668,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   topN = 100;
   bottomN = 0;
   groupRestAsOthers = false;
+  /** Order of the categories (bars, slices): as in the data, by value, or by label. Saved with the chart. */
+  sortOrder: ChartSortOrder = 'none';
+  readonly sortOrders = CHART_SORT_ORDERS;
   rankByOptions = ['Actual Qty', 'Planned Qty', 'Variance'];
   rankBy = 'Actual Qty';
 
@@ -1977,6 +1982,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.topN = d['topN'] ?? 100;
     this.bottomN = d['bottomN'] ?? 0;
     this.groupRestAsOthers = d['groupRestAsOthers'] ?? false;
+    this.sortOrder = d['sortOrder'] ?? 'none';
 
     // Section 4 — Interactive Filters
     this.interactiveFilters = d['interactiveFilters'] ?? [];
@@ -3680,7 +3686,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   /** Assignments flow through here so the optional "Show Data Labels" preference is applied centrally. */
   get chartPreviewOptions(): Highcharts.Options | null { return this._chartPreviewOptions; }
   set chartPreviewOptions(value: Highcharts.Options | null) {
-    this._chartPreviewOptions = applyChartZoom(applyDataLabelPreference(value, this.showDataLabels));
+    this._chartPreviewOptions = applyChartZoom(applyDataLabelPreference(applyChartSort(value, this.sortOrder), this.showDataLabels));
   }
   chartRenderVisible = true;
   previewLegendItems: {
@@ -4138,6 +4144,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       title: this.chartTitle, xAxisTitle: this.xAxisTitle, yAxisTitle: this.yAxisTitle,
       showLegend: this.showLegend, showDataLabels: this.showDataLabels, showAxisTitle: this.showAxisTitle, includeDataTable: this.includeDataTable,
       limitCategory: this.limitCategory, topN: this.topN, bottomN: this.bottomN, groupRestAsOthers: this.groupRestAsOthers,
+      sortOrder: this.sortOrder,
     };
     this.ai.chartEdit({ instruction, current, columns: this.rawLoadedColumns, chartTypes: this.chartTypes.map(t => t.id) })
       .pipe(takeUntil(this.destroy$)).subscribe({
@@ -4166,6 +4173,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     if (p.topN) { this.topN = p.topN; this.limitCategory = 'top'; }
     if (p.bottomN) { this.bottomN = p.bottomN; this.limitCategory = 'bottom'; }
     if (p.groupRestAsOthers != null) this.groupRestAsOthers = p.groupRestAsOthers;
+    if (p.sortOrder) this.sortOrder = p.sortOrder as ChartSortOrder;
     if (this.selectedChartType === 'table' && !this.multiYColumns.length) this.multiYColumns = [...this.rawLoadedColumns];
     this.refreshPreview();
   }
@@ -5292,6 +5300,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       topN: this.topN,
       bottomN: this.bottomN,
       groupRestAsOthers: this.groupRestAsOthers,
+      sortOrder: this.sortOrder,
       multiYColumns: [...this.multiYColumns],
       interactiveFilters: this.interactiveFilters.map(f => ({ ...f })),
       conditionalFilters: this.conditionalFilters.map(f => ({ ...f })),
@@ -5359,6 +5368,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.topN = s.topN;
     this.bottomN = s.bottomN;
     this.groupRestAsOthers = s.groupRestAsOthers;
+    this.sortOrder = s.sortOrder ?? 'none';
     this.multiYColumns = [...s.multiYColumns];
     this.interactiveFilters = s.interactiveFilters.map(f => ({ ...f }));
     this.conditionalFilters = (s.conditionalFilters ?? []).map(f => ({
@@ -5472,6 +5482,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.topN = 100;
     this.bottomN = 0;
     this.groupRestAsOthers = false;
+    this.sortOrder = 'none';
     this.multiYColumns = [];
     this.interactiveFilters = [];
     this.conditionalFilters = [];
@@ -5545,6 +5556,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       topN: this.topN,
       bottomN: this.bottomN,
       groupRestAsOthers: this.groupRestAsOthers,
+      sortOrder: this.sortOrder,
       multiYColumns: [...this.multiYColumns],
       interactiveFilters: this.interactiveFilters.map(f => ({ ...f })),
       conditionalFilters: this.conditionalFilters.map(f => ({ ...f })),
@@ -5609,6 +5621,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.topN = s.topN;
     this.bottomN = s.bottomN;
     this.groupRestAsOthers = s.groupRestAsOthers;
+    this.sortOrder = s.sortOrder ?? 'none';
     this.multiYColumns = [...s.multiYColumns];
     this.interactiveFilters = s.interactiveFilters.map(f => ({ ...f }));
     this.conditionalFilters = (s.conditionalFilters ?? []).map(f => ({
@@ -6747,7 +6760,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       chartType: this.selectedChartType, xAxis: this.xAxis, yAxis: this.yAxis, yAggColumn: this.yAggColumn,
       xAxisTitle: this.xAxisTitle, yAxisTitle: this.yAxisTitle, showLegend: this.showLegend,
       includeDataTable: this.includeDataTable, showAxisTitle: this.showAxisTitle, showDataLabels: this.showDataLabels, showStackTotal: this.showStackTotal, limitCategory: this.limitCategory,
-      topN: this.topN, bottomN: this.bottomN, groupRestAsOthers: this.groupRestAsOthers,
+      topN: this.topN, bottomN: this.bottomN, groupRestAsOthers: this.groupRestAsOthers, sortOrder: this.sortOrder,
       source: this.selectedChartModelId,
       sourceType: this.dataSourceMode === 'view' ? 'View' : (this.selectedChartModel?.modelType ?? 'Table'),
       dataSourceMode: this.dataSourceMode,
@@ -6912,7 +6925,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         advancedConfig: isAdvancedChart(state.selectedChartType) ? state.advancedConfig : undefined,
         xAxisTitle: state.xAxisTitle, yAxisTitle: state.yAxisTitle, showLegend: state.showLegend,
         includeDataTable: state.includeDataTable, showAxisTitle: state.showAxisTitle, showDataLabels: state.showDataLabels, showStackTotal: state.showStackTotal, limitCategory: state.limitCategory,
-        topN: state.topN, bottomN: state.bottomN, groupRestAsOthers: state.groupRestAsOthers,
+        topN: state.topN, bottomN: state.bottomN, groupRestAsOthers: state.groupRestAsOthers, sortOrder: state.sortOrder,
         source: state.selectedChartModelId,
         sourceType: state.dataSourceMode === 'view' ? 'View'
           : state.dataSourceMode === 'import' ? 'Import'
@@ -7124,6 +7137,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
           this.showAxisTitle = d.showAxisTitle ?? false; this.showDataLabels = d.showDataLabels ?? true; this.showStackTotal = d.showStackTotal ?? true; this.limitCategory = d.limitCategory ?? 'top';
           this.axisTitleAutoApplied = false;
           this.topN = d.topN ?? 100; this.bottomN = d.bottomN ?? 0; this.groupRestAsOthers = d.groupRestAsOthers ?? false;
+          this.sortOrder = d.sortOrder ?? 'none';
           this.interactiveFilters = d.interactiveFilters ?? [];
           this.syncInteractiveFilterSelections();
           this.conditionalFilters = (d.conditionalFilters ?? []).map((f: ConditionalFilter) => ({

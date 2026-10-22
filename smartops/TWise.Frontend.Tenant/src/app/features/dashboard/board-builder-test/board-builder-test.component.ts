@@ -1,6 +1,7 @@
 import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
+import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, of, Subject, Subscription } from 'rxjs';
@@ -1044,7 +1045,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
   chartTrendModes: Record<string, TrendMode> = {};
   trendChartPreviews: Record<string, boolean> = {};
   chartIncludeDataTable: Record<string, boolean> = {};
-  private chartAggData: Record<string, { cats: string[]; vals: number[]; title: string; multiSeries?: Highcharts.SeriesOptionsType[] }> = {};
+  private chartAggData: Record<string, { cats: string[]; vals: number[]; title: string; multiSeries?: Highcharts.SeriesOptionsType[]; sort?: string }> = {};
   private chartTableCache: Record<string, { headers: string[]; rows: (string | number)[][]; rowColors: string[]; rowBgColors: string[] }> = {};
   private defaultChartType: Record<string, ChartView> = {};
   private defaultChartOptions: Record<string, Highcharts.Options> = {};
@@ -1111,15 +1112,15 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
           const { categories, series } = this.buildMultiSeries(rows, design);
           appendDaxToChartData(daxMeasures, rows, columns, categories, [], series as { data?: unknown }[],
             design.chartType === 'stacked' && design.showStackTotal !== false ? series.length - 1 : -1);
-          this.chartAggData[chart.id] = { cats: categories, vals: [], title: chart.title, multiSeries: series };
+          this.chartAggData[chart.id] = { cats: categories, vals: [], title: chart.title, multiSeries: series, sort: design.sortOrder };
           this.chartTableCache[chart.id] = this.buildChartTableData(chart.id);
-          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions(design.chartType ?? 'bar', categories, [], chart.title, series, design), showDataLabels));
+          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(design.chartType ?? 'bar', categories, [], chart.title, series, design), design.sortOrder), showDataLabels));
         } else {
           const { cats, vals } = this.aggregateChart(rows, design);
           appendDaxToChartData(daxMeasures, rows, columns, cats, vals);
-          this.chartAggData[chart.id] = { cats, vals, title: chart.title };
+          this.chartAggData[chart.id] = { cats, vals, title: chart.title, sort: design.sortOrder };
           this.chartTableCache[chart.id] = this.buildChartTableData(chart.id);
-          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions(design.chartType ?? 'bar', cats, vals, chart.title, undefined, design), showDataLabels));
+          this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(design.chartType ?? 'bar', cats, vals, chart.title, undefined, design), design.sortOrder), showDataLabels));
         }
         if (!this.cardChartType[chart.id]) this.cardChartType[chart.id] = toChartView(design.chartType);
         this.cardChartTypeOptions[chart.id] = chartSwitchOptions(this.cardChartType[chart.id], design);
@@ -1725,7 +1726,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
     if (data) {
       this.chartPreviewOptions[id] = {};
       this.cdr.detectChanges();
-      this.chartPreviewOptions[id] = applyChartZoom(applyDataLabelPreference(this.buildChartOptions(type, data.cats, data.vals, data.title, data.multiSeries), this.chartShowDataLabels[id]));
+      this.chartPreviewOptions[id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions(type, data.cats, data.vals, data.title, data.multiSeries), data.sort), this.chartShowDataLabels[id]));
     }
     this.cdr.markForCheck();
   }

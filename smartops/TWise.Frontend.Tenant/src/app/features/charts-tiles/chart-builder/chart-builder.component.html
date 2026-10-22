@@ -2313,6 +2313,13 @@
                     </label>
                   </div>
                 </div>
+
+                <div class="chart-setup__field">
+                  <label for="chart-sort-order">Sort</label>
+                  <select id="chart-sort-order" class="chart-setup__filter-select" [(ngModel)]="sortOrder" (ngModelChange)="refreshPreview()">
+                    <option *ngFor="let o of sortOrders" [ngValue]="o.id">{{ o.label }}</option>
+                  </select>
+                </div>
               </div>
             </div>
           </section>
