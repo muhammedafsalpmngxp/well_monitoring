@@ -440,6 +440,10 @@ $muted: #667085;
     h3 { margin: 0; font-size: 13px; font-weight: 600; color: $accent; overflow-wrap: anywhere; }
   }
   &__answer-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 0; font-size: 11px; color: $muted; &:empty { display: none; } }
+  // The brief while it is written: plain text as it arrives, marked as not checked yet.
+  &__live-stage { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 0; font-size: 11px; color: $muted; }
+  &__live { font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: $muted; }
+  &__preview { white-space: pre-wrap; overflow-wrap: anywhere; }
   &__prose {
     font-size: 13px;
     line-height: 1.6;

@@ -1,10 +1,13 @@
 import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { filter } from 'rxjs/operators';
+import { filter, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { API_ENDPOINTS } from '../constants/api.constants';
 import { TokenService } from './token.service';
+
+/** Agentic Feature display names the pages use whatever title the API sends (an older API still says "Slippage"). */
+export const AGENTIC_FEATURE_TITLES: Readonly<Record<string, string>> = { slippage: 'Well Slippage' };
 
 export type AiProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'custom';
 
@@ -452,7 +455,8 @@ export class AiService {
 
   /** Admin: every Agentic Feature's settings (Slippage, Daily Report, Data Anomaly). */
   featureSettings(): Observable<AgenticFeatureSettings[]> {
-    return this.http.get<AgenticFeatureSettings[]>(`${this.api}${API_ENDPOINTS.AI.FEATURE_SETTINGS}`);
+    return this.http.get<AgenticFeatureSettings[]>(`${this.api}${API_ENDPOINTS.AI.FEATURE_SETTINGS}`).pipe(
+      map(list => list.map(f => ({ ...f, title: AGENTIC_FEATURE_TITLES[f.feature] ?? f.title }))));
   }
 
   /** Admin: save one feature's settings and tables (400 { message } lists every problem). */
