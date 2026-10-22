@@ -1,4 +1,4 @@
-"""The Slippage settings of one request (AI Settings > Ask Data & Features > Slippage).
+"""The Well Slippage settings of one request (AI Settings > Ask Data & Features > Well Slippage).
 
 The Tenant API sends every key with every request; the runtime has no default of its own, so a missing or invalid
 key stops the request with a message naming it. Limits, the advisor's model tuning, the status vocabularies the
@@ -15,7 +15,7 @@ from app.features.slippage.errors import BadRequest
 from app.models import _Camel
 
 _PREFIX = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_WHERE = "An admin can fix this under AI Settings > Ask Data & Features > Slippage."
+_WHERE = "An admin can fix this under AI Settings > Ask Data & Features > Well Slippage."
 
 
 class Milestone(NamedTuple):
@@ -119,4 +119,4 @@ def load(raw: dict[str, Any] | None) -> SlippageSettings:
                 problems.append(f"'{name}' is missing")
             else:
                 problems.append(f"'{name}' is not valid ({err.get('msg', 'invalid value')})")
-        raise BadRequest("Slippage settings: " + "; ".join(problems[:8]) + ". " + _WHERE) from None
+        raise BadRequest("Well Slippage settings: " + "; ".join(problems[:8]) + ". " + _WHERE) from None

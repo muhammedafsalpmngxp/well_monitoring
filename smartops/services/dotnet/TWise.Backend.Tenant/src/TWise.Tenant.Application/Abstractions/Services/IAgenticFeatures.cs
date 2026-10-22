@@ -57,6 +57,10 @@ public interface IDataAnomalyService
     Task<AnomalyOverviewDto> OverviewAsync(long tenantId, CancellationToken ct);
     Task<IReadOnlyList<AnomalyRuleDto>> RulesAsync(long tenantId, CancellationToken ct);
     Task<AnomalyRuleDto> SetRuleStatusAsync(long tenantId, string ruleId, string? status, string user, CancellationToken ct);
+
+    /// <summary>The compiled checks of a rule (by rule id) or the one check of a family member (by its probe id), with
+    /// their SQL. Empty when nothing is compiled.</summary>
+    Task<IReadOnlyList<AnomalyCheckDto>> ChecksAsync(long tenantId, string id, CancellationToken ct);
     Task<IReadOnlyList<AnomalyRunSummaryDto>> RunsAsync(long tenantId, int take, CancellationToken ct);
     Task<AnomalyRunDto> RunAsync(long tenantId, string runId, CancellationToken ct);
     Task<AskDataExportFile> ReportAsync(long tenantId, string runId, string format, CancellationToken ct);

@@ -340,6 +340,12 @@ public sealed class DataAnomalyController(IDataAnomalyService anomaly, IAgenticF
     [ProducesResponseType(typeof(IReadOnlyList<AnomalyRuleDto>), StatusCodes.Status200OK)]
     public Task<IActionResult> Rules(CancellationToken ct) => FeatureAsync(async t => Ok(await anomaly.RulesAsync(t, ct)));
 
+    /// <summary>The compiled checks of a rule, or of one family member, with their SQL (read-only).</summary>
+    [HttpGet("checks/{id}")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(typeof(IReadOnlyList<AnomalyCheckDto>), StatusCodes.Status200OK)]
+    public Task<IActionResult> Checks(string id, CancellationToken ct) => FeatureAsync(async t => Ok(await anomaly.ChecksAsync(t, id, ct)));
+
     /// <summary>active (runs and scores), probation (runs, reported apart), draft or disabled (do not run).</summary>
     [HttpPut("rules/{ruleId}/status")]
     [RequireModulePermission(Module, ModulePermission.Modify)]

@@ -61,7 +61,7 @@ def _feature(req: FeatureRequest) -> Iterator[tuple[FeatureRun, SlippageSettings
     except (BadRequest, AccessDenied) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
     except ReadOnlyViolation as exc:
-        raise HTTPException(status_code=400, detail=f"Slippage refused a query that is not a safe read-only "
+        raise HTTPException(status_code=400, detail=f"Well Slippage refused a query that is not a safe read-only "
                                                     f"SELECT ({exc}).") from None
     except (DatabaseUnavailable, AiUnavailable, AdvisorFailed) as exc:
         log.warning("slippage: %s", exc)
@@ -81,11 +81,11 @@ def run_query(req: QueryRequest) -> dict[str, Any]:
     with _feature(req) as (_, cfg):
         key = (req.key or "").strip()
         if key not in queries.KEYS:
-            raise BadRequest(f"Unknown Slippage query '{key}'. Choose one of: {', '.join(queries.KEYS)}.")
+            raise BadRequest(f"Unknown Well Slippage query '{key}'. Choose one of: {', '.join(queries.KEYS)}.")
         well_id = None
         if key in queries.WELL_SCOPED or req.well_id not in (None, ""):
             if key in queries.WELL_SCOPED and req.well_id in (None, ""):
-                raise BadRequest(f"wellId is required for the Slippage query '{key}'.")
+                raise BadRequest(f"wellId is required for the Well Slippage query '{key}'.")
             well_id = _identifier(req.well_id, cfg.well_id_max_length, "well id")
         result = queries.run(key, cfg, well_id=well_id)
         return {"key": key, "columns": result.columns, "rows": result.rows, "truncated": result.truncated}

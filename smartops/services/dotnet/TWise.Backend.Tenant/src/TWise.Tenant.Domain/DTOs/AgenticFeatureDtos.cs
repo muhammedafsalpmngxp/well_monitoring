@@ -95,6 +95,11 @@ public record AnomalyRuleDto(string RuleId, string Title, string? Category, stri
 
 public record SetAnomalyRuleStatusRequest(string? Status);
 
+/// <summary>One compiled check of a rule (core.AnomalyProbe) with the SQL it runs: SummarySql counts the anomalies,
+/// DetailSql lists the flagged records. A rule family has one check per member (ProbeId "R12-003").</summary>
+public record AnomalyCheckDto(string ProbeId, string RuleId, string Status, string? SummarySql, string? DetailSql,
+    IReadOnlyList<string> Tables, string? Error, DateTime CompiledAt);
+
 /// <summary>One detection run for lists. Reports: the formats that can be downloaded.</summary>
 public record AnomalyRunSummaryDto(string RunId, string Status, string? DatabaseName, DateTime StartedAt, DateTime? FinishedAt,
     decimal? Score, int? ProbesRun, long? RecordsExamined, long? RecordsFlagged, string StartedBy, string? Error,

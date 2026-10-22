@@ -5,7 +5,7 @@ import type Highcharts from 'highcharts';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { AgenticFeaturesService, AiFeatureJob, errorText, saveFile } from '../agentic-features.service';
 import {
-  AnomalyOverview, AnomalyProposal, AnomalyRule, AnomalyRun, AnomalyRunSummary, Load, PROPOSAL_STATUSES, RULE_STATUSES,
+  AnomalyCheck, AnomalyOverview, AnomalyProposal, AnomalyRule, AnomalyRun, AnomalyRunSummary, Load, PROPOSAL_STATUSES, RULE_STATUSES,
   RankedFinding, RunResult, SEVERITIES, SchemaInfo, TextBlock, asText, idle, jobActive, jobPercent, label, sevClass,
   severityRank, statusTone, toBlocks,
 } from './data-anomaly.models';
@@ -74,7 +74,8 @@ export class DataAnomalyComponent implements OnInit {
   confirmCancel = false;
   cancelling = false;
   compileOpts = { retryFailed: false, force: false };
-  runFormats: Record<Format, boolean> = { xlsx: true, docx: true };
+  /** Every run builds both reports: there is nothing to choose before running. */
+  private readonly runFormats: Format[] = ['xlsx', 'docx'];
   maxProposals = 10;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private pollSub: Subscription | null = null;
@@ -83,6 +84,11 @@ export class DataAnomalyComponent implements OnInit {
   // downloads
   downloading: string | null = null;
   downloadError = '';
+
+  // compiled SQL of a finding / rule, loaded when it is first opened
+  private readonly checkLoads = new Map<string, Load<AnomalyCheck[]>>();
+  copied: string | null = null;
+  private copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
   // rules
   ruleSearch = '';
@@ -240,7 +246,61 @@ export class DataAnomalyComponent implements OnInit {
 
   toggleFinding(f: RankedFinding, group: string): void {
     const key = `${group}:${f.rule_id}`;
-    if (this.openFindings.has(key)) this.openFindings.delete(key); else this.openFindings.add(key);
+    if (this.openFindings.has(key)) this.openFindings.delete(key);
+    else { this.openFindings.add(key); this.checksFor(f.rule_id); }
+  }
+
+  // ── Compiled SQL ─────────────────────────────────────────────────────────────────────────────────────────────
+
+  /** The compiled checks of a rule or family member, loaded once and kept for the page. */
+  checksFor(id: string): Load<AnomalyCheck[]> {
+    let state = this.checkLoads.get(id);
+    if (!state) {
+      state = idle<AnomalyCheck[]>();
+      this.checkLoads.set(id, state);
+      this.load(state, this.api.anomalyChecks<AnomalyCheck[]>(id), 'The SQL of this check could not be loaded.');
+    }
+    return state;
+  }
+
+  /** What the template shows for a rule / family member (loading is started by the click that opens it). */
+  checksOf(id: string): Load<AnomalyCheck[]> | undefined { return this.checkLoads.get(id); }
+
+  /** Reloads the SQL after a compile changed it (the open rule's is fetched again at once). */
+  private forgetChecks(): void {
+    this.checkLoads.clear();
+    if (this.selectedRule) this.checksFor(this.selectedRule.ruleId);
+    for (const key of this.openFindings) this.checksFor(key.slice(key.indexOf(':') + 1));
+  }
+
+  /** True when the check was compiled again after the run shown, so its SQL may differ from what that run executed. */
+  recompiledAfterRun(c: AnomalyCheck): boolean {
+    const started = this.run.data?.run.startedAt;
+    return !!started && !!c.compiledAt && new Date(c.compiledAt).getTime() > new Date(started).getTime();
+  }
+
+  copySql(text: string | null | undefined, key: string): void {
+    if (!text) return;
+    const done = () => {
+      this.copied = key;
+      if (this.copiedTimer) clearTimeout(this.copiedTimer);
+      this.copiedTimer = setTimeout(() => { this.copied = null; this.cdr.markForCheck(); }, 2000);
+      this.cdr.markForCheck();
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, () => this.copyFallback(text, done));
+    else this.copyFallback(text, done);
+  }
+
+  /** For pages served without HTTPS / clipboard permission: copy through a hidden text area. */
+  private copyFallback(text: string, done: () => void): void {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    try { if (document.execCommand('copy')) done(); } finally { document.body.removeChild(area); }
   }
 
   isOpen(f: RankedFinding, group: string): boolean { return this.openFindings.has(`${group}:${f.rule_id}`); }
@@ -285,8 +345,7 @@ export class DataAnomalyComponent implements OnInit {
   }
 
   startRun(): void {
-    const formats = (Object.keys(this.runFormats) as Format[]).filter(f => this.runFormats[f]);
-    this.start('run', { formats });
+    this.start('run', { formats: [...this.runFormats] });
   }
 
   startDiscover(): void {
@@ -350,7 +409,7 @@ export class DataAnomalyComponent implements OnInit {
     this.lastJob = job;
     this.job = null;
     this.loadOverview();
-    if (job.kind === 'compile') { if (this.rules.data || this.tab === 'rules') this.loadRules(); }
+    if (job.kind === 'compile') { this.forgetChecks(); if (this.rules.data || this.tab === 'rules') this.loadRules(); }
     if (job.kind === 'run') {
       this.loadRuns();
       const runId = job.result?.runId ?? job.result?.run_id;
@@ -423,6 +482,7 @@ export class DataAnomalyComponent implements OnInit {
 
   selectRule(r: AnomalyRule): void {
     this.selectedRule = r;
+    this.checksFor(r.ruleId);
     this.ruleNewStatus = r.status;
     this.ruleMessage = '';
     this.ruleError = '';

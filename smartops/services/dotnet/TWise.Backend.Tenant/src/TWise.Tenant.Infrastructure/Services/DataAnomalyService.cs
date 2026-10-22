@@ -97,6 +97,26 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
 
     // ── Runs and reports ───────────────────────────────────────────────────────────────────────────────────────────
 
+    public async Task<IReadOnlyList<AnomalyCheckDto>> ChecksAsync(long tenantId, string id, CancellationToken ct)
+    {
+        var key = (id ?? "").Trim();
+        if (key.Length is 0 or > 200) return [];
+        var probes = await db.AnomalyProbes.AsNoTracking()
+            .Where(p => p.TenantId == tenantId && (p.ProbeId == key || p.RuleId == key))
+            .OrderBy(p => p.ProbeId).Take(200).ToListAsync(ct);
+        return probes.Select(p =>
+        {
+            var json = Parse(p.ProbeJson) ?? EmptyObject;
+            var tables = json.ValueKind == JsonValueKind.Object && json.TryGetProperty("tables", out var t) && t.ValueKind == JsonValueKind.Array
+                ? t.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToList()
+                : [];
+            return new AnomalyCheckDto(p.ProbeId, p.RuleId, p.Status, NullIfEmpty(Str(json, "summarySql")), NullIfEmpty(Str(json, "detailSql")),
+                tables, NullIfEmpty(Str(json, "error")), p.CompiledAt);
+        }).ToList();
+    }
+
+    private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+
     public async Task<IReadOnlyList<AnomalyRunSummaryDto>> RunsAsync(long tenantId, int take, CancellationToken ct)
     {
         var runs = await db.AnomalyRuns.AsNoTracking().Where(r => r.TenantId == tenantId)

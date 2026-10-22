@@ -196,6 +196,11 @@ export class AgenticFeaturesService {
 
   anomalyRules<T = any>(): Observable<T> { return this.http.get<T>(`${this.api}${this.ep.DATA_ANOMALY}/rules`); }
 
+  /** The compiled checks (with their SQL) of a rule, or of one family member by its check id. */
+  anomalyChecks<T = any>(id: string): Observable<T> {
+    return this.http.get<T>(`${this.api}${this.ep.DATA_ANOMALY}/checks/${encodeURIComponent(id)}`);
+  }
+
   anomalySetRuleStatus<T = any>(ruleId: string, status: string): Observable<T> {
     return this.http.put<T>(`${this.api}${this.ep.DATA_ANOMALY}/rules/${encodeURIComponent(ruleId)}/status`, { status });
   }
