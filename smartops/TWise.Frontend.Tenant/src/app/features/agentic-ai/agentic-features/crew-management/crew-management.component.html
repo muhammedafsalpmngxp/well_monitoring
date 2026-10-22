@@ -350,13 +350,35 @@
           </div>
         </header>
         <p *ngIf="o.kpis.crew_type_not_resolved" class="cm__muted">{{ o.kpis.crew_type_not_resolved }} delayed activities are not mapped to a crew type (activity master), so they are not counted against any type.</p>
-        <p *ngIf="!typeRows.length" class="cm__empty">No crew type matches.</p>
-        <div class="cm__table-wrap" *ngIf="typeRows.length">
+        <p *ngIf="!typeRows.length && !idleTypeRows.length" class="cm__empty">No crew type matches.</p>
+        <div class="cm__table-wrap" *ngIf="typeRows.length || idleTypeRows.length">
           <table class="cm__table">
             <caption class="cm__sr">Crew capacity against delayed work, per crew type</caption>
             <thead><ng-container *ngTemplateOutlet="headTpl; context: { $implicit: typeColumns }"></ng-container></thead>
             <tbody>
-              <tr *ngFor="let t of typeRows; trackBy: trackType">
+              <ng-container *ngFor="let t of typeRows; trackBy: trackType">
+                <ng-container *ngTemplateOutlet="typeRowTpl; context: { $implicit: t }"></ng-container>
+              </ng-container>
+              <!-- Crew types with no delayed work: one collapsed group row, opened with the arrow. -->
+              <tr *ngIf="idleTypeRows.length" class="cm__group-row">
+                <td [attr.colspan]="typeColumns.length">
+                  <button type="button" class="cm__group-toggle" (click)="toggleIdleTypes()" [attr.aria-expanded]="showIdleTypes">
+                    <span class="cm__chevron" aria-hidden="true"></span>
+                    No delayed work
+                    <span class="cm__muted">· {{ idleTypeRows.length }} crew type{{ idleTypeRows.length === 1 ? '' : 's' }} with crews but nothing late that needs them</span>
+                  </button>
+                </td>
+              </tr>
+              <ng-container *ngIf="showIdleTypes">
+                <ng-container *ngFor="let t of idleTypeRows; trackBy: trackType">
+                  <ng-container *ngTemplateOutlet="typeRowTpl; context: { $implicit: t }"></ng-container>
+                </ng-container>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #typeRowTpl let-t>
+              <tr>
                 <th scope="row">{{ typeLabel(t.crew_type_code, t.crew_type_name, t.crew_type_id) }}</th>
                 <td>
                   <ng-container *ngTemplateOutlet="pillTpl; context: { $implicit: coverage(t.coverage).label, tone: coverage(t.coverage).tone, hint: coverage(t.coverage).hint }"></ng-container>
@@ -376,9 +398,7 @@
                   <span *ngIf="!t.crews" class="cm__bad-text">No crew of this type</span>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
+        </ng-template>
         <ng-container *ngTemplateOutlet="glossaryTpl; context: { $implicit: typeColumns }"></ng-container>
       </section>
 

@@ -246,6 +246,22 @@
     &:hover { text-decoration: underline; }
     &:focus-visible { outline: 2px solid #21409a; outline-offset: 2px; }
   }
+  // Collapsed group row (crew types with no delayed work), opened with the arrow.
+  &__group-row > td { padding: 0 !important; background: #f9fafb; }
+  &__group-toggle {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 0; background: none;
+    font: inherit; font-size: 13px; font-weight: 600; color: #344054; text-align: left; cursor: pointer;
+    &:hover { background: #f2f4f7; }
+    &:focus-visible { outline: 2px solid #21409a; outline-offset: -2px; }
+    .cm__muted { font-weight: 400; }
+  }
+  &__chevron {
+    flex-shrink: 0; width: 8px; height: 8px; margin: 0 2px;
+    border-right: 2px solid #475467; border-bottom: 2px solid #475467;
+    transform: rotate(-45deg); transition: transform 0.15s ease;
+  }
+  &__group-toggle[aria-expanded='true'] .cm__chevron { transform: rotate(45deg); }
+  @media (prefers-reduced-motion: reduce) { &__chevron { transition: none; } }
   &__disclaimer { margin: 0; font-size: 12px; line-height: 1.5; color: #667085; }
   &__sr {
     position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;

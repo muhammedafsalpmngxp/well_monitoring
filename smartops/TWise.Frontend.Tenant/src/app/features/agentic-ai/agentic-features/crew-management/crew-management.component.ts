@@ -238,6 +238,8 @@ export class CrewManagementComponent implements OnInit {
   coverageFilter = '';
   typeSearch = '';
   typeRows: CrewTypeCapacity[] = [];
+  idleTypeRows: CrewTypeCapacity[] = [];   // crew types with no delayed work: one collapsed group row
+  showIdleTypes = false;
 
   // Crew board
   crewSearch = '';
@@ -351,10 +353,16 @@ export class CrewManagementComponent implements OnInit {
 
   applyTypes(): void {
     const q = this.typeSearch.trim().toLowerCase();
-    this.typeRows = (this.overview.data?.crew_types ?? []).filter(t =>
+    const rows = (this.overview.data?.crew_types ?? []).filter(t =>
       (!this.coverageFilter || t.coverage === this.coverageFilter) &&
       (!q || `${t.crew_type_code ?? ''} ${t.crew_type_name ?? ''}`.toLowerCase().includes(q)));
+    // Unless the Coverage filter asks for them, types with no delayed work go in one collapsed group: nothing to act on.
+    const group = !this.coverageFilter;
+    this.typeRows = group ? rows.filter(t => t.coverage !== 'NO_DELAYED_WORK') : rows;
+    this.idleTypeRows = group ? rows.filter(t => t.coverage === 'NO_DELAYED_WORK') : [];
   }
+
+  toggleIdleTypes(): void { this.showIdleTypes = !this.showIdleTypes; }
 
   /** Show the crews of one type on the crew board. */
   showTypeCrews(t: CrewTypeCapacity): void {
