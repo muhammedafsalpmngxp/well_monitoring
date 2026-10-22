@@ -7,17 +7,18 @@ using TWise.Tenant.Domain.DTOs;
 
 namespace TWise.Tenant.Application.Features.Ai.Activity;
 
-public sealed class GetAiActivityHandler(IAiConversationRepository conversations, IRecipientResolver directory)
+public sealed class GetAiActivityHandler(IAiConversationRepository conversations, IRecipientResolver directory, AiAdminOptions options)
     : IRequestHandler<GetAiActivityQuery, AiActivityPageDto>
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public async Task<AiActivityPageDto> Handle(GetAiActivityQuery q, CancellationToken ct)
     {
-        var since = DateTime.UtcNow.AddDays(-Math.Clamp(q.Days, 1, 90));
-        var (total, rows) = await conversations.SearchAnswersAsync(q.TenantId, since, q.Search, Math.Max(0, q.Skip), Math.Clamp(q.Take, 1, 200), ct);
+        var (from, to) = ActivityRange.Resolve(q.From, q.To, options);
+        var (total, rows) = await conversations.SearchAnswersAsync(q.TenantId, from, to, q.UserId, q.Search, Math.Max(0, q.Skip), ActivityRange.Take(q.Take, options), ct);
         var questions = await conversations.GetQuestionsAsync(rows.Select(r => r.Message.Id).ToList(), ct);
         var names = await ActivityNames.ResolveAsync(directory, q.TenantId, rows.Select(r => r.Conversation.UserId), ct);
+        var preview = options.AnswerPreviewLength;
         var items = rows.Select(r =>
         {
             int? totalMs = null;
@@ -26,7 +27,7 @@ public sealed class GetAiActivityHandler(IAiConversationRepository conversations
             var answer = r.Message.Content;
             return new AiActivityItemDto(r.Message.Id, r.Conversation.Id, r.Conversation.UserId, names.GetValueOrDefault(r.Conversation.UserId),
                 r.Conversation.SourceType, r.Conversation.SourceId, r.Conversation.SourceName,
-                questions.GetValueOrDefault(r.Message.Id, r.Conversation.Title), answer.Length > 300 ? answer[..300] + "…" : answer,
+                questions.GetValueOrDefault(r.Message.Id, r.Conversation.Title), answer.Length > preview ? answer[..preview] + "…" : answer,
                 r.Message.QuerySpecJson is not null, r.Trace is not null, totalMs, AiDates.Utc(r.Message.CreatedAt));
         }).ToList();
         return new AiActivityPageDto(total, items);
@@ -49,16 +50,37 @@ public sealed class GetAiActivityTraceHandler(IAiConversationRepository conversa
     }
 }
 
-public sealed class GetAiFailuresHandler(IAiUsageRepository usage, IRecipientResolver directory)
-    : IRequestHandler<GetAiFailuresQuery, IReadOnlyList<AiFailureDto>>
+public sealed class GetAiCallsHandler(IAiUsageRepository usage, IRecipientResolver directory, AiAdminOptions options)
+    : IRequestHandler<GetAiCallsQuery, AiCallsPageDto>
 {
-    public async Task<IReadOnlyList<AiFailureDto>> Handle(GetAiFailuresQuery q, CancellationToken ct)
+    public async Task<AiCallsPageDto> Handle(GetAiCallsQuery q, CancellationToken ct)
     {
-        var since = DateTime.UtcNow.AddDays(-Math.Clamp(q.Days, 1, 90));
-        var rows = await usage.GetFailuresAsync(q.TenantId, since, Math.Clamp(q.Take, 1, 500), ct);
-        var names = await ActivityNames.ResolveAsync(directory, q.TenantId, rows.Select(r => r.UserId ?? ""), ct);
-        return rows.Select(r => new AiFailureDto(r.Id, r.UserId, r.UserId is null ? null : names.GetValueOrDefault(r.UserId), r.Purpose, r.Model, r.LatencyMs, r.Error, AiDates.Utc(r.CreatedAt))).ToList();
+        var (from, to) = ActivityRange.Resolve(q.From, q.To, options);
+        var (total, rows) = await usage.SearchAsync(q.TenantId, from, to, q.UserId, q.Purpose, q.FailedOnly, q.Search, Math.Max(0, q.Skip),
+            ActivityRange.Take(q.Take, options), ct);
+        var (userIds, purposes) = await usage.FacetsAsync(q.TenantId, from, to, ct);
+        var names = await ActivityNames.ResolveAsync(directory, q.TenantId, rows.Select(r => r.UserId ?? "").Concat(userIds), ct);
+        var items = rows.Select(r => new AiCallDto(r.Id, r.UserId, r.UserId is null ? null : names.GetValueOrDefault(r.UserId), r.Purpose, r.Model,
+            r.PromptTokens, r.CompletionTokens, r.LatencyMs, r.Succeeded, r.Error, AiDates.Utc(r.CreatedAt))).ToList();
+        var users = userIds.Select(u => new AiActivityUserDto(u, names.GetValueOrDefault(u))).OrderBy(u => u.Name ?? u.UserId, StringComparer.OrdinalIgnoreCase).ToList();
+        return new AiCallsPageDto(total, items, users, purposes);
     }
+}
+
+/// <summary>The period and page size AI Activity reads, from the request or the AiAdmin settings.</summary>
+internal static class ActivityRange
+{
+    /// <summary>[from, to) in UTC from inclusive days; no dates = the last ActivityDays days. At most MaxDays.</summary>
+    public static (DateTime From, DateTime To) Resolve(DateOnly? from, DateOnly? to, AiAdminOptions o)
+    {
+        var last = to ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var first = from ?? last.AddDays(-(o.ActivityDays - 1));
+        if (first > last) throw new InvalidOperationException("The start date is after the end date.");
+        if (last.DayNumber - first.DayNumber + 1 > o.MaxDays) throw new InvalidOperationException($"Choose a period of at most {o.MaxDays} days.");
+        return (first.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), last.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+    }
+
+    public static int Take(int? take, AiAdminOptions o) => Math.Clamp(take ?? o.PageSize, 1, o.MaxPageSize);
 }
 
 /// <summary>User ids → display names through the directory; ids that are not numbers or not found stay unnamed.</summary>

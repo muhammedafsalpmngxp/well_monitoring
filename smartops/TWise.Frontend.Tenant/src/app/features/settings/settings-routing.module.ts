@@ -26,13 +26,13 @@ const routes: Routes = [
   { path: 'database-view/:id',     component: DatabaseViewDetailComponent, canActivate: [permissionGuard], data: { permission: 'settings.database-view' } },
   { path: 'data-sync',             component: DataSyncComponent, canActivate: [permissionGuard], data: { permission: 'settings.data-sync' } },
   { path: 'ai',                    redirectTo: 'ai/providers', pathMatch: 'full' },
-  { path: 'ai/providers',          component: AiSettingsComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai', section: 'providers' } },
-  { path: 'ai/features',           component: AiSettingsComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai', section: 'features' } },
+  { path: 'ai/providers',          component: AiSettingsComponent, canActivate: [permissionGuard, adminGuard], data: { permission: 'settings.ai', section: 'providers' } },
+  { path: 'ai/features',           component: AiSettingsComponent, canActivate: [permissionGuard, adminGuard], data: { permission: 'settings.ai', section: 'features' } },
   // How the AI works for the tenant (Ask Data: what it may read, its limits): admins only (the API checks too).
   { path: 'ai/settings',           component: AiConfigurationComponent, canActivate: [permissionGuard, adminGuard], data: { permission: 'settings.ai' } },
   // Every AI prompt of the tenant (database), with version history: admins only (the API checks too).
   { path: 'ai/prompts',            component: AiPromptsComponent, canActivate: [permissionGuard, adminGuard], data: { permission: 'settings.ai' } },
-  { path: 'ai/activity',           component: AiActivityComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai' } },
+  { path: 'ai/activity',           component: AiActivityComponent, canActivate: [permissionGuard, adminGuard], data: { permission: 'settings.ai' } },
   { path: 'ai/relations',          component: AiRelationsComponent, canActivate: [permissionGuard], data: { permission: 'settings.ai' } },
   { path: 'data-sources',          component: DataSourcesComponent, canActivate: [permissionGuard], data: { permission: 'settings.data-sources' } },
   { path: 'marketplace',           component: MarketplaceComponent, canActivate: [permissionGuard], data: { permission: 'settings.marketplace' } },

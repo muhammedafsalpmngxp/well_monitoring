@@ -7,7 +7,7 @@ using TWise.Tenant.Domain.DTOs;
 namespace TWise.Tenant.Application.Features.Ai.Settings;
 
 /// <summary>Create (Id null) or update. The first provider a tenant adds becomes active automatically.</summary>
-public sealed class SaveAiProviderHandler(IAiProviderRepository providers, IAiKeyProtector keys) : IRequestHandler<SaveAiProviderCommand, AiProviderDto?>
+public sealed class SaveAiProviderHandler(IAiProviderRepository providers, IAiKeyProtector keys, AiAdminOptions admin) : IRequestHandler<SaveAiProviderCommand, AiProviderDto?>
 {
     public async Task<AiProviderDto?> Handle(SaveAiProviderCommand c, CancellationToken ct)
     {
@@ -33,7 +33,7 @@ public sealed class SaveAiProviderHandler(IAiProviderRepository providers, IAiKe
         else
         {
             var existing = await providers.ListAsync(c.TenantId, ct);
-            p = new AiProvider { TenantId = c.TenantId, CreatedBy = c.UserId, IsActive = existing.Count == 0 };
+            p = new AiProvider { TenantId = c.TenantId, CreatedBy = c.UserId, IsActive = existing.Count == 0, DailyQuota = admin.DefaultDailyQuota };
         }
         p.Name = name;
         p.Provider = kind;
@@ -42,7 +42,7 @@ public sealed class SaveAiProviderHandler(IAiProviderRepository providers, IAiKe
         p.FastModel = fastModel;
         if (r.DailyQuota is { } quota) p.DailyQuota = quota;
         if (!string.IsNullOrWhiteSpace(r.ApiKey)) p.ApiKeyEncrypted = keys.Protect(r.ApiKey.Trim());
-        if (kind != "ollama" && string.IsNullOrEmpty(p.ApiKeyEncrypted))
+        if (admin.Providers[kind].NeedsKey && string.IsNullOrEmpty(p.ApiKeyEncrypted))
             throw new InvalidOperationException("An API key is required for this provider.");
         p.ModifiedBy = c.UserId;
         p.ModifiedAt = DateTime.UtcNow;

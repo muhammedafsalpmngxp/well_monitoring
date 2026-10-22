@@ -130,9 +130,32 @@ public sealed class AiUsageRepository(TenantDbContext db) : IAiUsageRepository
         return rows.Select(r => new AiUsageDayDto(r.Day, r.Calls, r.Failed, r.Prompt, r.Completion)).ToList();
     }
 
-    public async Task<IReadOnlyList<AiUsageLog>> GetFailuresAsync(long tenantId, DateTime since, int take, CancellationToken ct) =>
-        await db.AiUsageLogs.AsNoTracking().Where(u => u.TenantId == tenantId && !u.Succeeded && u.CreatedAt >= since)
-            .OrderByDescending(u => u.Id).Take(take).ToListAsync(ct);
+    public async Task<(int Total, IReadOnlyList<AiUsageLog> Items)> SearchAsync(long tenantId, DateTime from, DateTime to, string? userId, string? purpose,
+        bool failedOnly, string? search, int skip, int take, CancellationToken ct)
+    {
+        var q = Period(tenantId, from, to);
+        if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(u => u.UserId == userId);
+        // A feature also covers its runs: "agent" matches agent:5:219 (agents log agent:{id}:{run}).
+        if (!string.IsNullOrWhiteSpace(purpose)) q = q.Where(u => u.Purpose == purpose || u.Purpose.StartsWith(purpose + ":"));
+        if (failedOnly) q = q.Where(u => !u.Succeeded);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim();
+            q = q.Where(u => u.Model.Contains(s) || (u.Error != null && u.Error.Contains(s)));
+        }
+        return (await q.CountAsync(ct), await q.OrderByDescending(u => u.Id).Skip(skip).Take(take).ToListAsync(ct));
+    }
+
+    public async Task<(IReadOnlyList<string> UserIds, IReadOnlyList<string> Purposes)> FacetsAsync(long tenantId, DateTime from, DateTime to, CancellationToken ct)
+    {
+        var q = Period(tenantId, from, to);
+        var purposes = await q.Select(u => u.Purpose).Distinct().ToListAsync(ct);
+        return (await q.Where(u => u.UserId != null).Select(u => u.UserId!).Distinct().ToListAsync(ct),
+            purposes.Select(p => p.Split(':')[0]).Distinct().Order(StringComparer.OrdinalIgnoreCase).ToList());
+    }
+
+    private IQueryable<AiUsageLog> Period(long tenantId, DateTime from, DateTime to) =>
+        db.AiUsageLogs.AsNoTracking().Where(u => u.TenantId == tenantId && u.CreatedAt >= from && u.CreatedAt < to);
 
 }
 

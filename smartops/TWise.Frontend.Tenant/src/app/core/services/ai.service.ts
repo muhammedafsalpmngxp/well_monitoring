@@ -121,7 +121,8 @@ export interface AiTestResultDto { success: boolean; message: string; latencyMs:
 
 export interface AiUsageDayDto { day: string; calls: number; failed: number; promptTokens: number; completionTokens: number }
 
-export interface AiUsageSummaryDto { callsToday: number; dailyQuota: number; days: AiUsageDayDto[] }
+/** quotaWarnPercent: the share of dailyQuota at which admins are warned (AiAdmin settings). */
+export interface AiUsageSummaryDto { callsToday: number; dailyQuota: number; days: AiUsageDayDto[]; quotaWarnPercent: number }
 export interface AiActivityItem { messageId: number; conversationId: number; userId: string; userName: string | null; sourceType: AiSourceType; sourceId: number; sourceName: string;
   question: string; answer: string; hasQuery: boolean; hasTrace: boolean; totalMs: number | null; createdAt: string }
 export interface AiActivityPage { total: number; items: AiActivityItem[] }
@@ -131,7 +132,17 @@ export interface AiRelation { id: number; fromType: AiSourceType; fromId: number
 export interface AiRelationNode { sourceType: AiSourceType; sourceId: number; name: string; links: number }
 export interface AiRelationGraph { nodes: AiRelationNode[]; links: AiRelation[] }
 export interface AiRelationScan { datasetsScanned: number; suggested: number; kept: number; skipped: string[] }
-export interface AiFailure { id: number; userId: string | null; userName: string | null; purpose: string; model: string; latencyMs: number; error: string | null; createdAt: string }
+/** One AI call of any feature (ask, summary, filters, agents …). */
+export interface AiCall { id: number; userId: string | null; userName: string | null; purpose: string; model: string; promptTokens: number; completionTokens: number;
+  latencyMs: number; succeeded: boolean; error: string | null; createdAt: string }
+export interface AiActivityUser { userId: string; name: string | null }
+export interface AiCallsPage { total: number; items: AiCall[]; users: AiActivityUser[]; purposes: string[] }
+/** Period and filters of AI Activity; from/to are UTC days (yyyy-MM-dd). */
+export interface AiActivityFilter { from?: string | null; to?: string | null; userId?: string | null; q?: string | null; skip: number; take: number }
+export interface AiProviderDefault { kind: AiProvider; label: string; baseUrl: string; model: string; needsKey: boolean }
+/** What the AI admin screens offer, from the server's AiAdmin settings. */
+export interface AiAdminOptions { providers: AiProviderDefault[]; defaultDailyQuota: number; quotaWarnPercent: number; usageDays: number;
+  activityDays: number; maxDays: number; dayOptions: number[]; pageSize: number; traceRetentionDays: number }
 
 // ── Ask your data ─────────────────────────────────────────────────────────────
 
@@ -325,20 +336,37 @@ export class AiService {
   }
 
   /** Admin: every user's answers in the period, newest first. */
-  activity(days: number, q: string | null, skip: number, take: number): Observable<AiActivityPage> {
-    return this.http.get<AiActivityPage>(`${this.api}${API_ENDPOINTS.AI.ACTIVITY}`, { params: { days, skip, take, ...(q ? { q } : {}) } });
+  activity(f: AiActivityFilter): Observable<AiActivityPage> {
+    return this.http.get<AiActivityPage>(`${this.api}${API_ENDPOINTS.AI.ACTIVITY}`, { params: this.activityParams(f) });
+  }
+
+  /** Admin: every AI call (any feature) in the period, with the users and purposes seen (for the filters). */
+  calls(f: AiActivityFilter & { purpose?: string | null; failed?: boolean }): Observable<AiCallsPage> {
+    return this.http.get<AiCallsPage>(`${this.api}${API_ENDPOINTS.AI.ACTIVITY_CALLS}`,
+      { params: { ...this.activityParams(f), ...(f.purpose ? { purpose: f.purpose } : {}), ...(f.failed ? { failed: true } : {}) } });
+  }
+
+  /** Admin: provider defaults, the starting quota, the warning level, periods and page size. */
+  adminOptions(): Observable<AiAdminOptions> {
+    return this.http.get<AiAdminOptions>(`${this.api}${API_ENDPOINTS.AI.ADMIN_OPTIONS}`);
+  }
+
+  private activityParams(f: AiActivityFilter): Record<string, string | number> {
+    const p: Record<string, string | number> = { skip: f.skip, take: f.take };
+    if (f.from) p['from'] = f.from;
+    if (f.to) p['to'] = f.to;
+    if (f.userId) p['userId'] = f.userId;
+    if (f.q) p['q'] = f.q;
+    return p;
   }
 
   activityTrace(messageId: number): Observable<AiTraceStep[]> {
     return this.http.get<AiTraceStep[]>(`${this.api}${API_ENDPOINTS.AI.ACTIVITY_TRACE(messageId)}`);
   }
 
-  failures(days: number): Observable<AiFailure[]> {
-    return this.http.get<AiFailure[]>(`${this.api}${API_ENDPOINTS.AI.ACTIVITY_FAILURES}`, { params: { days } });
-  }
-
-  getUsage(days = 14): Observable<AiUsageSummaryDto> {
-    return this.http.get<AiUsageSummaryDto>(`${this.api}${API_ENDPOINTS.AI.USAGE}`, { params: { days } });
+  /** Usage for the server's default period (AiAdmin:UsageDays) unless days is given. */
+  getUsage(days?: number): Observable<AiUsageSummaryDto> {
+    return this.http.get<AiUsageSummaryDto>(`${this.api}${API_ENDPOINTS.AI.USAGE}`, { params: days ? { days } : {} });
   }
 
   /** Live per-session view of the flags; the navbar and panel hide what is off. Loaded on first use. */

@@ -1,14 +1,18 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using TWise.Tenant.Application.Abstractions;
+using Microsoft.Extensions.Logging;
 using TWise.Tenant.Application.Abstractions.Services;
+using TWise.Tenant.Application.Features.Ai;
+using TWise.Tenant.Application.Features.Delivery;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
 
 namespace TWise.Tenant.Infrastructure.Services;
 
 /// <summary>Settings + active provider + quota + usage log around IAiChatClient. Every AI feature goes through here.</summary>
-public sealed class AiService(IAiSettingsRepository settings, IAiProviderRepository providers, IAiUsageRepository usage, IAiChatClient client, IAiKeyProtector keys) : IAiService
+public sealed class AiService(IAiSettingsRepository settings, IAiProviderRepository providers, IAiUsageRepository usage, IAiChatClient client, IAiKeyProtector keys,
+    AiAdminOptions admin, IControlPlaneNotificationClient notifications, IRecipientResolver directory, ILogger<AiService> log) : IAiService
 {
     public async Task<AiCompletion> CompleteAsync(long tenantId, string? userId, string purpose, IReadOnlyList<AiMessage> messages, CancellationToken ct)
     {
@@ -98,11 +102,32 @@ public sealed class AiService(IAiSettingsRepository settings, IAiProviderReposit
     }
 
     /// <summary>The limit is the provider's; the count is every AI call the tenant made today (so switching provider
-    /// changes the limit, not the count).</summary>
+    /// changes the limit, not the count). The call that reaches AiAdmin:QuotaWarnPercent of it warns the AI admins once.</summary>
     private async Task CheckQuotaAsync(long tenantId, AiProvider p, CancellationToken ct)
     {
-        if (p.DailyQuota > 0 && await usage.CountTodayAsync(tenantId, ct) >= p.DailyQuota)
+        if (p.DailyQuota <= 0) return;
+        var used = await usage.CountTodayAsync(tenantId, ct);
+        if (used >= p.DailyQuota)
             throw new InvalidOperationException($"The daily AI quota of {p.DailyQuota} calls has been reached. It resets at midnight UTC.");
+        var warnAt = (int)Math.Ceiling(p.DailyQuota * admin.QuotaWarnPercent / 100.0);
+        if (used + 1 == warnAt) await WarnAsync(tenantId, warnAt, p.DailyQuota, ct);
+    }
+
+    /// <summary>Bell notice to the tenant's AI admins (users holding AiAdmin:AdminRoles); a failure is logged, never fails the AI call.</summary>
+    private async Task WarnAsync(long tenantId, int used, int quota, CancellationToken ct)
+    {
+        try
+        {
+            var admins = (await directory.ResolveAsync(tenantId, [], admin.AdminRoles, ct)).Where(u => u.IsActive).Select(u => u.UserId).Distinct().ToList();
+            if (admins.Count == 0) { log.LogWarning("AI quota warning for tenant {TenantId}: no active user holds an AI admin role", tenantId); return; }
+            await notifications.PublishAsync(tenantId, "AiQuota", $"AI usage at {admin.QuotaWarnPercent}% of today's limit",
+                $"{used} of {quota} AI calls used today (UTC). New AI calls are refused at {quota}; the count resets at midnight UTC. " +
+                "An admin can raise the limit under Settings → AI Providers.", "/settings/ai/providers", admins, null, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex, "AI quota warning for tenant {TenantId} could not be sent", tenantId);
+        }
     }
 
     private string? Key(AiProvider p) => string.IsNullOrEmpty(p.ApiKeyEncrypted) ? null : keys.Unprotect(p.ApiKeyEncrypted);

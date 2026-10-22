@@ -4,12 +4,14 @@
   &__filters {
     display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
     select, input { font-size: 13px; padding: 6px 8px; border: 1px solid #d0d5dd; border-radius: 6px; }
-    input { min-width: 280px; }
+    input[type='search'] { min-width: 280px; }
+    input[type='checkbox'] { padding: 0; }
+    label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
   }
   &__table td { vertical-align: top; }
   &__row { cursor: pointer; &:hover td { background: #f9fafb; } &--open td { background: #f5f7ff; } }
   &__nowrap { white-space: nowrap; }
-  &__answer { max-width: 420px; color: #475467; }
+  &__answer { max-width: 420px; color: #475467; overflow-wrap: anywhere; }
   &__detail td { background: #fcfcfd; }
   &__trace {
     display: grid; gap: 4px; font-size: 12px;

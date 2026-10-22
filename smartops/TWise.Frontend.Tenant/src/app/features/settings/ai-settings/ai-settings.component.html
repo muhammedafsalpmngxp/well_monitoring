@@ -8,7 +8,7 @@
       <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
     </svg>
   </span>
-  <button type="button" class="btn btn-primary" *ngIf="section === 'providers'" (click)="openAdd()">+ Add provider</button>
+  <button type="button" class="btn btn-primary" *ngIf="section === 'providers'" [disabled]="!adminOptions" (click)="openAdd()">+ Add provider</button>
 </app-page-header>
 
 <div class="page-content ai">
@@ -26,7 +26,7 @@
 
       <div class="ai__empty" *ngIf="!providers.length">
         <p>No providers registered.</p>
-        <button type="button" class="btn btn-primary" (click)="openAdd()">+ Add provider</button>
+        <button type="button" class="btn btn-primary" [disabled]="!adminOptions" (click)="openAdd()">+ Add provider</button>
       </div>
 
       <div class="ai__provider" *ngFor="let p of providers; trackBy: trackProvider" [class.ai__provider--active]="p.isActive">
@@ -143,6 +143,10 @@
         <p class="ai__today">
           <strong>{{ usage.callsToday }}</strong> calls today
           <span *ngIf="usage.dailyQuota > 0"> of {{ usage.dailyQuota }}</span>
+        </p>
+        <p class="ai__msg ai__msg--bad" role="status" *ngIf="quotaWarning">
+          Today's AI use has reached {{ usage.quotaWarnPercent }}% of the daily limit. New AI calls are refused at {{ usage.dailyQuota }} until midnight UTC;
+          raise the limit above if needed. AI admins were also notified in the bell.
         </p>
         <table class="ai__table" *ngIf="usage.days.length; else noUsage">
           <thead><tr><th>Day</th><th>Calls</th><th>Failed</th><th>Prompt tokens</th><th>Completion tokens</th></tr></thead>

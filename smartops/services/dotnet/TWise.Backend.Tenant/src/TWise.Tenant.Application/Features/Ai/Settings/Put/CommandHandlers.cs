@@ -6,7 +6,7 @@ using TWise.Tenant.Domain.DTOs;
 
 namespace TWise.Tenant.Application.Features.Ai.Settings;
 
-public sealed class SaveAiSettingsHandler(IAiSettingsRepository settings, IAiProviderRepository providers) : IRequestHandler<SaveAiSettingsCommand, AiSettingsDto>
+public sealed class SaveAiSettingsHandler(IAiSettingsRepository settings, IAiProviderRepository providers, AiAdminOptions admin) : IRequestHandler<SaveAiSettingsCommand, AiSettingsDto>
 {
     public async Task<AiSettingsDto> Handle(SaveAiSettingsCommand c, CancellationToken ct)
     {
@@ -29,7 +29,7 @@ public sealed class SaveAiSettingsHandler(IAiSettingsRepository settings, IAiPro
         s.ModifiedBy = c.UserId;
         s.ModifiedAt = DateTime.UtcNow;
         await settings.UpsertAsync(s, ct);
-        return AiMapping.ToDto(s, active);
+        return AiMapping.ToDto(s, active, admin.DefaultDailyQuota);
     }
 }
 

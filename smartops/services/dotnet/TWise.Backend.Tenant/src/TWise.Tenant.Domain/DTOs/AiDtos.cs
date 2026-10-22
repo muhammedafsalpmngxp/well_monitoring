@@ -40,7 +40,7 @@ public record AiFeaturesDto(IReadOnlyList<string> Enabled);
 /// <summary>A registered provider as shown to an admin. The key itself is never returned, only whether one is set.
 /// DailyQuota: max AI calls per tenant per UTC day while this provider is active; 0 = unlimited.</summary>
 public record AiProviderDto(long Id, string Name, string Provider, string BaseUrl, string Model, bool HasApiKey, bool IsActive, DateTime ModifiedAt,
-    string? FastModel = null, int DailyQuota = 500);
+    string? FastModel, int DailyQuota);
 
 /// <summary>ApiKey null or empty keeps the stored key on update; a value replaces it. DailyQuota null keeps the stored
 /// quota on update (500 for a new provider).</summary>
@@ -56,10 +56,19 @@ public record AiActivityItemDto(long MessageId, long ConversationId, string User
     string Question, string Answer, bool HasQuery, bool HasTrace, int? TotalMs, DateTime CreatedAt);
 public record AiActivityPageDto(int Total, IReadOnlyList<AiActivityItemDto> Items);
 /// <summary>A failed AI call from the usage log.</summary>
-public record AiFailureDto(long Id, string? UserId, string? UserName, string Purpose, string Model, int LatencyMs, string? Error, DateTime CreatedAt);
+/// <summary>One AI call (any feature): who, what for, tokens, time, and the error when it failed.</summary>
+public record AiCallDto(long Id, string? UserId, string? UserName, string Purpose, string Model, int PromptTokens, int CompletionTokens, int LatencyMs,
+    bool Succeeded, string? Error, DateTime CreatedAt);
+public record AiActivityUserDto(string UserId, string? Name);
+/// <summary>A page of AI calls plus the users and purposes seen in the period (for the filters).</summary>
+public record AiCallsPageDto(int Total, IReadOnlyList<AiCallDto> Items, IReadOnlyList<AiActivityUserDto> Users, IReadOnlyList<string> Purposes);
+public record AiProviderDefaultDto(string Kind, string Label, string BaseUrl, string Model, bool NeedsKey);
+/// <summary>What the AI admin screens offer (AiAdmin settings): provider defaults, the starting quota, the warning level, periods and page size.</summary>
+public record AiAdminOptionsDto(IReadOnlyList<AiProviderDefaultDto> Providers, int DefaultDailyQuota, int QuotaWarnPercent, int UsageDays,
+    int ActivityDays, int MaxDays, IReadOnlyList<int> DayOptions, int PageSize, int TraceRetentionDays);
 
 /// <summary>DailyQuota is the active provider's (0 = unlimited or no active provider).</summary>
-public record AiUsageSummaryDto(int CallsToday, int DailyQuota, IReadOnlyList<AiUsageDayDto> Days);
+public record AiUsageSummaryDto(int CallsToday, int DailyQuota, IReadOnlyList<AiUsageDayDto> Days, int QuotaWarnPercent);
 
 /// <summary>A chat message in the OpenAI shape (role: system | user | assistant).</summary>
 public record AiMessage(string Role, string Content);

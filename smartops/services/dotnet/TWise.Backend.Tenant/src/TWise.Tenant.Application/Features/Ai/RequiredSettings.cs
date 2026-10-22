@@ -15,6 +15,15 @@ internal static class RequiredSettings
     public static bool Flag(IConfiguration c, string section, string name) =>
         bool.TryParse(c[$"{section}:{name}"], out var v) ? v : throw Missing(section, name, "true or false");
 
+    public static string Text(IConfiguration c, string section, string name) =>
+        c[$"{section}:{name}"] is { Length: > 0 } v && !string.IsNullOrWhiteSpace(v) ? v : throw Missing(section, name, "a text value");
+
+    public static string[] Texts(IConfiguration c, string section, string name)
+    {
+        var values = c.GetSection($"{section}:{name}").GetChildren().Select(x => x.Value?.Trim() ?? "").ToArray();
+        return values.Length > 0 && values.All(v => v.Length > 0) ? values : throw Missing(section, name, "a list of text values");
+    }
+
     public static int[] Ints(IConfiguration c, string section, string name)
     {
         var values = c.GetSection($"{section}:{name}").GetChildren()

@@ -1,18 +1,9 @@
 import { ChangeDetectorRef, Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { AiFeatureAccess, AiFeatureDef, AiModelPrice, AiProvider, AiProviderDto, AiService, AiSettingsDto, AiTestResultDto, AiUsageSummaryDto } from '../../../core/services/ai.service';
+import { AiAdminOptions, AiFeatureAccess, AiFeatureDef, AiModelPrice, AiProvider, AiProviderDto, AiService, AiSettingsDto, AiTestResultDto, AiUsageSummaryDto } from '../../../core/services/ai.service';
 import { RoleDto, UserManagementService } from '../../../core/services/user-management.service';
 import { PermissionService } from '../../../core/services/permission.service';
-
-/** Sensible endpoint/model per provider type, applied when the admin switches type in the dialog. */
-export const PROVIDER_DEFAULTS: Record<AiProvider, { label: string; baseUrl: string; model: string; needsKey: boolean }> = {
-  openai:    { label: 'OpenAI',                  baseUrl: 'https://api.openai.com/v1',    model: 'gpt-4o-mini',    needsKey: true },
-  anthropic: { label: 'Anthropic (Claude)',      baseUrl: 'https://api.anthropic.com/v1', model: 'claude-sonnet-5', needsKey: true },
-  azure:     { label: 'Azure OpenAI',            baseUrl: 'https://<resource>.openai.azure.com/openai/deployments/<deployment>', model: '<deployment>', needsKey: true },
-  ollama:    { label: 'Ollama (local, no key)',  baseUrl: 'http://localhost:11434/v1',    model: 'llama3.1',       needsKey: false },
-  custom:    { label: 'Other OpenAI-compatible', baseUrl: 'https://',                      model: '',               needsKey: true },
-};
 
 interface ProviderForm { name: string; provider: AiProvider; baseUrl: string; model: string; fastModel: string; apiKey: string; dailyQuota: number }
 
@@ -32,10 +23,12 @@ export class AiSettingsComponent implements OnInit {
   /** Which page this instance renders: providers (+ limits, usage) or the features-by-role matrix. */
   readonly section: 'providers' | 'features' = inject(ActivatedRoute).snapshot.data['section'] ?? 'providers';
   readonly breadcrumbs = [{ label: 'Home' }, { label: 'AI Settings', route: '/settings/ai' }, { label: this.section === 'features' ? 'AI Features' : 'AI Providers' }];
-  readonly providerTypes = Object.entries(PROVIDER_DEFAULTS).map(([value, d]) => ({ value: value as AiProvider, label: d.label }));
+  /** Provider kinds with their dialog defaults, the starting quota and the warning level (server AiAdmin settings). */
+  adminOptions: AiAdminOptions | null = null;
+  get providerTypes(): { value: AiProvider; label: string }[] { return (this.adminOptions?.providers ?? []).map(d => ({ value: d.kind, label: d.label })); }
 
   providers: AiProviderDto[] = [];
-  settings = { dailyQuota: 500, isEnabled: false };
+  settings = { dailyQuota: 0, isEnabled: false };
   /** False until the tenant's settings arrive: saving the placeholder values above would switch AI off. */
   settingsLoaded = false;
 
@@ -102,6 +95,7 @@ export class AiSettingsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadAdminOptions();
     this.loadSettings();
     this.loadProviders();
     if (this.section === 'providers') this.loadUsage(); else this.loadAccess();
@@ -109,7 +103,15 @@ export class AiSettingsComponent implements OnInit {
 
   get activeProvider(): AiProviderDto | undefined { return this.providers.find(p => p.isActive); }
 
-  typeLabel(p: AiProvider): string { return PROVIDER_DEFAULTS[p]?.label ?? p; }
+  typeLabel(p: AiProvider): string { return this.defaults(p)?.label ?? p; }
+
+  private defaults(kind: AiProvider) { return this.adminOptions?.providers.find(d => d.kind === kind); }
+
+  /** Today's calls have reached the warning level of the daily limit (AiAdmin:QuotaWarnPercent). */
+  get quotaWarning(): boolean {
+    const u = this.usage;
+    return !!u && u.dailyQuota > 0 && u.callsToday >= Math.ceil(u.dailyQuota * u.quotaWarnPercent / 100);
+  }
 
   // ── Tenant settings ────────────────────────────────────────────────────────
 
@@ -144,13 +146,14 @@ export class AiSettingsComponent implements OnInit {
   }
 
   onTypeChange(): void {
-    const d = PROVIDER_DEFAULTS[this.form.provider];
+    const d = this.defaults(this.form.provider);
+    if (!d) return;
     this.form.baseUrl = d.baseUrl;
     this.form.model = d.model;
     if (!this.form.name.trim()) this.form.name = d.label;
   }
 
-  get needsKey(): boolean { return PROVIDER_DEFAULTS[this.form.provider].needsKey; }
+  get needsKey(): boolean { return this.defaults(this.form.provider)?.needsKey ?? true; }
 
   get canSaveProvider(): boolean {
     const f = this.form;
@@ -237,9 +240,18 @@ export class AiSettingsComponent implements OnInit {
     });
   }
 
+  /** A new provider starts with the first kind's defaults and the server's starting quota. */
   private blankForm(): ProviderForm {
-    const d = PROVIDER_DEFAULTS.openai;
-    return { name: '', provider: 'openai', baseUrl: d.baseUrl, model: d.model, fastModel: '', apiKey: '', dailyQuota: 500 };
+    const d = this.adminOptions?.providers[0];
+    return { name: '', provider: d?.kind ?? 'openai', baseUrl: d?.baseUrl ?? '', model: d?.model ?? '', fastModel: '', apiKey: '',
+      dailyQuota: this.adminOptions?.defaultDailyQuota ?? 0 };
+  }
+
+  private loadAdminOptions(): void {
+    this.ai.adminOptions().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: o => { this.adminOptions = o; this.cdr.markForCheck(); },
+      error: err => { this.error = err?.error?.message ?? 'The provider choices could not be loaded.'; this.cdr.markForCheck(); },
+    });
   }
 
   private loadSettings(): void {
@@ -258,7 +270,7 @@ export class AiSettingsComponent implements OnInit {
   }
 
   private loadUsage(): void {
-    this.ai.getUsage(14).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.ai.getUsage().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: u => { this.usage = u; this.cdr.markForCheck(); },
       error: () => { /* usage is informational */ },
     });

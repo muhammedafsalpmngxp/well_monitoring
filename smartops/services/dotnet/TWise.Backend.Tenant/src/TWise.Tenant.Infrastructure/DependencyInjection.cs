@@ -172,7 +172,8 @@ public static class DependencyInjection
         services.AddScoped<IDeliveryRenderer, DashboardDeliveryRenderer>();
 
         // AI: one OpenAI-compatible transport; settings/quota/logging wrapper is IAiService.
-        services.AddHttpClient<IAiChatClient, OpenAiCompatibleChatClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient<IAiChatClient, OpenAiCompatibleChatClient>((sp, c) =>
+            c.Timeout = TimeSpan.FromSeconds(sp.GetRequiredService<Application.Features.Ai.AiAdminOptions>().ChatTimeoutSeconds));
         services.AddSingleton<IAiKeyProtector, AiKeyProtector>();
         services.AddScoped<IAiService, AiService>();
         services.AddScoped<IAiPromptStore, AiPromptStore>();

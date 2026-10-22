@@ -66,6 +66,7 @@ public class AiProvider : BaseEntity
     public string? FastModel { get; set; }
     public string? ApiKeyEncrypted { get; set; }
     /// <summary>Max AI calls per tenant per UTC day while this provider is active; 0 = unlimited.</summary>
-    public int DailyQuota { get; set; } = 500;
+    /// <summary>Set from the provider form; a new provider starts with AiAdmin:DefaultDailyQuota.</summary>
+    public int DailyQuota { get; set; }
     public bool IsActive { get; set; }
 }

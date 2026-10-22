@@ -7,8 +7,9 @@ internal static class AiMapping
 {
     public static readonly string[] ProviderKinds = ["openai", "anthropic", "azure", "ollama", "custom"];
 
-    public static AiSettingsDto ToDto(AiSettings? s, AiProvider? active) =>
-        new(active?.DailyQuota ?? 500, s?.IsEnabled ?? false, active?.Id, s?.ModifiedAt);
+    /// <summary>Without an active provider the limit shown is the one a new provider would start with.</summary>
+    public static AiSettingsDto ToDto(AiSettings? s, AiProvider? active, int defaultQuota) =>
+        new(active?.DailyQuota ?? defaultQuota, s?.IsEnabled ?? false, active?.Id, s?.ModifiedAt);
 
     public static AiProviderDto ToDto(AiProvider p) =>
         new(p.Id, p.Name, p.Provider, p.BaseUrl, p.Model, !string.IsNullOrEmpty(p.ApiKeyEncrypted), p.IsActive, p.ModifiedAt, p.FastModel,

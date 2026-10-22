@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using TWise.Tenant.Application.Features.Ai;
 using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -35,7 +36,7 @@ namespace TWise.Tenant.API.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/ai")]
-public sealed class AiController(ISender sender, ICurrentUserService currentUser) : ControllerBase
+public sealed class AiController(ISender sender, ICurrentUserService currentUser, AiAdminOptions admin) : ControllerBase
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -673,12 +674,15 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
 
     // ── AI activity (admin): every user's answers, their traces, failed calls ──
 
-    /// <summary>Answered questions of every user in the last N days, newest first; q filters by answer, dataset, title or user id.</summary>
+    /// <summary>Answered questions of every user from..to (UTC days; none = the last AiAdmin:ActivityDays), newest first;
+    /// userId is one user, q filters by answer, dataset, title or user id.</summary>
     [HttpGet("activity")]
     [ProducesResponseType(typeof(AiActivityPageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public Task<IActionResult> GetActivity([FromQuery] int days = 7, [FromQuery] string? q = null, [FromQuery] int skip = 0, [FromQuery] int take = 50, CancellationToken ct = default) =>
-        AdminAsync(async t => Ok(await sender.Send(new GetAiActivityQuery(t, days, q, skip, take), ct)));
+    public Task<IActionResult> GetActivity([FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, [FromQuery] string? userId = null,
+        [FromQuery] string? q = null, [FromQuery] int skip = 0, [FromQuery] int? take = null, CancellationToken ct = default) =>
+        AdminAsync(async t => Ok(await sender.Send(new GetAiActivityQuery(t, from, to, userId, q, skip, take), ct)));
 
     /// <summary>The steps behind any user's answer (prompts, replies, timings).</summary>
     [HttpGet("activity/{messageId:long}/trace")]
@@ -688,18 +692,28 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
     public Task<IActionResult> GetActivityTrace(long messageId, CancellationToken ct) =>
         AdminAsync(async t => await sender.Send(new GetAiActivityTraceQuery(t, messageId), ct) is { } trace ? Ok(trace) : NotFound());
 
-    /// <summary>Failed AI calls in the last N days, newest first.</summary>
-    [HttpGet("activity/failures")]
-    [ProducesResponseType(typeof(IReadOnlyList<AiFailureDto>), StatusCodes.Status200OK)]
+    /// <summary>Every AI call (any feature) from..to, newest first: by user, purpose, failed only, and text in the model or error.
+    /// Also lists the users and purposes seen in the period, for the filters.</summary>
+    [HttpGet("activity/calls")]
+    [ProducesResponseType(typeof(AiCallsPageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public Task<IActionResult> GetFailures([FromQuery] int days = 7, [FromQuery] int take = 100, CancellationToken ct = default) =>
-        AdminAsync(async t => Ok(await sender.Send(new GetAiFailuresQuery(t, days, take), ct)));
+    public Task<IActionResult> GetCalls([FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, [FromQuery] string? userId = null,
+        [FromQuery] string? purpose = null, [FromQuery] bool failed = false, [FromQuery] string? q = null, [FromQuery] int skip = 0,
+        [FromQuery] int? take = null, CancellationToken ct = default) =>
+        AdminAsync(async t => Ok(await sender.Send(new GetAiCallsQuery(t, from, to, userId, purpose, failed, q, skip, take), ct)));
 
-    /// <summary>Calls today vs quota, and per-day totals for the last N days (default 14, max 90).</summary>
+    /// <summary>What the AI admin screens offer: provider defaults, the starting quota, the warning level, periods, page size (AiAdmin settings).</summary>
+    [HttpGet("admin/options")]
+    [ProducesResponseType(typeof(AiAdminOptionsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> AdminOptions(CancellationToken ct) => AdminAsync(async _ => Ok(await sender.Send(new GetAiAdminOptionsQuery(), ct)));
+
+    /// <summary>Calls today vs quota (and the warning level), and per-day totals for the last N days (default AiAdmin:UsageDays, max MaxDays).</summary>
     [HttpGet("usage")]
     [ProducesResponseType(typeof(AiUsageSummaryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public Task<IActionResult> GetUsage([FromQuery] int days = 14, CancellationToken ct = default) =>
+    public Task<IActionResult> GetUsage([FromQuery] int? days = null, CancellationToken ct = default) =>
         AdminAsync(async t => Ok(await sender.Send(new GetAiUsageQuery(t, days), ct)));
 
     // ── Plumbing ────────────────────────────────────────────────────────────────
@@ -736,7 +750,8 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    private bool IsAdmin() => User.IsInRole("admin") || User.IsInRole("tenant_admin");
+    /// <summary>AI admin: one of the AiAdmin:AdminRoles.</summary>
+    private bool IsAdmin() => admin.AdminRoles.Any(User.IsInRole);
 
     private string UserId() =>
         User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";

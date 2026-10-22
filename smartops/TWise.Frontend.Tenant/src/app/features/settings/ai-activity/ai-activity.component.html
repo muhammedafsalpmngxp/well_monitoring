@@ -1,4 +1,4 @@
-<app-page-header title="AI Activity" subtitle="Every user's Ask AI answers with the steps behind them, and the AI calls that failed." [breadcrumbs]="breadcrumbs">
+<app-page-header title="AI Activity" subtitle="Every user's Ask AI answers with the steps behind them, and every AI call of any feature." [breadcrumbs]="breadcrumbs">
   <span page-header-icon class="ai-page-icon">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white"
       stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -11,13 +11,30 @@
 <div class="page-content ai">
   <p *ngIf="error" class="ai__msg ai__msg--bad" role="alert">{{ error }}</p>
 
+  <!-- Period and user: shared by both lists -->
+  <section class="ai__card" *ngIf="options">
+    <form class="act__filters" (ngSubmit)="applyFilter()">
+      <select [(ngModel)]="days" name="days" (change)="applyFilter()" aria-label="Period">
+        <option *ngFor="let d of options.dayOptions" [ngValue]="d">{{ dayLabel(d) }}</option>
+        <option [ngValue]="0">Choose dates…</option>
+      </select>
+      <ng-container *ngIf="days === 0">
+        <label>From <input type="date" [(ngModel)]="from" name="from" /></label>
+        <label>To <input type="date" [(ngModel)]="to" name="to" /></label>
+        <button type="submit" class="btn btn-secondary">Apply</button>
+      </ng-container>
+      <select [(ngModel)]="userId" name="user" (change)="applyFilter()" aria-label="User">
+        <option value="">All users</option>
+        <option *ngFor="let u of users" [value]="u.userId">{{ u.name || u.userId }}</option>
+      </select>
+      <small class="ai__hint">UTC days, at most {{ options.maxDays }}.</small>
+    </form>
+  </section>
+
   <section class="ai__card">
     <div class="ai__card-head">
       <h3>Answers <span class="ai__hint" *ngIf="!loading">· {{ total | number }} in the period</span></h3>
-      <form class="act__filters" (ngSubmit)="applyFilter()">
-        <select [(ngModel)]="days" name="days" (change)="applyFilter()">
-          <option *ngFor="let d of dayOptions" [ngValue]="d.days">{{ d.label }}</option>
-        </select>
+      <form class="act__filters" (ngSubmit)="applyAnswerSearch()">
         <input type="search" [(ngModel)]="search" name="q" placeholder="Search answer, dataset, question or user id" />
         <button type="submit" class="btn btn-secondary">Search</button>
       </form>
@@ -41,7 +58,7 @@
           <tr *ngIf="openId === it.messageId" class="act__detail">
             <td colspan="6">
               <app-loader *ngIf="traceLoading === it.messageId" size="sm"></app-loader>
-              <p class="ai__hint" *ngIf="!it.hasTrace">No steps kept for this answer (traces are kept 30 days).</p>
+              <p class="ai__hint" *ngIf="!it.hasTrace">No steps kept for this answer (traces are kept {{ options?.traceRetentionDays }} days).</p>
               <p class="ai__hint" *ngIf="it.hasTrace && traceLoading !== it.messageId && traces.get(it.messageId) === null">The steps could not be loaded.</p>
               <div class="act__trace" *ngIf="traces.get(it.messageId) as steps">
                 <details *ngFor="let s of steps">
@@ -67,21 +84,39 @@
 
   <section class="ai__card">
     <div class="ai__card-head">
-      <h3>Failed AI calls</h3>
-      <span class="ai__hint">Calls the provider refused or that timed out. Answers that failed before the AI was called are not AI calls.</span>
+      <h3>AI calls <span class="ai__hint" *ngIf="!callsLoading">· {{ callTotal | number }} in the period</span></h3>
+      <form class="act__filters" (ngSubmit)="applyCallFilter()">
+        <select [(ngModel)]="purpose" name="purpose" (change)="applyCallFilter()" aria-label="Feature">
+          <option value="">All features</option>
+          <option *ngFor="let p of purposes" [value]="p">{{ p }}</option>
+        </select>
+        <label><input type="checkbox" [(ngModel)]="failedOnly" name="failed" (change)="applyCallFilter()" /> Failed only</label>
+        <input type="search" [(ngModel)]="callSearch" name="cq" placeholder="Search model or error" />
+        <button type="submit" class="btn btn-secondary">Search</button>
+      </form>
     </div>
-    <p class="ai__hint" *ngIf="!failures.length">No failed calls in this period.</p>
-    <table class="ai__table act__table" *ngIf="failures.length">
-      <thead><tr><th>When</th><th>User</th><th>Purpose</th><th>Model</th><th>Latency</th><th>Error</th></tr></thead>
+    <span class="ai__hint">Every call to the AI provider, by any feature. Answers that failed before the AI was called are not AI calls.</span>
+
+    <app-loader *ngIf="callsLoading" size="lg"></app-loader>
+    <p class="ai__hint" *ngIf="!callsLoading && !calls.length">No AI calls match.</p>
+    <table class="ai__table act__table" *ngIf="!callsLoading && calls.length">
+      <thead><tr><th>When</th><th>User</th><th>Feature</th><th>Model</th><th>Tokens</th><th>Latency</th><th>Result</th></tr></thead>
       <tbody>
-        <tr *ngFor="let f of failures">
-          <td class="act__nowrap">{{ f.createdAt | date:'d MMM HH:mm' }}</td>
-          <td class="act__nowrap">{{ f.userName || f.userId || '—' }}</td>
-          <td>{{ f.purpose }}</td><td>{{ f.model }}</td>
-          <td class="act__nowrap">{{ f.latencyMs | number }} ms</td>
-          <td class="act__answer">{{ f.error }}</td>
+        <tr *ngFor="let c of calls; trackBy: trackCall">
+          <td class="act__nowrap">{{ c.createdAt | date:'d MMM HH:mm' }}</td>
+          <td class="act__nowrap">{{ c.userName || c.userId || '—' }}</td>
+          <td>{{ c.purpose }}</td><td>{{ c.model }}</td>
+          <td class="act__nowrap">{{ c.promptTokens + c.completionTokens | number }}</td>
+          <td class="act__nowrap">{{ c.latencyMs | number }} ms</td>
+          <td class="act__answer">{{ c.succeeded ? 'OK' : c.error }}</td>
         </tr>
       </tbody>
     </table>
+
+    <div class="ai__actions act__pager" *ngIf="callTotal > pageSize">
+      <button type="button" class="btn btn-secondary" [disabled]="callSkip === 0 || callsLoading" (click)="callPage(-1)">Previous</button>
+      <span class="ai__hint">{{ callSkip + 1 }}–{{ (callSkip + calls.length) }} of {{ callTotal | number }}</span>
+      <button type="button" class="btn btn-secondary" [disabled]="callSkip + pageSize >= callTotal || callsLoading" (click)="callPage(1)">Next</button>
+    </div>
   </section>
 </div>

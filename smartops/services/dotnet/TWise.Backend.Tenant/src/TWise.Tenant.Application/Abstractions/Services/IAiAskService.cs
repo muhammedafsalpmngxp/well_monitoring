@@ -101,8 +101,9 @@ public interface IAiConversationRepository
     Task AddTraceAsync(AiTrace trace, CancellationToken ct);
     Task<AiTrace?> GetTraceAsync(long messageId, CancellationToken ct);
     /// <summary>Assistant answers of every user since a date, newest first, with their conversation and trace (admin activity page).</summary>
+    /// <summary>Answers in [from, to), newest first; userId is exact, search matches the answer, dataset, title or user id.</summary>
     Task<(int Total, IReadOnlyList<(AiChatMessage Message, AiConversation Conversation, AiTrace? Trace)> Items)> SearchAnswersAsync(
-        long tenantId, DateTime since, string? search, int skip, int take, CancellationToken ct);
+        long tenantId, DateTime from, DateTime to, string? userId, string? search, int skip, int take, CancellationToken ct);
     /// <summary>A conversation of the tenant regardless of owner (admin reads).</summary>
     Task<AiConversation?> GetForTenantAsync(long id, long tenantId, CancellationToken ct);
     /// <summary>The question that led to an assistant message: the last user message before it in the conversation.</summary>

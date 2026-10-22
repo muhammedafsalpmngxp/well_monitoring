@@ -6,10 +6,17 @@ using TWise.Tenant.Domain.DTOs;
 
 namespace TWise.Tenant.Application.Features.Ai.Settings;
 
-public sealed class GetAiSettingsHandler(IAiSettingsRepository settings, IAiProviderRepository providers) : IRequestHandler<GetAiSettingsQuery, AiSettingsDto>
+public sealed class GetAiSettingsHandler(IAiSettingsRepository settings, IAiProviderRepository providers, AiAdminOptions admin) : IRequestHandler<GetAiSettingsQuery, AiSettingsDto>
 {
     public async Task<AiSettingsDto> Handle(GetAiSettingsQuery q, CancellationToken ct) =>
-        AiMapping.ToDto(await settings.GetAsync(q.TenantId, ct), await providers.GetActiveAsync(q.TenantId, ct));
+        AiMapping.ToDto(await settings.GetAsync(q.TenantId, ct), await providers.GetActiveAsync(q.TenantId, ct), admin.DefaultDailyQuota);
+}
+
+public sealed class GetAiAdminOptionsHandler(AiAdminOptions admin) : IRequestHandler<GetAiAdminOptionsQuery, AiAdminOptionsDto>
+{
+    public Task<AiAdminOptionsDto> Handle(GetAiAdminOptionsQuery q, CancellationToken ct) => Task.FromResult(new AiAdminOptionsDto(
+        AiMapping.ProviderKinds.Select(k => { var d = admin.Providers[k]; return new AiProviderDefaultDto(k, d.Label, d.BaseUrl, d.Model, d.NeedsKey); }).ToList(),
+        admin.DefaultDailyQuota, admin.QuotaWarnPercent, admin.UsageDays, admin.ActivityDays, admin.MaxDays, admin.DayOptions, admin.PageSize, admin.TraceRetentionDays));
 }
 
 public sealed class ListAiProvidersHandler(IAiProviderRepository providers) : IRequestHandler<ListAiProvidersQuery, IReadOnlyList<AiProviderDto>>
@@ -18,13 +25,14 @@ public sealed class ListAiProvidersHandler(IAiProviderRepository providers) : IR
         (await providers.ListAsync(q.TenantId, ct)).Select(AiMapping.ToDto).ToList();
 }
 
-public sealed class GetAiUsageHandler(IAiProviderRepository providers, IAiUsageRepository usage) : IRequestHandler<GetAiUsageQuery, AiUsageSummaryDto>
+public sealed class GetAiUsageHandler(IAiProviderRepository providers, IAiUsageRepository usage, AiAdminOptions admin) : IRequestHandler<GetAiUsageQuery, AiUsageSummaryDto>
 {
     public async Task<AiUsageSummaryDto> Handle(GetAiUsageQuery q, CancellationToken ct)
     {
-        var days = Math.Clamp(q.Days, 1, 90);
+        var days = Math.Clamp(q.Days ?? admin.UsageDays, 1, admin.MaxDays);
         var active = await providers.GetActiveAsync(q.TenantId, ct);
-        return new AiUsageSummaryDto(await usage.CountTodayAsync(q.TenantId, ct), active?.DailyQuota ?? 0, await usage.GetDailyAsync(q.TenantId, days, ct));
+        return new AiUsageSummaryDto(await usage.CountTodayAsync(q.TenantId, ct), active?.DailyQuota ?? 0, await usage.GetDailyAsync(q.TenantId, days, ct),
+            admin.QuotaWarnPercent);
     }
 }
 

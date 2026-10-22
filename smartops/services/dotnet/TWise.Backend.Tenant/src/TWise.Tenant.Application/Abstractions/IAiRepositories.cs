@@ -41,7 +41,11 @@ public interface IAiUsageRepository
     /// <summary>Per-day totals for the last <paramref name="days"/> UTC days, oldest first.</summary>
     Task<IReadOnlyList<AiUsageDayDto>> GetDailyAsync(long tenantId, int days, CancellationToken ct);
     /// <summary>Failed calls since a date, newest first.</summary>
-    Task<IReadOnlyList<AiUsageLog>> GetFailuresAsync(long tenantId, DateTime since, int take, CancellationToken ct);
+    /// <summary>AI calls in [from, to), newest first, filtered by user, purpose, failures only and text (model or error).</summary>
+    Task<(int Total, IReadOnlyList<AiUsageLog> Items)> SearchAsync(long tenantId, DateTime from, DateTime to, string? userId, string? purpose,
+        bool failedOnly, string? search, int skip, int take, CancellationToken ct);
+    /// <summary>The users and features (purpose before any ":", e.g. agent) with calls in [from, to).</summary>
+    Task<(IReadOnlyList<string> UserIds, IReadOnlyList<string> Purposes)> FacetsAsync(long tenantId, DateTime from, DateTime to, CancellationToken ct);
 }
 
 /// <summary>Explain summaries kept until the data they summarise changes (core.AiSummaries). Best-effort: a failing store

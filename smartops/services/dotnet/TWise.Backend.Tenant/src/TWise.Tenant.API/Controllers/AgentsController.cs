@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using TWise.Tenant.Application.Features.Ai;
 using System.Security.Claims;
 using System.Text.Json;
 using MediatR;
@@ -19,7 +20,7 @@ namespace TWise.Tenant.API.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/agents")]
-public sealed class AgentsController(ISender sender) : ControllerBase
+public sealed class AgentsController(ISender sender, AiAdminOptions admin) : ControllerBase
 {
     private const string Module = "agentic-ai.agents";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -337,7 +338,7 @@ public sealed class AgentsController(ISender sender) : ControllerBase
     public async Task<IActionResult> SetState(long id, [FromBody] SetAiAgentStateRequest request, CancellationToken ct)
     {
         if (!TryGetTenantId(out var t)) return Unauthorized();
-        if (!User.IsInRole("admin") && !User.IsInRole("tenant_admin")) return Forbid();
+        if (!admin.AdminRoles.Any(User.IsInRole)) return Forbid();
         var state = request.AgentState?.Trim().ToLowerInvariant();
         if (state is not (AgentMapping.Active or AgentMapping.Inactive))
             return BadRequest(new { message = "agentState must be \"active\" or \"inactive\"." });

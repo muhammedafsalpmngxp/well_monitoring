@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using TWise.Tenant.Application.Features.Ai;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Domain.Entities;
 using TWise.Tenant.Infrastructure.Persistence;
 
 namespace TWise.Tenant.Infrastructure.Repositories;
 
-public sealed class AiConversationRepository(TenantDbContext db) : IAiConversationRepository
+public sealed class AiConversationRepository(TenantDbContext db, AiAdminOptions admin) : IAiConversationRepository
 {
     public async Task<IReadOnlyList<AiConversation>> ListAsync(long tenantId, string userId, CancellationToken ct) =>
         await db.AiConversations.Where(c => c.TenantId == tenantId && c.UserId == userId).OrderByDescending(c => c.ModifiedAt).Take(50).ToListAsync(ct);
@@ -33,7 +34,7 @@ public sealed class AiConversationRepository(TenantDbContext db) : IAiConversati
 
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 
-    // Traces older than 30 days are removed at most once an hour per process, not on every answer (a round trip).
+    // Traces older than AiAdmin:TraceRetentionDays are removed at most once an hour per process, not on every answer (a round trip).
     private static long nextCleanup;
 
     public async Task AddTraceAsync(AiTrace trace, CancellationToken ct)
@@ -41,7 +42,7 @@ public sealed class AiConversationRepository(TenantDbContext db) : IAiConversati
         var now = DateTime.UtcNow;
         var due = Interlocked.Read(ref nextCleanup);
         if (now.Ticks >= due && Interlocked.CompareExchange(ref nextCleanup, now.AddHours(1).Ticks, due) == due)
-            await db.AiTraces.Where(t => t.CreatedAt < now.AddDays(-30)).ExecuteDeleteAsync(ct);
+            await db.AiTraces.Where(t => t.CreatedAt < now.AddDays(-admin.TraceRetentionDays)).ExecuteDeleteAsync(ct);
         db.AiTraces.Add(trace);
         await db.SaveChangesAsync(ct);
     }
@@ -50,12 +51,13 @@ public sealed class AiConversationRepository(TenantDbContext db) : IAiConversati
         db.AiTraces.AsNoTracking().FirstOrDefaultAsync(t => t.MessageId == messageId, ct);
 
     public async Task<(int Total, IReadOnlyList<(AiChatMessage Message, AiConversation Conversation, AiTrace? Trace)> Items)> SearchAnswersAsync(
-        long tenantId, DateTime since, string? search, int skip, int take, CancellationToken ct)
+        long tenantId, DateTime start, DateTime end, string? userId, string? search, int skip, int take, CancellationToken ct)
     {
         var q = from m in db.AiChatMessages.AsNoTracking()
                 join c in db.AiConversations.AsNoTracking() on m.ConversationId equals c.Id
-                where c.TenantId == tenantId && m.Role == "assistant" && m.CreatedAt >= since
+                where c.TenantId == tenantId && m.Role == "assistant" && m.CreatedAt >= start && m.CreatedAt < end
                 select new { m, c };
+        if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(x => x.c.UserId == userId);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim();

@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddSingleton(sp => Features.Ai.AiExplainOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddSingleton(sp => Features.Ai.AiAlertOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddSingleton(sp => Features.Ai.AiSqlReviewOptions.From(sp.GetRequiredService<IConfiguration>()));
+        services.AddSingleton(sp => Features.Ai.AiAdminOptions.From(sp.GetRequiredService<IConfiguration>(), Features.Ai.Settings.AiMapping.ProviderKinds));
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
         services.AddScoped<DeliveryRunner>();
