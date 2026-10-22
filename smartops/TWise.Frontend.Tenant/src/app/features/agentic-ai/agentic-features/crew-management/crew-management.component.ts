@@ -103,27 +103,95 @@ const AVAILABILITY: Record<string, { label: string; tone: Tone; hint: string }> 
   TEAM_BUSY: { label: 'Team busy', tone: 'info', hint: 'Another crew of the same supervisor is at work' },
   INACTIVE: { label: 'Inactive', tone: 'neutral', hint: 'No team task record in the recent window' },
 };
-const COVERAGE: Record<string, { label: string; tone: Tone }> = {
-  NO_FREE_CREW: { label: 'No free crew', tone: 'bad' },
-  SHORT: { label: 'Short of crews', tone: 'warn' },
-  COVERED: { label: 'Covered', tone: 'ok' },
-  NO_DELAYED_WORK: { label: 'No delayed work', tone: 'neutral' },
+const COVERAGE: Record<string, { label: string; tone: Tone; hint: string }> = {
+  NO_FREE_CREW: { label: 'No free crew', tone: 'bad', hint: 'Delayed work needs this crew type, but no crew of the type is free' },
+  SHORT: { label: 'Short of crews', tone: 'warn', hint: 'Fewer free crews of this type than delayed activities that need it' },
+  COVERED: { label: 'Covered', tone: 'ok', hint: 'At least one free crew of this type for every delayed activity that needs it' },
+  NO_DELAYED_WORK: { label: 'No delayed work', tone: 'neutral', hint: 'No delayed activity needs this crew type' },
 };
-const DELAY: Record<string, { label: string; tone: Tone }> = {
-  OVERDUE_IN_PROGRESS: { label: 'Overdue, in progress', tone: 'bad' },
-  OVERDUE_NOT_STARTED: { label: 'Overdue, not started', tone: 'bad' },
-  START_SLIPPING: { label: 'Start slipping', tone: 'warn' },
-  AWAITING_CLOSE_OUT: { label: 'Awaiting close-out', tone: 'info' },
+const DELAY: Record<string, { label: string; tone: Tone; hint: string }> = {
+  OVERDUE_IN_PROGRESS: { label: 'Overdue, in progress', tone: 'bad', hint: 'Started, not finished, and past its target end date' },
+  OVERDUE_NOT_STARTED: { label: 'Overdue, not started', tone: 'bad', hint: 'Not started, and already past its target end date' },
+  START_SLIPPING: { label: 'Start slipping', tone: 'warn', hint: 'Past its target start date and not started; the target end date has not passed yet' },
+  AWAITING_CLOSE_OUT: { label: 'Awaiting close-out', tone: 'info', hint: 'Recorded as 100% done, but the task record is still open' },
 };
-const ACTION: Record<string, { label: string; tone: Tone }> = {
-  ASSIGN_FREE_CREW: { label: 'Assign a free crew', tone: 'bad' },
-  ADD_SUPPORT_CREW: { label: 'Add a support crew', tone: 'warn' },
-  ASSIGNED_CREW_BUSY: { label: 'Recorded crew is busy elsewhere', tone: 'warn' },
-  MOBILISE_ASSIGNED_CREW: { label: 'Mobilise the recorded crew', tone: 'ok' },
-  CONFIRM_ASSIGNED_CREW: { label: 'Confirm the recorded crew', tone: 'info' },
-  CREW_TYPE_NOT_RESOLVED: { label: 'Crew type not resolved', tone: 'neutral' },
-  CLOSE_OUT_RECORD: { label: 'Close out the record', tone: 'info' },
+const ACTION: Record<string, { label: string; tone: Tone; hint: string }> = {
+  ASSIGN_FREE_CREW: { label: 'Assign a free crew', tone: 'bad', hint: 'No crew is recorded on this activity: assign one of the free crews listed' },
+  ADD_SUPPORT_CREW: { label: 'Add a support crew', tone: 'warn', hint: 'A crew is working on it but it is overdue: a free crew can help it finish' },
+  ASSIGNED_CREW_BUSY: { label: 'Recorded crew is busy elsewhere', tone: 'warn', hint: 'The crew recorded on this activity has not started it and is working on another task: wait for it or send a free crew' },
+  MOBILISE_ASSIGNED_CREW: { label: 'Mobilise the recorded crew', tone: 'ok', hint: 'The crew recorded on this activity has not started it and is free: send it now' },
+  CONFIRM_ASSIGNED_CREW: { label: 'Confirm the recorded crew', tone: 'info', hint: 'The crew recorded on this activity has no recent task record: confirm it is still on the project' },
+  CREW_TYPE_NOT_RESOLVED: { label: 'Crew type not resolved', tone: 'neutral', hint: 'The activity is not mapped to a crew type, so no crew can be matched' },
+  CLOSE_OUT_RECORD: { label: 'Close out the record', tone: 'info', hint: 'The work is recorded as done: close the task record, no crew is needed' },
 };
+
+/**
+ * DISPLAY ONLY: a table column in plain words. `sub` is the short qualifier under the header; `help` is the full
+ * meaning, shown on hover and in the "What each column means" list. {DAYS} = the recent activity window.
+ */
+interface Column {
+  label: string; sub?: string; help: string; num?: boolean; sort?: CrewSort; dir?: 'ascending' | 'descending';
+  hidden?: boolean;
+}
+
+const DELAYED_MEANS = 'past a target date and not finished: past the target end date (overdue), or past the target start date without starting (start slipping)';
+const FREE_HELP = 'Crews of this type whose whole team has nothing in progress and was recorded on a task in the last {DAYS} days of data. Only free crews are suggested.';
+const BUSY_HELP = 'Crews of this type with a task in progress on a live well.';
+const TEAM_BUSY_HELP = 'Crews of this type with nothing in progress themselves, while another crew of the same supervisor is working: the same people are busy.';
+const INACTIVE_HELP = 'Crews of this type whose team has no task record in the last {DAYS} days of data. They may have left the project and are never suggested.';
+const OVERDUE_HELP = 'How many days the latest of these activities is past its target end date, counted to today.';
+
+const PLAN_COLUMNS: Column[] = [
+  { label: 'Crew type needed', help: 'The crew type these activities need, from the activity master (or from the task record when the activity is not mapped).' },
+  { label: 'Delayed activities', sub: 'on this well', num: true, help: `Activities on this well that need this crew type and are ${DELAYED_MEANS}. Activities awaiting close-out are not counted.` },
+  { label: 'Most overdue', sub: 'days past target end', num: true, help: OVERDUE_HELP },
+  { label: 'Free crews', sub: 'whole fleet', num: true, help: FREE_HELP },
+  { label: 'Busy crews', sub: 'whole fleet', num: true, help: BUSY_HELP },
+  { label: 'Team busy', sub: 'whole fleet', num: true, help: TEAM_BUSY_HELP },
+  { label: 'Inactive crews', sub: 'whole fleet', num: true, help: INACTIVE_HELP },
+  { label: 'Free crews to approach first', sub: 'best first', help: "The best free crews of this type: most past completions of this well's activities first, then the shortest queue, then the most recently recorded." },
+];
+
+const TYPE_COLUMNS: Column[] = [
+  { label: 'Crew type', help: 'The crew type, from the crew type register.' },
+  { label: 'Coverage', help: 'Whether the free crews of this type cover its delayed work. No free crew: delayed work but no free crew. Short of crews: fewer free crews than delayed activities. Covered: at least one free crew per delayed activity. No delayed work: nothing late needs this type.' },
+  { label: 'Delayed activities', sub: 'need this type', num: true, help: `Activities on all live wells that need this crew type and are ${DELAYED_MEANS}. Activities awaiting close-out are not counted.` },
+  { label: 'Wells', sub: 'with that work', num: true, help: 'How many live wells those delayed activities are on.' },
+  { label: 'No crew recorded', sub: 'of the delayed', num: true, help: 'Of those delayed activities, how many have no crew named on their task record.' },
+  { label: 'Most overdue', sub: 'days past target end', num: true, help: OVERDUE_HELP },
+  { label: 'Free crews', num: true, help: FREE_HELP },
+  { label: 'Busy crews', num: true, help: BUSY_HELP },
+  { label: 'Team busy', num: true, help: TEAM_BUSY_HELP },
+  { label: 'Inactive crews', num: true, help: INACTIVE_HELP },
+  { label: 'People', sub: 'each counted once', num: true, help: 'People in the crews of this type. A person on several crews is counted once.' },
+  { label: 'Crews', help: 'How many crews have this type. Select it to list them on the crew board below.' },
+];
+
+const CREW_COLUMNS: Column[] = [
+  { label: 'Crew', sort: 'crew', dir: 'ascending', help: "The crew's id on the daily task records." },
+  { label: 'Crew type', help: 'The crew type most often recorded for this crew.' },
+  { label: 'Supervisor', help: "The crew's supervisor. All crews of one supervisor are one team: the same people, under one crew id per crew type." },
+  { label: 'Availability', sort: 'status', dir: 'ascending', help: 'Free, Busy, Team busy or Inactive, worked out from the task records (see Crew availability above).' },
+  { label: 'People', sub: 'National · Expat', help: 'People in this crew, with their nationality where it is recorded.' },
+  { label: 'In progress', sub: 'tasks, live wells', num: true, help: 'Tasks this crew has started and not finished, on wells still under construction.' },
+  { label: 'Queued', sub: 'tasks not started', num: true, sort: 'queued', dir: 'descending', help: 'Tasks on live wells recorded for this crew that have not started yet: work already waiting for it.' },
+  { label: 'Overdue', sub: 'of its open tasks', num: true, sort: 'overdue', dir: 'descending', help: 'Of its in-progress and queued tasks, how many are already past their target end date.' },
+  { label: 'Open wells', sub: 'with its open tasks', num: true, help: 'How many different live wells this crew has in-progress or queued tasks on.' },
+  { label: 'Completed', sub: 'tasks, all time', num: true, help: 'Tasks this crew has completed, on every well.' },
+  { label: 'Last task record', sort: 'recent', dir: 'ascending', help: "The date of this crew's latest task record, and how far that is behind the newest record in the data." },
+];
+
+const WELL_COLUMNS: Column[] = [
+  { label: 'Well', help: "The well id. Select it to open the well's crew plan." },
+  { label: 'Delayed activities', sub: 'need work', num: true, help: `Activities on this well that are ${DELAYED_MEANS}.` },
+  { label: 'No crew recorded', sub: 'of the delayed', num: true, help: 'Of those delayed activities, how many have no crew named on their task record.' },
+  { label: 'Awaiting close-out', sub: 'done, record open', num: true, help: 'Activities recorded as 100% done whose task record is still open. They need the record closed, not a crew, and are not counted as delayed.' },
+  { label: 'Most overdue', sub: 'days past target end', num: true, help: 'How many days the latest delayed activity on this well is past its target end date, counted to today.' },
+  { label: 'Expected rig-on', sub: 'planned date', help: 'The date the rig is planned to arrive on the well.' },
+  { label: 'Last task record', sub: 'this well', help: 'The date of the newest task record for this well. When it is old, the delays are as last recorded and may have moved since.' },
+  { label: 'Open', hidden: true, help: '' },
+];
+
 const STATUS_ORDER: Record<string, number> = { FREE: 0, TEAM_BUSY: 1, BUSY: 2, INACTIVE: 3 };
 
 const EMPTY = '—';
@@ -157,6 +225,11 @@ export class CrewManagementComponent implements OnInit {
   readonly availabilityKeys: Availability[] = ['FREE', 'BUSY', 'TEAM_BUSY', 'INACTIVE'];
   readonly crewPage = CREW_PAGE;
   readonly wellPageSize = WELL_PAGE;
+  readonly planColumns = PLAN_COLUMNS;
+  readonly typeColumns = TYPE_COLUMNS;
+  readonly crewColumns = CREW_COLUMNS;
+  readonly wellColumns = WELL_COLUMNS;
+  readonly delayedMeans = DELAYED_MEANS;
 
   overview: Load<Overview> = { loading: false, error: '', data: null };
   loadedAt: Date | null = null;
@@ -388,13 +461,19 @@ export class CrewManagementComponent implements OnInit {
   // ── Display helpers ─────────────────────────────────────────────────────────────────────────────────────
 
   availability(v: string | null | undefined) { return (v && AVAILABILITY[v]) || { label: v ?? EMPTY, tone: 'neutral' as Tone, hint: '' }; }
-  coverage(v: string) { return COVERAGE[v] ?? { label: v, tone: 'neutral' as Tone }; }
-  delay(v: string) { return DELAY[v] ?? { label: v, tone: 'neutral' as Tone }; }
-  action(v: string) { return ACTION[v] ?? { label: v, tone: 'neutral' as Tone }; }
+  coverage(v: string) { return COVERAGE[v] ?? { label: v, tone: 'neutral' as Tone, hint: '' }; }
+  delay(v: string) { return DELAY[v] ?? { label: v, tone: 'neutral' as Tone, hint: '' }; }
+  action(v: string) { return ACTION[v] ?? { label: v, tone: 'neutral' as Tone, hint: '' }; }
 
   typeLabel(code: string | null | undefined, name: string | null | undefined, id?: number | null): string {
     if (code && name) return `${code} · ${name}`;
     return code || name || (id != null ? `Crew type ${id}` : 'Crew type not resolved');
+  }
+
+  /** A column's full meaning, with the recent activity window filled in. */
+  help(c: Column): string {
+    const days = this.overview.data?.rules.crew_recent_days ?? this.plan.data?.rules.crew_recent_days ?? 90;
+    return c.help.replace(/\{DAYS\}/g, String(days));
   }
 
   activityName(a: Activity): string { return a.activity_description || a.wbs || a.activity_id || a.task_code; }
