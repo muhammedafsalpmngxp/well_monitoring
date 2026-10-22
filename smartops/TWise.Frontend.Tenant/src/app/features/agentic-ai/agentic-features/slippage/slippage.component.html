@@ -230,7 +230,7 @@
       <header class="sl__card-head">
         <div>
           <h3 id="sl-tasks-title">Activity delay</h3>
-          <p>Latest record per task, most urgent first. "Suggest recovery" on a late task asks the advisor whether another delay holds it up and how to recover it.</p>
+          <p>Latest record per task, most urgent first.</p>
         </div>
         <div class="sl__filters" *ngIf="tasks.data?.rows?.length">
           <div class="sl__field">
@@ -284,7 +284,6 @@
                   <th scope="col">Planned end</th>
                   <th scope="col">Actual end</th>
                   <th scope="col" class="sl__num">Progress</th>
-                  <th scope="col"><span class="sl__sr">Advisor</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -301,123 +300,6 @@
                     <td>{{ date(t['target_end']) }}</td>
                     <td>{{ date(t['actual_end']) }}</td>
                     <td class="sl__num">{{ percent(t['progress_percent']) }}</td>
-                    <td class="sl__cell-action">
-                      <button *ngIf="isLate(t) && taskKey(t)" type="button" class="btn btn-secondary btn-sm"
-                        (click)="toggleTask(t)" [attr.aria-expanded]="!!taskState(t)?.open" [attr.aria-controls]="'sl-task-' + i">
-                        {{ taskState(t)?.open ? 'Hide' : 'Suggest recovery' }}
-                      </button>
-                    </td>
-                  </tr>
-                  <tr *ngIf="taskState(t) as st" [hidden]="!st.open" class="sl__expand">
-                    <td colspan="12">
-                      <div [id]="'sl-task-' + i" class="sl__advisor" aria-live="polite" [attr.aria-busy]="st.loading">
-                        <div class="sl__advisor-bar">
-                          <span class="sl__muted">
-                            <strong>Recovery suggestion · {{ clean(t['wbs']) }}</strong> · AI-generated. Review before acting.
-                            <ng-container *ngIf="st.data && !st.loading">
-                              · {{ st.data.cached ? 'Reused answer (same data)' : 'Generated' }} {{ dateTime(st.data.generated_at) }}<ng-container *ngIf="st.data.model"> · {{ st.data.model }}</ng-container>
-                            </ng-container>
-                          </span>
-                          <span class="sl__actions">
-                            <button type="button" class="btn btn-secondary btn-sm" (click)="askTask(t, true)" [disabled]="st.loading">Ask again</button>
-                            <button type="button" class="btn btn-secondary btn-sm" (click)="closeTask(t)">Close</button>
-                          </span>
-                        </div>
-                        <app-loader *ngIf="st.loading" size="sm"
-                          message="Weighing this task against the well's other late work, its milestones and the crews of the same type. This can take up to a minute."></app-loader>
-                        <p *ngIf="!st.loading && st.error" class="sl__alert sl__alert--warn" role="alert">{{ st.error }}
-                          <button type="button" class="sl__link" (click)="askTask(t, false)">Try again</button>
-                        </p>
-                        <div *ngIf="!st.loading && st.data as s" class="sl__advice-grid">
-                          <div class="sl__advice">
-                            <ng-container *ngIf="s.advice as a; else taskRaw">
-                              <p *ngIf="a.summary" class="sl__lead">{{ a.summary }}</p>
-                              <div class="sl__verdict">
-                                <span class="sl__muted">Caused by another delay?</span>
-                                <span class="sl__pill" [attr.data-tone]="taskVerdict(a.caused_by_other_delay).tone">{{ taskVerdict(a.caused_by_other_delay).label }}</span>
-                              </div>
-                              <div *ngIf="a.causes.length" class="sl__block">
-                                <h4>Why it is late</h4>
-                                <ul class="sl__items">
-                                  <li *ngFor="let c of a.causes; trackBy: trackIndex">
-                                    <p>{{ c.cause }} <span *ngIf="c.confidence" class="sl__conf">{{ c.confidence }} confidence</span></p>
-                                    <p *ngIf="c.evidence" class="sl__sub">Evidence: {{ c.evidence }}</p>
-                                  </li>
-                                </ul>
-                              </div>
-                              <div *ngIf="a.actions.length" class="sl__block">
-                                <h4>How to recover</h4>
-                                <ol class="sl__steps">
-                                  <li *ngFor="let x of a.actions; let n = index; trackBy: trackIndex">
-                                    <span class="sl__step-n" aria-hidden="true">{{ n + 1 }}</span>
-                                    <div>
-                                      <p>{{ x.action }} <span *ngIf="!missing(x.crew_id)" class="sl__code">crew {{ x.crew_id }}</span></p>
-                                      <p *ngIf="x.crew_unverified" class="sl__flag">This crew was not in the candidate list the advisor was given. Check before acting.</p>
-                                      <p *ngIf="x.rationale" class="sl__sub">{{ x.rationale }}</p>
-                                    </div>
-                                  </li>
-                                </ol>
-                              </div>
-                              <ng-container *ngTemplateOutlet="checksTpl; context: { checks: a.checks, caveats: a.caveats }"></ng-container>
-                            </ng-container>
-                            <ng-template #taskRaw>
-                              <ng-container *ngTemplateOutlet="rawTpl; context: { $implicit: s.raw }"></ng-container>
-                            </ng-template>
-                          </div>
-
-                          <aside class="sl__evidence" aria-label="Evidence the advisor was given">
-                            <p class="sl__eyebrow">Evidence the advisor was given</p>
-                            <div class="sl__block" *ngIf="s.evidence.crew as crew">
-                              <h4>Crews of type {{ text(crew.crew_type_id) }}</h4>
-                              <p *ngIf="crew.note" class="sl__small sl__warn-text">{{ crew.note }}</p>
-                              <p *ngIf="!crew.note" class="sl__small">{{ crew.available_count }} available · {{ crew.busy_count }} busy · {{ crew.type_total }} of this type</p>
-                              <p *ngIf="crew.assigned" class="sl__small sl__muted">
-                                Assigned crew {{ crew.assigned_crew_id }}: {{ number(crew.assigned['open_tasks']) }} open, {{ number(crew.assigned['overdue_tasks']) }} overdue, on {{ number(crew.assigned['wells_with_open_tasks']) }} well(s)
-                              </p>
-                              <table *ngIf="crew.available.length" class="sl__mini">
-                                <caption class="sl__sr">Available crews of this type</caption>
-                                <thead><tr><th scope="col">Crew</th><th scope="col" class="sl__num">Open</th><th scope="col" class="sl__num">Overdue</th><th scope="col" class="sl__num">Last recorded</th></tr></thead>
-                                <tbody>
-                                  <tr *ngFor="let c of crew.available; trackBy: trackCrew">
-                                    <td class="sl__mono">{{ text(c['crew_id']) }}</td>
-                                    <td class="sl__num">{{ number(c['open_tasks']) }}</td>
-                                    <td class="sl__num">{{ number(c['overdue_tasks']) }}</td>
-                                    <td class="sl__num">{{ date(c['latest_action_on']) }}</td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                              <p class="sl__note">Available means no task in progress is recorded for the crew. It does not show leave, location or whether the crew is on site.</p>
-                            </div>
-                            <div class="sl__block">
-                              <h4>Late work due to finish before this task started</h4>
-                              <p *ngIf="!s.evidence.earlier_late_tasks.length" class="sl__small sl__muted">None on this well.</p>
-                              <ul *ngIf="s.evidence.earlier_late_tasks.length" class="sl__plain">
-                                <li *ngFor="let u of s.evidence.earlier_late_tasks; trackBy: trackIndex" class="sl__small">
-                                  {{ clean(u['wbs']) }}
-                                  <span class="sl__sub-line">due {{ date(u['target_end']) }} ·
-                                    <ng-container *ngTemplateOutlet="statusTpl; context: { $implicit: u['end_status'] }"></ng-container>
-                                    {{ variance(u['end_variance_days']) }}</span>
-                                </li>
-                              </ul>
-                            </div>
-                            <div class="sl__block" *ngIf="s.evidence.same_wbs_late_tasks.length">
-                              <h4>Other late work in the same WBS</h4>
-                              <ul class="sl__plain">
-                                <li *ngFor="let u of s.evidence.same_wbs_late_tasks; trackBy: trackIndex" class="sl__small">
-                                  <span class="sl__mono">{{ text(u['activity_code']) }}</span> · due {{ date(u['target_end']) }} ·
-                                  <ng-container *ngTemplateOutlet="statusTpl; context: { $implicit: u['end_status'] }"></ng-container>
-                                  {{ variance(u['end_variance_days']) }}
-                                </li>
-                              </ul>
-                            </div>
-                            <div class="sl__block">
-                              <h4>Well milestones</h4>
-                              <ng-container *ngTemplateOutlet="wellEvidenceTpl; context: { $implicit: s.evidence.well }"></ng-container>
-                            </div>
-                          </aside>
-                        </div>
-                      </div>
-                    </td>
                   </tr>
                 </ng-container>
               </tbody>
@@ -574,9 +456,6 @@
                   <th scope="col" [attr.aria-sort]="wellSort === 'well' ? 'ascending' : null">
                     <button type="button" class="sl__sort" (click)="sortWells('well')">Well</button>
                   </th>
-                  <th scope="col" [attr.aria-sort]="wellSort === 'status' ? 'ascending' : null">
-                    <button type="button" class="sl__sort" (click)="sortWells('status')">Headline</button>
-                  </th>
                   <th scope="col">Failed milestones</th>
                   <th scope="col" class="sl__num" [attr.aria-sort]="wellSort === 'overrun' ? 'descending' : null">
                     <button type="button" class="sl__sort" (click)="sortWells('overrun')">Overrun</button>
@@ -590,7 +469,6 @@
               <tbody>
                 <tr *ngFor="let w of wellPageRows; trackBy: trackWell">
                   <th scope="row"><button type="button" class="sl__id" (click)="openWell(w['well_id'])" [attr.aria-label]="'Open well ' + w['well_id']">{{ w['well_id'] }}</button></th>
-                  <td>{{ humanise(w['well_slippage_status']) }}</td>
                   <td>
                     <span class="sl__chips">
                       <ng-container *ngFor="let m of failed(w); trackBy: trackMilestone">
@@ -613,127 +491,6 @@
         </ng-container>
       </div>
     </section>
-
-    <div class="sl__split sl__split--even">
-      <!-- Activity summary -->
-      <section class="sl__card" aria-labelledby="sl-act-title">
-        <header class="sl__card-head">
-          <div>
-            <h3 id="sl-act-title">Delayed activity per well</h3>
-            <p>Distinct delayed activity codes on each well, most first.</p>
-          </div>
-          <div class="sl__field sl__field--inline" *ngIf="activity.data?.rows?.length">
-            <label for="sl-act-search">Search well id</label>
-            <input id="sl-act-search" type="search" [(ngModel)]="activitySearch" (ngModelChange)="applyActivityFilters()" autocomplete="off" />
-          </div>
-        </header>
-        <div aria-live="polite" [attr.aria-busy]="activity.loading">
-          <app-loader *ngIf="activity.loading && !activity.data" size="sm"></app-loader>
-          <p *ngIf="activity.error" class="sl__alert sl__alert--bad" role="alert">{{ activity.error }}
-            <button type="button" class="sl__link" (click)="loadActivity()">Try again</button>
-          </p>
-          <ng-container *ngIf="activity.data as d">
-            <p *ngIf="d.truncated" class="sl__alert sl__alert--warn" role="status">Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit.</p>
-            <p *ngIf="!d.rows.length" class="sl__empty">No well has a delayed activity.</p>
-            <p *ngIf="d.rows.length && !activityRows.length" class="sl__empty">No wells match.</p>
-            <div class="sl__table-wrap" *ngIf="activityRows.length">
-              <table class="sl__table">
-                <caption class="sl__sr">Delayed activity codes per well</caption>
-                <thead><tr><th scope="col">Well</th><th scope="col" class="sl__num">Delayed activity codes</th><th scope="col">Milestones</th></tr></thead>
-                <tbody>
-                  <tr *ngFor="let r of activityPageRows; trackBy: trackWell">
-                    <th scope="row"><button type="button" class="sl__id" (click)="openWell(r['well_id'])" [attr.aria-label]="'Open well ' + r['well_id']">{{ r['well_id'] }}</button></th>
-                    <td class="sl__num"><strong>{{ number(r['delayed_activity_codes']) }}</strong></td>
-                    <td>
-                      <span *ngIf="wells.data" class="sl__status" [attr.data-tone]="isListed(r['well_id']) ? 'bad' : 'neutral'">{{ isListed(r['well_id']) ? 'Slipped' : 'None failed' }}</span>
-                      <span *ngIf="!wells.data" class="sl__muted">—</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <ng-container *ngTemplateOutlet="pagerTpl; context: { total: activityRows.length, size: crewPageSize, page: activityPage, which: 'activity' }"></ng-container>
-          </ng-container>
-        </div>
-      </section>
-
-      <!-- Crew availability -->
-      <section class="sl__card" aria-labelledby="sl-crew-title">
-        <header class="sl__card-head">
-          <div>
-            <h3 id="sl-crew-title">Crew availability</h3>
-            <p>Crews holding open work on wells in progress. Available means none of its open work is in progress; it does not show leave, location or shift.</p>
-          </div>
-        </header>
-        <div class="sl__filters" *ngIf="crews.data?.rows?.length">
-          <div class="sl__field">
-            <label for="sl-crew-search">Search crew id</label>
-            <input id="sl-crew-search" type="search" [(ngModel)]="crewSearch" (ngModelChange)="applyCrewFilters()" autocomplete="off" />
-          </div>
-          <div class="sl__field">
-            <label for="sl-crew-status">Availability</label>
-            <select id="sl-crew-status" [(ngModel)]="crewStatus" (ngModelChange)="applyCrewFilters()">
-              <option value="">All</option>
-              <option *ngFor="let s of crewStatuses" [value]="s">{{ humanise(s) }}</option>
-            </select>
-          </div>
-          <div class="sl__field">
-            <label for="sl-crew-type">Crew type</label>
-            <select id="sl-crew-type" [(ngModel)]="crewType" (ngModelChange)="applyCrewFilters()">
-              <option value="">All types</option>
-              <option *ngFor="let t of crewTypes" [value]="t">{{ t }}</option>
-            </select>
-          </div>
-          <div class="sl__field">
-            <label for="sl-crew-sort">Sort by</label>
-            <select id="sl-crew-sort" [(ngModel)]="crewSort" (ngModelChange)="applyCrewFilters()">
-              <option value="open">Most open tasks</option>
-              <option value="overdue">Most overdue tasks</option>
-              <option value="recent">Most recently recorded</option>
-              <option value="crew">Crew id</option>
-            </select>
-          </div>
-          <span class="sl__count sl__filters-count" aria-live="polite">{{ crewRows.length | number }} of {{ crews.data!.rows.length | number }} crews</span>
-        </div>
-        <div aria-live="polite" [attr.aria-busy]="crews.loading">
-          <app-loader *ngIf="crews.loading && !crews.data" size="sm"></app-loader>
-          <p *ngIf="crews.error" class="sl__alert sl__alert--bad" role="alert">{{ crews.error }}
-            <button type="button" class="sl__link" (click)="loadCrews()">Try again</button>
-          </p>
-          <ng-container *ngIf="crews.data as d">
-            <p *ngIf="d.truncated" class="sl__alert sl__alert--warn" role="status">Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit.</p>
-            <p *ngIf="!d.rows.length" class="sl__empty">No crew holds open work.</p>
-            <p *ngIf="d.rows.length && !crewRows.length" class="sl__empty">No crews match these filters.</p>
-            <div class="sl__table-wrap" *ngIf="crewRows.length">
-              <table class="sl__table sl__table--dense">
-                <caption class="sl__sr">Crew availability</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Crew</th><th scope="col">Type</th><th scope="col">Availability</th>
-                    <th scope="col" class="sl__num">Open</th><th scope="col" class="sl__num">In progress</th><th scope="col" class="sl__num">Overdue</th>
-                    <th scope="col" class="sl__num" title="Wells with open tasks / wells with work in progress">Wells</th>
-                    <th scope="col">Last recorded</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let c of crewPageRows; trackBy: trackCrew">
-                    <th scope="row" class="sl__mono">{{ text(c['crew_id']) }}</th>
-                    <td class="sl__mono">{{ text(c['crew_type_id']) }}</td>
-                    <td><ng-container *ngTemplateOutlet="statusTpl; context: { $implicit: c['availability_status'] }"></ng-container></td>
-                    <td class="sl__num">{{ number(c['open_tasks']) }}</td>
-                    <td class="sl__num">{{ number(c['in_progress_tasks']) }}</td>
-                    <td class="sl__num" [class.sl__bad-text]="(num(c['overdue_tasks']) ?? 0) > 0">{{ number(c['overdue_tasks']) }}</td>
-                    <td class="sl__num">{{ number(c['wells_with_open_tasks']) }} / {{ number(c['wells_in_progress']) }}</td>
-                    <td>{{ date(c['latest_action_on']) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <ng-container *ngTemplateOutlet="pagerTpl; context: { total: crewRows.length, size: crewPageSize, page: crewPage, which: 'crews' }"></ng-container>
-          </ng-container>
-        </div>
-      </section>
-    </div>
   </ng-template>
 
   <!-- ═══════════════════════════════════ SHOW SQL ═══════════════════════════════════ -->
