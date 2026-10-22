@@ -1,4 +1,4 @@
-<app-page-header title="Slippage"
+<app-page-header title="Well Slippage"
   subtitle="Wells that failed a contractual milestone, their late tasks and the crews that could recover them."
   [breadcrumbs]="breadcrumbs">
   <div class="sl__head-actions">
@@ -260,7 +260,7 @@
         </p>
         <ng-container *ngIf="!tasks.loading && tasks.data as d">
           <p *ngIf="d.truncated" class="sl__alert sl__alert--warn" role="status">
-            Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit. An admin can raise the limit under AI Settings → Ask Data & Features → Slippage.
+            Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit. An admin can raise the limit under AI Settings → Ask Data & Features → Well Slippage.
           </p>
           <p *ngIf="!d.rows.length" class="sl__empty">
             No task rows were returned for well {{ wellId }}. The analysis covers wells still in progress, so a completed well returns nothing; this does not mean the well has no late work.
@@ -443,7 +443,7 @@
         </p>
         <ng-container *ngIf="wells.data as d">
           <p *ngIf="d.truncated" class="sl__alert sl__alert--warn" role="status">
-            Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit, so the figures above are incomplete. An admin can raise the limit under AI Settings → Ask Data & Features → Slippage.
+            Showing the first {{ d.rows.length | number }} rows: the query returned more than its row limit, so the figures above are incomplete. An admin can raise the limit under AI Settings → Ask Data & Features → Well Slippage.
           </p>
           <p *ngIf="!d.rows.length" class="sl__empty">No well has failed a contractual milestone.</p>
           <p *ngIf="d.rows.length && !wellRows.length" class="sl__empty">No wells match these filters.</p>
@@ -509,7 +509,7 @@
       <p *ngIf="sqlError" class="sl__alert sl__alert--bad" role="alert">{{ sqlError }}
         <button type="button" class="sl__link" (click)="loadSql()">Try again</button>
       </p>
-      <p *ngIf="sqlQueries && !sqlQueries.length" class="sl__empty">No verified query is stored for Slippage yet.</p>
+      <p *ngIf="sqlQueries && !sqlQueries.length" class="sl__empty">No verified query is stored for Well Slippage yet.</p>
       <ng-container *ngIf="sqlQueries?.length">
         <div class="sl__tabs" role="group" aria-label="Choose a query">
           <button type="button" *ngFor="let q of sqlQueries; let i = index" class="sl__tab" [class.sl__tab--on]="q.key === sqlKey"

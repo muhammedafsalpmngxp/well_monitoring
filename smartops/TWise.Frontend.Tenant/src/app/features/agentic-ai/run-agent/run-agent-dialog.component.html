@@ -27,7 +27,7 @@
                     </label>
                     <textarea *ngIf="isQuestion(i.name); else plainInput" class="ra-input ra-input--question" rows="3" [id]="'run-' + i.name"
                         [name]="i.name" [(ngModel)]="values[i.name]" [disabled]="running"
-                        placeholder="Ask in your own words, e.g. Slippage report for well 35543"></textarea>
+                        placeholder="Ask in your own words, e.g. Well slippage report for well 35543"></textarea>
                     <ng-template #plainInput>
                         <input class="ra-input" [id]="'run-' + i.name" [name]="i.name" [(ngModel)]="values[i.name]" [disabled]="running"
                             [type]="i.type === 'number' ? 'number' : 'text'" [placeholder]="'Enter ' + i.name"
