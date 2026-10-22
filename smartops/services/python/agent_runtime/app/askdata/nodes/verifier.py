@@ -7,11 +7,10 @@ reword an answer built on data that was already wrong — which it has no way to
 """
 from __future__ import annotations
 
-from app.askdata.settings import agent_settings, current_run
-from app.askdata.tools import knowledge
+from app.askdata.settings import agent_settings
 from app.askdata.nodes._common import history_for, render_steps
 from app.askdata.prompts import current_prompts, msg
-from app.askdata.tools.sqlcheck import check as sql_concerns, schema_for_sql
+from app.askdata.tools.sqlcheck import check as sql_concerns
 from app.askdata.state import AgentState
 from app.askdata.llm import chat
 from app.askdata.log import get_agent_logger
@@ -71,23 +70,14 @@ def verifier_node(state: AgentState) -> dict:
     # History matters for correctness: without it the reviewer cannot resolve a follow-up like
     # "how many are completed?" and rejects a correct query as "ambiguous" — which the SQL Author
     # cannot fix, because the query was right all along.
-    #
-    # Only the tables the executed SQL reads go to the model: it judges a query that is already written, and the whole
-    # schema was ~75% of its prompt. The deterministic check below still gets the whole schema.
     schema = state.get("schema", "")
     parts = []
     if schema:
-        shown, kept, total = schema_for_sql([s.get("sql", "") for s in steps], schema)
-        log.info("verify: schema cut to %d of %d tables (%d -> %d chars)", kept, total, len(schema), len(shown))
-        parts.append(msg("verifier_schema", SCHEMA=shown))
+        parts.append(msg("verifier_schema", SCHEMA=schema))
     history = history_for(state)
     if history:
         parts.append(history.rstrip())
     parts.append(msg("verifier_question", QUESTION=state["question"]))
-    # A filter that comes from a business term's definition is what the question asked for.
-    terms = knowledge.terms_block(state["question"], current_run().settings.terms)
-    if terms:
-        parts.append(terms)
     parts.append(msg("verifier_data", DATA=render_steps(steps, max_rows=agent_settings.max_rows)))
     if state.get("analysis"):
         parts.append(msg("verifier_analysis", ANALYSIS=state["analysis"]))
@@ -185,3 +175,4 @@ def _reject(state: AgentState, feedback: str) -> dict:
         "retry_count": 0,
         "query_count": 0,
     }
+ 
