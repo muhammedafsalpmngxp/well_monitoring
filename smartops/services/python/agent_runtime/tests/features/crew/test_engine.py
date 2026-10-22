@@ -107,6 +107,15 @@ def test_overview_compares_free_crews_with_the_delayed_work_per_type(body, ctx):
     assert ov["data_as_of"] == "2026-10-12"
 
 
+def test_people_on_several_crews_are_counted_once(body, ctx):
+    with ctx(body) as (_, cfg):
+        ov = engine.overview(cfg)
+    types = {t["crew_type_id"]: t for t in ov["crew_types"]}
+    assert ov["kpis"]["members"] == S.FLEET_PEOPLE                 # not 7 crews x 4 members = 28
+    assert types[287]["members"] == 13                              # not 5 crews x 4 members = 20
+    assert types[500]["members"] == 0                               # a type no crew has
+
+
 def test_the_fleet_scan_is_reused_until_fresh(body, ctx, fake_db):
     with ctx(body) as (_, cfg):
         engine.overview(cfg)

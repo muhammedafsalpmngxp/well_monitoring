@@ -94,7 +94,9 @@ def overview(cfg: CrewSettings, *, fresh: bool = False) -> dict[str, Any]:
             "busy": counts[BUSY],
             "team_busy": counts[TEAM_BUSY],
             "inactive": counts[INACTIVE],
-            "members": sum(c.get("members") or 0 for c in crews),
+            # fleet_people counts each person once; adding up crew members would count the people of one team
+            # (one crew_id per crew type) several times.
+            "members": next((c.get("fleet_people") or 0 for c in crews), 0),
             "wells_with_delays": len(wells),
             "delayed_activities": sum(w.get("delayed_activities") or 0 for w in wells),
             "without_recorded_crew": sum(w.get("without_recorded_crew") or 0 for w in wells),
@@ -134,7 +136,7 @@ def _capacity(crews: list[dict], demand: list[dict]) -> list[dict]:
         g = group(crew["crew_type_id"], crew.get("crew_type_code"), crew.get("crew_type_name"))
         g["crews"] += 1
         g[crew["availability_status"].lower()] = g.get(crew["availability_status"].lower(), 0) + 1
-        g["members"] += crew.get("members") or 0
+        g["members"] = crew.get("type_people") or 0                 # people in crews of the type, each once
         g["queued_tasks"] += crew.get("queued_tasks") or 0
         g["in_progress_tasks"] += crew.get("in_progress_tasks") or 0
 

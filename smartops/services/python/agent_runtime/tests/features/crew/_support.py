@@ -37,6 +37,11 @@ def make_body(**overrides: Any) -> dict[str, Any]:
     return body
 
 
+# People counted once, as crew_board returns them: the five type-287 crews hold 20 crew places but 13 people.
+TYPE_PEOPLE = {287: 13, 300: 4, 400: 4}
+FLEET_PEOPLE = 18
+
+
 def crew(crew_id: int, type_id: int, status: str, *, supervisor_id: int | None = None, queued: int = 0,
          days_since: int | None = 0, members: int = 4) -> dict[str, Any]:
     return {
@@ -47,6 +52,7 @@ def crew(crew_id: int, type_id: int, status: str, *, supervisor_id: int | None =
         "overdue_open_tasks": 0, "completed_tasks": 5, "open_wells": 1, "last_recorded_on": "2026-10-10",
         "data_as_of": "2026-10-12", "days_since_last_record": days_since, "team_in_progress_tasks": 0,
         "team_last_recorded_on": "2026-10-10", "availability_status": status,
+        "type_people": TYPE_PEOPLE.get(type_id, members), "fleet_people": FLEET_PEOPLE,
     }
 
 
