@@ -200,7 +200,7 @@ ConnectionPasswordHelper.Initialize(encryptionKey, previousEncryptionKeys);
 var app = builder.Build();
 
 // The key's fingerprint (never the key): servers sharing a database must log the same one.
-app.Logger.LogInformation("Encryption key fingerprint {KeyId}; older keys accepted for reading: {PreviousKeyIds}",
+app.Logger.LogInformation("Encryption key fingerprint {KeyId}; older keys still accepted for reading: {PreviousKeyIds}",
     ConnectionPasswordHelper.KeyId, ConnectionPasswordHelper.PreviousKeyIds.Count == 0 ? "none" : string.Join(", ", ConnectionPasswordHelper.PreviousKeyIds));
 if (encryptionKey.StartsWith("CHANGE_ME", StringComparison.Ordinal))
     app.Logger.LogWarning("DatabaseConnections:EncryptionKey is the CHANGE_ME placeholder from the repository: anyone with the " +

@@ -1,19 +1,23 @@
-"""Drive the COMPILE stage: every rule that needs it, one at a time, through the compile graph.
+"""Drive the COMPILE stage: every rule that needs it through the compile graph - stand-alone rules up to
+compile_concurrency at a time, rule families in order - reporting each probe the moment it is stored.
 
 ONE GRAPH INVOCATION PER RULE: a rule that fails fails ALONE (recorded with its error), each rule gets its own
 budgets, and anything still valid is reused. ONE AUTHORED QUERY PER FAMILY: the member with the most data is
 authored and reviewed; the rest are cloned from its {{token}} template, checked for leftover tokens and foreign
 columns, and SMOKE-TESTED (summary only, short timeout) before being stored active. A failed author is replaced by
-another member, up to family_author_attempts. THE CIRCUIT BREAKER (max_compile_calls) is checked BETWEEN rules, so
-every rule is either finished or untouched.
+another member, up to family_author_attempts. THE CIRCUIT BREAKER (max_compile_calls) is checked before each rule
+starts, so every rule is either finished or untouched (with rules in parallel it may be passed by the few in flight).
 
 Stateless: the catalog comes in (the Tenant API's) and the updated catalog goes out in the result.
 """
 from __future__ import annotations
 
+import contextvars
 import logging
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -162,8 +166,10 @@ def compile_rules(rules: list[Rule], catalog: dict[str, Probe], picture: Picture
                   signatures: dict[str, str], *, only: list[str] | None = None, force: bool = False,
                   retry_failed: bool = False, covered: list[CoveredCheck] | None = None,
                   progress: Progress | None = None, cancelled: Callable[[], bool] | None = None,
-                  errors: list[str] | None = None) -> CompileReport:
-    """Compile every rule that needs it into ``catalog`` (mutated in place). Returns what happened."""
+                  errors: list[str] | None = None, on_probe: Callable[[Probe], None] | None = None) -> CompileReport:
+    """Compile every rule that needs it into ``catalog`` (mutated in place). Returns what happened. ``on_probe`` gets
+    every probe the moment it is stored (compiled, failed, not applicable or cloned), so the caller can keep it even if
+    the compile is cut short; reused probes are not reported again."""
     settings = cfg()
     started = time.perf_counter()
     calls_before = _usage_calls()
@@ -231,82 +237,146 @@ def compile_rules(rules: list[Rule], catalog: dict[str, Probe], picture: Picture
 
     graph = build_compile_graph()
     total = len(runnable)
-    for position, rule in enumerate(runnable, 1):
-        if cancelled is not None and cancelled():
-            raise Cancelled()
+    lock = threading.Lock()
+    started_count = 0
+
+    def announce(rule: Rule) -> None:
+        nonlocal started_count
+        with lock:
+            done = started_count
+            started_count += 1
         if progress is not None:
-            progress(position - 1, total, rule.rule_id)
+            progress(done, total, rule.rule_id)
 
-        if rule.is_expanded and rule.family_id in authors:
-            if authors[rule.family_id] != rule.rule_id:
-                if rule.family_id not in templates:
-                    # The designated author failed: promote THIS member (a different feature is a genuinely
-                    # different query), bounded by family_author_attempts.
-                    tried = family_attempts.get(rule.family_id, 0)
-                    if tried < settings.family_author_attempts:
-                        family_attempts[rule.family_id] = tried + 1
-                        authors[rule.family_id] = rule.rule_id
-                    else:
-                        catalog[rule.rule_id] = instantiate(rule, None, fingerprint, signatures, picture, index)
-                        report.failed.append(rule.rule_id)
-                        continue
-                else:
-                    probe = instantiate(rule, templates.get(rule.family_id), fingerprint, signatures, picture, index)
-                    if probe.status == "active":
-                        try:
-                            exec_error = smoke_test(probe)
-                        except DatabaseUnavailable as exc:
-                            report.stopped_early = str(exc)
-                            break
-                        if exec_error:
-                            probe = _failed_probe(rule, fingerprint, "the family's query does not run against this "
-                                                  f"feature - the database reported: {exec_error}")
-                    catalog[rule.rule_id] = probe
-                    (report.compiled if probe.status == "active" else report.failed).append(rule.rule_id)
-                    continue
-        elif not force:
-            is_stale, why = stale(rule)
-            if not is_stale and rule.rule_id in catalog:
-                report.reused.append(rule.rule_id)
-                continue
-            if why:
-                log.info("anomaly compile: %s needs rebuilding - %s", rule.rule_id, why)
+    def store(rule: Rule, probe: Probe, outcome: list[str]) -> None:
+        """The probe goes into the catalog AND out to the caller at once, so a compile cut short loses nothing."""
+        catalog[rule.rule_id] = probe
+        outcome.append(rule.rule_id)
+        if on_probe is not None:
+            try:
+                on_probe(probe)
+            except Cancelled:
+                raise
+            except Exception as exc:  # noqa: BLE001 - reporting a probe must never fail its compile
+                log.warning("anomaly compile: %s could not be reported (%s)", rule.rule_id, type(exc).__name__)
 
+    def stop(reason: str) -> None:
+        with lock:
+            if not report.stopped_early:
+                report.stopped_early = reason
+
+    def author(rule: Rule) -> None:
+        """One rule through the compile graph (a stand-alone rule, or the member authoring its family)."""
         needs_llm = not rule.is_expanded or rule.rule_id in authors.values()
         spent = _usage_calls() - calls_before
         if needs_llm and spent >= settings.max_compile_calls:
-            report.stopped_early = (f"the compile budget of {settings.max_compile_calls} LLM calls was reached; "
-                                    f"{total - position + 1} rule(s) were not compiled")
-            break
-
+            stop(f"the compile budget of {settings.max_compile_calls} LLM calls was reached; "
+                 "the remaining rule(s) were not compiled")
+            return
         state = _seed_state(rule, fingerprint, picture, coverage, signatures)
         try:
             final = graph.invoke(state, config={"recursion_limit": settings.recursion_limit})
         except (DatabaseUnavailable, AiUnavailable, PromptMissing) as exc:
             # Nothing about THIS rule is wrong: stop, and keep everything compiled so far.
-            report.stopped_early = str(exc)
-            break
+            stop(str(exc))
+            return
+        except Cancelled:
+            raise
         except Exception as exc:  # noqa: BLE001 - one rule must never abort the compile
             log.warning("anomaly compile: %s raised %s", rule.rule_id, type(exc).__name__)
-            catalog[rule.rule_id] = _failed_probe(rule, fingerprint,
-                                                  f"the compile graph raised {type(exc).__name__}: {exc}"[:2000])
-            report.failed.append(rule.rule_id)
-            continue
+            store(rule, _failed_probe(rule, fingerprint, f"the compile graph raised {type(exc).__name__}: {exc}"[:2000]),
+                  report.failed)
+            return
 
         probe = final.get("probe")
         if rule.is_expanded and final.get("summary_sql_template") and probe is not None and probe.status == "active":
             templates[rule.family_id] = (final["summary_sql_template"], final.get("detail_sql_template", ""))
         if probe is None:
-            catalog[rule.rule_id] = _failed_probe(rule, fingerprint, "the compile finished without producing a probe")
-            report.failed.append(rule.rule_id)
-            continue
-        catalog[rule.rule_id] = probe
-        if probe.status == "active":
-            report.compiled.append(rule.rule_id)
+            store(rule, _failed_probe(rule, fingerprint, "the compile finished without producing a probe"), report.failed)
+        elif probe.status == "active":
+            store(rule, probe, report.compiled)
         elif probe.status == "not_applicable":
-            report.not_applicable.append(rule.rule_id)
+            store(rule, probe, report.not_applicable)
         else:
-            report.failed.append(rule.rule_id)
+            store(rule, probe, report.failed)
+
+    def reusable(rule: Rule) -> bool:
+        if force:
+            return False
+        is_stale, why = stale(rule)
+        if not is_stale and rule.rule_id in catalog:
+            report.reused.append(rule.rule_id)
+            return True
+        if why:
+            log.info("anomaly compile: %s needs rebuilding - %s", rule.rule_id, why)
+        return False
+
+    def stand_alone(rule: Rule) -> None:
+        if report.stopped_early:
+            return
+        if cancelled is not None and cancelled():
+            raise Cancelled()
+        announce(rule)
+        if not reusable(rule):
+            author(rule)
+
+    def member(rule: Rule) -> None:
+        """A member of a rule family: its author goes through the graph, the others are cloned from its template."""
+        if rule.family_id in authors and authors[rule.family_id] != rule.rule_id:
+            if rule.family_id not in templates:
+                # The designated author failed: promote THIS member (a different feature is a genuinely
+                # different query), bounded by family_author_attempts.
+                tried = family_attempts.get(rule.family_id, 0)
+                if tried < settings.family_author_attempts:
+                    family_attempts[rule.family_id] = tried + 1
+                    authors[rule.family_id] = rule.rule_id
+                else:
+                    store(rule, instantiate(rule, None, fingerprint, signatures, picture, index), report.failed)
+                    return
+            else:
+                probe = instantiate(rule, templates.get(rule.family_id), fingerprint, signatures, picture, index)
+                if probe.status == "active":
+                    try:
+                        exec_error = smoke_test(probe)
+                    except DatabaseUnavailable as exc:
+                        stop(str(exc))
+                        return
+                    if exec_error:
+                        probe = _failed_probe(rule, fingerprint, "the family's query does not run against this "
+                                              f"feature - the database reported: {exec_error}")
+                store(rule, probe, report.compiled if probe.status == "active" else report.failed)
+                return
+        elif rule.family_id not in authors and reusable(rule):
+            return
+        author(rule)
+
+    # Stand-alone rules are independent: up to compile_concurrency at a time. Family members follow, in order, because
+    # the member that authors a family produces the template its siblings are cloned from.
+    singles = [r for r in runnable if not r.is_expanded]
+    members = [r for r in runnable if r.is_expanded]
+    workers = max(1, min(settings.compile_concurrency, len(singles) or 1))
+    if workers == 1:
+        for rule in singles:
+            stand_alone(rule)
+            if report.stopped_early:
+                break
+    else:
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="anomaly-compile") as pool:
+            futures = [pool.submit(contextvars.copy_context().run, stand_alone, rule) for rule in singles]
+            try:
+                for future in as_completed(futures):
+                    future.result()
+            except Cancelled:
+                for f in futures:
+                    f.cancel()
+                raise
+    for rule in members:
+        if report.stopped_early:
+            break
+        if cancelled is not None and cancelled():
+            raise Cancelled()
+        announce(rule)
+        member(rule)
 
     if progress is not None and not report.stopped_early:
         progress(total, total, "")

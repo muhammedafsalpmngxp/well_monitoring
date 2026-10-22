@@ -1810,6 +1810,16 @@
           "max": 16
         },
         {
+          "key": "compileConcurrency",
+          "label": "Rules compiled in parallel",
+          "help": "How many rules one compile writes and checks at the same time. Each makes its own AI calls and short test queries: higher is faster, but uses more of the AI provider rate limit and of the database. Rule families always compile one member at a time.",
+          "group": "Database",
+          "type": "int",
+          "default": 3,
+          "min": 1,
+          "max": 8
+        },
+        {
           "key": "readUncommitted",
           "label": "Read without waiting for locks",
           "help": "Run checks under READ UNCOMMITTED so a long scan never blocks people writing to the database.",

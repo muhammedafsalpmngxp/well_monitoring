@@ -38,6 +38,7 @@ class AnomalySettings(_Camel):
     metadata_timeout: int = Field(ge=1)               # catalogue reads (INFORMATION_SCHEMA, sys.*)
     detail_timeout: int = Field(ge=1)                 # DETAIL scans and numeric profiling
     run_concurrency: int = Field(ge=1)                # parallel probes during a run
+    compile_concurrency: int = Field(ge=1)            # stand-alone rules compiled at the same time
     read_uncommitted: bool                            # probes run under READ UNCOMMITTED
 
     # ── Compile guardrails ──

@@ -74,6 +74,13 @@ public interface IAgenticJobSignal
 {
     void Notify();
     Task WaitAsync(TimeSpan timeout, CancellationToken ct);
+
+    /// <summary>True while this instance's job worker is running: a job started here is then created already claimed
+    /// (status running) and run here, so another instance polling the same database never takes it.</summary>
+    bool RunsJobsHere { get; }
+
+    /// <summary>A job created already claimed by this instance, for its worker to start at once.</summary>
+    void Claimed(long jobId);
 }
 
 /// <summary>Calls a feature endpoint of the agent runtime with the tenant's envelope and logs the AI usage it reports.</summary>

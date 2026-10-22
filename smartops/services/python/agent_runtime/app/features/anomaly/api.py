@@ -130,7 +130,8 @@ def aggregate_usage(usage: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(rows.values())
 
 
-Work = Callable[[Callable[[str, int, int, str], None], Callable[[], bool]], dict[str, Any]]
+# work(emit progress, cancelled?, send another event) -> the result
+Work = Callable[..., dict[str, Any]]
 
 
 def _events(req: FeatureRequest, settings: AnomalySettings, operation: str, work: Work) -> Iterator[tuple[str, dict]]:
@@ -147,10 +148,16 @@ def _events(req: FeatureRequest, settings: AnomalySettings, operation: str, work
         trace.node("Data Anomaly", stage, f"{done}/{total} {label}".strip())
         events.put(("progress", {"stage": stage, "done": done, "total": total, "label": label}))
 
+    def send(name: str, data: dict[str, Any]) -> None:
+        """Any other event the work hands out as it goes (a compile's finished probes)."""
+        if stop.is_set():
+            raise Cancelled()
+        events.put((name, data))
+
     def worker() -> None:
         try:
             with run_context(run), use(settings):
-                result = work(emit, stop.is_set)
+                result = work(emit, stop.is_set, send)
             if result is not None:
                 result["usage"] = aggregate_usage(run.usage)
                 events.put(("result", result))
@@ -199,7 +206,7 @@ def compile_endpoint(req: CompileRequest) -> StreamingResponse:
     """Compile the rules into probes. Result: the whole catalog after this compile plus what happened."""
     settings = _prepare(req, pt.COMPILE_KEYS, need_llm=True)
 
-    def work(emit, cancelled) -> dict[str, Any]:
+    def work(emit, cancelled, send) -> dict[str, Any]:
         rules, errors = load_rules(req.rules)
         catalog = load_catalog(req.catalog)
         emit("introspect", 0, 1, "Reading the database description")
@@ -209,7 +216,8 @@ def compile_endpoint(req: CompileRequest) -> StreamingResponse:
         report = compile_rules(rules, catalog, picture, fingerprint, signatures, only=req.rule_ids, force=req.force,
                                retry_failed=req.retry_failed, covered=req.covered(),
                                progress=lambda done, total, label: emit("compile", done, total, label),
-                               cancelled=cancelled, errors=errors + notes)
+                               cancelled=cancelled, errors=errors + notes,
+                               on_probe=lambda probe: send("probe", {"probe": probe.to_dict()}))
         return {"catalog": [p.to_dict() for p in catalog.values()], "compiled": report.compiled,
                 "reused": report.reused, "failed": report.failed, "notApplicable": report.not_applicable,
                 "removed": report.removed, "duplicates": [list(g) for g in report.duplicates],
@@ -224,7 +232,7 @@ def run_endpoint(req: RunRequest) -> StreamingResponse:
     """Execute the compiled probes, score, summarise and build the reports (base64)."""
     settings = _prepare(req, pt.RUN_KEYS, need_llm=False)
 
-    def work(emit, cancelled) -> dict[str, Any]:
+    def work(emit, cancelled, send) -> dict[str, Any]:
         from app.features.anomaly.runner import run
 
         rules, _errors = load_rules(req.rules)
@@ -239,7 +247,7 @@ def discover_endpoint(req: DiscoverRequest) -> StreamingResponse:
     """Propose new checks grounded in measured facts (nothing is written: proposals go out in the result)."""
     settings = _prepare(req, pt.DISCOVER_KEYS, need_llm=True)
 
-    def work(emit, cancelled) -> dict[str, Any]:
+    def work(emit, cancelled, send) -> dict[str, Any]:
         from app.features.anomaly.discovery import discover
 
         rules, _errors = load_rules(req.rules)

@@ -23,9 +23,11 @@ def stream(client, path: str, **fields):
     terminal = [e for e in events if e[0] in ("result", "error")]
     assert len(terminal) == 1 and events[-1] is terminal[0], [e[0] for e in events]
     for name, data in events:
-        assert name in ("progress", "result", "error", "ping")
+        assert name in ("progress", "probe", "result", "error", "ping")
         if name == "progress":
             assert set(data) == {"stage", "done", "total", "label"}
+        if name == "probe":
+            assert set(data) == {"probe"} and data["probe"]["ruleId"]
     return events
 
 
@@ -40,6 +42,30 @@ def compile_all(client, **fields) -> dict:
 
 
 # ── COMPILE ──
+
+def test_every_compiled_probe_is_streamed_before_the_result(client, fake_llm, fake_db):
+    # The Tenant API stores each probe as it arrives, so a compile cut short keeps what it finished.
+    events = stream(client, "/compile", rules=S.sample_rules(), catalog=[])
+    streamed = {data["probe"]["ruleId"]: data["probe"] for name, data in events if name == "probe"}
+    out = result_of(events)
+    assert set(streamed) == {p["ruleId"] for p in out["catalog"]}
+    assert all(streamed[p["ruleId"]] == p for p in out["catalog"])
+
+
+def test_a_recompile_streams_nothing_for_reused_probes(client, fake_llm, fake_db):
+    first = compile_all(client)
+    events = stream(client, "/compile", rules=S.sample_rules(), catalog=first["catalog"])
+    assert [d for n, d in events if n == "probe"] == []
+    assert sorted(result_of(events)["reused"]) == sorted(first["compiled"])
+
+
+def test_rules_compile_in_parallel_with_the_same_outcome(client, fake_llm, fake_db):
+    parallel = result_of(stream(client, "/compile", rules=S.sample_rules(), catalog=[],
+                                settings={"compileConcurrency": 4}))
+    assert sorted(parallel["compiled"]) == ["DQ-G01-001", "DQ-G01-002", "DQ-T01", "DQ-T02"]
+    assert parallel["failed"] == [] and parallel["stoppedEarly"] == ""
+    assert {p["ruleId"]: p["status"] for p in parallel["catalog"]} == {r: "active" for r in parallel["compiled"]}
+
 
 def test_compile_builds_every_runnable_rule(client, fake_llm, fake_db):
     out = compile_all(client)

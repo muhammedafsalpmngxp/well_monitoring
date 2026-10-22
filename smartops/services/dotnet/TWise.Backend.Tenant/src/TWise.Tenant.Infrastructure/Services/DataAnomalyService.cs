@@ -242,10 +242,17 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         }
         if (kind == KindDiscover && request.MaxProposals is { } max) options["maxProposals"] = max;
 
+        // With a job worker running on this instance the job is created already claimed (running, with a heartbeat) and
+        // started here: other Tenant APIs on the same database only take QUEUED jobs, so a developer's job never runs on a
+        // colleague's PC. Without a local worker it is queued for whichever instance takes it.
+        var now = DateTime.UtcNow;
+        var here = signal.RunsJobsHere;
         var job = new AiFeatureJob
         {
-            TenantId = tenantId, Feature = Feature, Kind = kind, Status = AiFeatureJobStatus.Queued,
-            RequestJson = options.ToJsonString(Json), RequestedBy = user, CreatedAt = DateTime.UtcNow,
+            TenantId = tenantId, Feature = Feature, Kind = kind,
+            Status = here ? AiFeatureJobStatus.Running : AiFeatureJobStatus.Queued,
+            StartedAt = here ? now : null, HeartbeatAt = here ? now : null,
+            RequestJson = options.ToJsonString(Json), RequestedBy = user, CreatedAt = now,
         };
         db.AiFeatureJobs.Add(job);
         try
@@ -263,8 +270,10 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
             if (active is null) throw;
             throw new FeatureConflictException($"A Data Anomaly {active.Kind} is already {active.Status}. Wait for it to finish or cancel it.");
         }
-        signal.Notify();
-        logger.LogInformation("Data Anomaly {Kind} job {JobId} queued for tenant {TenantId} by {User}.", kind, job.Id, tenantId, user);
+        if (here) signal.Claimed(job.Id);
+        else signal.Notify();
+        logger.LogInformation("Data Anomaly {Kind} job {JobId} {How} for tenant {TenantId} by {User}.", kind, job.Id,
+            here ? "started on this server" : "queued", tenantId, user);
         return JobDto(job);
     }
 
