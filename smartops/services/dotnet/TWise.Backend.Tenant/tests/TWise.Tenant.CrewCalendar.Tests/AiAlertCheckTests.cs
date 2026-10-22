@@ -6,6 +6,13 @@ namespace TWise.Tenant.CrewCalendar.Tests;
 
 public class AlertCheckTests
 {
+    // The values in appsettings.json (AiAlerts).
+    private static readonly AiAlertOptions Options = new()
+    {
+        Enabled = true, PollSeconds = 300, BatchSize = 20, MaxEmails = 10, EveryHours = [1, 24, 168], DefaultEveryHours = 24,
+        MaxHistory = 30, MinHistory = 5, MaxListed = 5, NoticeHistory = 5, UnusualScore = 3.5,
+    };
+
     private static readonly AiQuerySpec Total = new(null, null, [new AiMeasure("count", null, "n")], null, null, null);
     private static readonly AiQuerySpec PerWell = new(null, ["well"], [new AiMeasure("sum", "hours", "n")], null, null, null);
 
@@ -18,17 +25,17 @@ public class AlertCheckTests
     [Fact]
     public void A_single_number_above_the_limit_fires()
     {
-        var o = AlertCheck.Evaluate(AlertCheck.Above, 50, Total, One(60), []);
+        var o = AlertCheck.Evaluate(AlertCheck.Above, 50, Total, One(60), [], Options);
         Assert.True(o.Fired);
         Assert.Equal(60, o.Value);
         Assert.Equal("N is 60, above the limit of 50.", o.Message);
-        Assert.False(AlertCheck.Evaluate(AlertCheck.Below, 50, Total, One(60), []).Fired);
+        Assert.False(AlertCheck.Evaluate(AlertCheck.Below, 50, Total, One(60), [], Options).Fired);
     }
 
     [Fact]
     public void Groups_crossing_the_limit_are_listed_highest_first()
     {
-        var o = AlertCheck.Evaluate(AlertCheck.Above, 10, PerWell, Wells(("W1", 5), ("W2", 14), ("W3", 30)), []);
+        var o = AlertCheck.Evaluate(AlertCheck.Above, 10, PerWell, Wells(("W1", 5), ("W2", 14), ("W3", 30)), [], Options);
         Assert.True(o.Fired);
         Assert.Null(o.Value);
         Assert.Equal("2 of 3 groups above 10: W3 (30), W2 (14).", o.Message);
@@ -37,25 +44,25 @@ public class AlertCheckTests
     [Fact]
     public void Unusual_waits_for_enough_history_then_compares_with_it()
     {
-        var learning = AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(500), [10, 11, 9]);
+        var learning = AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(500), [10, 11, 9], Options);
         Assert.False(learning.Fired);
         Assert.Equal("N is 500. Learning the usual range (4 of 5 checks done).", learning.Message);
-        Assert.Contains("(1 of 5 checks done)", AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(7), []).Message);
-        var usual = AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(11), [10, 11, 9, 10, 12]);
+        Assert.Contains("(1 of 5 checks done)", AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(7), [], Options).Message);
+        var usual = AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(11), [10, 11, 9, 10, 12], Options);
         Assert.False(usual.Fired);
-        var spike = AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(60), [10, 11, 9, 10, 12]);
+        var spike = AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(60), [10, 11, 9, 10, 12], Options);
         Assert.True(spike.Fired);
         Assert.Equal("N is 60, unusually high; usually about 10.", spike.Message);
     }
 
     [Fact]
     public void A_value_that_never_moved_is_unusual_when_it_changes() =>
-        Assert.True(AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(1), [0, 0, 0, 0, 0]).Fired);
+        Assert.True(AlertCheck.Evaluate(AlertCheck.Unusual, null, Total, One(1), [0, 0, 0, 0, 0], Options).Fired);
 
     [Fact]
     public void Unusual_groups_are_found_among_the_others()
     {
-        var o = AlertCheck.Evaluate(AlertCheck.Unusual, null, PerWell, Wells(("W1", 10), ("W2", 11), ("W3", 9), ("W4", 10), ("W5", 12), ("W6", 95)), []);
+        var o = AlertCheck.Evaluate(AlertCheck.Unusual, null, PerWell, Wells(("W1", 10), ("W2", 11), ("W3", 9), ("W4", 10), ("W5", 12), ("W6", 95)), [], Options);
         Assert.True(o.Fired);
         Assert.StartsWith("1 of 6 groups unusual", o.Message);
         Assert.EndsWith("W6 (95).", o.Message);
@@ -65,7 +72,7 @@ public class AlertCheckTests
     public void A_row_list_watches_the_number_of_rows()
     {
         var rows = new AiQuerySpec(["well"], null, null, null, null, null);
-        var o = AlertCheck.Evaluate(AlertCheck.Above, 0, rows, new(["well"], [new() { ["well"] = "W1" }], 1, 100, false), []);
+        var o = AlertCheck.Evaluate(AlertCheck.Above, 0, rows, new(["well"], [new() { ["well"] = "W1" }], 1, 100, false), [], Options);
         Assert.True(o.Fired);
         Assert.Equal("Number of rows is 1, above the limit of 0.", o.Message);
     }
@@ -73,13 +80,13 @@ public class AlertCheckTests
     [Fact]
     public void Change_compares_with_the_previous_check_in_percent()
     {
-        Assert.Contains("next check compares", AlertCheck.Evaluate(AlertCheck.Change, 10, Total, One(100), []).Message);
-        var o = AlertCheck.Evaluate(AlertCheck.Change, 10, Total, One(125), [90, 100]);
+        Assert.Contains("next check compares", AlertCheck.Evaluate(AlertCheck.Change, 10, Total, One(100), [], Options).Message);
+        var o = AlertCheck.Evaluate(AlertCheck.Change, 10, Total, One(125), [90, 100], Options);
         Assert.True(o.Fired);
         Assert.Equal("N changed by 25% (100 → 125), more than the 10% allowed.", o.Message);
-        Assert.False(AlertCheck.Evaluate(AlertCheck.Change, 10, Total, One(105), [100]).Fired);
+        Assert.False(AlertCheck.Evaluate(AlertCheck.Change, 10, Total, One(105), [100], Options).Fired);
         // From zero any move is a change; grouped answers cannot be watched this way.
-        Assert.True(AlertCheck.Evaluate(AlertCheck.Change, 50, Total, One(3), [0]).Fired);
-        Assert.False(AlertCheck.Evaluate(AlertCheck.Change, 10, PerWell, Wells(("W1", 5)), []).Fired);
+        Assert.True(AlertCheck.Evaluate(AlertCheck.Change, 50, Total, One(3), [0], Options).Fired);
+        Assert.False(AlertCheck.Evaluate(AlertCheck.Change, 10, PerWell, Wells(("W1", 5)), [], Options).Fired);
     }
 }

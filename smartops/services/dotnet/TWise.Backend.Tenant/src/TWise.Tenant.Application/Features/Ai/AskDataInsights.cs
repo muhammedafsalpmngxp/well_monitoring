@@ -29,6 +29,15 @@ public static partial class AskDataInsights
         return new AiQuerySpec(null, groups, [new AiMeasure(Agg(sql, measure), measure, measure)], null, null, null);
     }
 
+    /// <summary>What an alert watches on an Ask Data answer: its groups and number (as Spec, even for one row), else its first
+    /// number as a single value, else (no number at all) the number of rows.</summary>
+    public static AiQuerySpec WatchSpec(string? sql, AiQueryResult result)
+    {
+        if (Spec(sql, result, minRows: 2) is { } grouped) return grouped;
+        var number = result.Columns.FirstOrDefault(c => IsNumber(result, c) && !PeriodColumn().IsMatch(c));
+        return new AiQuerySpec(null, [], number is null ? [] : [new AiMeasure(Agg(sql, number), number, number)], null, null, null);
+    }
+
     /// <summary>A chart read from a grouped answer with one group column (null otherwise): a line over periods, a donut for
     /// a few parts of a total, else bars.</summary>
     public static AskDataChartDto? Chart(string? sql, AiQueryResult result, string title)

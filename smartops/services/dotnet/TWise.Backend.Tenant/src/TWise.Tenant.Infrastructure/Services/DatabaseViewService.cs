@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using TWise.Tenant.Application.Features.Ai;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +20,7 @@ public sealed class DatabaseViewService(
     ISqlProviderFactory providerFactory,
     IReliabilityRepository reliabilityRepo,
     IConfiguration configuration,
+    AiSqlReviewOptions sqlReview,
     ILogger<DatabaseViewService> logger) : IDatabaseViewService
 {
     /// <summary>
@@ -511,7 +513,8 @@ public sealed class DatabaseViewService(
         var conn = await connRepo.GetByIdAsync(connectionId, tenantId, cancellationToken);
         if (conn is null) return null;
         if (!string.Equals(conn.Provider, "mssql", StringComparison.OrdinalIgnoreCase)) return (sql, null);
-        try { return (sql, await SqlPlanReader.ReadAsync(providerFactory.Get(conn).BuildConnectionString(conn, CommandTimeoutSeconds), sql, cancellationToken)); }
+        try { return (sql, await SqlPlanReader.ReadAsync(providerFactory.Get(conn).BuildConnectionString(conn, CommandTimeoutSeconds), sql,
+            sqlReview.PlanMaxListed, sqlReview.PlanTimeoutSeconds, cancellationToken)); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // The AI can still review the text; the plan is an extra.

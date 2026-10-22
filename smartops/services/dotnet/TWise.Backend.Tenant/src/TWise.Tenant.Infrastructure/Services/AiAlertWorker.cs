@@ -1,26 +1,23 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using TWise.Tenant.Application.Abstractions.Services;
+using TWise.Tenant.Application.Features.Ai;
 
 namespace TWise.Tenant.Infrastructure.Services;
 
 /// <summary>
-/// Every AiAlerts:PollSeconds (300) checks up to twenty due alerts, each in its own DI scope.
+/// Every AiAlerts:PollSeconds checks up to AiAlerts:BatchSize due alerts, each in its own DI scope.
 /// AiAlerts:Enabled false turns it off.
 /// </summary>
 // ponytail: no lease like the schedule worker; with several API instances a due alert may be checked twice in one
 // tick. Harmless (it only notifies when the alert starts firing), so a claim is not worth it yet.
-public sealed class AiAlertWorker(IServiceScopeFactory scopes, IConfiguration config, ILogger<AiAlertWorker> logger) : BackgroundService
+public sealed class AiAlertWorker(IServiceScopeFactory scopes, AiAlertOptions options, ILogger<AiAlertWorker> logger) : BackgroundService
 {
-    private const int BatchSize = 20;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (bool.TryParse(config["AiAlerts:Enabled"], out var enabled) && !enabled) return;
-        var every = TimeSpan.FromSeconds(int.TryParse(config["AiAlerts:PollSeconds"], out var seconds) && seconds > 0 ? seconds : 300);
-        using var timer = new PeriodicTimer(every);
+        if (!options.Enabled) return;
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(options.PollSeconds));
         try
         {
             do await CheckDueAsync(stoppingToken);
@@ -37,7 +34,7 @@ public sealed class AiAlertWorker(IServiceScopeFactory scopes, IConfiguration co
         try
         {
             using var scope = scopes.CreateScope();
-            due = await scope.ServiceProvider.GetRequiredService<IAiAlertRepository>().DueAsync(DateTime.UtcNow, BatchSize, ct);
+            due = await scope.ServiceProvider.GetRequiredService<IAiAlertRepository>().DueAsync(DateTime.UtcNow, options.BatchSize, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {

@@ -28,7 +28,7 @@ public class SqlPlanReaderTests
     [Fact]
     public void Plan_is_reduced_to_scans_missing_indexes_warnings_and_cost()
     {
-        var facts = SqlPlanReader.Summarise([Plan]);
+        var facts = SqlPlanReader.Summarise([Plan], 8);   // AiSqlReview:PlanMaxListed
         Assert.Equal(1, facts.Statements);
         Assert.Equal(12.5, facts.EstimatedCost);
         Assert.Equal(45000, facts.EstimatedRows);

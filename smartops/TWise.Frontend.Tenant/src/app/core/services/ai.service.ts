@@ -166,8 +166,10 @@ export interface AiQueryResult {
 
 /** A watched answer: re-checked every everyHours; the owner is notified when it starts firing. */
 export type AiAlertKind = 'above' | 'below' | 'unusual' | 'change';
-export interface AiAlert { id: number; sourceType: AiSourceType; sourceId: number; sourceName: string; question: string; kind: AiAlertKind; threshold: number | null; everyHours: number; notifyEmails: string | null;
+export interface AiAlert { id: number; sourceType: AiKnowledgeSource; sourceId: number; sourceName: string; question: string; kind: AiAlertKind; threshold: number | null; everyHours: number; notifyEmails: string | null;
   isTriggered: boolean; lastMessage: string | null; lastCheckedAt: string | null; nextCheckAt: string }
+/** What the alert form may offer, from the server's AiAlerts settings. */
+export interface AiAlertOptions { everyHours: number[]; defaultEveryHours: number; maxEmails: number; minHistory: number }
 export interface AiConversation { id: number; sourceType: AiSourceType; sourceId: number; sourceName: string; title: string; modifiedAt: string }
 
 export interface AiChatMessage { id: number; role: 'user' | 'assistant'; content: string; querySpec?: AiQuerySpec | null; createdAt: string }
@@ -446,6 +448,10 @@ export class AiService {
 
   alerts(): Observable<AiAlert[]> {
     return this.http.get<AiAlert[]>(`${this.api}${API_ENDPOINTS.AI.ALERTS}`);
+  }
+
+  alertOptions(): Observable<AiAlertOptions> {
+    return this.http.get<AiAlertOptions>(`${this.api}${API_ENDPOINTS.AI.ALERT_OPTIONS}`);
   }
 
   /** Watch one of your answers; it is checked once straight away. */

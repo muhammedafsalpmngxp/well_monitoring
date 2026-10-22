@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, OnInit, ViewChild, effect, inject, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
-import { AskDataChart, AiAskDataSql, AiClarification, AiClarifyOption, AiConversation, AiDataset, AiDatasetNote, AiFeatures, AiAlert, AiAlertKind, AiInsightReport, AiPromptDto, AiExample, AiMetric, AiTraceStep, AiNoteProposal, AiTerm, AiQueryResult, AiQuerySpec, AiService } from '../../../core/services/ai.service';
+import { AskDataChart, AiAskDataSql, AiClarification, AiClarifyOption, AiConversation, AiDataset, AiDatasetNote, AiFeatures, AiAlert, AiAlertKind, AiAlertOptions, AiInsightReport, AiPromptDto, AiExample, AiMetric, AiTraceStep, AiNoteProposal, AiTerm, AiQueryResult, AiQuerySpec, AiService } from '../../../core/services/ai.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AskAiPanelService } from '../../../core/services/ask-ai-panel.service';
 import { Router } from '@angular/router';
@@ -24,7 +24,7 @@ interface Turn {
   question: string;
   status: string;
   spec: AiQuerySpec | null;
-  /** Ask Data answers: the SQL instead of a spec (no likes, alerts or reports then). */
+  /** Ask Data answers: the SQL instead of a spec (alerts, likes and reports work from it). */
   sql?: AiAskDataSql | null;
   result: AiQueryResult | null;
   answer: string;
@@ -87,7 +87,20 @@ export class AskAiPanelComponent implements OnInit {
   readonly alertKinds: { value: AiAlertKind; label: string }[] = [
     { value: 'above', label: 'Goes above' }, { value: 'below', label: 'Goes below' }, { value: 'unusual', label: 'Looks unusual' }, { value: 'change', label: 'Changes by more than (%)' },
   ];
-  readonly alertEvery = [{ hours: 1, label: 'Hourly' }, { hours: 24, label: 'Daily' }, { hours: 168, label: 'Weekly' }];
+  /** The check intervals, default and e-mail limit the server allows (AiAlerts settings). */
+  alertOptions: AiAlertOptions | null = null;
+  /** The alert the bell opened, shown highlighted in the history. */
+  focusedAlert: number | null = null;
+  private readonly openAlertFromBell = effect(() => {
+    const id = this.panel.focusAlert();
+    if (id === null) return;
+    untracked(() => {
+      this.showHistory = true;
+      this.focusedAlert = id;
+      this.panel.focusAlert.set(null);
+      this.loadAlerts();
+    });
+  });
   selectedKey = '';
   conversationId: number | null = null;
   sourceName = '';
@@ -264,7 +277,8 @@ export class AskAiPanelComponent implements OnInit {
   }
 
   toggleAlertForm(t: Turn): void {
-    t.alertForm = t.alertForm ? undefined : { kind: 'above', threshold: null, everyHours: 24, notifyEmails: '' };
+    t.alertForm = t.alertForm || !this.alertOptions ? undefined
+      : { kind: 'above', threshold: null, everyHours: this.alertOptions.defaultEveryHours, notifyEmails: '' };
     t.alertMessage = '';
   }
 
@@ -272,6 +286,11 @@ export class AskAiPanelComponent implements OnInit {
   createAlert(t: Turn): void {
     if (!t.messageId || !t.alertForm) return;
     const f = t.alertForm;
+    const emails = new Set(f.notifyEmails.split(/[,;\n]/).map(e => e.trim().toLowerCase()).filter(Boolean));
+    if (this.alertOptions && emails.size > this.alertOptions.maxEmails) {
+      t.alertMessage = `At most ${this.alertOptions.maxEmails} e-mail addresses.`;
+      return;
+    }
     // The first check runs before the reply, which takes a few seconds: show that it is working.
     f.saving = true;
     this.ai.createAlert({ messageId: t.messageId, kind: f.kind, threshold: f.kind === 'unusual' ? null : f.threshold, everyHours: f.everyHours, notifyEmails: f.notifyEmails.trim() || null })
@@ -296,9 +315,15 @@ export class AskAiPanelComponent implements OnInit {
   }
 
   alertRule(a: AiAlert): string {
-    const every = this.alertEvery.find(e => e.hours === a.everyHours)?.label ?? `Every ${a.everyHours} h`;
+    const every = this.everyLabel(a.everyHours);
     const rule = a.kind === 'unusual' ? 'Looks unusual' : a.kind === 'change' ? `Changes > ${a.threshold}%` : `${a.kind === 'above' ? 'Above' : 'Below'} ${a.threshold}`;
     return `${rule} · ${every}${a.notifyEmails ? ' · ✉' : ''}`;
+  }
+
+  /** A check interval in words, from its hours (the choices themselves come from the server). */
+  everyLabel(hours: number): string {
+    const [n, unit] = hours % 168 === 0 ? [hours / 168, 'week'] : hours % 24 === 0 ? [hours / 24, 'day'] : [hours, 'hour'];
+    return n === 1 ? `Every ${unit}` : `Every ${n} ${unit}s`;
   }
 
   /** Builds (or hides) the insight report: the query runs again and the AI adds recommendations. */
@@ -635,6 +660,11 @@ export class AskAiPanelComponent implements OnInit {
   trackTurn(i: number): number { return i; }
 
   private loadAlerts(): void {
+    if (!this.alertOptions)
+      this.ai.alertOptions().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: o => { this.alertOptions = o; this.cdr.markForCheck(); },
+        error: () => { /* without the choices the form stays closed */ },
+      });
     this.ai.alerts().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: a => { this.alerts = a; this.cdr.markForCheck(); },
       error: () => { /* alerts are optional */ },

@@ -12,9 +12,8 @@ namespace TWise.Tenant.Application.Features.Ai.SqlReview;
 /// explains the query and proposes changes, grounded in those plan facts. The proposed SQL is
 /// passed through the same guard so a rewrite can never introduce a write.
 /// </summary>
-public sealed class ReviewSqlHandler(IDatabaseViewService views, IAiService ai, IAiAskService ask, IAiPromptStore store) : IRequestHandler<ReviewSqlCommand, AiSqlReviewDto?>
+public sealed class ReviewSqlHandler(IDatabaseViewService views, IAiService ai, IAiAskService ask, IAiPromptStore store, AiSqlReviewOptions options) : IRequestHandler<ReviewSqlCommand, AiSqlReviewDto?>
 {
-    public const int MaxSqlLength = 60_000;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public async Task<AiSqlReviewDto?> Handle(ReviewSqlCommand c, CancellationToken ct)
@@ -24,7 +23,7 @@ public sealed class ReviewSqlHandler(IDatabaseViewService views, IAiService ai, 
         var explained = await views.ExplainAsync(c.Request, c.TenantId, ct);
         if (explained is null) return null;
         var (sql, plan) = explained.Value;
-        if (sql.Length > MaxSqlLength) throw new InvalidOperationException($"The SQL is too long to review (max {MaxSqlLength} characters).");
+        if (sql.Length > options.MaxSqlLength) throw new InvalidOperationException($"The SQL is too long to review (max {options.MaxSqlLength} characters).");
 
         var facts = new StringBuilder();
         if (plan is null) facts.Append("Plan facts: not available (the database did not return an estimated plan).\n");

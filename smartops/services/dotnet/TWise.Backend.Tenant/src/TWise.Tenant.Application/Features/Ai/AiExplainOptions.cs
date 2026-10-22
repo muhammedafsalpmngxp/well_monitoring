@@ -22,9 +22,7 @@ public sealed record AiExplainOptions
 
     public static AiExplainOptions From(IConfiguration configuration)
     {
-        int Read(string name) => int.TryParse(configuration[$"{Section}:{name}"], out var v) && v > 0
-            ? v
-            : throw new InvalidOperationException($"{Section}:{name} must be set to a positive number in appsettings.json.");
+        int Read(string name) => RequiredSettings.Int(configuration, Section, name);
         return new AiExplainOptions
         {
             ChartRows = Read(nameof(ChartRows)), DashboardCharts = Read(nameof(DashboardCharts)), DashboardRowsPerChart = Read(nameof(DashboardRowsPerChart)),

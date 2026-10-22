@@ -28,7 +28,7 @@
     <!-- Alerts: watched answers, re-checked on a schedule -->
     <ng-container *ngIf="alerts.length">
       <strong class="ask__muted">Your alerts</strong>
-      <div class="ask__alert" *ngFor="let a of alerts" [class.ask__alert--on]="a.isTriggered">
+      <div class="ask__alert" *ngFor="let a of alerts" [class.ask__alert--on]="a.isTriggered" [class.ask__alert--focus]="a.id === focusedAlert">
         <span class="ask__history-title">{{ a.question }}</span>
         <span class="ask__history-meta">{{ a.sourceName }} · {{ alertRule(a) }}<ng-container *ngIf="a.lastCheckedAt"> · checked {{ a.lastCheckedAt | date:'d MMM, HH:mm' }}</ng-container></span>
         <span class="ask__history-meta" *ngIf="a.lastMessage">{{ a.isTriggered ? '⚠ ' : '' }}{{ a.lastMessage }}</span>
@@ -225,7 +225,7 @@
           <button type="button" class="ask__link" *ngIf="t.spec || t.sql" (click)="t.showQuery = !t.showQuery">{{ t.showQuery ? 'Hide query' : 'Show query' }}</button>
           <button type="button" class="ask__link" *ngIf="can('trace') && (t.trace || t.messageId)" (click)="toggleTrace(t)">{{ t.showTrace ? 'Hide steps' : 'Show steps' }}</button>
           <button type="button" class="ask__link" *ngIf="t.messageId && (t.spec?.groupBy?.length || (t.sql && t.insights?.length)) && (t.result?.rows?.length || 0) >= 3" [disabled]="t.reportLoading" (click)="toggleReport(t)" title="Trend, anomalies and recommendations for this answer">{{ t.report ? 'Hide report' : t.reportLoading ? 'Building report…' : 'Insight report' }}</button>
-          <button type="button" class="ask__link" *ngIf="can('alerts') && t.messageId && t.spec" (click)="toggleAlertForm(t)">Alert me</button>
+          <button type="button" class="ask__link" *ngIf="can('alerts') && t.messageId && (t.spec || t.sql) && alertOptions" (click)="toggleAlertForm(t)">Alert me</button>
           <button type="button" class="ask__link" *ngIf="t.askChartOptions" (click)="t.hideChart = !t.hideChart">{{ t.hideChart ? 'Show chart' : 'Hide chart' }}</button>
           <button type="button" class="ask__link" *ngIf="(t.chart || (t.askChart && t.messageId)) && can('chart')" [disabled]="t.viewBusy" (click)="openInChartBuilder(t)"
             [title]="t.spec?.filters?.length ? 'Filters are not carried over; add them in the builder' : t.chart ? '' : 'Saves this answer as a data source, then opens it in the Chart Builder'">Open as {{ builderType(t) }} chart</button>
@@ -265,14 +265,15 @@
             <input type="number" [(ngModel)]="f.threshold" name="alertLimit" [min]="f.kind === 'change' ? 0 : null" />
           </label>
           <small class="ask__muted" *ngIf="f.kind === 'change'">A single number is compared with the previous check; grouped answers cannot be watched this way.</small>
-          <small class="ask__muted" *ngIf="f.kind === 'unusual'">A single number is compared with its own past checks (after 5 checks); grouped answers flag groups far from the others.</small>
+          <small class="ask__muted" *ngIf="f.kind === 'unusual'">A single number is compared with its own past checks (after {{ alertOptions?.minHistory }} checks); grouped answers flag groups far from the others.</small>
           <label class="ask__field">Check
             <select [(ngModel)]="f.everyHours" name="alertEvery">
-              <option *ngFor="let e of alertEvery" [ngValue]="e.hours">{{ e.label }}</option>
+              <option *ngFor="let h of alertOptions?.everyHours" [ngValue]="h">{{ everyLabel(h) }}</option>
             </select>
           </label>
           <label class="ask__field">Also e-mail
             <input type="text" [(ngModel)]="f.notifyEmails" name="alertEmails" placeholder="name@company.com, other@company.com" />
+            <small class="ask__muted">Up to {{ alertOptions?.maxEmails }} addresses, separated by commas.</small>
           </label>
           <small class="ask__muted">You get a notification (and the e-mail, if any) when it starts. The query runs again without the AI.</small>
           <span class="ask__proposal-actions">

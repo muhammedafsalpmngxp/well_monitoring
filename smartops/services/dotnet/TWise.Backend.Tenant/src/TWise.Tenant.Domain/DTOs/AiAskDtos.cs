@@ -16,6 +16,9 @@ public record AiClarifyOption(string Label, AiQuerySpec Spec);
 /// <summary>Kind: above | below | unusual; Threshold for above/below; EveryHours: 1, 24 or 168.</summary>
 public record CreateAiAlertRequest(long MessageId, string Kind, double? Threshold, int EveryHours = 24, string? NotifyEmails = null);
 
+/// <summary>The alert form's choices: check intervals (hours), the starting one, the e-mail limit and the checks "unusual" learns from.</summary>
+public record AiAlertOptionsDto(IReadOnlyList<int> EveryHours, int DefaultEveryHours, int MaxEmails, int MinHistory);
+
 public record AiAlertDto(long Id, string SourceType, long SourceId, string SourceName, string Question, string Kind, double? Threshold, int EveryHours, string? NotifyEmails,
     bool IsTriggered, string? LastMessage, DateTime? LastCheckedAt, DateTime NextCheckAt);
 

@@ -45,6 +45,10 @@ public interface IAiAskService
 
     /// <summary>Loads the dataset and runs a validated spec over every row, like an answer does, without any AI call.</summary>
     Task<AiQueryResult> RunSpecAsync(string sourceType, long sourceId, long tenantId, AiQuerySpec spec, CancellationToken ct);
+    /// <summary>The SQL an Ask Data answer was built from (from its saved steps); null when gone.</summary>
+    Task<string?> AskDataSqlAsync(long messageId, CancellationToken ct);
+    /// <summary>Ask Data SQL run again (checked like an export), with the shape an alert watches.</summary>
+    Task<(AiQuerySpec Spec, AiQueryResult Result)> RunAskDataAsync(string sql, long tenantId, CancellationToken ct);
 
     /// <summary>The dataset's real column names, as the AI sees them (for the term and metric pickers).</summary>
     Task<IReadOnlyList<string>> ColumnsAsync(string sourceType, long sourceId, long tenantId, CancellationToken ct);

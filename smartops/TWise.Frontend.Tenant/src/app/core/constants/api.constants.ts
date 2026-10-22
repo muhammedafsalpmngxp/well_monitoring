@@ -127,6 +127,7 @@ export const API_ENDPOINTS = {
     MESSAGE_TRACE: (id: number) => `/ai/messages/${id}/trace`,
     MESSAGE_REPORT: (id: number) => `/ai/messages/${id}/report`,
     ALERTS: '/ai/alerts',
+    ALERT_OPTIONS: '/ai/alerts/options',
     ALERT: (id: number) => `/ai/alerts/${id}`,
     ALERT_CHECK: (id: number) => `/ai/alerts/${id}/check`,
     DATASET_EXAMPLES: (type: string, id: number) => `/ai/datasets/${type}/${id}/examples`,

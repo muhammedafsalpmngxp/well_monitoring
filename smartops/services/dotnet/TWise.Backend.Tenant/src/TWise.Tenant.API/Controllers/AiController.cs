@@ -255,7 +255,12 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
         return Ok(await sender.Send(new ListAiAlertsQuery(tenantId, userId), ct));
     }
 
-    /// <summary>Watches an answer; the first check runs straight away without notifying.</summary>
+    /// <summary>What the alert form may offer: check intervals, the default one, the e-mail limit (AiAlerts settings).</summary>
+    [HttpGet("alerts/options")]
+    [ProducesResponseType(typeof(AiAlertOptionsDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> AlertOptions(CancellationToken ct) => Ok(await sender.Send(new GetAiAlertOptionsQuery(), ct));
+
+    /// <summary>Watches an answer (a dataset answer's query, or an Ask Data answer's checked SQL); the first check runs straight away without notifying.</summary>
     [HttpPost("alerts")]
     [ProducesResponseType(typeof(AiAlertDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

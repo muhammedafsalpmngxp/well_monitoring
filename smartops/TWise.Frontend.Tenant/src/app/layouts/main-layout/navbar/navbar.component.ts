@@ -251,9 +251,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
     // stay unread until individually clicked or "Read All" is used.
     this.controlPlaneNotifications.markAsRead(notification.id).subscribe();
     this.notifications = this.notifications.filter(n => n.id !== notification.id);
-    if (notification.route) {
-      this.router.navigateByUrl(notification.route);
-    }
+    // An AI alert has no page of its own: its link opens the Ask AI panel on that alert.
+    const alert = /^\/ask-ai\/alerts\/(\d+)$/.exec(notification.route ?? '');
+    if (alert) this.askAi.openAlert(Number(alert[1]));
+    else if (notification.route) this.router.navigateByUrl(notification.route);
   }
 
   private pollShareNotifications(): void {

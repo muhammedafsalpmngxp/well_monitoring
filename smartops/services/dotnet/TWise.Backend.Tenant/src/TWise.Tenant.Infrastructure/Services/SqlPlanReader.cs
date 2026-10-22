@@ -12,10 +12,10 @@ namespace TWise.Tenant.Infrastructure.Services;
 /// </summary>
 public static class SqlPlanReader
 {
-    private const int MaxListed = 8;
     private static readonly XNamespace Ns = "http://schemas.microsoft.com/sqlserver/2004/07/showplan";
 
-    public static async Task<SqlPlanFacts> ReadAsync(string connectionString, string sql, CancellationToken ct)
+    /// <summary>The plan's facts; <paramref name="maxListed"/> and <paramref name="timeoutSeconds"/> come from AiSqlReview settings.</summary>
+    public static async Task<SqlPlanFacts> ReadAsync(string connectionString, string sql, int maxListed, int timeoutSeconds, CancellationToken ct)
     {
         await using var conn = new SqlConnection(connectionString);
         await conn.OpenAsync(ct);
@@ -25,7 +25,7 @@ public static class SqlPlanReader
         {
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
-            cmd.CommandTimeout = 60;
+            cmd.CommandTimeout = timeoutSeconds;
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             do { while (await reader.ReadAsync(ct)) xml.Add(reader.GetString(0)); } while (await reader.NextResultAsync(ct));
         }
@@ -33,10 +33,10 @@ public static class SqlPlanReader
         {
             await using var off = conn.CreateCommand(); off.CommandText = "SET SHOWPLAN_XML OFF"; await off.ExecuteNonQueryAsync(ct);
         }
-        return Summarise(xml);
+        return Summarise(xml, maxListed);
     }
 
-    public static SqlPlanFacts Summarise(IReadOnlyList<string> plans)
+    public static SqlPlanFacts Summarise(IReadOnlyList<string> plans, int maxListed)
     {
         var scans = new List<(string text, double rows)>();
         var missing = new List<string>();
@@ -78,8 +78,8 @@ public static class SqlPlanReader
                 if (!warnings.Contains(text)) warnings.Add(text);
             }
         }
-        return new SqlPlanFacts(statements, scans.OrderByDescending(s => s.rows).Take(MaxListed).Select(s => s.text).ToList(),
-            missing.Take(MaxListed).ToList(), warnings.Take(MaxListed).ToList(), Math.Round(cost, 3), Math.Round(rows));
+        return new SqlPlanFacts(statements, scans.OrderByDescending(s => s.rows).Take(maxListed).Select(s => s.text).ToList(),
+            missing.Take(maxListed).ToList(), warnings.Take(maxListed).ToList(), Math.Round(cost, 3), Math.Round(rows));
     }
 
     private static double Num(string? s) => double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : 0;

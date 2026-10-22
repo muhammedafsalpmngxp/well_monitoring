@@ -203,6 +203,15 @@ public sealed partial class AiAskService
         return AskDataInsights.Chart(sql, result, question);
     }
 
+    public Task<string?> AskDataSqlAsync(long messageId, CancellationToken ct) => AnsweredSqlAsync(messageId, ct);
+
+    public async Task<(AiQuerySpec Spec, AiQueryResult Result)> RunAskDataAsync(string sql, long tenantId, CancellationToken ct)
+    {
+        var askData = await AskDataSettingsRules.ToRuntime(await settings.GetAsync(tenantId, ct)).WithKnowledgeAsync(knowledge, cache, tenantId, ct);
+        var result = Result(await runtime.AskDataRowsAsync(sql, askData, ct)) ?? throw new InvalidOperationException("The watched query returned no table.");
+        return (AskDataInsights.WatchSpec(sql, result), result);
+    }
+
     /// <summary>The SQL an Ask Data answer was built from, from its saved steps (kept 30 days); null when gone.</summary>
     private async Task<string?> AnsweredSqlAsync(long messageId, CancellationToken ct)
     {

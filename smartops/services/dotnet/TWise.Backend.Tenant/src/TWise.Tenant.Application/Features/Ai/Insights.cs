@@ -133,8 +133,11 @@ public static class Insights
         name.StartsWith("total", StringComparison.OrdinalIgnoreCase) ? "Total" : $"Total {name}";
 
     /// <summary>Robust z-score above 3.5 (median and median absolute deviation), so one huge value cannot hide itself.</summary>
-    internal static bool IsUnusual(double value, double median, double mad) =>
-        mad > 0 && Math.Abs(0.6745 * (value - median) / mad) > 3.5;
+    internal static bool IsUnusual(double value, double median, double mad) => IsUnusual(value, median, mad, 3.5);
+
+    /// <summary>Same rule with the score from settings (alerts: AiAlerts:UnusualScore). 0.6745 makes the MAD comparable to a standard deviation.</summary>
+    internal static bool IsUnusual(double value, double median, double mad, double score) =>
+        mad > 0 && Math.Abs(0.6745 * (value - median) / mad) > score;
 
     /// <summary>A period from a date value, a month label like 2025-03 or Mar 2025, or a year in a column named like "year".</summary>
     private static DateTime? Time(object? v, string column)

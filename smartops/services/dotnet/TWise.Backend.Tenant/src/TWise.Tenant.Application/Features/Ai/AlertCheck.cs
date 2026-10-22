@@ -18,31 +18,26 @@ public static class AlertCheck
     public const string Below = "below";
     public const string Unusual = "unusual";
     public const string Change = "change";
-    public const int MaxHistory = 30;
-    public const int MinHistory = 5;
-    public const int MaxListed = 5;
-    /// <summary>Allowed check intervals in hours: hourly, daily, weekly.</summary>
-    public static readonly int[] EveryHours = [1, 24, 168];
 
     public static bool IsKind(string kind) => kind is Above or Below or Unusual or Change;
 
     /// <summary>Value is the single number watched (kept as history for "unusual"); null for grouped answers.</summary>
-    public static AlertOutcome Evaluate(string kind, double? limit, AiQuerySpec spec, AiQueryResult result, IReadOnlyList<double> history)
+    public static AlertOutcome Evaluate(string kind, double? limit, AiQuerySpec spec, AiQueryResult result, IReadOnlyList<double> history, AiAlertOptions options)
     {
         var measure = spec.Measures is { Count: > 0 } m ? m[0].Alias ?? m[0].Agg : null;
         if (measure is null || spec.GroupBy is not { Count: > 0 } groups)
         {
             var value = measure is null ? result.TotalRows
                 : result.Rows.Count > 0 ? QuerySpecEngine.Num(result.Rows[0].GetValueOrDefault(measure)) ?? 0 : 0;
-            return Capitalized(Single(kind, limit, measure is null ? "number of rows" : Wording.Words(measure), value, history));
+            return Capitalized(Single(kind, limit, measure is null ? "number of rows" : Wording.Words(measure), value, history, options));
         }
         var points = result.Rows
             .Select(r => (label: string.Join(" / ", groups.Select(g => Label(r.GetValueOrDefault(g)))), value: QuerySpecEngine.Num(r.GetValueOrDefault(measure))))
             .Where(p => p.value is not null).Select(p => (p.label, value: p.value!.Value)).ToList();
-        return Capitalized(Grouped(kind, limit, Wording.Words(measure), points));
+        return Capitalized(Grouped(kind, limit, Wording.Words(measure), points, options));
     }
 
-    private static AlertOutcome Single(string kind, double? limit, string name, double value, IReadOnlyList<double> history)
+    private static AlertOutcome Single(string kind, double? limit, string name, double value, IReadOnlyList<double> history, AiAlertOptions options)
     {
         if (kind == Change)
         {
@@ -55,13 +50,13 @@ public static class AlertCheck
         }
         if (kind == Unusual)
         {
-            if (history.Count < MinHistory)
+            if (history.Count < options.MinHistory)
                 // This check is stored too, so it counts as one of the learning checks.
-                return new(false, value, $"{name} is {N(value)}. Learning the usual range ({history.Count + 1} of {MinHistory} checks done).");
+                return new(false, value, $"{name} is {N(value)}. Learning the usual range ({history.Count + 1} of {options.MinHistory} checks done).");
             var median = Median(history);
             var mad = Median(history.Select(h => Math.Abs(h - median)));
             // A value that never moved is unusual as soon as it changes.
-            var unusual = mad == 0 ? value != median : IsUnusual(value, median, mad);
+            var unusual = mad == 0 ? value != median : IsUnusual(value, median, mad, options.UnusualScore);
             return unusual
                 ? new(true, value, $"{name} is {N(value)}, unusually {(value > median ? "high" : "low")}; usually about {N(median)}.")
                 : new(false, value, $"{name} is {N(value)}, within the usual range (about {N(median)}).");
@@ -71,17 +66,17 @@ public static class AlertCheck
         return new(crossed, value, crossed ? $"{name} is {N(value)}, {kind} the limit of {N(t)}." : $"{name} is {N(value)} (limit: {kind} {N(t)}).");
     }
 
-    private static AlertOutcome Grouped(string kind, double? limit, string name, List<(string label, double value)> points)
+    private static AlertOutcome Grouped(string kind, double? limit, string name, List<(string label, double value)> points, AiAlertOptions options)
     {
         List<(string label, double value)> hits;
         string rule;
         if (kind == Change) return new(false, null, "Change watching needs a single-number answer; this answer has groups.");
         if (kind == Unusual)
         {
-            if (points.Count < MinHistory) return new(false, null, $"Only {points.Count} groups; at least {MinHistory} are needed to spot unusual ones.");
+            if (points.Count < options.MinHistory) return new(false, null, $"Only {points.Count} groups; at least {options.MinHistory} are needed to spot unusual ones.");
             var median = Median(points.Select(p => p.value));
             var mad = Median(points.Select(p => Math.Abs(p.value - median)));
-            hits = points.Where(p => IsUnusual(p.value, median, mad)).OrderByDescending(p => Math.Abs(p.value - median)).ToList();
+            hits = points.Where(p => IsUnusual(p.value, median, mad, options.UnusualScore)).OrderByDescending(p => Math.Abs(p.value - median)).ToList();
             rule = $"unusual (typical {name} {N(median)})";
         }
         else
@@ -91,7 +86,7 @@ public static class AlertCheck
             rule = $"{kind} {N(t)}";
         }
         if (hits.Count == 0) return new(false, null, $"No group is {rule} ({points.Count} groups checked).");
-        var list = string.Join(", ", hits.Take(MaxListed).Select(h => $"{h.label} ({N(h.value)})")) + (hits.Count > MaxListed ? ", …" : "");
+        var list = string.Join(", ", hits.Take(options.MaxListed).Select(h => $"{h.label} ({N(h.value)})")) + (hits.Count > options.MaxListed ? ", …" : "");
         return new(true, null, $"{hits.Count} of {points.Count} groups {rule}: {list}.");
     }
 }
