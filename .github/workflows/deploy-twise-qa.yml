@@ -118,7 +118,7 @@ jobs:
           patch(f'{base}/TWise.Backend.ControlPlane/src/TWise.ControlPlane.API/appsettings.json', [
               (r'"ApiKey": "(?:dev-only-internal-api-key-replace-in-production|base64:[^"]*)"', '"ApiKey": "' + key + '"'),
               (r'"AllowedOrigins": "[^"]*"',
-               '"AllowedOrigins": "http://localhost:4200,http://localhost:4300,http://localhost:7000,https://twise-qa-ui.prod-app.in,https://twise-demo-ui.prod-app.in"'),
+               '"AllowedOrigins": "http://localhost:4200,http://localhost:4300,http://localhost:7000,http://20.98.112.250:4200,https://twise-qa-ui.prod-app.in,https://twise-demo-ui.prod-app.in"'),
               (r'"ControlPlane": "Server=[^"]*"', '"ControlPlane": "' + conn('smartops_control_plane_qa') + '"'),
               (r'"LegacyDirectory": "Server=[^"]*"', '"LegacyDirectory": "' + conn('AlTasnimBI') + '"'),
               (r'"TargetServer": "[^"]*"', '"TargetServer": "' + host + '"'),
