@@ -32,7 +32,7 @@ Requires the **Edit chart by chat** AI feature for your role (Settings → AI Fe
 { "patch": { "chartType": "stacked", "sortOrder": "value-desc" }, "message": "Changed to a stacked bar, sorted high to low." }
 ```
 
-`patch` holds only the fields that change. The builder applies it at once; **Undo** reverts it.
+`patch` holds only the fields that change. The builder applies it at once. When the chart becomes a multi-series type (for example stacked) and has no series columns yet, it starts from the current measure column, as a manual switch does.
 
 ### Fields the AI can change
 

@@ -4175,6 +4175,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     if (p.groupRestAsOthers != null) this.groupRestAsOthers = p.groupRestAsOthers;
     if (p.sortOrder) this.sortOrder = p.sortOrder as ChartSortOrder;
     if (this.selectedChartType === 'table' && !this.multiYColumns.length) this.multiYColumns = [...this.rawLoadedColumns];
+    // Like a manual switch: a multi-series type (e.g. stacked) starts from the measure column, so the preview isn't blank.
+    else if (this.isMultiSeriesType && !this.multiYColumns.length && this.yAggColumn) this.multiYColumns = [this.yAggColumn];
     this.refreshPreview();
   }
 
