@@ -1567,6 +1567,26 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiNoteProposals_d
 CREATE INDEX IX_core_AiNoteProposals_dataset ON core.AiNoteProposals (tenant_id, source_type, source_id, status);
 GO
 
+IF OBJECT_ID('core.AiSummaries', 'U') IS NULL
+CREATE TABLE core.AiSummaries (
+    id            bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiSummaries PRIMARY KEY,
+    tenant_id     bigint         NOT NULL,
+    kind          nvarchar(10)   NOT NULL,
+    payload_hash  nvarchar(64)   NOT NULL,
+    text          nvarchar(max)  NOT NULL,
+    created_at    datetime2      NOT NULL CONSTRAINT DF_core_AiSummaries_created DEFAULT SYSUTCDATETIME(),
+    used_at       datetime2      NOT NULL CONSTRAINT DF_core_AiSummaries_used DEFAULT SYSUTCDATETIME()
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_core_AiSummaries_key')
+CREATE UNIQUE INDEX UX_core_AiSummaries_key ON core.AiSummaries (tenant_id, kind, payload_hash);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiSummaries_used')
+CREATE INDEX IX_core_AiSummaries_used ON core.AiSummaries (tenant_id, used_at);
+GO
+
 IF OBJECT_ID('core.AiMetrics', 'U') IS NULL
 CREATE TABLE core.AiMetrics (
     id            bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiMetrics PRIMARY KEY,

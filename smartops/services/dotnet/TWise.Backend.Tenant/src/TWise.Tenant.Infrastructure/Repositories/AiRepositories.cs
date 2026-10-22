@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using TWise.Tenant.Application.Features.Ai;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Domain.Entities;
@@ -132,4 +134,43 @@ public sealed class AiUsageRepository(TenantDbContext db) : IAiUsageRepository
         await db.AiUsageLogs.AsNoTracking().Where(u => u.TenantId == tenantId && !u.Succeeded && u.CreatedAt >= since)
             .OrderByDescending(u => u.Id).Take(take).ToListAsync(ct);
 
+}
+
+public sealed class AiSummaryRepository(TenantDbContext db, AiExplainOptions explain, ILogger<AiSummaryRepository> log) : IAiSummaryRepository
+{
+
+    public async Task<string?> GetAsync(long tenantId, string kind, string hash, CancellationToken ct)
+    {
+        try
+        {
+            var row = await db.AiSummaries.FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Kind == kind && s.PayloadHash == hash, ct);
+            if (row is null) return null;
+            // Marked used at most once a day, so a read is usually one query.
+            if (row.UsedAt < DateTime.UtcNow.AddDays(-1)) { row.UsedAt = DateTime.UtcNow; await db.SaveChangesAsync(ct); }
+            return row.Text;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex, "AI summary store unavailable (read); is infra/sql/add-ai-summaries.sql applied?");
+            return null;
+        }
+    }
+
+    public async Task SaveAsync(long tenantId, string kind, string hash, string text, CancellationToken ct)
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            var row = await db.AiSummaries.FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Kind == kind && s.PayloadHash == hash, ct);
+            if (row is null) db.AiSummaries.Add(new AiSummary { TenantId = tenantId, Kind = kind, PayloadHash = hash, Text = text, CreatedAt = now, UsedAt = now });
+            else { row.Text = text; row.UsedAt = now; }
+            await db.SaveChangesAsync(ct);
+            await db.AiSummaries.Where(s => s.TenantId == tenantId && s.UsedAt < now.AddDays(-explain.SummaryUnusedDays)).ExecuteDeleteAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Two requests saving the same new summary at once also land here (unique key); the other one is kept.
+            log.LogWarning(ex, "AI summary store unavailable (save); is infra/sql/add-ai-summaries.sql applied?");
+        }
+    }
 }

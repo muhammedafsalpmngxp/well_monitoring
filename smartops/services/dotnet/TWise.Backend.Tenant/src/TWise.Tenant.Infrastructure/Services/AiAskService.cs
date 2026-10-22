@@ -36,15 +36,13 @@ public sealed partial class AiAskService(
     IAgentRuntimeClient runtime,
     IAiUsageRepository usage,
     IAiPromptStore prompts,
-    IDatabaseConnectionRepository connections) : IAiAskService
+    IDatabaseConnectionRepository connections,
+    IAiSummaryRepository summaries,
+    AiExplainOptions explain) : IAiAskService
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private const int HistoryTurns = 6;
     private const int AnswerSampleRows = 30;
-    private const int SummaryMaxRows = 200;
-    private const int DashboardMaxCharts = 12;
-    private const int DashboardRowsPerChart = 60;
-    private static readonly TimeSpan SummaryCacheTtl = TimeSpan.FromHours(24);
     private const int MaxExamples = 4;
 
     public async Task<IReadOnlyList<AiDatasetDto>> ListDatasetsAsync(long tenantId, long userId, CancellationToken ct)
@@ -242,23 +240,24 @@ public sealed partial class AiAskService(
         if (!await FeatureOnAsync(tenantId, AiFeatureCatalog.Summary, ct)) { yield return Error("Explain charts is not enabled for your role. An admin can grant it under Settings → AI Features."); yield break; }
         if (request.Columns is not { Count: > 0 } || request.Rows is not { Count: > 0 }) { yield return Error("There is no chart data to explain."); yield break; }
 
-        var rows = request.Rows.Take(SummaryMaxRows).ToList();
-        var note = request.Rows.Count > SummaryMaxRows ? $" Only the first {SummaryMaxRows} of {request.Rows.Count} rows are shown." : "";
+        var rows = request.Rows.Take(explain.ChartRows).ToList();
+        var note = request.Rows.Count > explain.ChartRows ? $" Only the first {explain.ChartRows} of {request.Rows.Count} rows are shown." : "";
         var system = AiPrompts.Text(AiPrompts.ChartSummary, await PromptsAsync(tenantId, ct));
         var messages = new List<AiMessage>
         {
             new("system", system),
             new("user", $"Chart: {request.Title}\n{(string.IsNullOrWhiteSpace(request.Context) ? "" : "Context: " + request.Context.Trim() + "\n")}Columns: {string.Join(", ", request.Columns)}{note}\nData: {JsonSerializer.Serialize(rows, Json)}"),
         };
-        await foreach (var ev in CachedStream(CacheKey("chart", tenantId, new { request.Title, request.Context, request.Columns, rows, system }), request.Force, "summary", messages, tenantId, userId, ct))
+        // The key covers every row of the chart, not only those sent, so any change to the data asks again.
+        await foreach (var ev in CachedStream("chart", new { request.Title, request.Context, request.Columns, request.Rows, system }, request.Force, "summary", messages, tenantId, userId, ct))
             yield return ev;
     }
 
     public async IAsyncEnumerable<AiAskEvent> SummarizeDashboardAsync(AiDashboardSummaryRequest request, long tenantId, long userId, [EnumeratorCancellation] CancellationToken ct)
     {
         if (!await FeatureOnAsync(tenantId, AiFeatureCatalog.Summary, ct)) { yield return Error("Explain charts is not enabled for your role. An admin can grant it under Settings → AI Features."); yield break; }
-        var charts = (request.Charts ?? []).Where(c => c.Columns is { Count: > 0 } && c.Rows is { Count: > 0 }).Take(DashboardMaxCharts)
-            .Select(c => new { c.Title, c.Columns, Rows = c.Rows.Take(DashboardRowsPerChart).ToList() }).ToList();
+        var shown = (request.Charts ?? []).Where(c => c.Columns is { Count: > 0 } && c.Rows is { Count: > 0 }).Take(explain.DashboardCharts).ToList();
+        var charts = shown.Select(c => new { c.Title, c.Columns, Rows = c.Rows.Take(explain.DashboardRowsPerChart).ToList() }).ToList();
         if (charts.Count == 0) { yield return Error("There is no chart data to explain yet."); yield break; }
 
         var body = new StringBuilder();
@@ -270,15 +269,24 @@ public sealed partial class AiAskService(
             new("system", system),
             new("user", $"Dashboard: {request.Title}\n{body}"),
         };
-        await foreach (var ev in CachedStream(CacheKey("dashboard", tenantId, new { request.Title, charts, system }), request.Force, "summary", messages, tenantId, userId, ct))
+        // Keyed on every row of every chart shown, so the summary is kept until any of that data changes.
+        var data = shown.Select(c => new { c.Title, c.Columns, c.Rows });
+        await foreach (var ev in CachedStream("dashboard", new { request.Title, data, system }, request.Force, "summary", messages, tenantId, userId, ct))
             yield return ev;
     }
 
-    /// <summary>Same payload → same text for 24h (per tenant); Force bypasses and overwrites. Cached replies arrive as a single answer event.</summary>
-    private async IAsyncEnumerable<AiAskEvent> CachedStream(string key, bool force, string purpose, List<AiMessage> messages, long tenantId, long userId, [EnumeratorCancellation] CancellationToken ct)
+    /// <summary>
+    /// Same payload → same text (per tenant) until the payload changes: memory first, then core.AiSummaries. Force (Regenerate)
+    /// bypasses both and overwrites. Stored replies arrive as a single answer event.
+    /// </summary>
+    private async IAsyncEnumerable<AiAskEvent> CachedStream(string kind, object payload, bool force, string purpose, List<AiMessage> messages, long tenantId, long userId, [EnumeratorCancellation] CancellationToken ct)
     {
-        if (!force && cache.TryGetValue(key, out string? cached) && cached is not null)
+        var hash = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(payload, Json)));
+        var key = $"ai:{kind}:{tenantId}:{hash}";
+        var cached = force ? null : cache.TryGetValue(key, out string? hit) ? hit : await summaries.GetAsync(tenantId, kind, hash, ct);
+        if (cached is not null)
         {
+            cache.Set(key, cached, TimeSpan.FromMinutes(explain.SummaryMemoryMinutes));
             yield return new AiAskEvent("answer", cached);
             yield return new AiAskEvent("done", new { cached = true });
             yield break;
@@ -290,14 +298,12 @@ public sealed partial class AiAskService(
             text.Append(delta.Text);
             yield return new AiAskEvent("answer", delta.Text);
         }
-        if (text.Length > 0) cache.Set(key, text.ToString(), SummaryCacheTtl);
+        if (text.Length > 0)
+        {
+            cache.Set(key, text.ToString(), TimeSpan.FromMinutes(explain.SummaryMemoryMinutes));
+            await summaries.SaveAsync(tenantId, kind, hash, text.ToString(), ct);
+        }
         yield return new AiAskEvent("done", new { cached = false });
-    }
-
-    private static string CacheKey(string kind, long tenantId, object payload)
-    {
-        var hash = SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(payload, Json));
-        return $"ai:{kind}:{tenantId}:{Convert.ToHexString(hash)}";
     }
 
     public async Task<IReadOnlyList<AiFilterSuggestion>> SuggestFiltersAsync(AiFilterSuggestRequest request, long tenantId, long userId, CancellationToken ct)

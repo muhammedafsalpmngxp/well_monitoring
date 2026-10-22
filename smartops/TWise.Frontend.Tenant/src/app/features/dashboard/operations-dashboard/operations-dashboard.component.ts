@@ -41,6 +41,7 @@ import { captureVisibleDashboardWidget, DashboardWidgetBounds, DashboardWidgetIm
 import { CHART_AUTO_COLORS, chartFallbackColor, getSeriesColorByName, usesPeriodLineCategoryColorRules, usesSeriesCategoryColorRules } from '../../../core/utils/chart-color.util';
 import { AiService } from '../../../core/services/ai.service';
 import { chartDataFromOptions } from '../../../core/utils/chart-data.util';
+import { canvasImage, writeAiDeck } from '../../../core/utils/ai-deck.util';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -1660,9 +1661,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   /**
-   * AI slide deck: a title slide with the AI's headline, one slide per chart (its captured image on
-   * the left, the AI's title, bullets and takeaway on the right), the KPI tiles as a slide of their
-   * own, and a closing slide. The narrative comes from one AI call over the charts' rendered rows.
+   * AI slide deck (writeAiDeck): the narrative and key figures come from one AI call over the charts'
+   * rendered rows; the slides use each card's captured image and the KPI tiles.
    */
   async exportDashboardDeck(): Promise<void> {
     if (this.isExporting) return;
@@ -1681,50 +1681,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
         catch (err) { console.error(`captureCard failed for deck, idx=${c.idx}:`, err); images.push(null); }
       }
 
-      const pptx = new PptxGenJS();
-      pptx.layout = 'LAYOUT_WIDE';
-      const W = 13.333333, H = 7.5, navy = '21409A', ink = '101828', muted = '475467';
-      const title = pptx.addSlide();
-      title.background = { color: 'F8FAFC' };
-      title.addText(this.board.title, { x: 0.8, y: 2.2, w: W - 1.6, h: 1.2, fontSize: 36, bold: true, color: navy, fontFace: 'Calibri' });
-      if (deck.headline) title.addText(deck.headline, { x: 0.8, y: 3.5, w: W - 1.6, h: 1.4, fontSize: 20, color: ink, fontFace: 'Calibri' });
-      title.addText(new Date().toLocaleDateString(), { x: 0.8, y: H - 1, w: 6, h: 0.4, fontSize: 12, color: muted, fontFace: 'Calibri' });
-
       const kpiRow = this.compositeKpiRow(kpiTiles.sort((a, b) => a.sortOrder - b.sortOrder).map(t => t.canvas));
-      if (kpiRow) {
-        const s = pptx.addSlide();
-        s.background = { color: 'F8FAFC' };
-        s.addText('Key figures', { x: 0.6, y: 0.4, w: W - 1.2, h: 0.7, fontSize: 24, bold: true, color: navy, fontFace: 'Calibri' });
-        let w = W - 1.2, h = kpiRow.height * w / kpiRow.width;
-        if (h > H - 2) { w = w * (H - 2) / h; h = H - 2; }
-        s.addImage({ data: kpiRow.toDataURL('image/png'), x: (W - w) / 2, y: 1.4, w, h });
-      }
-
-      deck.slides.forEach((slide, i) => {
-        const s = pptx.addSlide();
-        s.background = { color: 'F8FAFC' };
-        s.addText(slide.title || charts[i].title, { x: 0.6, y: 0.4, w: W - 1.2, h: 0.7, fontSize: 24, bold: true, color: navy, fontFace: 'Calibri' });
-        const img = images[i];
-        const imgBox = { x: 0.6, y: 1.3, w: 7.6, h: H - 2.1 };
-        if (img) {
-          let w = imgBox.w, h = img.height * w / img.width;
-          if (h > imgBox.h) { w = w * imgBox.h / h; h = imgBox.h; }
-          s.addImage({ data: img.toDataURL('image/png'), x: imgBox.x, y: imgBox.y, w, h });
-        }
-        const textX = imgBox.x + imgBox.w + 0.4, textW = W - textX - 0.6;
-        if (slide.bullets.length)
-          s.addText(slide.bullets.map(b => ({ text: b, options: { bullet: true, breakLine: true } })), { x: textX, y: 1.3, w: textW, h: 3.6, fontSize: 14, color: ink, fontFace: 'Calibri', valign: 'top', paraSpaceAfter: 6 });
-        if (slide.takeaway)
-          s.addText(slide.takeaway, { x: textX, y: 5.1, w: textW, h: 1.6, fontSize: 13, italic: true, color: navy, fontFace: 'Calibri', valign: 'top', fill: { color: 'EEF2FF' }, margin: 8 });
-      });
-
-      if (deck.closing) {
-        const s = pptx.addSlide();
-        s.background = { color: 'F8FAFC' };
-        s.addText('In summary', { x: 0.8, y: 1.6, w: W - 1.6, h: 0.9, fontSize: 28, bold: true, color: navy, fontFace: 'Calibri' });
-        s.addText(deck.closing, { x: 0.8, y: 2.7, w: W - 1.6, h: 3, fontSize: 18, color: ink, fontFace: 'Calibri', valign: 'top' });
-      }
-      await pptx.writeFile({ fileName: `${this.board.title} - AI deck.pptx` });
+      await writeAiDeck(deck, { title: this.board.title, chartTitles: charts.map(c => c.title), images: images.map(canvasImage), kpiTiles: canvasImage(kpiRow) });
     } catch (err: unknown) {
       console.error('AI deck export failed:', err);
       const e = err as { error?: { message?: string }; message?: string };

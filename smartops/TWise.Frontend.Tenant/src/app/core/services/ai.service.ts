@@ -222,7 +222,9 @@ export interface SqlPlanFacts { statements: number; scans: string[]; missingInde
 export interface AiSqlIssue { severity: 'high' | 'medium' | 'low'; text: string }
 export interface AiSqlReview { explanation: string; issues: AiSqlIssue[]; suggestions: string[]; optimisedSql: string | null; optimisedNote: string | null; plan: SqlPlanFacts | null }
 export interface AiDeckSlide { title: string; bullets: string[]; takeaway: string | null }
-export interface AiDeck { title: string; headline: string; slides: AiDeckSlide[]; closing: string }
+/** A headline number for the Key figures slide; the server keeps only figures whose numbers are in the data. */
+export interface AiDeckFigure { label: string; value: string; note: string | null }
+export interface AiDeck { title: string; headline: string; slides: AiDeckSlide[]; closing: string; keyFigures: AiDeckFigure[] }
 
 /** spec: an option picked from a clarification, run as given. */
 export interface AiAskRequest { conversationId?: number | null; sourceType?: AiSourceType | null; sourceId?: number | null; question: string; spec?: AiQuerySpec | null }

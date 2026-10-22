@@ -32,7 +32,7 @@ public class ChartEditSortTests
             new Mock<IImportedDatasetService>().Object, new Mock<ISourceService>().Object, new Mock<IAiKnowledgeRepository>().Object,
             settings.Object, grants.Object, user.Object, new Mock<IServiceScopeFactory>().Object, new MemoryCache(new MemoryCacheOptions()),
             new Mock<IAiViewQueryRunner>().Object, new Mock<IAgentRuntimeClient>().Object, new Mock<IAiUsageRepository>().Object,
-            prompts.Object, new Mock<IDatabaseConnectionRepository>().Object);
+            prompts.Object, new Mock<IDatabaseConnectionRepository>().Object, new Mock<IAiSummaryRepository>().Object, new AiExplainOptions());
         return await service.EditChartAsync(new AiChartEditRequest("stacked bar, sorted descending", Current, ["lift_type", "well_id"], ["bar", "stacked"]), 7, 1, default);
     }
 

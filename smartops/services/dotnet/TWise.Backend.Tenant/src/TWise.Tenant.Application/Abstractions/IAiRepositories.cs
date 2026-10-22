@@ -43,3 +43,13 @@ public interface IAiUsageRepository
     /// <summary>Failed calls since a date, newest first.</summary>
     Task<IReadOnlyList<AiUsageLog>> GetFailuresAsync(long tenantId, DateTime since, int take, CancellationToken ct);
 }
+
+/// <summary>Explain summaries kept until the data they summarise changes (core.AiSummaries). Best-effort: a failing store
+/// (e.g. the table not created yet) reads as "not stored" and never fails the Explain.</summary>
+public interface IAiSummaryRepository
+{
+    /// <summary>The stored summary for this payload hash, or null.</summary>
+    Task<string?> GetAsync(long tenantId, string kind, string hash, CancellationToken ct);
+    /// <summary>Stores (or replaces) it; summaries unused for AiExplain:SummaryUnusedDays are removed.</summary>
+    Task SaveAsync(long tenantId, string kind, string hash, string text, CancellationToken ct);
+}

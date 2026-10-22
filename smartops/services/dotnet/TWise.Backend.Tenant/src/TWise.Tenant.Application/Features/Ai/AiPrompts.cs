@@ -24,6 +24,7 @@ public static class AiPrompts
     public const string Review = "review";
     public const string AlertMessage = "alert-message";
     public const string Deck = "deck";
+    public const string DeckKeyFigures = "deck-key-figures";
     public const string SqlReview = "sql-review";
     /// <summary>Longest per-dataset override (core.AiDatasetPrompts.prompt_text).</summary>
     public const int MaxLength = 4000;

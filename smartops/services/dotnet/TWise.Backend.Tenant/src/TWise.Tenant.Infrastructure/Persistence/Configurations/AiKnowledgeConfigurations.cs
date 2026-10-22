@@ -146,3 +146,20 @@ public sealed class AiExampleConfiguration : IEntityTypeConfiguration<AiExample>
         b.Property(e => e.CreatedAt).HasColumnName("created_at");
     }
 }
+
+/// <summary>Maps to [core].[AiSummaries] (see infra/sql/add-ai-summaries.sql).</summary>
+public sealed class AiSummaryConfiguration : IEntityTypeConfiguration<AiSummary>
+{
+    public void Configure(EntityTypeBuilder<AiSummary> b)
+    {
+        b.ToTable("AiSummaries", "core");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.Id).HasColumnName("id");
+        b.Property(e => e.TenantId).HasColumnName("tenant_id");
+        b.Property(e => e.Kind).HasColumnName("kind").HasMaxLength(10).IsRequired();
+        b.Property(e => e.PayloadHash).HasColumnName("payload_hash").HasMaxLength(64).IsRequired();
+        b.Property(e => e.Text).HasColumnName("text").IsRequired();
+        b.Property(e => e.CreatedAt).HasColumnName("created_at");
+        b.Property(e => e.UsedAt).HasColumnName("used_at");
+    }
+}

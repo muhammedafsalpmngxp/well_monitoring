@@ -30,6 +30,8 @@ public static class DependencyInjection
 
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(DatasetChangeBehavior<,>));
 
+        // Explain and AI deck limits: the AiExplain section of appsettings.json (no defaults in code).
+        services.AddSingleton(sp => Features.Ai.AiExplainOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
         services.AddScoped<DeliveryRunner>();

@@ -644,6 +644,11 @@
 
                 <app-ai-explain [charts]="explainCharts" [title]="pageName"></app-ai-explain>
 
+                <button class="builder-toolbar__btn" *ngIf="canDeck" [disabled]="deckBusy" (click)="exportAiDeck()" title="Download a PowerPoint the AI narrates: key figures, one slide per chart, a summary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#21409A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8M7 12l3-3 2 2 4-4"/></svg>
+                    {{ deckBusy ? 'Building deck…' : 'AI deck' }}
+                </button>
+
                 <button class="builder-toolbar__btn" *ngIf="canGenerate" (click)="openGenerate()" title="Let the AI propose a first set of charts">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#21409A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.4 9.4l-4.6 1.8L12 15.8l-1.8-4.6L5.6 9.4l4.6-1.8z"/></svg>
                     Generate with AI
@@ -1033,7 +1038,7 @@
                                 *ngIf="!chartAdditionalFilterNoData[slot.id] && (cardChartType[slot.id] ?? 'bar').toLowerCase() !== 'table'">
                                 <app-advanced-chart *ngIf="advancedCharts[slot.id] as visual" [type]="visual.type" [rows]="visual.rows" [config]="visual.config" [daxMeasures]="visual.daxMeasures ?? []"></app-advanced-chart>
                                 <highcharts-chart *ngIf="!advancedCharts[slot.id] && chartPreviewOptions[slot.id] && !(chartPreviewOptions[slot.id] | pieChartEmpty)"
-                                    [options]="chartPreviewOptions[slot.id]" class="board-chart-slot__hc">
+                                    [options]="chartPreviewOptions[slot.id]" class="board-chart-slot__hc" [attr.data-chart-slot]="slot.id">
                                 </highcharts-chart>
                                 <app-chart-no-data *ngIf="!advancedCharts[slot.id] && chartPreviewOptions[slot.id] && (chartPreviewOptions[slot.id] | pieChartEmpty)"
                                     class="board-chart-slot__hc"></app-chart-no-data>

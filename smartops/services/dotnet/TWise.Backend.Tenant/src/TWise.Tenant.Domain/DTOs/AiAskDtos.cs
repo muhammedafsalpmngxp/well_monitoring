@@ -79,7 +79,9 @@ public record AiSqlReviewDto(string Explanation, IReadOnlyList<AiSqlIssueDto> Is
 public record AiDeckRequest(string Title, IReadOnlyList<AiSummaryRequest> Charts);
 /// <summary>One slide per chart: a short title, 2-4 bullets and a takeaway; plus an opening headline and a closing slide.</summary>
 public record AiDeckSlideDto(string Title, IReadOnlyList<string> Bullets, string? Takeaway);
-public record AiDeckDto(string Title, string Headline, IReadOnlyList<AiDeckSlideDto> Slides, string Closing);
+/// <summary>A headline number for the Key figures slide; Value is checked against the charts' data.</summary>
+public record AiDeckFigureDto(string Label, string Value, string? Note);
+public record AiDeckDto(string Title, string Headline, IReadOnlyList<AiDeckSlideDto> Slides, string Closing, IReadOnlyList<AiDeckFigureDto> KeyFigures);
 
 /// <summary>Every chart of a dashboard as rendered; Force skips the cache (Regenerate).</summary>
 public record AiDashboardSummaryRequest(string Title, IReadOnlyList<AiSummaryRequest> Charts, bool Force = false);

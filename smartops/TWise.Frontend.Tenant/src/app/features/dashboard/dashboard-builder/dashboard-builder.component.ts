@@ -7,7 +7,7 @@ import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { AfterViewInit, ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin, Observable, of, Subject, Subscription } from 'rxjs';
+import { forkJoin, Observable, of, Subject, Subscription, firstValueFrom } from 'rxjs';
 import { catchError, finalize, map, shareReplay, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { waitForDashboardRender } from '../../../core/utils/dashboard-render-ready.util';
 import type Highcharts from 'highcharts';
@@ -26,6 +26,8 @@ import { AuthService } from '../../../core/services/auth.service';
 import { DashboardBranding, normalizeDashboardBranding, DashboardConfigWidget, DashboardLayoutConfig, DashboardLayoutItem, SaveDashboardRequest, WidgetLibraryItem } from '../../../core/models/dashboard.model';
 import { CategoryDropdown } from '../../../core/models/category.model';
 import { NotificationHelper } from '../../../core/helpers/notification.helper';
+import { chartDataFromOptions } from '../../../core/utils/chart-data.util';
+import { svgChartImage, writeAiDeck } from '../../../core/utils/ai-deck.util';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
 import { ChartView, ChartViewIcon, chartSwitchOptions, chartViewIcon, chartViewLabel, toChartView } from '../../../core/constants/chart-view.constants';
 import { appendDaxToChartData, getActiveDaxMeasures, appendDaxToTableRows, getDaxRowColumnMeasures, DaxModelConfig, evaluateTileDaxValue, formatDaxValue, getSelectedDaxMeasure } from '../../../core/utils/dax-evaluator.util';
@@ -772,6 +774,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     this.ai.features().pipe(takeUntil(this.destroy$)).subscribe(f => {
       this.canSuggestFilters = f.enabled.includes('filters');
       this.canGenerate = f.enabled.includes('dashboard');
+      this.canDeck = f.enabled.includes('summary');
       this.cdr.markForCheck();
     });
   }
@@ -779,6 +782,32 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   /** Every placed chart with its rendered options, for the dashboard-level Explain. */
   get explainCharts(): { title: string; options: Highcharts.Options | null }[] {
     return this.chartSlotsData.map(s => ({ title: s.baseTitle ?? s.title, options: this.chartPreviewOptions[s.id] ?? null }));
+  }
+
+  // ── AI slide deck ──────────────────────────────────────────────────────────
+  canDeck = false;
+  deckBusy = false;
+
+  /** The same AI deck as the dashboard view, from the charts placed here; each slide's picture is the chart as drawn on the canvas. */
+  async exportAiDeck(): Promise<void> {
+    if (this.deckBusy) return;
+    const charts = this.chartSlotsData
+      .map(s => ({ id: s.id, title: s.baseTitle ?? s.title, data: chartDataFromOptions(this.chartPreviewOptions[s.id] ?? null) }))
+      .filter(c => c.data?.rows.length);
+    if (!charts.length) { this.notify.showError('No chart has data for a deck yet.'); return; }
+    this.deckBusy = true;
+    this.cdr.markForCheck();
+    try {
+      const deck = await firstValueFrom(this.ai.deck({ title: this.pageName, charts: charts.map(c => ({ title: c.title, columns: c.data!.columns, rows: c.data!.rows, context: null })) }));
+      const images = await Promise.all(charts.map(c => svgChartImage(document.querySelector(`[data-chart-slot="${CSS.escape(String(c.id))}"]`))));
+      await writeAiDeck(deck, { title: this.pageName, chartTitles: charts.map(c => c.title), images });
+    } catch (err: unknown) {
+      const e = err as { error?: { message?: string }; message?: string };
+      this.notify.showError(e?.error?.message || 'The AI deck could not be built. Please try again.');
+    } finally {
+      this.deckBusy = false;
+      this.cdr.markForCheck();
+    }
   }
 
   // ── Dashboard from a prompt ────────────────────────────────────────────────
