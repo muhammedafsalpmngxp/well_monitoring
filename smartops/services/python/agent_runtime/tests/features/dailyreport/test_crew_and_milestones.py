@@ -8,7 +8,7 @@ from typing import Any, Dict
 import pytest
 
 from app.features.dailyreport import data
-from tests.features.dailyreport.conftest import REPORT_DATE, report_context, seed_prompts
+from tests.features.dailyreport.conftest import REPORT_DATE, report_context, seed_text
 from app.features.dailyreport.texts import parse_entries
 
 _NO_CANDIDATE = dict(candidate_crew_id=None, candidate_crew_type=None, candidate_crew_supervisor=None,
@@ -84,7 +84,7 @@ class TestCrewSuggestion:
     ])
     def test_no_suitable_crew_gives_the_tenants_reason(self, fake_db, overrides, kind):
         evidence = _build(fake_db, crew_row(candidate_crew_id=None, **overrides))
-        reasons = parse_entries(seed_prompts()["dailyreport.crew_no_suggestion_reasons"])
+        reasons = parse_entries(seed_text("crew_no_suggestion_reasons"))
         assert evidence["no_suggestion_reason"] == reasons[kind]
         assert "suggested_crew" not in evidence
 

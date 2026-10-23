@@ -3,10 +3,10 @@
 THE BOUNDARY. An agent chooses WHICH tool to call and with WHAT arguments; the tool alone decides what comes back.
 No tool accepts SQL, a column name or a formula from a model. Arguments are validated, not trusted: a well id must be
 an integer, a limit is clamped to the tool's limit settings, an unknown filter is refused with a message the planner
-can read (the tenant's dailyreport.tool_errors). A tool that fails returns its error as data, so one unavailable
+can read (the tenant's messages prompt, section tool_errors). A tool that fails returns its error as data, so one unavailable
 source never ends a run; a configuration problem (a prompt, a query, the table allowlist) is raised to the admin.
 
-What the planner is told about each tool is the tenant's dailyreport.tool_<name> prompt; the tool names, their
+What the planner is told about each tool is the tenant's tools prompt, section tool_<name>; the tool names, their
 arguments and what they do are the engine.
 """
 from __future__ import annotations
@@ -198,9 +198,12 @@ def milestones(env: ToolEnv, args: Dict[str, Any]):
         "evaluated_against": "today",
         "today": env.today,
         "window_days": window,
-        "upcoming_count": len(upcoming),
+        # One deadline record is a well and a milestone: a well with two overdue milestones is two records, one well.
+        "upcoming_deadline_count": len(upcoming),
+        "upcoming_well_count": len({a.well_id for a in upcoming}),
         "upcoming": [_alert_out(a) for a in upcoming[:limit]],
-        "overdue_count": len(overdue),
+        "overdue_deadline_count": len(overdue),
+        "overdue_well_count": len({a.well_id for a in overdue}),
         "overdue": [_alert_out(a) for a in overdue[:limit]],
     }, {}
 
@@ -239,9 +242,12 @@ def deadline_pressure(env: ToolEnv, args: Dict[str, Any]):
     return {
         "rule": env.ctx.texts.fill("tool_deadline_rule", WINDOW_DAYS=window),
         "window_days": window,
-        "open_work_before_upcoming_deadline_count": len(before),
+        # Each row is one deadline record (a well and a milestone), so the record count can exceed the well count.
+        "open_work_before_upcoming_deadline_record_count": len(before),
+        "open_work_before_upcoming_deadline_well_count": len({r["well_id"] for r in before}),
         "open_work_before_upcoming_deadline": before[:limit],
-        "open_work_past_overdue_deadline_count": len(past),
+        "open_work_past_overdue_deadline_record_count": len(past),
+        "open_work_past_overdue_deadline_well_count": len({r["well_id"] for r in past}),
         "open_work_past_overdue_deadline": past[:limit],
     }, {}
 

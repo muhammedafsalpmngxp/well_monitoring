@@ -36,7 +36,7 @@ public static partial class AiPromptCatalog
     public static readonly IReadOnlyList<AiPromptDefinition> All =
     [
         .. AgenticFeatureCatalog.All.Values.SelectMany(f => f.Prompts.Select(p =>
-            new AiPromptDefinition(p.Key, f.Key, p.Name, p.Description, p.ReplyKeys, p.AllowEmpty))),
+            new AiPromptDefinition(p.Key, f.Key, p.Name, p.Description, p.ReplyKeys, p.AllowEmpty, p.MergedFrom))),
 
         // ── AI features (Tenant API) ──────────────────────────────────────────────────────────────────────────
         F(AiPrompts.AskRules, "Extra rules for questions", "Added to the instructions that turn a question into a query on a dataset, e.g. \"A year means the fiscal year starting 1 April\". Leave empty for none.", allowEmpty: true),
@@ -218,6 +218,17 @@ public static partial class AiPromptCatalog
         var replies = def.ReplyKeys.Where(k => !text.Contains("\"" + k + "\"", StringComparison.Ordinal)).ToList();
         if (replies.Count > 0)
             return $"Keep the reply format: the code reads the JSON key{(replies.Count > 1 ? "s" : "")} {string.Join(", ", replies.Select(k => "\"" + k + "\""))} from the AI's answer.";
+        if (def.Merged.Count > 0)
+        {
+            // A merged prompt is read by section: every "## name" heading must stay, each with its text.
+            var sections = PromptSections.Parse(text);
+            var lost = PromptSections.Headings(originalText).Where(h => sections.All(s => s.Name != h)).ToList();
+            if (lost.Count > 0)
+                return $"Keep the heading{(lost.Count > 1 ? "s" : "")} {string.Join(", ", lost.Select(h => "## " + h))}: the code reads each section of this prompt by its heading.";
+            var empty = sections.Where(s => s.Body.Length == 0).Select(s => "## " + s.Name).ToList();
+            if (empty.Count > 0)
+                return $"The section{(empty.Count > 1 ? "s" : "")} {string.Join(", ", empty)} must not be empty.";
+        }
         return null;
     }
 
@@ -237,5 +248,10 @@ public static partial class AiPromptCatalog
     private static partial Regex PlaceholderRegex();
 }
 
-/// <summary>One prompt key: where it shows, and the JSON keys of the AI's reply that the code reads (must stay).</summary>
-public sealed record AiPromptDefinition(string Key, string Group, string Name, string Description, IReadOnlyList<string> ReplyKeys, bool AllowEmpty);
+/// <summary>One prompt key: where it shows, and the JSON keys of the AI's reply that the code reads (must stay).
+/// MergedFrom: the earlier prompts a merged prompt replaced (see PromptSections); its "## name" headings must stay.</summary>
+public sealed record AiPromptDefinition(string Key, string Group, string Name, string Description, IReadOnlyList<string> ReplyKeys, bool AllowEmpty,
+    IReadOnlyList<string>? MergedFrom = null)
+{
+    public IReadOnlyList<string> Merged => MergedFrom ?? [];
+}

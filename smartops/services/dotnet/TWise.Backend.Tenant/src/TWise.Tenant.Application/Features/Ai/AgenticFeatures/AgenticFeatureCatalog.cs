@@ -99,7 +99,8 @@ public static partial class AgenticFeatureCatalog
                     Str(q, "description"), Str(q, "sql")!, Strings(q, "params"), Strings(q, "columns"))).ToList(),
                 Array(e, "prompts").Select(p => new FeaturePromptSeed(Str(p, "key")!, Str(p, "name") ?? Str(p, "key")!,
                     Str(p, "description") ?? "", Str(p, "text") ?? "", Strings(p, "replyKeys"),
-                    p.TryGetProperty("allowEmpty", out var ae) && ae.ValueKind == JsonValueKind.True)).ToList(),
+                    p.TryGetProperty("allowEmpty", out var ae) && ae.ValueKind == JsonValueKind.True,
+                    Strings(p, "mergedFrom"))).ToList(),
                 Array(e, "rules").Select(r => r.Clone()).ToList());
         }
         return result;
@@ -151,5 +152,8 @@ public sealed record FeatureSeed(
 public sealed record FeatureQuerySeed(string Key, string Label, string? Description, string Sql, IReadOnlyList<string> Params,
     IReadOnlyList<string> Columns);
 
+/// <summary>One seed prompt. MergedFrom: a prompt that replaced several earlier ones lists their keys; its text is a
+/// "## name" heading per earlier prompt (name = the key without the feature prefix) followed by that prompt's text
+/// (see PromptSections), so a tenant's saved edit of an earlier prompt can be carried into its section.</summary>
 public sealed record FeaturePromptSeed(string Key, string Name, string Description, string Text, IReadOnlyList<string> ReplyKeys,
-    bool AllowEmpty);
+    bool AllowEmpty, IReadOnlyList<string> MergedFrom);

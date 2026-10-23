@@ -9,7 +9,7 @@ from app.features.dailyreport.grouping import GroupingService
 from app.features.dailyreport.models import DailyDataset, DataQualityFlag, DayCounters, QuantityStatus
 from app.features.dailyreport.texts import parse_entries
 from app.features.dailyreport.validation import build_task
-from tests.features.dailyreport.conftest import REPORT_DATE, make_row, report_context, seed_prompts
+from tests.features.dailyreport.conftest import REPORT_DATE, make_row, prompts_with, report_context, seed_text
 
 
 def _dataset(tasks) -> DailyDataset:
@@ -82,19 +82,18 @@ class TestRepresentativeSample:
 
 class TestEvidencePayload:
     def test_definitions_constraints_and_notes_are_the_tenants_texts(self):
-        prompts = seed_prompts()
         with report_context() as ctx:
             tasks = [_task(1, ON_PLAN, 1)]
             payload = ctx.evidence.build(_dataset(tasks), tasks, scope="day")
-        assert payload["status_definitions"] == parse_entries(prompts["dailyreport.evidence_status_definitions"])
+        assert payload["status_definitions"] == parse_entries(seed_text("evidence_status_definitions"))
         assert list(payload["status_definitions"]) == [s.value for s in QuantityStatus]
         assert payload["constraints"]["quantity_tolerance"] == "not defined in the business rules"
-        assert payload["data_quality"]["note"] == prompts["dailyreport.evidence_data_quality_note"]
+        assert payload["data_quality"]["note"] == seed_text("evidence_data_quality_note")
         assert "crew_match_definitions" in payload and "date_status_definitions" in payload
         assert payload["tasks"][0]["crew_match_status"] == "MATCHED"
 
     def test_a_changed_definition_reaches_the_evidence(self):
-        with report_context(prompts={"dailyreport.evidence_status_definitions": "ON_PLAN: Same as the plan."}) as ctx:
+        with report_context(prompts=prompts_with(evidence_status_definitions="ON_PLAN: Same as the plan.")) as ctx:
             tasks = [_task(1, ON_PLAN, 1)]
             payload = ctx.evidence.build(_dataset(tasks), tasks, scope="day")
         assert payload["status_definitions"] == {"ON_PLAN": "Same as the plan."}
@@ -105,8 +104,7 @@ class TestEvidencePayload:
         with report_context() as ctx:
             payload = ctx.evidence.build(_dataset(tasks), tasks, scope="day")
         assert payload["summary"]["planned_quantity"] is None
-        assert payload["summary"]["quantities_withheld_reason"] == seed_prompts()[
-            "dailyreport.evidence_quantities_withheld"]
+        assert payload["summary"]["quantities_withheld_reason"] == seed_text("evidence_quantities_withheld")
 
     def test_an_empty_scope_states_one_fact_not_zeroes(self):
         with report_context() as ctx:

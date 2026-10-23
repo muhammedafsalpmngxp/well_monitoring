@@ -408,22 +408,14 @@
           </select>
         </div>
         <div class="sl__field">
-          <label for="sl-well-headline">Headline status</label>
-          <select id="sl-well-headline" [(ngModel)]="wellHeadline" (ngModelChange)="applyWellFilters()">
-            <option value="">All statuses</option>
-            <option *ngFor="let h of headlines" [value]="h">{{ humanise(h) }}</option>
-          </select>
-        </div>
-        <div class="sl__field">
           <label for="sl-well-sort">Sort by</label>
           <select id="sl-well-sort" [(ngModel)]="wellSort" (ngModelChange)="applyWellFilters()">
             <option value="overrun">Worst overrun first</option>
             <option value="activity">Most delayed activities</option>
-            <option value="status">Headline status</option>
             <option value="well">Well id</option>
           </select>
         </div>
-        <button *ngIf="wellSearch || wellMilestone || wellHeadline" type="button" class="sl__link sl__filters-clear" (click)="clearWellFilters()">Clear filters</button>
+        <button *ngIf="wellSearch || wellMilestone" type="button" class="sl__link sl__filters-clear" (click)="clearWellFilters()">Clear filters</button>
         <span class="sl__count sl__filters-count" aria-live="polite">{{ wellRows.length | number }} of {{ wells.data!.rows.length | number }} wells</span>
       </div>
 

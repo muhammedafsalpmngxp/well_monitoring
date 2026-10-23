@@ -9,6 +9,9 @@ Caches (the only state the runtime keeps, see app/features/README.md): bounded, 
 keyed by a SHA-256 of the database identity (the whole connection, password included, hashed), the SQL text and
 the parameters. Every entry is tagged with (database, report date) so Refresh drops exactly that date. A cache hit
 still passes the SELECT-only gate and the table allowlist, so withdrawing a table takes effect at once.
+
+Identical queries asked at the same moment share one run (QueryFlights): the cache is only filled when a query ends,
+and a page that opens a date sends several requests together.
 """
 from __future__ import annotations
 
@@ -82,8 +85,66 @@ class TtlCache:
             return len(self._entries)
 
 
+class _Flight:
+    """One query run that identical requests asked at the same moment share."""
+
+    __slots__ = ("done", "rows", "error", "stale", "tag")
+
+    def __init__(self, tag: Hashable) -> None:
+        self.done = threading.Event()
+        self.rows: Optional[list] = None
+        self.error: Optional[BaseException] = None
+        self.stale = False          # a Refresh came after it started: its rows are never cached
+        self.tag = tag
+
+
+class QueryFlights:
+    """Identical queries asked while one is already running wait for its result instead of running again.
+
+    Opening a date makes the page send several requests at once (summary, well list, wells table, the brief); each
+    needs the same few queries, and the cache is only filled when a query ends, so without this each request ran
+    its own copy. The first request runs the query (the leader); the others wait and take its rows. Only the query
+    run is shared: every request still passes the SELECT-only gate and the table allowlist itself.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._running: dict[str, _Flight] = {}
+
+    def join(self, key: str, tag: Hashable) -> tuple[bool, _Flight]:
+        """(True, new flight) for the leader, or (False, the running flight) for a request that waits."""
+        with self._lock:
+            flight = self._running.get(key)
+            if flight is not None:
+                return False, flight
+            flight = self._running[key] = _Flight(tag)
+            return True, flight
+
+    def finish(self, key: str, flight: _Flight) -> None:
+        with self._lock:
+            if self._running.get(key) is flight:
+                del self._running[key]
+        flight.done.set()
+
+    def invalidate(self, tag: Hashable) -> None:
+        """Refresh: a query already running for the date is not joined by later requests and does not fill the cache."""
+        with self._lock:
+            for key, flight in list(self._running.items()):
+                if flight.tag == tag:
+                    flight.stale = True
+                    del self._running[key]
+
+    def clear(self) -> None:
+        with self._lock:
+            self._running.clear()
+
+
+#: How long a waiting request gives the shared run beyond the query timeout before it asks for itself.
+_WAIT_SLACK_SECONDS = 30
+
 ROW_CACHE = TtlCache()      # query results
 ANSWER_CACHE = TtlCache()   # verified agent answers (app/features/dailyreport/agent/graph.py)
+FLIGHTS = QueryFlights()    # query runs in progress, shared by identical requests
 
 
 def content_key(*parts: Any) -> str:
@@ -134,16 +195,44 @@ class DataSource:
         if hit is not None:
             db.guard(found.sql, FEATURE_TITLE)        # an allowlist change applies to cached results too
             return list(hit)
+        if ttl <= 0:                                  # cache off (or never cached): nothing is kept or shared
+            return list(self._fetch(found, key, params))
+
+        tag = date_tag(self.identity, report_date)
+        leader, flight = FLIGHTS.join(cache_key, tag)
+        if not leader:
+            # The same query is running for another request: wait for it instead of running a copy.
+            db.guard(found.sql, FEATURE_TITLE)        # this request's own allowlist, not the leader's
+            if flight.done.wait(settings.db_query_timeout_seconds + _WAIT_SLACK_SECONDS):
+                if flight.error is None and flight.rows is not None:
+                    return list(flight.rows)
+                if isinstance(flight.error, db.DatabaseUnavailable):
+                    raise flight.error                # the database is down: the same answer for everyone
+            # Any other failure (a refusal under the leader's settings, a run that did not end): ask for ourselves.
+            return list(self._fetch(found, key, params))
+        try:
+            rows = self._fetch(found, key, params)
+            flight.rows = rows
+            if not flight.stale:
+                ROW_CACHE.put(cache_key, rows, tag=tag, ttl_seconds=ttl, max_entries=settings.dataset_cache_max_entries)
+            return list(rows)
+        except BaseException as exc:
+            flight.error = exc
+            raise
+        finally:
+            FLIGHTS.finish(cache_key, flight)
+
+    def _fetch(self, found: FeatureQuery, key: str, params: list[Any]) -> list[dict[str, Any]]:
+        """One run of the query against the database, checked against its column contract."""
+        settings = self._settings
         result = db.query(found.sql, params, feature_title=FEATURE_TITLE, label=key,
                           timeout=settings.db_query_timeout_seconds, codepage=settings.db_ansi_codepage)
-        rows = _fit_columns(key, found, result.columns, result.rows)
-        ROW_CACHE.put(cache_key, rows, tag=date_tag(self.identity, report_date), ttl_seconds=ttl,
-                      max_entries=settings.dataset_cache_max_entries)
-        return list(rows)
+        return _fit_columns(key, found, result.columns, result.rows)
 
     def invalidate_date(self, report_date: date) -> None:
         """Refresh: drop this database's query results and verified answers for the date."""
         tag = date_tag(self.identity, report_date)
+        FLIGHTS.invalidate(tag)
         ROW_CACHE.invalidate(tag)
         ANSWER_CACHE.invalidate(tag)
 

@@ -13,7 +13,7 @@ from tests.features.dailyreport.conftest import (
     detail_row,
     make_row,
     report_context,
-    seed_prompts,
+    seed_text,
 )
 
 
@@ -86,15 +86,14 @@ class TestFigures:
 class TestWellEvidence:
     def test_the_figures_definitions_and_constraints(self, fake_db):
         _setup(fake_db, detail=[detail_row(), detail_row(task_code="X-1", task_state="NOT_STARTED", actual_start=None)])
-        prompts = seed_prompts()
         with report_context() as ctx:
             evidence = ctx.activity.evidence(REPORT_DATE, ctx.daily.get_dataset(REPORT_DATE), 31474)
         assert evidence["task_activity"]["open_task_count"] == 4
         assert [t["task_state"] for t in evidence["ongoing_tasks"]] == ["ONGOING"]
         definitions = dict(evidence["definitions"])
-        assert definitions.pop("task_states") == parse_entries(prompts["dailyreport.task_state_definitions"])
-        assert definitions == parse_entries(prompts["dailyreport.well_activity_definitions"])
-        assert evidence["constraints"] == parse_entries(prompts["dailyreport.well_activity_constraints"])
+        assert definitions.pop("task_states") == parse_entries(seed_text("task_state_definitions"))
+        assert definitions == parse_entries(seed_text("well_activity_definitions"))
+        assert evidence["constraints"] == parse_entries(seed_text("well_activity_constraints"))
         assert "progress" not in json.dumps(evidence["ongoing_tasks"])
 
     def test_a_well_with_no_task_evidence_gets_no_invented_zeros(self, fake_db):
@@ -108,7 +107,7 @@ class TestWellEvidence:
             evidence = ctx.activity.evidence(REPORT_DATE, ctx.daily.get_dataset(REPORT_DATE), 31474)
         assert len(evidence["ongoing_tasks"]) == 2
         assert evidence["ongoing_tasks_truncated"] == {
-            "included": 2, "total": 5, "note": seed_prompts()["dailyreport.well_ongoing_truncated_note"]}
+            "included": 2, "total": 5, "note": seed_text("well_ongoing_truncated_note")}
 
     def test_the_same_evidence_serialises_identically_twice(self, fake_db):
         _setup(fake_db, detail=[detail_row()])
