@@ -68,6 +68,8 @@ export interface DashboardConfigWidget {
   chartId: number;
   sortOrder: number;
   type: DashboardLayoutItemType;
+  /** True hides the inline table; false/absent follows the library chart's setting. */
+  hideDataTableOverride?: boolean;
   width?: number | null;
   height?: number | null;
   /** A chart's user-placed position (drag or resize), persisted so it's reused verbatim on every
@@ -140,6 +142,7 @@ export interface ShareDashboardInternallyResponse {
 export interface DashboardCategoryResponse {
   categoryId: number;
   categoryName: string;
+  description?: string | null;
   dashboardCount: number;
   dashboards: DashboardSummaryResponse[];
 }

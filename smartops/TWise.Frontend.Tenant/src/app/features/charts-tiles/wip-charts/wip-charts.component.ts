@@ -1,6 +1,6 @@
-import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { finalize, Subscription } from 'rxjs';
+import { catchError, finalize, forkJoin, of, Subscription } from 'rxjs';
 import type Highcharts from 'highcharts';
 import { Copy, createElement } from 'lucide';
 import { CategoryService } from '../../../core/services/category.service';
@@ -73,6 +73,9 @@ export class WipChartsComponent implements OnInit, OnDestroy {
   set cloneIcon(element: ElementRef<HTMLElement> | undefined) {
     element?.nativeElement.replaceChildren(createElement(Copy, { width: 18, height: 18, 'aria-hidden': 'true' }));
   }
+
+  @ViewChildren('cardsRow') private cardRows?: QueryList<ElementRef<HTMLElement>>;
+  private revealNewestOnLoad = false;
 
   constructor(
     private readonly router: Router,
@@ -326,12 +329,16 @@ export class WipChartsComponent implements OnInit, OnDestroy {
     const statusParam = isPublishedMode ? 'published' : undefined;
     const startedAt = Date.now();
 
-    this.widgetService.getWidgets(statusParam, 'chart').subscribe({
-      next: (widgets) => {
-        // For WIP/My: exclude published charts
-        const filtered = isPublishedMode
-          ? widgets
-          : widgets.filter((w: Widget) => w.status !== 'published');
+    forkJoin({
+      widgets: this.widgetService.getWidgets(statusParam, 'chart'),
+      // WIP/My lists show only the user's own categories; if they cannot be loaded, show everything.
+      ownCategories: isPublishedMode ? of(null) : this.categoryService.getCategoriesByType('chart').pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ widgets, ownCategories }) => {
+        // For WIP/My: exclude published charts; charts in a category the user did not create go under "Others"
+        const filtered = isPublishedMode ? widgets : widgets.filter((w: Widget) => w.status !== 'published');
+        const inOtherCategory = (w: Widget) => !isPublishedMode && !!ownCategories && w.categoryId != null
+          && !ownCategories.some(c => c.categoryId === w.categoryId);
         const apiCharts: ChartItem[] = filtered.map((w: Widget, i: number) => {
           let design: Record<string, unknown> = {};
           try { design = JSON.parse(w.designJson ?? '{}'); } catch { /* ignore */ }
@@ -348,7 +355,7 @@ export class WipChartsComponent implements OnInit, OnDestroy {
             id: String(w.id),
             title: w.name,
             description: w.description || `${w.source ?? ''} — ${chartType || 'chart'}`,
-            category: w.categoryName ?? 'Uncategorized',
+            category: inOtherCategory(w) ? 'Others' : (w.categoryName ?? 'Uncategorized'),
             visual, accent,
             favorite: this.favouriteIds.has(w.id),
             recentlyViewed: this.recentIds.includes(w.id),
@@ -363,6 +370,11 @@ export class WipChartsComponent implements OnInit, OnDestroy {
         this.stopLoading(startedAt);
         // Load preferences AFTER charts are set so the mapping is applied to real data
         this.loadPreferences();
+        if (this.revealNewestOnLoad) {
+          this.revealNewestOnLoad = false;
+          // Newest cards sort first; a row the user had scrolled would otherwise keep the clone off-screen.
+          setTimeout(() => this.cardRows?.forEach(row => row.nativeElement.scrollTo({ left: 0, behavior: 'smooth' })));
+        }
       },
       error: () => {
         this.stopLoading(startedAt);
@@ -676,6 +688,7 @@ export class WipChartsComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (created) => {
         this.notify.showSuccess(`'${created.name}' has been added to ${this.pageTitle}.`);
+        this.revealNewestOnLoad = true;
         this.loadCharts();
       },
       error: (error) => this.notify.showError(error?.error?.error || error?.error?.message || error?.message || 'Failed to clone chart.'),

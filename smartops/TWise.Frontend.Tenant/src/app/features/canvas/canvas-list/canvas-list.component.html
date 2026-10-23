@@ -2,7 +2,7 @@
   [subtitle]="mode === 'standard' ? 'Published canvases, ready to view and share.' : 'Put charts, tiles and tables from your data models side by side, on as many sheets as you need.'"
   [breadcrumbs]="[{ label: 'Home' }, { label: 'BI Canvas' }, { label: mode === 'standard' ? 'Standard Canvases' : mode === 'wip' ? 'WIP Canvases' : 'Canvases' }]">
   <span page-header-icon class="canvas-list__icon"><app-icon name="dashboard" aria-hidden="true"></app-icon></span>
-  <app-button *ngIf="canCreate && showWip" variant="primary" (clicked)="openCreate()">New canvas</app-button>
+  <app-button *ngIf="canCreate && showWip" variant="primary" (clicked)="openCreate()">New Canvas</app-button>
 </app-page-header>
 
 <div *ngIf="toast" class="canvas-list__toast" [class.canvas-list__toast--error]="toast.kind === 'error'" role="status">
@@ -12,9 +12,9 @@
 <app-loader *ngIf="loading" size="lg"></app-loader>
 <p *ngIf="!loading && error" class="canvas-list__error" role="alert">{{ error }}</p>
 
-<app-empty-state *ngIf="!loading && !error && empty" appIcon="dashboard" [title]="mode === 'standard' ? 'No published canvases yet' : 'No canvases yet'"
-  [description]="mode === 'standard' ? 'Canvases appear here once their authors publish them.' : 'A canvas shows charts, tiles and tables built on your data models, on one or more sheets.'">
-  <app-button *ngIf="canCreate && showWip" variant="primary" (clicked)="openCreate()">New canvas</app-button>
+<app-empty-state *ngIf="!loading && !error && empty" appIcon="dashboard" [title]="mode === 'standard' ? 'No Published Canvases Yet' : 'No Canvases Yet'"
+  [description]="mode === 'standard' ? 'Published Canvases appear here once their authors publish them.' : 'A Canvas shows charts, tiles and tables built on your data models, on one or more sheets.'">
+  <app-button *ngIf="canCreate && showWip" variant="primary" (clicked)="openCreate()">New Canvas</app-button>
 </app-empty-state>
 
 <h2 *ngIf="!loading && !mode && canvases.length > 0 && published.length > 0" class="canvas-list__section-title">My canvases</h2>
@@ -46,7 +46,7 @@
 <div *ngIf="createOpen" class="canvas-list__overlay" (click)="createOpen = false">
   <form appDialog (dialogClose)="createOpen = false" class="canvas-list__modal" role="dialog" aria-modal="true" aria-labelledby="new-canvas-title"
     (click)="$event.stopPropagation()" (ngSubmit)="create()">
-    <h2 id="new-canvas-title" class="canvas-list__modal-title">New canvas</h2>
+    <h2 id="new-canvas-title" class="canvas-list__modal-title">New Canvas</h2>
     <div class="form-group">
       <label for="canvas-name">Name</label>
       <input id="canvas-name" class="form-control" name="name" maxlength="100" required [(ngModel)]="form.name" />

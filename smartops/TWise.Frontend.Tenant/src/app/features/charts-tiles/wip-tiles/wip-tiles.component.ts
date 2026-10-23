@@ -1,6 +1,6 @@
 import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { catchError, forkJoin, of, Subscription } from 'rxjs';
 import { CategoryService } from '../../../core/services/category.service';
 import { CategoryDropdown } from '../../../core/models/category.model';
 import { WidgetService, Widget } from '../../../core/services/widget.service';
@@ -28,11 +28,15 @@ export interface TileItem {
   statValue: string;
   status: string;
   widget?: Widget;
+  /** WIP/My only: the tile sits in a category the user did not create, so it is listed under "Others". */
+  inOtherCategory?: boolean;
 }
 
 export type TileGroupIcon = 'settings' | 'productivity' | 'crew';
 
 export interface TileGroup {
+  id: string;
+  categoryId?: number;
   category: string;
   description?: string;
   icon: TileGroupIcon;
@@ -147,7 +151,11 @@ export class WipTilesComponent implements OnInit, OnDestroy {
     }));
     this.categorySub = this.categoryService.getCategoriesByType('tile').subscribe((cats) => {
       this.apiCategories = cats;
-      this.tileGroups.forEach(g => { g.description = cats.find(c => c.categoryName === g.category)?.description; });
+      this.tileGroups.forEach(g => {
+        g.description = g.categoryId != null
+          ? (cats.find(c => c.categoryId === g.categoryId)?.description ?? g.description)
+          : cats.find(c => c.categoryName === g.category)?.description;
+      });
       this.cdr.markForCheck();
     });
     this.loadTiles();
@@ -200,8 +208,14 @@ export class WipTilesComponent implements OnInit, OnDestroy {
   private loadTiles(): void {
     const status = this.isPublishedMode ? 'published' : undefined;
     const startedAt = Date.now();
-    this.widgetService.getWidgets(status, 'tile').subscribe({
-      next: (widgets) => {
+    forkJoin({
+      widgets: this.widgetService.getWidgets(status, 'tile'),
+      // WIP/My lists show only the user's own categories; if they cannot be loaded, show everything.
+      ownCategories: this.isPublishedMode ? of(null) : this.categoryService.getCategoriesByType('tile').pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ widgets, ownCategories }) => {
+        const inOtherCategory = (w: Widget) => !this.isPublishedMode && !!ownCategories && w.categoryId != null
+          && !ownCategories.some(c => c.categoryId === w.categoryId);
         const allTiles = widgets
           .filter((w: Widget) => this.isPublishedMode ? w.status === 'published' : w.status !== 'published')
           .map((w: Widget) => {
@@ -212,7 +226,8 @@ export class WipTilesComponent implements OnInit, OnDestroy {
               id: String(w.id),
               title: w.name,
               description: w.description || `${w.source ?? ''} — ${(design['aggregation'] as string) ?? 'count'}`,
-              category: w.categoryName ?? 'Uncategorized',
+              category: inOtherCategory(w) ? 'Others' : (w.categoryName ?? 'Uncategorized'),
+              inOtherCategory: inOtherCategory(w),
               accent: accents[w.id % accents.length] as TileAccent,
               icon: (design['tileIcon'] as string) ?? 'well',
               // Carry the already-known preference flags over; resetting them to false here would
@@ -227,37 +242,46 @@ export class WipTilesComponent implements OnInit, OnDestroy {
           });
 
         if (this.isPublishedMode) {
-          // Group by category for published/standard view
+          // Group by categoryId for published/standard view so same-name categories stay separate
           const grouped = new Map<string, TileItem[]>();
           allTiles.forEach(t => {
-            if (!grouped.has(t.category)) grouped.set(t.category, []);
-            grouped.get(t.category)!.push(t);
+            const key = t.widget?.categoryId != null ? `cat-${t.widget.categoryId}` : t.category;
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(t);
           });
           const icons: TileGroupIcon[] = ['settings', 'productivity', 'crew'];
           let iconIdx = 0;
-          this.tileGroups = Array.from(grouped.entries()).map(([category, tiles]) => ({
-            category,
-            description: this.apiCategories.find(c => c.categoryName === category)?.description,
+          this.tileGroups = Array.from(grouped.entries()).map(([key, tiles]) => ({
+            id: key,
+            categoryId: tiles[0].widget?.categoryId,
+            category: tiles[0].category,
+            description: tiles[0].widget?.categoryDescription ?? undefined,
             icon: icons[iconIdx++ % 3],
             tiles,
-            expanded: false,
+            expanded: this.tileGroups.find(g => g.id === key)?.expanded ?? false,
           }));
           this.computeGroupOrder();
         } else {
-          // Group by category for wip/my view too
+          // Keep same-name categories separate in the WIP/My view too.
           const grouped = new Map<string, TileItem[]>();
           allTiles.forEach(t => {
-            if (!grouped.has(t.category)) grouped.set(t.category, []);
-            grouped.get(t.category)!.push(t);
+            const key = t.inOtherCategory ? 'others' : t.widget?.categoryId != null ? `cat-${t.widget.categoryId}` : t.category;
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(t);
           });
           const icons: TileGroupIcon[] = ['settings', 'productivity', 'crew'];
           let iconIdx = 0;
-          this.tileGroups = Array.from(grouped.entries()).map(([category, tiles]) => ({
-            category,
-            description: this.apiCategories.find(c => c.categoryName === category)?.description,
+          this.tileGroups = Array.from(grouped.entries()).map(([key, tiles]) => ({
+            id: key,
+            categoryId: key === 'others' ? undefined : tiles[0].widget?.categoryId,
+            category: tiles[0].category,
+            description: key === 'others' ? undefined : tiles[0].widget?.categoryId != null
+              ? this.apiCategories.find(c => c.categoryId === tiles[0].widget?.categoryId)?.description
+                ?? tiles[0].widget?.categoryDescription ?? undefined
+              : this.apiCategories.find(c => c.categoryName === tiles[0].category)?.description,
             icon: icons[iconIdx++ % 3],
             tiles,
-            expanded: false,
+            expanded: this.tileGroups.find(g => g.id === key)?.expanded ?? false,
           }));
           this.computeGroupOrder();
           this.tiles = allTiles;
@@ -272,15 +296,15 @@ export class WipTilesComponent implements OnInit, OnDestroy {
   }
 
   toggleGroup(group: TileGroup): void {
-    const isOpen = !!this.tileGroups.find(g => g.category === group.category)?.expanded;
+    const isOpen = !!this.tileGroups.find(g => g.id === group.id)?.expanded;
     // accordion: close all groups, then open the clicked one if it was closed
     this.tileGroups.forEach(g => { g.expanded = false; });
-    const source = this.tileGroups.find(g => g.category === group.category);
+    const source = this.tileGroups.find(g => g.id === group.id);
     if (source) source.expanded = !isOpen;
   }
 
   trackByGroup(_index: number, group: TileGroup): string {
-    return group.category;
+    return group.id;
   }
 
   openTile(tile: TileItem): void {
@@ -560,6 +584,10 @@ export class WipTilesComponent implements OnInit, OnDestroy {
   }
 
   get categoryOptions(): { value: string; label: string }[] {
+    if (this.isPublishedMode) {
+      return [...new Set(this.tileGroups.flatMap(g => g.tiles).map(t => t.category))]
+        .map(category => ({ value: category, label: category }));
+    }
     return this.apiCategories.map(c => ({ value: c.categoryName, label: c.categoryName }));
   }
 
@@ -605,7 +633,7 @@ export class WipTilesComponent implements OnInit, OnDestroy {
       .sort((a, b) => {
         if (this.activeTab === 'recent' && this.sortOption === 'default') return this.recentGroupRank(a.tiles) - this.recentGroupRank(b.tiles);
         const rank = (key: string) => { const i = this.groupOrder.indexOf(key); return i === -1 ? Number.MAX_SAFE_INTEGER : i; };
-        return rank(a.category) - rank(b.category);
+        return rank(a.id) - rank(b.id);
       });
   }
 
@@ -717,7 +745,7 @@ export class WipTilesComponent implements OnInit, OnDestroy {
       if (this.sortOption === 'most-charts') return b.tiles.length - a.tiles.length;
       return 0;
     });
-    this.groupOrder = sorted.map(g => g.category);
+    this.groupOrder = sorted.map(g => g.id);
   }
 
   @HostListener('document:click')
@@ -788,7 +816,11 @@ export class WipTilesComponent implements OnInit, OnDestroy {
     this.showCategoryManager = false;
     this.categoryService.getCategoriesByType('tile').subscribe(cats => {
       this.apiCategories = cats;
-      this.tileGroups.forEach(g => { g.description = cats.find(c => c.categoryName === g.category)?.description; });
+      this.tileGroups.forEach(g => {
+        g.description = g.categoryId != null
+          ? (cats.find(c => c.categoryId === g.categoryId)?.description ?? g.description)
+          : cats.find(c => c.categoryName === g.category)?.description;
+      });
       this.cdr.markForCheck();
     });
   }

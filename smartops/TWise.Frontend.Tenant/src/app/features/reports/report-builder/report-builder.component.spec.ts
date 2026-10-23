@@ -1,4 +1,164 @@
+import '@angular/compiler';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { ReportBuilderComponent } from './report-builder.component';
+import { GlobalFilterSelection } from '../../../core/utils/global-filter-selection.util';
+
+describe('ReportBuilderComponent cluster banner', () => {
+  it.each<{ selection: GlobalFilterSelection; label: string }>([
+    { selection: 'Nimr', label: 'Nimr' },
+    { selection: '  Nimr  ', label: 'Nimr' },
+    { selection: [' Nimr ', 'Amal '], label: 'Nimr, Amal' },
+    { selection: ['Nimr', 'Nimr', 'All'], label: 'Nimr' },
+    { selection: 'All', label: '' },
+    { selection: '', label: '' },
+    { selection: [], label: '' },
+    { selection: ['All', '', '  '], label: '' },
+  ])('renders the banner correctly for $selection', ({ selection, label }) => {
+    const component: ReportBuilderComponent = Object.create(ReportBuilderComponent.prototype);
+    component.filterValues = { cluster: selection };
+    component.reportName = 'Job Progress Report';
+    component.customClusterBannerEnabled = true;
+
+    expect(component.selectedClusterName).toBe(label);
+    expect(component.showClusterBanner).toBe(Boolean(label));
+    expect(component.clusterBannerTitle)
+      .toBe(label ? `JOB PROGRESS REPORT - ${label.toUpperCase()}` : 'JOB PROGRESS REPORT');
+  });
+
+  function makeBannerBuilder(): ReportBuilderComponent {
+    const component: ReportBuilderComponent = Object.create(ReportBuilderComponent.prototype);
+    component.filterValues = { cluster: 'Nimr' };
+    component.reportName = 'Job Progress Report';
+    component.setCustomClusterBannerEnabled(false);
+    return component;
+  }
+
+  it('honors manual unchecking until the selected cluster changes', () => {
+    const component = makeBannerBuilder();
+    component.startEditClusterBanner();
+    expect(component.showClusterBanner).toBe(false);
+    expect(component.showClusterBannerEditor).toBe(false);
+    component.filterValues['cluster'] = 'Amal';
+    expect(component.showClusterBanner).toBe(true);
+  });
+
+  it('checks for a cluster, unchecks for All, and checks again on selecting a cluster', () => {
+    const component = makeBannerBuilder();
+    component.filterValues['cluster'] = 'All';
+    component['refreshGlobalFilterData']();
+    expect(component.customClusterBannerEnabled).toBe(false);
+    expect(component.showClusterBanner).toBe(false);
+    component.setCustomClusterBannerEnabled(true);
+    expect(component.customClusterBannerEnabled).toBe(false);
+    component.filterValues['cluster'] = 'Nimr';
+    component['refreshGlobalFilterData']();
+    expect(component.customClusterBannerEnabled).toBe(true);
+    expect(component.showClusterBanner).toBe(true);
+    component.setCustomClusterBannerEnabled(false);
+    expect(component.customClusterBannerEnabled).toBe(false);
+    component.filterValues['cluster'] = 'All';
+    component['refreshGlobalFilterData']();
+    expect(component.customClusterBannerEnabled).toBe(false);
+    component.filterValues['cluster'] = 'Nimr';
+    component['refreshGlobalFilterData']();
+    expect(component.customClusterBannerEnabled).toBe(true);
+  });
+
+  it('edits the complete title live and hides all controls when disabled', () => {
+    const component = makeBannerBuilder();
+    component.setCustomClusterBannerEnabled(true);
+    expect(component.showClusterBanner).toBe(true);
+    expect(component.showClusterBannerEditor).toBe(false);
+    component.updateClusterBannerText('Cannot edit before clicking Edit');
+    expect(component.clusterBannerTitle).toBe('JOB PROGRESS REPORT - NIMR');
+    component.startEditClusterBanner();
+    expect(component.clusterBannerDraft).toBe('JOB PROGRESS REPORT - NIMR');
+    expect(component.showClusterBannerEditor).toBe(true);
+    component.updateClusterBannerText('My edited report - Nimr');
+    expect(component.clusterBannerTitle).toBe('My edited report - Nimr');
+    expect(component.reportName).toBe('Job Progress Report');
+    expect(component.selectedClusterName).toBe('Nimr');
+    component.setCustomClusterBannerEnabled(false);
+    expect(component.showClusterBanner).toBe(false);
+    expect(component.showClusterBannerEditor).toBe(false);
+    component.setCustomClusterBannerEnabled(true);
+    expect(component.showClusterBannerEditor).toBe(false);
+    expect(component.clusterBannerTitle).toBe('My edited report - Nimr');
+  });
+
+  it('keeps the current title available while editing is disabled', () => {
+    const component = makeBannerBuilder();
+    component.setCustomClusterBannerEnabled(true);
+    expect(component.clusterBannerTitle).toBe('JOB PROGRESS REPORT - NIMR');
+    expect(component.showClusterBannerEditor).toBe(false);
+    component.filterValues['cluster'] = 'Amal';
+    expect(component.clusterBannerTitle).toBe('JOB PROGRESS REPORT - AMAL');
+    expect(component.showClusterBannerEditor).toBe(false);
+    component.startEditClusterBanner();
+    expect(component.showClusterBannerEditor).toBe(true);
+    expect(component.clusterBannerDraft).toBe('JOB PROGRESS REPORT - AMAL');
+  });
+
+  it('retains custom text but disables editing on a cluster change', () => {
+    const component = makeBannerBuilder();
+    component.setCustomClusterBannerEnabled(true);
+    component.startEditClusterBanner();
+    component.updateClusterBannerText('Nimr custom title');
+    component.filterValues['cluster'] = 'Amal';
+    expect(component.clusterBannerTitle).toBe('Nimr custom title');
+    expect(component.showClusterBannerEditor).toBe(false);
+    component.updateClusterBannerText('Stale input');
+    expect(component.clusterBannerTitle).toBe('Nimr custom title');
+    component.startEditClusterBanner();
+    expect(component.clusterBannerDraft).toBe('Nimr custom title');
+    expect(component.showClusterBannerEditor).toBe(true);
+    component.updateClusterBannerText('Amal custom title');
+    expect(component.clusterBannerTitle).toBe('Amal custom title');
+    component.filterValues['cluster'] = 'All';
+    expect(component.showClusterBanner).toBe(false);
+    expect(component.showClusterBannerEditor).toBe(false);
+    component.startEditClusterBanner();
+    expect(component.showClusterBannerEditor).toBe(false);
+  });
+
+  it('resumes dynamic cluster text only after the user clears custom text', () => {
+    const component = makeBannerBuilder();
+    component.setCustomClusterBannerEnabled(true);
+    component.startEditClusterBanner();
+    component.updateClusterBannerText('Custom title');
+    component.filterValues['cluster'] = 'Amal';
+    component['refreshGlobalFilterData']();
+    expect(component.clusterBannerTitle).toBe('Custom title');
+    component.startEditClusterBanner();
+    component.updateClusterBannerText('');
+    component.filterValues['cluster'] = 'Nimr';
+    component['refreshGlobalFilterData']();
+    expect(component.clusterBannerTitle).toBe('JOB PROGRESS REPORT - NIMR');
+    component.startEditClusterBanner();
+    expect(component.clusterBannerDraft).toBe('JOB PROGRESS REPORT - NIMR');
+    component.updateClusterBannerText('   ');
+    component.filterValues['cluster'] = 'Amal';
+    component['refreshGlobalFilterData']();
+    expect(component.clusterBannerTitle).toBe('JOB PROGRESS REPORT - AMAL');
+  });
+});
+
+describe('ReportBuilderComponent global option appearance', () => {
+  const component: ReportBuilderComponent = Object.create(ReportBuilderComponent.prototype);
+
+  it.each<GlobalFilterSelection>(['All', '', []])('checks every item checkbox for unrestricted selection %j', selection => {
+    expect(component.isFilterOptionSelected(selection, 'Amal')).toBe(true);
+    expect(component.isFilterOptionSelected(selection, 'Nimr')).toBe(true);
+    expect(component.isFilterOptionSelected(selection, 'All')).toBe(true);
+    expect(component.filterLabel(selection)).toBe('All');
+  });
+
+  it.each<GlobalFilterSelection>(['Amal', ['Amal', 'GB']])('checks only selected values for %j', selection => {
+    expect(component.isFilterOptionSelected(selection, 'Amal')).toBe(true);
+    expect(component.isFilterOptionSelected(selection, 'Nimr')).toBe(false);
+    expect(component.isFilterOptionSelected(selection, 'All')).toBe(false);
+  });
+});
 // import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**

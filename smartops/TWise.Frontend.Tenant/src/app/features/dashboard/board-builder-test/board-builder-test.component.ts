@@ -1,4 +1,6 @@
 import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
+import { advancedHierarchyFilters } from '../../../core/utils/advanced-hierarchy-filter.util';
+import { AdvancedFilterComponent, type AdvancedFilterValue } from '../../../shared/components/advanced-filter/advanced-filter.component';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
 import { applyChartSort } from '../../../core/utils/chart-sort.util';
@@ -16,10 +18,18 @@ import { DashboardService } from '../../../core/services/dashboard.service';
 import { SaveDashboardRequest, WidgetLibraryItem } from '../../../core/models/dashboard.model';
 import { WidgetService } from '../../../core/services/widget.service';
 import { CommonApiService, PlantFilterDto } from '../../../core/services/common-api.service';
+import {
+  GlobalFilterSelection,
+  globalSelectionLabel,
+  hasGlobalSelection,
+  matchesGlobalSelection,
+  GlobalFilterClearState, toggleGlobalSelection,
+} from '../../../core/utils/global-filter-selection.util';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChartView, ChartViewIcon, chartSwitchOptions, chartViewIcon, chartViewLabel, toChartView } from '../../../core/constants/chart-view.constants';
 import { appendDaxToChartData, getActiveDaxMeasures, evaluateTileDaxValue, formatDaxValue, getSelectedDaxMeasure } from '../../../core/utils/dax-evaluator.util';
 import { CHART_AUTO_COLORS } from '../../../core/utils/chart-color.util';
+import { legendLayoutClass, LegendPosition, readLegendPosition } from '../../../core/utils/chart-legend-position.util';
 import { applyConditionalFilters, getSavedConditionalFilters } from '../../../core/utils/conditional-filter.util';
 
 const CHART_COLORS = [...CHART_AUTO_COLORS];
@@ -91,16 +101,47 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
   }
   // ── Filters bar ───────────────────────────────────────────
   filterBarVisible = true;
-  country = 'All';
-  sector = 'All';
-  businessUnit = 'All';
-  division = 'All';
-  cluster = 'All';
-  plant = 'All';
+  country: GlobalFilterSelection = 'All';
+  sector: GlobalFilterSelection = 'All';
+  businessUnit: GlobalFilterSelection = 'All';
+  division: GlobalFilterSelection = 'All';
+  cluster: GlobalFilterSelection = 'All';
+  plant: GlobalFilterSelection = 'All';
   fromDate = '2026-12-12';
   toDate = '2026-12-12';
   quickRange = '';
-  openFilterName: string | null = null;
+  private globalFilterClearState?: GlobalFilterClearState;
+
+  get globalFilterClear(): GlobalFilterClearState {
+    return this.globalFilterClearState ??= new GlobalFilterClearState();
+  }
+  private openFilterNameValue: string | null = null;
+
+  get openFilterName(): string | null {
+    return this.openFilterNameValue;
+  }
+
+  set openFilterName(name: string | null) {
+    this.openFilterNameValue = name;
+    // Closing a dropdown left in the "Clear all" state reverts that filter to All.
+    const abandoned = this.globalFilterClear.release(name);
+    if (abandoned) this.revertClearedGlobalFilter(abandoned.key);
+  }
+
+  clearGlobalFilterSelection(key: unknown, event: Event): void {
+    event.stopPropagation();
+    this.globalFilterClear.clear(key, this.openFilterName);
+  }
+
+  isGlobalFilterCleared(key: unknown): boolean {
+    return this.globalFilterClear.isCleared(key);
+  }
+
+  private revertClearedGlobalFilter(key: unknown): void {
+    if (!['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'].includes(String(key))) return;
+    const field = key as 'country' | 'sector' | 'businessUnit' | 'division' | 'cluster' | 'plant';
+    if (hasGlobalSelection(this[field])) this.selectFilterOption(field, 'All');
+  }
 
   countryOptions:  string[] = [];
   sectorOptions:   string[] = [];
@@ -472,22 +513,54 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
     this.cdr.markForCheck();
   }
 
-  selectFilterOption(field: string, value: string): void {
-    (this as Record<string, unknown>)[field] = value || 'All';
+  filterLabel(selection: GlobalFilterSelection): string {
+    return globalSelectionLabel(selection);
+  }
+
+  isFilterOptionSelected(selection: GlobalFilterSelection, value: string): boolean {
+    return value === 'All' ? selection === 'All' : matchesGlobalSelection(value, selection);
+  }
+
+  private globalFilterOptions(field: string): string[] {
     switch (field) {
-      case 'country':      this.sector = 'All'; this.businessUnit = 'All'; this.division = 'All'; this.cluster = 'All'; this.plant = 'All'; break;
-      case 'sector':       this.businessUnit = 'All'; this.division = 'All'; this.cluster = 'All'; this.plant = 'All'; break;
-      case 'businessUnit': this.division = 'All'; this.cluster = 'All'; this.plant = 'All'; break;
-      case 'division':     this.cluster = 'All'; this.plant = 'All'; break;
-      case 'cluster':      this.plant = 'All'; break;
+      case 'country': return this.countryOptions;
+      case 'sector': return this.sectorOptions;
+      case 'businessUnit': return this.buOptions;
+      case 'division': return this.divisionOptions;
+      case 'cluster': return this.clusterOptions;
+      case 'plant': return this.plantOptions;
+      default: return [];
     }
-    this.rebuildCascadingOptions();
+  }
+
+  selectFilterOption(field: string, value: string): void {
+    if (field === 'quickRange') {
+      this.quickRange = value;
+      this.openFilterName = null;
+      this.cdr.markForCheck();
+      return;
+    }
+    const current = this[field as 'country' | 'sector' | 'businessUnit' | 'division' | 'cluster' | 'plant'];
+    const next = value === 'All' ? 'All' : toggleGlobalSelection(current, value, this.globalFilterOptions(field), this.globalFilterClear.consume(field));
+    switch (field) {
+      case 'country':      this.country = next; this.sector = 'All'; this.businessUnit = 'All'; this.division = 'All'; this.cluster = 'All'; this.plant = 'All'; break;
+      case 'sector':       this.sector = next; this.businessUnit = 'All'; this.division = 'All'; this.cluster = 'All'; this.plant = 'All'; break;
+      case 'businessUnit': this.businessUnit = next; this.division = 'All'; this.cluster = 'All'; this.plant = 'All'; break;
+      case 'division':     this.division = next; this.cluster = 'All'; this.plant = 'All'; break;
+      case 'cluster':      this.cluster = next; this.plant = 'All'; break;
+      case 'plant':        this.plant = next; break;
+    }
+    const resetCluster = field === 'cluster' && !hasGlobalSelection(this.cluster);
+    const resetPlant = resetCluster || (field === 'plant' && !hasGlobalSelection(this.plant));
+    this.rebuildCascadingOptions(resetCluster, resetPlant);
     this.openFilterName = null;
     this.cdr.markForCheck();
   }
 
   /** Resets the Add Tiles/Add Charts modal's filter row (shared fields) to their defaults. */
   clearAdvancedFilters(event?: Event): void {
+    this.advancedFilters = [];
+    this.advancedFilterRef?.clear();
     event?.stopPropagation();
     this.country = 'All';
     this.sector = 'All';
@@ -500,7 +573,36 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
     this.quickRange = '';
     this.openFilterName = null;
     this.rebuildCascadingOptions();
+    this.reloadAdvancedPreviews();
     this.cdr.markForCheck();
+  }
+
+  private advancedFilters: ReturnType<typeof advancedHierarchyFilters> = [];
+  @ViewChild('advancedFilter') private advancedFilterRef?: AdvancedFilterComponent;
+  private readonly advancedFilterReload$ = new Subject<void>();
+
+  applyAdvancedFilter(value: AdvancedFilterValue): void {
+    this.advancedFilters = advancedHierarchyFilters(value.hierarchy);
+    this.reloadAdvancedPreviews();
+  }
+
+  private reloadAdvancedPreviews(): void {
+    this.advancedFilterReload$.next();
+    const chartIds = new Set(this.loadedChartPreviewIds);
+    const tileKeys = new Set(this.tilePreviewRequests.keys());
+    this.loadedChartPreviewIds.clear();
+    this.tilePreviewRequests.clear();
+    const charts = [...this.standardCharts, ...this.myCharts];
+    const tiles = [...this.standardTiles, ...this.myTiles];
+    for (const item of this.boardItems) {
+      if (!item.data || item.empty) continue;
+      if (item.kind === 'chart' && 'source' in item.data) charts.push(item.data);
+      else if (item.kind === 'tile' && 'value' in item.data) tiles.push(item.data);
+    }
+    for (const chart of new Map(charts.filter(chart => chartIds.has(chart.id)).map(chart => [chart.id, chart])).values())
+      this.loadChartPreview(chart);
+    for (const tile of new Map(tiles.filter(tile => tileKeys.has(JSON.stringify([tile.id, tile.designJson]))).map(tile => [tile.id, tile])).values())
+      this.loadTilePreview(tile);
   }
 
   private loadPlantFilters(): void {
@@ -517,36 +619,34 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private autoSelectSingle(): void {
-    const active = (v: string) => v && v !== 'All';
     if (this.countryOptions.length === 1) this.country = this.countryOptions[0];
     let filtered = this.allPlants;
-    if (active(this.country)) filtered = filtered.filter(p => p.country === this.country);
+    if (this.country !== 'All') filtered = filtered.filter(p => matchesGlobalSelection(p.country, this.country));
     const sectors = this.distinctValues(filtered, p => p.sector);
     if (sectors.length === 1) this.sector = sectors[0];
-    if (active(this.sector)) filtered = filtered.filter(p => p.sector === this.sector);
+    if (this.sector !== 'All') filtered = filtered.filter(p => matchesGlobalSelection(p.sector, this.sector));
     const bus = this.distinctValues(filtered, p => p.businessUnit);
     if (bus.length === 1) this.businessUnit = bus[0];
-    if (active(this.businessUnit)) filtered = filtered.filter(p => p.businessUnit === this.businessUnit);
+    if (this.businessUnit !== 'All') filtered = filtered.filter(p => matchesGlobalSelection(p.businessUnit, this.businessUnit));
     const divs = this.distinctValues(filtered, p => p.division);
     if (divs.length === 1) this.division = divs[0];
   }
 
-  private rebuildCascadingOptions(): void {
-    const active = (v: string) => v && v !== 'All';
+  private rebuildCascadingOptions(suppressAutoCluster = false, suppressAutoPlant = false): void {
     let filtered = this.allPlants;
-    if (active(this.country)) filtered = filtered.filter(p => p.country === this.country);
-    this.sectorOptions = active(this.country) ? this.distinctValues(filtered, p => p.sector) : [];
-    if (active(this.sector)) filtered = filtered.filter(p => p.sector === this.sector);
-    this.buOptions = active(this.sector) ? this.distinctValues(filtered, p => p.businessUnit) : [];
-    if (active(this.businessUnit)) filtered = filtered.filter(p => p.businessUnit === this.businessUnit);
-    this.divisionOptions = active(this.businessUnit) ? this.distinctValues(filtered, p => p.division) : [];
-    if (active(this.division)) filtered = filtered.filter(p => p.division === this.division);
-    this.clusterOptions = active(this.division) ? this.distinctValues(filtered, p => p.cluster) : [];
+    if (this.country !== 'All') filtered = filtered.filter(p => matchesGlobalSelection(p.country, this.country));
+    this.sectorOptions = this.country !== 'All' ? this.distinctValues(filtered, p => p.sector) : [];
+    if (this.sector !== 'All') filtered = filtered.filter(p => matchesGlobalSelection(p.sector, this.sector));
+    this.buOptions = this.sector !== 'All' ? this.distinctValues(filtered, p => p.businessUnit) : [];
+    if (this.businessUnit !== 'All') filtered = filtered.filter(p => matchesGlobalSelection(p.businessUnit, this.businessUnit));
+    this.divisionOptions = this.businessUnit !== 'All' ? this.distinctValues(filtered, p => p.division) : [];
+    if (this.division !== 'All') filtered = filtered.filter(p => matchesGlobalSelection(p.division, this.division));
+    this.clusterOptions = this.division !== 'All' ? this.distinctValues(filtered, p => p.cluster) : [];
     // Narrowing down to a single cluster/plant should auto-select it instead of leaving 'All' displayed.
-    if (!active(this.cluster) && this.clusterOptions.length === 1) this.cluster = this.clusterOptions[0];
-    if (active(this.cluster)) filtered = filtered.filter(p => p.cluster === this.cluster);
+    if (!suppressAutoCluster && this.cluster === 'All' && this.clusterOptions.length === 1) this.cluster = this.clusterOptions[0];
+    if (this.cluster !== 'All') filtered = filtered.filter(p => matchesGlobalSelection(p.cluster, this.cluster));
     this.plantOptions = this.distinctValues(filtered, p => p.plantDescription);
-    if (!active(this.plant) && this.plantOptions.length === 1) this.plant = this.plantOptions[0];
+    if (!suppressAutoPlant && this.plant === 'All' && this.plantOptions.length === 1) this.plant = this.plantOptions[0];
   }
 
   private distinctValues(plants: PlantFilterDto[], selector: (p: PlantFilterDto) => string): string[] {
@@ -843,7 +943,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
     if (!request$) {
       const data$ = isView
         ? this.commonApi.getDatabaseViewById(viewId).pipe(
-            switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: view.generatedSql, viewId: view.id, maxRows: 1000 })),
+            switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: view.generatedSql, viewId: view.id, maxRows: 1000, filters: this.advancedFilters ?? [] })),
           )
         : this.widgetService.getTableData(source, sourceType);
       const value$ = !isView && sourceType.toLowerCase() === 'table' && design.daxModel?.enabled
@@ -851,7 +951,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
             map(res => `${design.prefix ?? ''}${formatDaxValue(res.value ?? 0, getSelectedDaxMeasure(design.daxModel))}${design.suffix ?? ''}`))
         : data$.pipe(map(res => this.computeTileValue(res.rows ?? [], design)));
       request$ = value$.pipe(
-        takeUntil(this.destroy$), shareReplay({ bufferSize: 1, refCount: true }),
+        takeUntil(this.advancedFilterReload$), takeUntil(this.destroy$), shareReplay({ bufferSize: 1, refCount: true }),
       );
       this.tilePreviewRequests.set(key, request$);
     }
@@ -859,6 +959,9 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
       next: value => { tile.value = value; this.cdr.markForCheck(); },
       error: () => {
         this.tilePreviewRequests.delete(key);
+        if (isView && this.advancedFilters?.length)
+          this.saveError = `Failed to apply Advanced Filters to tile: ${tile.title}`;
+        this.cdr.markForCheck();
         if (design.daxModel?.enabled) { tile.value = 'DAX error'; this.cdr.markForCheck(); }
       },
     });
@@ -1045,6 +1148,8 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
   chartTrendModes: Record<string, TrendMode> = {};
   trendChartPreviews: Record<string, boolean> = {};
   chartIncludeDataTable: Record<string, boolean> = {};
+  chartLegendPositions: Record<string, LegendPosition> = {};
+  readonly legendLayoutClass = legendLayoutClass;
   private chartAggData: Record<string, { cats: string[]; vals: number[]; title: string; multiSeries?: Highcharts.SeriesOptionsType[]; sort?: string }> = {};
   private chartTableCache: Record<string, { headers: string[]; rows: (string | number)[][]; rowColors: string[]; rowBgColors: string[] }> = {};
   private defaultChartType: Record<string, ChartView> = {};
@@ -1074,6 +1179,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
     try { design = JSON.parse(chart.designJson); } catch { return; }
 
     this.chartIncludeDataTable[chart.id] = design.includeDataTable === true;
+    this.chartLegendPositions[chart.id] = readLegendPosition(design);
     const source = design.source ?? chart.source;
     const sourceType = design.sourceType ?? chart.sourceType ?? 'Table';
     const viewId = design.viewId ?? 0;
@@ -1084,11 +1190,10 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
 
     let data$;
     if (isView && isTrend) {
-      data$ = this.widgetService.getFilteredChartData({ chartSource: source, chartSourceType: sourceType, viewId, filters: [], mode: this.chartTrendModes[chart.id] });
+      data$ = this.widgetService.getFilteredChartData({ chartSource: source, chartSourceType: sourceType, viewId, filters: this.advancedFilters ?? [], mode: this.chartTrendModes[chart.id] });
     } else if (isView) {
       data$ = this.commonApi.getDatabaseViewById(viewId).pipe(
-          switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: view.generatedSql, viewId: view.id, maxRows: 1000 })),
-          catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[] })),
+          switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: view.generatedSql, viewId: view.id, maxRows: 1000, filters: this.advancedFilters ?? [] })),
         );
     } else {
       data$ = this.widgetService.getTableData(source, sourceType).pipe(
@@ -1096,7 +1201,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
       );
     }
 
-    data$.pipe(takeUntil(this.destroy$)).subscribe({
+    data$.pipe(takeUntil(this.advancedFilterReload$), takeUntil(this.destroy$)).subscribe({
       next: (res) => {
         const rows = applyConditionalFilters(res.rows ?? [], getSavedConditionalFilters(design));
         const columns = res.columns ?? [];
@@ -1131,6 +1236,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
       },
       error: () => {
         this.chartPreviewLoading[chart.id] = false;
+        this.saveError = `Failed to load chart data: ${chart.title}`;
         this.cdr.markForCheck();
       },
     });
@@ -1203,7 +1309,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
     const categories = [...grouped.keys()];
     const allCols: string[] = [...(design.multiYColumns ?? [])];
     const comboLineCols: string[] = (design as any).comboLineColumns ?? [];
-    const hasDualY = comboLineCols.length > 0 && (design.chartType === 'combo' || design.chartType === 'multiline');
+    const hasDualY = comboLineCols.length > 0 && (design.chartType === 'combo' || design.chartType === 'multiline' || design.chartType === 'grouped');
     if (hasDualY) {
       for (const col of comboLineCols) {
         if (!allCols.includes(col)) allCols.push(col);
@@ -1290,6 +1396,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
     const showAxis = design?.showAxisTitle as boolean | undefined;
     const xTitle = showAxis ? ((design?.xAxisTitle as string) || undefined) : undefined;
     const yTitle = showAxis ? ((design?.yAxisTitle as string) || undefined) : undefined;
+    const y2Title = showAxis ? ((design?.yAxis2Title as string) || undefined) : undefined;
     const legendStyle: Highcharts.LegendOptions = {
       enabled: true,
       align: 'center',
@@ -1306,7 +1413,7 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
         title: { text: undefined }, credits: { enabled: false },
         legend: { enabled: false },
         tooltip: { pointFormat: '<b>{point.y}</b> ({point.percentage:.0f}%)' },
-        plotOptions: { pie: { innerSize: chartType === 'donut' ? '55%' : '0%', borderWidth: 2, borderColor: '#fff', showInLegend: false, dataLabels: { enabled: true, distance: -28, format: '{point.y}', style: { color: '#fff', fontWeight: '700', fontSize: '11px', textOutline: 'none' } } } },
+        plotOptions: { pie: { innerSize: chartType === 'donut' ? '55%' : '0%', borderWidth: 2, borderColor: '#fff', showInLegend: false, dataLabels: { enabled: true, distance: chartType === 'donut' ? '-20%' : -28, format: '{point.y}', allowOverlap: true, crop: false, overflow: 'allow', style: { color: '#fff', fontWeight: '700', fontSize: '11px', textOutline: 'none' } } as any } },
         series: [{ type: 'pie', name: title, data: cats.map((c, i) => ({ name: c, y: vals[i], color: CHART_COLORS[i % CHART_COLORS.length] })).filter(d => d.y !== 0) }],
       };
     }
@@ -1330,8 +1437,8 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
       };
       if (hasDualY) {
         opts.yAxis = [
-          { title: { text: undefined }, gridLineColor: '#F1F3F6' },
-          { title: { text: undefined }, opposite: true, gridLineWidth: 0 },
+          { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+          { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
         ];
         opts.tooltip = { shared: true };
       }
@@ -1357,10 +1464,10 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
       return {
         chart: { type: 'column', backgroundColor: 'transparent', height: 200 },
         title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-        xAxis: { categories: cats, labels: { style: { fontSize: '10px', color: '#667085' } }, lineColor: '#E7ECF3' },
+        xAxis: { categories: cats, title: { text: xTitle }, labels: { style: { fontSize: '10px', color: '#667085' } }, lineColor: '#E7ECF3' },
         yAxis: [
-          { title: { text: undefined }, gridLineColor: '#F1F3F6' },
-          { title: { text: undefined }, opposite: true, gridLineWidth: 0 },
+          { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+          { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
         ],
         tooltip: { shared: true },
         plotOptions: {
@@ -1372,10 +1479,18 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
     }
 
     if (chartType === 'grouped' && hasMulti) {
+      const hasDualY = series!.some((s: any) => s.yAxis === 1);
       return {
         chart: { type: 'column', backgroundColor: 'transparent', height: 200 },
         title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
         ...axes,
+        ...(hasDualY ? {
+          yAxis: [
+            { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+            { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
+          ],
+          tooltip: { shared: true },
+        } : {}),
         plotOptions: { column: { grouping: true, borderRadius: 4, borderWidth: 0, dataLabels: { enabled: true, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } } } },
         series: series!,
       };
@@ -1410,7 +1525,11 @@ export class BoardBuilderTestComponent implements OnInit, AfterViewInit, OnDestr
           out.type = s.name === 'Total' ? 'line' : 'column';
           out.stacking = s.name === 'Total' ? undefined : 'normal';
           break;
-        case 'grouped': case 'bar':
+        case 'grouped':
+          out.type = 'column';
+          if (isComboLine) out.yAxis = 1;
+          break;
+        case 'bar':
           out.type = 'column';
           break;
         case 'column':

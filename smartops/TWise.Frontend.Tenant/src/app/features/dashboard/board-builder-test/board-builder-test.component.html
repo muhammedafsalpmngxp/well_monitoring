@@ -83,15 +83,16 @@
         <label>Country</label>
         <div appKeyClick class="board-filterbar__select" [class.open]="openFilterName === 'country'"
             (click)="toggleFilterDropdown('country', $event)">
-            <span [class.board-filterbar__select-placeholder]="!country">{{ country || 'Select' }}</span>
+            <span [class.board-filterbar__select-placeholder]="country === 'All'">{{ filterLabel(country) }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                     stroke-linejoin="round" />
             </svg>
             <div class="board-filterbar__select-panel" *ngIf="openFilterName === 'country'"
                 (click)="$event.stopPropagation()">
-                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of countryOptions"
-                    [class.active]="o === country" (click)="selectFilterOption('country', o)">{{ o }}</div>
+                <div appKeyClick class="board-filterbar__select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('country')" (click)="clearGlobalFilterSelection('country', $event)">Clear all</div>
+                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of countryOptions" (click)="selectFilterOption('country', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('country') && isFilterOptionSelected(country, o)" [globalFilterValue]="o"> {{ o }}
+                </div>
             </div>
         </div>
     </div>
@@ -99,15 +100,16 @@
         <label>Sector</label>
         <div appKeyClick class="board-filterbar__select" [class.open]="openFilterName === 'sector'"
             (click)="toggleFilterDropdown('sector', $event)">
-            <span [class.board-filterbar__select-placeholder]="!sector">{{ sector || 'Select' }}</span>
+            <span [class.board-filterbar__select-placeholder]="sector === 'All'">{{ filterLabel(sector) }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                     stroke-linejoin="round" />
             </svg>
             <div class="board-filterbar__select-panel" *ngIf="openFilterName === 'sector'"
                 (click)="$event.stopPropagation()">
-                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of sectorOptions"
-                    [class.active]="o === sector" (click)="selectFilterOption('sector', o)">{{ o }}</div>
+                <div appKeyClick class="board-filterbar__select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('sector')" (click)="clearGlobalFilterSelection('sector', $event)">Clear all</div>
+                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of sectorOptions" (click)="selectFilterOption('sector', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('sector') && isFilterOptionSelected(sector, o)" [globalFilterValue]="o"> {{ o }}
+                </div>
             </div>
         </div>
     </div>
@@ -115,15 +117,16 @@
         <label>Business Unit</label>
         <div appKeyClick class="board-filterbar__select" [class.open]="openFilterName === 'businessUnit'"
             (click)="toggleFilterDropdown('businessUnit', $event)">
-            <span [class.board-filterbar__select-placeholder]="!businessUnit">{{ businessUnit || 'Select' }}</span>
+            <span [class.board-filterbar__select-placeholder]="businessUnit === 'All'">{{ filterLabel(businessUnit) }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                     stroke-linejoin="round" />
             </svg>
             <div class="board-filterbar__select-panel" *ngIf="openFilterName === 'businessUnit'"
                 (click)="$event.stopPropagation()">
-                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of buOptions"
-                    [class.active]="o === businessUnit" (click)="selectFilterOption('businessUnit', o)">{{ o }}</div>
+                <div appKeyClick class="board-filterbar__select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('businessUnit')" (click)="clearGlobalFilterSelection('businessUnit', $event)">Clear all</div>
+                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of buOptions" (click)="selectFilterOption('businessUnit', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('businessUnit') && isFilterOptionSelected(businessUnit, o)" [globalFilterValue]="o"> {{ o }}
+                </div>
             </div>
         </div>
     </div>
@@ -131,15 +134,16 @@
         <label>Division</label>
         <div appKeyClick class="board-filterbar__select" [class.open]="openFilterName === 'division'"
             (click)="toggleFilterDropdown('division', $event)">
-            <span [class.board-filterbar__select-placeholder]="!division">{{ division || 'Select' }}</span>
+            <span [class.board-filterbar__select-placeholder]="division === 'All'">{{ filterLabel(division) }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                     stroke-linejoin="round" />
             </svg>
             <div class="board-filterbar__select-panel" *ngIf="openFilterName === 'division'"
                 (click)="$event.stopPropagation()">
-                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of divisionOptions"
-                    [class.active]="o === division" (click)="selectFilterOption('division', o)">{{ o }}</div>
+                <div appKeyClick class="board-filterbar__select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('division')" (click)="clearGlobalFilterSelection('division', $event)">Clear all</div>
+                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of divisionOptions" (click)="selectFilterOption('division', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('division') && isFilterOptionSelected(division, o)" [globalFilterValue]="o"> {{ o }}
+                </div>
             </div>
         </div>
     </div>
@@ -148,7 +152,7 @@
         <div class="board-filterbar__select" [class.open]="openFilterName === 'cluster'"
             [class.board-filterbar__select--locked]="!isAdmin && clusterOptions.length <= 1"
             (click)="(isAdmin || clusterOptions.length > 1) && toggleFilterDropdown('cluster', $event)">
-            <span [class.board-filterbar__select-placeholder]="!cluster">{{ cluster || 'Select' }}</span>
+            <span [class.board-filterbar__select-placeholder]="cluster === 'All'">{{ filterLabel(cluster) }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                     stroke-linejoin="round" />
@@ -156,8 +160,9 @@
             <svg *ngIf="!isAdmin" class="board-filterbar__lock" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
             <div class="board-filterbar__select-panel" *ngIf="openFilterName === 'cluster'"
                 (click)="$event.stopPropagation()">
-                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of clusterOptions"
-                    [class.active]="o === cluster" (click)="selectFilterOption('cluster', o)">{{ o }}</div>
+                <div appKeyClick class="board-filterbar__select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('cluster')" (click)="clearGlobalFilterSelection('cluster', $event)">Clear all</div>
+                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of clusterOptions" (click)="selectFilterOption('cluster', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('cluster') && isFilterOptionSelected(cluster, o)" [globalFilterValue]="o"> {{ o }}
+                </div>
             </div>
         </div>
     </div>
@@ -166,7 +171,7 @@
         <div class="board-filterbar__select" [class.open]="openFilterName === 'plant'"
             [class.board-filterbar__select--locked]="!isAdmin && plantOptions.length <= 1"
             (click)="(isAdmin || plantOptions.length > 1) && toggleFilterDropdown('plant', $event)">
-            <span [class.board-filterbar__select-placeholder]="!plant">{{ plant || 'Select' }}</span>
+            <span [class.board-filterbar__select-placeholder]="plant === 'All'">{{ filterLabel(plant) }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                     stroke-linejoin="round" />
@@ -174,8 +179,9 @@
             <svg *ngIf="!isAdmin" class="board-filterbar__lock" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
             <div class="board-filterbar__select-panel" *ngIf="openFilterName === 'plant'"
                 (click)="$event.stopPropagation()">
-                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of plantOptions" [class.active]="o === plant"
-                    (click)="selectFilterOption('plant', o)">{{ o }}</div>
+                <div appKeyClick class="board-filterbar__select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('plant')" (click)="clearGlobalFilterSelection('plant', $event)">Clear all</div>
+                <div appKeyClick class="board-filterbar__select-option" *ngFor="let o of plantOptions" (click)="selectFilterOption('plant', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('plant') && isFilterOptionSelected(plant, o)" [globalFilterValue]="o"> {{ o }}
+                </div>
             </div>
         </div>
     </div>
@@ -222,7 +228,10 @@
                 </defs>
             </svg>
         </button>
-        <button class="board-filterbar__icon-btn" title="Advanced Filter" (click)="advancedFilter.open()">
+        <button class="board-filterbar__icon-btn" title="Advanced Filter" (click)="advancedFilter.open()"
+            [class.advanced-filter-applied]="advancedFilter.hasAppliedFilters"
+            [attr.aria-label]="advancedFilter.hasAppliedFilters ? 'Advanced Filter (filters applied)' : 'Advanced Filter'">
+            <span *ngIf="advancedFilter.hasAppliedFilters" class="advanced-filter-applied-dot" aria-hidden="true"></span>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
                     d="M2.5 4.16667H7.5M7.5 4.16667C7.5 5.08714 8.24617 5.83333 9.16667 5.83333C10.0872 5.83333 10.8333 5.08714 10.8333 4.16667C10.8333 3.24619 10.0872 2.5 9.16667 2.5C8.24617 2.5 7.5 3.24619 7.5 4.16667ZM14.1667 4.16667H17.5M2.5 10H7.5M14.1667 10H17.5M14.1667 10C14.1667 9.0795 13.4205 8.33333 12.5 8.33333C11.5795 8.33333 10.8333 9.0795 10.8333 10C10.8333 10.9205 11.5795 11.6667 12.5 11.6667C13.4205 11.6667 14.1667 10.9205 14.1667 10ZM2.5 15.8333H5.83333M5.83333 15.8333C5.83333 16.7538 6.5795 17.5 7.5 17.5C8.4205 17.5 9.16667 16.7538 9.16667 15.8333C9.16667 14.9128 8.4205 14.1667 7.5 14.1667C6.5795 14.1667 5.83333 14.9128 5.83333 15.8333ZM12.5 15.8333H17.5"
@@ -632,6 +641,7 @@
                                 <span class="board-kpi-slot__value">{{ slot.value }}</span>
                             </div>
                             <!-- Chart preview (hidden for Table type) -->
+                            <div [class]="legendLayoutClass(chartLegendPositions[slot.id])">
                             <div class="board-chart-slot__preview"
                                 *ngIf="isChartItem(slot) && (cardChartType[slot.id] ?? 'bar').toLowerCase() !== 'table'">
                                 <div class="board-trend-mode board-no-drag" *ngIf="trendChartPreviews[slot.id]" role="group" aria-label="Trend period">
@@ -643,7 +653,7 @@
                                             [value]="mode">{{ mode | titlecase }}</option>
                                     </select>
                                 </div>
-                                <app-advanced-chart *ngIf="advancedCharts[slot.id] as visual" [type]="visual.type" [rows]="visual.rows" [config]="visual.config" [daxMeasures]="visual.daxMeasures ?? []"></app-advanced-chart>
+                                <app-advanced-chart *ngIf="advancedCharts[slot.id] as visual" [type]="visual.type" [rows]="visual.rows" [config]="visual.config" [daxMeasures]="visual.daxMeasures ?? []" [legendPosition]="chartLegendPositions[slot.id] ?? 'bottom'"></app-advanced-chart>
                                 <highcharts-chart *ngIf="!advancedCharts[slot.id] && chartPreviewOptions[slot.id] && hasChartPreviewData(slot.id) && !(chartPreviewOptions[slot.id] | pieChartEmpty)"
                                     [options]="chartPreviewOptions[slot.id]" class="board-chart-slot__hc">
                                 </highcharts-chart>
@@ -654,7 +664,7 @@
                                 </div>
                             </div>
                             <!-- Legend pills -->
-                            <div class="board-chart-slot__legend"
+                            <div class="board-chart-slot__legend chart-legend-layout__legend" appLegendPager
                                 *ngIf="isChartItem(slot) && (cardChartType[slot.id] ?? 'bar').toLowerCase() !== 'table' && getChartLegendItems(slot.id).length">
                                 <div class="board-chart-slot__legend-item"
                                     *ngFor="let item of getChartLegendItems(slot.id)">
@@ -662,6 +672,7 @@
                                         [style.background]="item.color"></span>
                                     <span class="board-chart-slot__legend-name">{{ item.name }}</span>
                                 </div>
+                            </div>
                             </div>
                             <!-- Inline data table below chart -->
                             <div class="board-chart-slot__data-table"
@@ -857,7 +868,7 @@
                     <div class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'tm_country'"
                         [class.add-tiles-modal__filter-select--locked]="!isAdmin && countryOptions.length <= 1"
                         (click)="(isAdmin || countryOptions.length > 1) && toggleFilterDropdown('tm_country', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!country">{{ country || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!country">{{ filterLabel(country) }}</span>
                         <svg class="add-tiles-modal__filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
@@ -865,8 +876,8 @@
                         <svg *ngIf="!isAdmin" class="add-tiles-modal__filter-lock" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'tm_country'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of countryOptionsWithAll"
-                                [class.active]="o === country" (click)="selectFilterOption('country', o)">{{ o }}</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('country')" (click)="clearGlobalFilterSelection('country', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of countryOptionsWithAll" (click)="selectFilterOption('country', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('country') && isFilterOptionSelected(country, o)" [globalFilterValue]="o">{{ o }}</div>
                         </div>
                     </div>
                 </div>
@@ -875,7 +886,7 @@
                     <div class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'tm_sector'"
                         [class.add-tiles-modal__filter-select--locked]="!isAdmin && sectorOptions.length <= 1"
                         (click)="(isAdmin || sectorOptions.length > 1) && toggleFilterDropdown('tm_sector', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!sector">{{ sector || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!sector">{{ filterLabel(sector) }}</span>
                         <svg class="add-tiles-modal__filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
@@ -883,8 +894,8 @@
                         <svg *ngIf="!isAdmin" class="add-tiles-modal__filter-lock" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'tm_sector'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of sectorOptionsWithAll"
-                                [class.active]="o === sector" (click)="selectFilterOption('sector', o)">{{ o }}</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('sector')" (click)="clearGlobalFilterSelection('sector', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of sectorOptionsWithAll" (click)="selectFilterOption('sector', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('sector') && isFilterOptionSelected(sector, o)" [globalFilterValue]="o">{{ o }}</div>
                         </div>
                     </div>
                 </div>
@@ -893,8 +904,7 @@
                     <div class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'tm_bu'"
                         [class.add-tiles-modal__filter-select--locked]="!isAdmin && buOptions.length <= 1"
                         (click)="(isAdmin || buOptions.length > 1) && toggleFilterDropdown('tm_bu', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!businessUnit">{{ businessUnit || 'Select'
-                            }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!businessUnit">{{ filterLabel(businessUnit) }}</span>
                         <svg class="add-tiles-modal__filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
@@ -902,8 +912,8 @@
                         <svg *ngIf="!isAdmin" class="add-tiles-modal__filter-lock" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'tm_bu'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of buOptionsWithAll"
-                                [class.active]="o === businessUnit" (click)="selectFilterOption('businessUnit', o)">{{ o
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('businessUnit')" (click)="clearGlobalFilterSelection('businessUnit', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of buOptionsWithAll" (click)="selectFilterOption('businessUnit', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('businessUnit') && isFilterOptionSelected(businessUnit, o)" [globalFilterValue]="o">{{ o
                                 }}
                             </div>
                         </div>
@@ -914,7 +924,7 @@
                     <div class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'tm_div'"
                         [class.add-tiles-modal__filter-select--locked]="!isAdmin && divisionOptions.length <= 1"
                         (click)="(isAdmin || divisionOptions.length > 1) && toggleFilterDropdown('tm_div', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!division">{{ division || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!division">{{ filterLabel(division) }}</span>
                         <svg class="add-tiles-modal__filter-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
@@ -922,8 +932,8 @@
                         <svg *ngIf="!isAdmin" class="add-tiles-modal__filter-lock" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#98A2B3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'tm_div'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of divisionOptionsWithAll"
-                                [class.active]="o === division" (click)="selectFilterOption('division', o)">{{ o }}
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('division')" (click)="clearGlobalFilterSelection('division', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of divisionOptionsWithAll" (click)="selectFilterOption('division', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('division') && isFilterOptionSelected(division, o)" [globalFilterValue]="o">{{ o }}
                             </div>
                         </div>
                     </div>
@@ -932,15 +942,15 @@
                     <label>Cluster</label>
                     <div appKeyClick class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'tm_cluster'"
                         (click)="toggleFilterDropdown('tm_cluster', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!cluster">{{ cluster || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!cluster">{{ filterLabel(cluster) }}</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'tm_cluster'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of clusterOptionsWithAll"
-                                [class.active]="o === cluster" (click)="selectFilterOption('cluster', o)">{{ o }}</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('cluster')" (click)="clearGlobalFilterSelection('cluster', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of clusterOptionsWithAll" (click)="selectFilterOption('cluster', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('cluster') && isFilterOptionSelected(cluster, o)" [globalFilterValue]="o">{{ o }}</div>
                         </div>
                     </div>
                 </div>
@@ -948,15 +958,15 @@
                     <label>Plant</label>
                     <div appKeyClick class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'tm_plant'"
                         (click)="toggleFilterDropdown('tm_plant', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!plant">{{ plant || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!plant">{{ filterLabel(plant) }}</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'tm_plant'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of plantOptionsWithAll"
-                                [class.active]="o === plant" (click)="selectFilterOption('plant', o)">{{ o }}</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('plant')" (click)="clearGlobalFilterSelection('plant', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of plantOptionsWithAll" (click)="selectFilterOption('plant', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('plant') && isFilterOptionSelected(plant, o)" [globalFilterValue]="o">{{ o }}</div>
                         </div>
                     </div>
                 </div>
@@ -1227,15 +1237,15 @@
                     <label>Country</label>
                     <div appKeyClick class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'cm_country'"
                         (click)="toggleFilterDropdown('cm_country', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!country">{{ country || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!country">{{ filterLabel(country) }}</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'cm_country'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of countryOptionsWithAll"
-                                [class.active]="o === country" (click)="selectFilterOption('country', o)">{{ o }}</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('country')" (click)="clearGlobalFilterSelection('country', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of countryOptionsWithAll" (click)="selectFilterOption('country', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('country') && isFilterOptionSelected(country, o)" [globalFilterValue]="o">{{ o }}</div>
                         </div>
                     </div>
                 </div>
@@ -1243,15 +1253,15 @@
                     <label>Sector</label>
                     <div appKeyClick class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'cm_sector'"
                         (click)="toggleFilterDropdown('cm_sector', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!sector">{{ sector || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!sector">{{ filterLabel(sector) }}</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'cm_sector'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of sectorOptionsWithAll"
-                                [class.active]="o === sector" (click)="selectFilterOption('sector', o)">{{ o }}</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('sector')" (click)="clearGlobalFilterSelection('sector', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of sectorOptionsWithAll" (click)="selectFilterOption('sector', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('sector') && isFilterOptionSelected(sector, o)" [globalFilterValue]="o">{{ o }}</div>
                         </div>
                     </div>
                 </div>
@@ -1259,16 +1269,15 @@
                     <label>Business Unit</label>
                     <div appKeyClick class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'cm_bu'"
                         (click)="toggleFilterDropdown('cm_bu', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!businessUnit">{{ businessUnit || 'Select'
-                            }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!businessUnit">{{ filterLabel(businessUnit) }}</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'cm_bu'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of buOptionsWithAll"
-                                [class.active]="o === businessUnit" (click)="selectFilterOption('businessUnit', o)">{{ o
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('businessUnit')" (click)="clearGlobalFilterSelection('businessUnit', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of buOptionsWithAll" (click)="selectFilterOption('businessUnit', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('businessUnit') && isFilterOptionSelected(businessUnit, o)" [globalFilterValue]="o">{{ o
                                 }}
                             </div>
                         </div>
@@ -1278,15 +1287,15 @@
                     <label>Division</label>
                     <div appKeyClick class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'cm_div'"
                         (click)="toggleFilterDropdown('cm_div', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!division">{{ division || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!division">{{ filterLabel(division) }}</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'cm_div'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of divisionOptionsWithAll"
-                                [class.active]="o === division" (click)="selectFilterOption('division', o)">{{ o }}
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('division')" (click)="clearGlobalFilterSelection('division', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of divisionOptionsWithAll" (click)="selectFilterOption('division', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('division') && isFilterOptionSelected(division, o)" [globalFilterValue]="o">{{ o }}
                             </div>
                         </div>
                     </div>
@@ -1295,15 +1304,15 @@
                     <label>Cluster</label>
                     <div appKeyClick class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'cm_cluster'"
                         (click)="toggleFilterDropdown('cm_cluster', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!cluster">{{ cluster || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!cluster">{{ filterLabel(cluster) }}</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'cm_cluster'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of clusterOptionsWithAll"
-                                [class.active]="o === cluster" (click)="selectFilterOption('cluster', o)">{{ o }}</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('cluster')" (click)="clearGlobalFilterSelection('cluster', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of clusterOptionsWithAll" (click)="selectFilterOption('cluster', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('cluster') && isFilterOptionSelected(cluster, o)" [globalFilterValue]="o">{{ o }}</div>
                         </div>
                     </div>
                 </div>
@@ -1311,15 +1320,15 @@
                     <label>Plant</label>
                     <div appKeyClick class="add-tiles-modal__filter-select" [class.open]="openFilterName === 'cm_plant'"
                         (click)="toggleFilterDropdown('cm_plant', $event)">
-                        <span [class.add-tiles-modal__filter-placeholder]="!plant">{{ plant || 'Select' }}</span>
+                        <span [class.add-tiles-modal__filter-placeholder]="!plant">{{ filterLabel(plant) }}</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 6L8 10L12 6" stroke="#667085" stroke-width="1.4" stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
                         <div class="add-tiles-modal__filter-panel" *ngIf="openFilterName === 'cm_plant'"
                             (click)="$event.stopPropagation()">
-                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of plantOptionsWithAll"
-                                [class.active]="o === plant" (click)="selectFilterOption('plant', o)">{{ o }}</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('plant')" (click)="clearGlobalFilterSelection('plant', $event)">Clear all</div>
+                            <div appKeyClick class="add-tiles-modal__filter-option" *ngFor="let o of plantOptionsWithAll" (click)="selectFilterOption('plant', o)" [appGlobalFilterOption]="!isGlobalFilterCleared('plant') && isFilterOptionSelected(plant, o)" [globalFilterValue]="o">{{ o }}</div>
                         </div>
                     </div>
                 </div>
@@ -1620,9 +1629,10 @@
                             [checked]="isChartSelected(chart.id)"
                             (click)="$event.stopPropagation(); toggleChartSelection(chart.id)" />
                     </div>
+                    <div [class]="legendLayoutClass(chartLegendPositions[chart.id])">
                     <div class="add-charts-modal__card-preview"
                         *ngIf="resolvedCardType(chart) !== 'table'">
-                        <app-advanced-chart *ngIf="advancedCharts[chart.id] as visual" [type]="visual.type" [rows]="visual.rows" [config]="visual.config" [daxMeasures]="visual.daxMeasures ?? []" height="240px"></app-advanced-chart>
+                        <app-advanced-chart *ngIf="advancedCharts[chart.id] as visual" [type]="visual.type" [rows]="visual.rows" [config]="visual.config" [daxMeasures]="visual.daxMeasures ?? []" [legendPosition]="chartLegendPositions[chart.id] ?? 'bottom'" height="240px"></app-advanced-chart>
                         <highcharts-chart *ngIf="!advancedCharts[chart.id] && chartPreviewOptions[chart.id] && hasChartPreviewData(chart.id) && !(chartPreviewOptions[chart.id] | pieChartEmpty)"
                             [options]="chartPreviewOptions[chart.id]" class="add-charts-modal__hc">
                         </highcharts-chart>
@@ -1634,12 +1644,13 @@
                         </div>
                     </div>
                     <!-- Custom pill legend replacing Highcharts internal legend -->
-                    <div class="add-charts-modal__legend"
+                    <div class="add-charts-modal__legend chart-legend-layout__legend" appLegendPager
                         *ngIf="resolvedCardType(chart) !== 'table' && getChartLegendItems(chart.id).length">
                         <div class="add-charts-modal__legend-item" *ngFor="let item of getChartLegendItems(chart.id)">
                             <span class="add-charts-modal__legend-dot" [style.background]="item.color"></span>
                             <span class="add-charts-modal__legend-name">{{ item.name }}</span>
                         </div>
+                    </div>
                     </div>
                     <!-- Inline data table below chart, matching ops-dashboard style -->
                     <div class="add-charts-modal__card-data-table"
@@ -1755,7 +1766,9 @@
 
 </ng-container>
 
-<app-advanced-filter #advancedFilter></app-advanced-filter>
+<app-advanced-filter #advancedFilter (applied)="applyAdvancedFilter($event)" [globalCountry]="country" [globalSector]="sector"
+  [globalBusinessUnit]="businessUnit" [globalDivision]="division"
+  [globalCluster]="cluster" [globalPlant]="plant"></app-advanced-filter>
 
 <!-- ─── Help modal ─────────────────────────────────────────────────── -->
 <div class="help-modal-backdrop" *ngIf="showHelpModal" (click)="closeHelpModal()" (keydown.escape)="closeHelpModal()">

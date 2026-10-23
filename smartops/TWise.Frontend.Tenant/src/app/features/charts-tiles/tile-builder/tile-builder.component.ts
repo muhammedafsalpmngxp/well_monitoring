@@ -1,5 +1,7 @@
-import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
 import { dateRangePopupPlacement } from '../../../shared/components/date-range-popup/date-range-popup.placement';
+import { advancedHierarchyFilters } from '../../../core/utils/advanced-hierarchy-filter.util';
+import { AdvancedFilterComponent, type AdvancedFilterValue } from '../../../shared/components/advanced-filter/advanced-filter.component';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { Subscription, of, EMPTY, expand, reduce } from 'rxjs';
@@ -13,12 +15,22 @@ import { LayoutStateService } from '../../../core/services/layout-state.service'
 import { AuthService } from '../../../core/services/auth.service';
 import { ImportedDatasetListItem, ImportedDatasetService } from '../../../core/services/imported-dataset.service';
 import { ListRouteReuseStrategy } from '../../../core/services/list-route-reuse.strategy';
-import { DaxModelService, SavedDaxModelDto } from '../../../core/services/dax-model.service';
+import { DaxModelSaveRequest, DaxModelService, SavedDaxModelDto } from '../../../core/services/dax-model.service';
+import { tableClusterPlantFilters } from '../../../core/utils/table-global-filter.util';
+import { resolveTileLayout, type TileLayout } from '../../../core/utils/tile-layout.util';
+import {
+  GlobalFilterSelection,
+  globalSelectionLabel,
+  globalSelectionPayload,
+  hasGlobalSelection,
+  matchesGlobalSelection,
+  isGlobalFilterOptionChecked, GlobalFilterClearState, toggleGlobalSelection,
+} from '../../../core/utils/global-filter-selection.util';
 import {
   createDefaultDaxMeasure,
   createDefaultDaxModel,
   DAX_FUNCTION_SNIPPETS, buildDaxOperationExpression, restoreDaxOperation,
-  getTileDaxRequest, evaluateTileDaxValue, formatDaxValue, validateDaxExpression,
+  getTileDaxRequest, evaluateTileDaxValue, formatDaxValue, validateDaxExpression, getActiveDaxMeasures, getDaxReferencedColumns,
 } from '../../../core/utils/dax-evaluator.util';
 import type { DaxMeasureConfig, DaxEvaluationScope, DaxModelConfig } from '../../../core/utils/dax-evaluator.util';
 export type { DaxMeasureConfig, DaxEvaluationScope, DaxModelConfig } from '../../../core/utils/dax-evaluator.util';
@@ -50,6 +62,13 @@ export interface BreakdownRow {
   column?: string;
 }
 
+interface TileHelpArticle {
+  id: string;
+  question: string;
+  steps: string[];
+  expanded: boolean;
+}
+
 export interface BuilderTab {
   id: string;
   label: string;
@@ -66,6 +85,11 @@ interface TabState {
   valueColumn: string;
   tileColor: TileColor;
   tileIcon: TileIconId;
+  showTileIcon: boolean;
+  tileLayout: TileLayout;
+  valueBold: boolean;
+  valueItalic: boolean;
+  valueColor: string;
   prefix: string;
   suffix: string;
   decimalPlaces: number;
@@ -74,6 +98,7 @@ interface TabState {
   badgeColor: string;
   breakdownRows: BreakdownRow[];
   interactiveFilters: InteractiveFilter[];
+  drillDownViewId: number | null;
 }
 
 interface InteractiveFilter {
@@ -214,8 +239,15 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   /** Column for Total/Average/Value calculations */
   valueColumn = '';
   showValueColumnDropdown = false;
+  valueColumnSearch = '';
   columnsForSource: string[] = [];
   private tableRows: Record<string, unknown>[] = [];
+
+  get filteredColumnsForSource(): string[] {
+    const term = this.valueColumnSearch.trim().toLowerCase();
+    if (!term) return this.columnsForSource;
+    return this.columnsForSource.filter(col => col.toLowerCase().includes(term));
+  }
 
   showTablePreview = false;
   readonly tablePreviewTheme = themeQuartz.withParams({
@@ -251,6 +283,17 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   get tablePreviewRows(): Record<string, unknown>[] { return this.tableRows; }
 
   interactiveFilters: InteractiveFilter[] = [];
+
+  // Drill Down: optional database view opened when a viewer clicks this tile (mirrors chart drill-down).
+  drillDownViewId: number | null = null;
+  drillDownViewName = '';
+  showDrillDownDropdown = false;
+  drillDownSearch = '';
+  drillDownViews: DatabaseViewListItem[] = [];
+  get filteredDrillDownViews(): DatabaseViewListItem[] {
+    const term = this.drillDownSearch.trim().toLowerCase();
+    return term ? this.drillDownViews.filter(v => v.viewName.toLowerCase().includes(term)) : this.drillDownViews;
+  }
   showFilterPanel = true;
   private nextFilterId = 1;
   controlTypeOptions = ['Dropdown', 'Date', 'Text'];
@@ -312,6 +355,8 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   get formattedValue(): string {
     if (this.liveValue === null) return '—';
     if (this.daxEnabled && this.selectedDaxMeasure?.expression?.trim()) return formatDaxValue(this.liveValue, this.selectedDaxMeasure);
+    // A just-added empty measure has no format yet; keep the value's precision from the last measure that has one.
+    if (this.tileDaxActive) return formatDaxValue(this.liveValue, this.previewFormatMeasure ?? [...this.daxModel.measures].reverse().find(m => !!m.expression?.trim()));
     let v = this.liveValue;
     if (this.shortenBigNumbers && v >= 1000) {
       if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
@@ -340,6 +385,12 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   ];
   tileIcon: TileIconId = 'well';
   showIconDropdown = false;
+  // Icon is optional per tile; defaults on so existing tiles keep showing their icon.
+  showTileIcon = true;
+  tileLayout: TileLayout = 'two-rows';
+  valueBold = false;
+  valueItalic = false;
+  valueColor = '';
 
   numberFormattingOpen = true;
   prefix = '';
@@ -373,6 +424,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   showDaxNumeratorDropdown = false;
   showDaxDenominatorDropdown = false;
   daxMeasureApplied = false;
+  daxMeasureMessage = 'Measure Saved';
   private daxMeasureAppliedTimer: ReturnType<typeof setTimeout> | null = null;
   daxModel: DaxModelConfig = this.createDefaultDaxModel();
   daxMeasureDraft: DaxMeasureConfig = { ...this.daxModel.measures[0] };
@@ -422,7 +474,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
 
   private validateTileDaxForSave(): boolean {
     try {
-      if (getTileDaxRequest(this.daxModel, this.columnsForSource) && (this.daxExpressionError || this.liveValue === null))
+      if (getTileDaxRequest(this.daxModel, this.columnsForSource) && (this.daxExpressionError || this.liveValue === null || this.tileValueLoading))
         throw new Error(this.daxExpressionError || 'Wait for a valid DAX preview before saving.');
       return true;
     } catch (error) {
@@ -431,7 +483,20 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Measure whose result the preview still shows after Add Measure selects a new, empty one. */
+  private previewFormatMeasure?: DaxMeasureConfig;
+  private tileValueLoading = false;
+
   get daxEnabled(): boolean { return this.daxModel.enabled; }
+
+  /** DAX drives the tile only once at least one measure has an expression; otherwise the normal calculation applies. */
+  private get tileDaxActive(): boolean {
+    return this.daxModel.enabled && this.daxModel.measures.some(measure => !!measure.expression?.trim());
+  }
+
+  private effectiveDaxModel(): DaxModelConfig {
+    return this.tileDaxActive ? this.daxModel : { ...this.daxModel, enabled: false };
+  }
 
   get selectedDaxMeasure(): DaxMeasureConfig | undefined {
     return this.daxModel.measures.find(m => m.id === this.daxModel.selectedMeasureId);
@@ -467,6 +532,16 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  get daxSelectableMeasureCount(): number {
+    return getActiveDaxMeasures({ daxModel: this.daxModel }).length;
+  }
+
+  toggleDaxMetricSelector(): void {
+    this.pushUndo();
+    this.daxModel = { ...this.daxModel, allowMetricSelector: !this.daxModel.allowMetricSelector };
+    this.cdr.markForCheck();
+  }
+
   updateDaxMeasureDraft(changes: Partial<DaxMeasureConfig>): void {
     this.daxMeasureDraft = { ...this.daxMeasureDraft, ...changes };
     this.daxExpressionError = '';
@@ -494,6 +569,35 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.computeTileValue();
     this.showDaxMeasureApplied();
     this.cdr.markForCheck();
+    this.persistDaxMeasureAsModel(measure);
+  }
+
+  /** Same as the chart builder: a saved measure is also added to (or updates) the Saved Models library. Imports have no library source. */
+  private persistDaxMeasureAsModel(measure: DaxMeasureConfig): void {
+    if (this.dataSourceMode === 'import' || !this.selectedDataSourceId) return;
+    const body: DaxModelSaveRequest = {
+      name: measure.name,
+      sourceType: this.dataSourceMode === 'view' ? 'View' : 'Table',
+      dataSource: this.selectedDataSourceId,
+      calculatedBy: measure.evaluationScope === 'row' ? 'Row' : 'Column',
+      operation: measure.operation?.split('(')[0].trim() || null,
+      columns: getDaxReferencedColumns(measure),
+      expression: measure.expression,
+      status: 'Active',
+    };
+    const request$ = measure.savedModelId != null ? this.daxModelService.update(measure.savedModelId, body) : this.daxModelService.create(body);
+    request$.subscribe({
+      next: saved => {
+        this.daxModel = { ...this.daxModel, measures: this.daxModel.measures.map(m => m.id === measure.id ? { ...m, savedModelId: saved.id } : m) };
+        if (this.daxMeasureDraft.id === measure.id) this.daxMeasureDraft = { ...this.daxMeasureDraft, savedModelId: saved.id };
+        this.loadSavedDaxModels();
+        this.cdr.markForCheck();
+      },
+      error: err => {
+        this.saveError.set(err?.error?.message ?? 'The measure was saved on this tile but could not be added to Saved Models.');
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   addDaxMeasure(): void {
@@ -506,6 +610,8 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     const savedMeasures = this.daxModel.measures.some(measure => measure.id === currentMeasure.id)
       ? this.daxModel.measures.map(measure => measure.id === currentMeasure.id ? currentMeasure : measure)
       : [...this.daxModel.measures, currentMeasure];
+    const previewedMeasure = savedMeasures.find(measure => measure.id === this.daxModel.selectedMeasureId);
+    if (previewedMeasure?.expression?.trim()) this.previewFormatMeasure = previewedMeasure;
     const newMeasure = this.createDefaultDaxMeasure();
     this.daxModel = {
       ...this.daxModel,
@@ -530,8 +636,9 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.showDaxDenominatorDropdown = false;
   }
 
-  /** Briefly flashes an "Applied" confirmation badge next to the Apply Measure button. */
-  private showDaxMeasureApplied(): void {
+  /** Briefly flashes a confirmation badge next to the measure actions. */
+  private showDaxMeasureApplied(message = 'Measure Saved'): void {
+    this.daxMeasureMessage = message;
     if (this.daxMeasureAppliedTimer) clearTimeout(this.daxMeasureAppliedTimer);
     this.daxMeasureApplied = false;
     this.cdr.markForCheck();
@@ -559,6 +666,9 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
 
   removeDaxMeasure(id: string): void {
     this.pushUndo();
+    const deletedName = (id === this.daxMeasureDraft.id ? this.daxMeasureDraft.name?.trim() : '')
+      || this.daxModel.measures.find(m => m.id === id)?.name?.trim();
+    const deletedMessage = deletedName ? `The measure ${deletedName} is deleted` : 'Measure deleted';
     if (this.daxModel.measures.length <= 1) {
       // Only one measure exists - "delete" clears it back to a blank default instead of no-op.
       const measure = this.createDefaultDaxMeasure();
@@ -567,6 +677,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       this.resetDaxOperationPickerState();
       this.daxExpressionError = '';
       this.computeTileValue();
+      this.showDaxMeasureApplied(deletedMessage);
       this.cdr.markForCheck();
       return;
     }
@@ -576,6 +687,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? measures[0]) };
     this.restoreTileDaxModel(this.daxModel);
     this.computeTileValue();
+    this.showDaxMeasureApplied(deletedMessage);
     this.cdr.markForCheck();
   }
 
@@ -749,6 +861,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
 
   setDaxTab(tab: 'saved' | 'create'): void {
     this.daxActiveTab = tab;
+    if (tab === 'create') this.daxExpressionError = '';
     if (tab === 'saved') this.loadSavedDaxModels();
     this.cdr.markForCheck();
   }
@@ -869,20 +982,52 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     { key: 'plant', label: 'Plant', options: [] as string[] },
   ];
   readonly quickRangeOptions = ['Today', 'Till Last Tuesday', 'This Week', 'This Month', 'Last Month', 'This Quarter', 'This Year', 'After'];
-  filterValues: Record<string, string> = {
+  filterValues: Record<string, GlobalFilterSelection> = {
     country: 'All', sector: 'All', businessUnit: 'All', division: 'All', cluster: 'All', plant: 'All',
   };
   quickRange = '';
   fromDate = '';
   toDate = '';
-  openGlobalFilterName: string | null = null;
+  private globalFilterClearState?: GlobalFilterClearState;
+
+  get globalFilterClear(): GlobalFilterClearState {
+    return this.globalFilterClearState ??= new GlobalFilterClearState();
+  }
+  private openGlobalFilterNameValue: string | null = null;
+
+  get openGlobalFilterName(): string | null {
+    return this.openGlobalFilterNameValue;
+  }
+
+  set openGlobalFilterName(name: string | null) {
+    this.openGlobalFilterNameValue = name;
+    // Closing a dropdown left in the "Clear all" state reverts that filter to All.
+    const abandoned = this.globalFilterClear.release(name);
+    if (abandoned) this.revertClearedGlobalFilter(abandoned.key);
+  }
+
+  clearGlobalFilterSelection(key: unknown, event: Event): void {
+    event.stopPropagation();
+    this.globalFilterClear.clear(key, this.openGlobalFilterName);
+  }
+
+  isGlobalFilterCleared(key: unknown): boolean {
+    return this.globalFilterClear.isCleared(key);
+  }
+
+  private revertClearedGlobalFilter(key: unknown): void {
+    if (hasGlobalSelection(this.filterValues[String(key)])) this.selectGlobalFilterOption(String(key), 'All');
+  }
   private allPlants: PlantFilterDto[] = [];
   private globalFilterSub?: Subscription;
+  private globalTablePreviewSub?: Subscription;
   private currentViewDetail: { connectionId: number; generatedSql: string; id: number } | null = null;
 
   toggleGlobalFilter(): void { this.showGlobalFilter = !this.showGlobalFilter; }
 
   clearAllFilters(): void {
+    this.advancedFilters = [];
+    this.advancedFilterRef?.clear();
     this.quickRange = '';
     this.resetGlobalFilterDateRange();
     this.openGlobalFilterName = null;
@@ -915,14 +1060,32 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       this.reloadGlobalViewPreview();
       return;
     }
-    this.filterValues[name] = value || 'All';
+    const fieldIndex = this.filterFields.findIndex(field => field.key === name);
+    if (this.isGlobalFilterLocked(fieldIndex)) return;
+    this.filterValues[name] = value === 'All'
+      ? 'All'
+      : toggleGlobalSelection(this.filterValues[name] ?? 'All', value, this.filterFields.find(field => field.key === name)?.options, this.globalFilterClear.consume(name));
     const hierarchy = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
     const index = hierarchy.indexOf(name);
     for (let i = index + 1; i < hierarchy.length; i++) this.filterValues[hierarchy[i]] = 'All';
     this.rebuildGlobalFilterOptions();
     this.openGlobalFilterName = null;
     this.reloadGlobalViewPreview();
+    // Table tiles don't reload via the view preview path above, so recompute their value directly.
+    if (this.dataSourceMode === 'table') this.computeTileValue();
     this.hydrateBreakdownValues();
+  }
+
+  globalSelectionLabel(selection: GlobalFilterSelection | null | undefined): string {
+    return globalSelectionLabel(selection);
+  }
+
+  hasSelectedGlobalFilter(name: string): boolean {
+    return hasGlobalSelection(this.filterValues[name]);
+  }
+
+  isGlobalFilterOptionSelected(name: string, option: string): boolean {
+    return isGlobalFilterOptionChecked(this.filterValues[name], option);
   }
 
   isGlobalFilterLocked(index: number): boolean {
@@ -943,22 +1106,22 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   }
 
   private rebuildGlobalFilterOptions(): void {
-    const active = (value: string) => value && value !== 'All';
+    const active = (value: GlobalFilterSelection) => hasGlobalSelection(value);
     const selectors: ((plant: PlantFilterDto) => string)[] = [
       p => p.country, p => p.sector, p => p.businessUnit, p => p.division, p => p.cluster, p => p.plantDescription,
     ];
     const keys = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
     let filtered = this.allPlants;
     for (let i = 0; i < keys.length - 1; i++) {
-      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(plant => selectors[i](plant) === this.filterValues[keys[i]]);
+      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(plant => matchesGlobalSelection(selectors[i](plant), this.filterValues[keys[i]]));
       this.filterFields[i + 1].options = active(this.filterValues[keys[i]])
         ? this.distinctPlantValues(filtered, selectors[i + 1])
         : [];
     }
-    if (!active(this.filterValues['cluster']) && this.filterFields[4].options.length === 1) {
+    if (!active(this.filterValues['cluster']) && hasGlobalSelection(this.filterValues['division']) && this.filterFields[4].options.length === 1) {
       this.filterValues['cluster'] = this.filterFields[4].options[0];
     }
-    if (active(this.filterValues['cluster'])) filtered = filtered.filter(plant => plant.cluster === this.filterValues['cluster']);
+    if (active(this.filterValues['cluster'])) filtered = filtered.filter(plant => matchesGlobalSelection(plant.cluster, this.filterValues['cluster']));
     this.filterFields[5].options = this.distinctPlantValues(filtered, selectors[5]);
     if (!active(this.filterValues['plant']) && this.filterFields[5].options.length === 1) {
       this.filterValues['plant'] = this.filterFields[5].options[0];
@@ -966,7 +1129,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   }
 
   private autoSelectGlobalFilters(): void {
-    const active = (value: string) => value && value !== 'All';
+    const active = (value: GlobalFilterSelection) => hasGlobalSelection(value);
     const selectors: ((plant: PlantFilterDto) => string)[] = [
       p => p.country, p => p.sector, p => p.businessUnit, p => p.division, p => p.cluster, p => p.plantDescription,
     ];
@@ -974,7 +1137,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     if (this.filterFields[0].options.length === 1) this.filterValues['country'] = this.filterFields[0].options[0];
     let filtered = this.allPlants;
     for (let i = 0; i < keys.length - 1; i++) {
-      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(plant => selectors[i](plant) === this.filterValues[keys[i]]);
+      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(plant => matchesGlobalSelection(selectors[i](plant), this.filterValues[keys[i]]));
       const options = this.distinctPlantValues(filtered, selectors[i + 1]);
       if (options.length === 1 && active(this.filterValues[keys[i]])) this.filterValues[keys[i + 1]] = options[0];
     }
@@ -1062,12 +1225,39 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   }
 
   private reloadGlobalViewPreview(): void {
+    this.globalTablePreviewSub?.unsubscribe();
+    if (this.dataSourceMode === 'table' && this.selectedDataSourceId) {
+      const sourceType = this.selectedDataSource?.modelType ?? 'Table';
+      const filters = this.globalHierarchyFilterPayload();
+      const data$ = filters.length
+        ? this.widgetService.getFilteredChartData({
+            chartSource: this.selectedDataSourceId,
+            chartSourceType: sourceType,
+            viewId: null,
+            filters,
+          })
+        : this.widgetService.getTableData(this.selectedDataSourceId, sourceType);
+      this.globalTablePreviewSub = data$.subscribe({
+        next: res => {
+          this.columnsForSource = res.columns ?? [];
+          this.tableRows = filters.length ? this.applyGlobalRowFilter(res.rows ?? []) : (res.rows ?? []);
+          this.computeTileValue();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.liveValue = null;
+          this.cdr.markForCheck();
+        },
+      });
+      return;
+    }
     if (this.dataSourceMode !== 'view' || !this.currentViewDetail) return;
-    this.commonApi.previewView({
+    this.globalTablePreviewSub = this.commonApi.previewView({
       connectionId: this.currentViewDetail.connectionId,
       sql: this.injectGlobalFilterParams(this.currentViewDetail.generatedSql),
       viewId: this.currentViewDetail.id,
       maxRows: 1000,
+      filters: this.globalHierarchyFilterPayload(),
     }).subscribe({
       next: (res) => {
         this.columnsForSource = res.columns ?? [];
@@ -1075,7 +1265,11 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
         this.computeTileValue();
         this.cdr.markForCheck();
       },
-      error: () => {},
+      error: () => {
+        this.liveValue = null;
+        this.saveError.set('Failed to reload tile data with the selected filters.');
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -1098,16 +1292,21 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
               const view = views.find(v => v.viewName === row.sourceName);
               if (!view) return of(0);
               return this.commonApi.getDatabaseViewById(view.id).pipe(
-                switchMap(detail => this.commonApi.previewView({ connectionId: detail.connectionId, sql: this.injectGlobalFilterParams(detail.generatedSql), viewId: detail.id, maxRows: 1000 })),
+                switchMap(detail => this.commonApi.previewView({
+                  connectionId: detail.connectionId,
+                  sql: this.injectGlobalFilterParams(detail.generatedSql),
+                  viewId: detail.id,
+                  maxRows: 1000,
+                  filters: this.globalHierarchyFilterPayload(true),
+                })),
                 map(res => Number(this.applyGlobalRowFilter(res.rows ?? [])[0]?.[row.column!] ?? 0) || 0),
               );
             }),
             catchError(() => of(0)),
           )
-        : this.widgetService.getTableData(row.sourceName!, sourceType).pipe(
-            map(res => Number(this.applyGlobalRowFilter(res.rows ?? [])[0]?.[row.column!] ?? 0) || 0),
-            catchError(() => of(0)),
-          );
+        // Table → server-side aggregate with the global Cluster/Plant as best-effort FK-joined filters.
+        : this.commonApi.getBreakdownValueFiltered({ sourceName: row.sourceName!, sourceType, column: row.column!,
+            filters: tableClusterPlantFilters(this.filterValues['cluster'], this.filterValues['plant']) });
       value$.subscribe(v => { row.value = String(v); this.cdr.markForCheck(); });
     });
   }
@@ -1122,24 +1321,45 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
 
   /** Client-side Cluster/Plant filter for Table-sourced rows (table sources have no SQL @cluster/@plant params to piggyback on, unlike views). */
   private applyGlobalRowFilter(rows: Record<string, unknown>[]): Record<string, unknown>[] {
-    const cluster = this.filterValues['cluster'] && this.filterValues['cluster'] !== 'All' ? this.filterValues['cluster'] : '';
-    const plant = this.filterValues['plant'] && this.filterValues['plant'] !== 'All' ? this.filterValues['plant'] : '';
-    if (!cluster && !plant) return rows;
-    return rows.filter(row => {
-      if (cluster) {
-        const col = this.findColumn(row, 'cluster');
-        if (col && String(row[col]).toLowerCase() !== cluster.toLowerCase()) return false;
-      }
-      if (plant) {
-        const col = this.findColumn(row, 'plant');
-        if (col && String(row[col]).toLowerCase() !== plant.toLowerCase()) return false;
-      }
-      return true;
-    });
+    const columns: Record<string, string> = {
+      country: 'country', sector: 'sector', businessUnit: 'business_unit',
+      division: 'division', cluster: 'cluster', plant: 'plant_description',
+    };
+    return rows.filter(row => Object.entries(columns).every(([key, column]) => {
+      const selection = this.filterValues[key];
+      if (!hasGlobalSelection(selection)) return true;
+      const names = new Set([key, column].map(name => name.toLowerCase().replace(/[^a-z0-9]/g, '')));
+      const found = Object.keys(row).find(name => names.has(name.toLowerCase().replace(/[^a-z0-9]/g, '')));
+      return found === undefined || matchesGlobalSelection(row[found], selection);
+    }));
+  }
+
+  private advancedFilters: ReturnType<typeof advancedHierarchyFilters> = [];
+  @ViewChild('advancedFilter') private advancedFilterRef?: AdvancedFilterComponent;
+
+  applyAdvancedFilter(value: AdvancedFilterValue): void {
+    this.advancedFilters = advancedHierarchyFilters(value.hierarchy);
+    this.onGlobalDateChange();
+  }
+
+  private globalHierarchyFilterPayload(isView = this.dataSourceMode === 'view'): ReturnType<typeof advancedHierarchyFilters> {
+    const columns: Record<string, string> = {
+      country: 'country', sector: 'sector', businessUnit: 'business_unit', division: 'division',
+      cluster: 'cluster', plant: 'plant_description',
+    };
+    return [...Object.entries(columns)
+      .filter(([key]) => hasGlobalSelection(this.filterValues[key]))
+      .map(([key, column]) => ({
+        globalHierarchy: true,
+        sourceTable: column,
+        sourceColumn: column,
+        ...globalSelectionPayload(this.filterValues[key]),
+        label: column,
+      })), ...(isView ? this.advancedFilters ?? [] : [])];
   }
 
   private injectGlobalFilterParams(sql: string): string {
-    const declarations: Record<string, string> = {
+    const declarations: Record<string, GlobalFilterSelection> = {
       country: this.filterValues['country'],
       sector: this.filterValues['sector'],
       businessUnit: this.filterValues['businessUnit'],
@@ -1148,7 +1368,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       plant: this.filterValues['plant'],
     };
     for (const [name, value] of Object.entries(declarations)) {
-      if (!value || value === 'All' || !/^[A-Za-z0-9\s\-_.,()]+$/.test(value)) continue;
+      if (typeof value !== 'string' || !value || value === 'All' || !/^[A-Za-z0-9\s\-_.,()]+$/.test(value)) continue;
       const parameter = `@${name}`;
       const declaration = new RegExp(`DECLARE\\s+${parameter}\\s+(\\w+(?:\\s*\\([^)]*\\))?)(?:\\s*=[^;]+)?;`, 'i');
       if (declaration.test(sql)) {
@@ -1244,6 +1464,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.globalTablePreviewSub?.unsubscribe();
     this.tileValueSubscription?.unsubscribe();
     this.savedDaxModelsSubscription?.unsubscribe();
     // Restore previous sidebar state
@@ -1302,6 +1523,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
   toggleValueColumnDropdown(): void {
     this.showValueColumnDropdown = !this.showValueColumnDropdown;
     if (this.showValueColumnDropdown) { this.showDataSourceDropdown = false; this.showColorDropdown = false; this.showIconDropdown = false; }
+    else { this.valueColumnSearch = ''; }
   }
 
   selectDataSource(source: DataSourceOption): void {
@@ -1523,6 +1745,30 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     });
   }
 
+  toggleDrillDownDropdown(): void {
+    this.showDrillDownDropdown = !this.showDrillDownDropdown;
+    if (this.showDrillDownDropdown && !this.drillDownViews.length) {
+      this.commonApi.getDatabaseViews('view').subscribe({ next: (views) => { this.drillDownViews = views; this.cdr.markForCheck(); } });
+    }
+    this.cdr.markForCheck();
+  }
+
+  selectDrillDownView(view: DatabaseViewListItem): void {
+    this.pushUndo();
+    this.drillDownViewId = view.id;
+    this.drillDownViewName = view.viewName;
+    this.showDrillDownDropdown = false;
+    this.drillDownSearch = '';
+    this.cdr.markForCheck();
+  }
+
+  removeDrillDownView(): void {
+    this.pushUndo();
+    this.drillDownViewId = null;
+    this.drillDownViewName = '';
+    this.cdr.markForCheck();
+  }
+
   selectView(view: DatabaseViewListItem): void {
     this.pushUndo();
     this.showTablePreview = false;
@@ -1543,6 +1789,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
           sql: this.injectGlobalFilterParams(detail.generatedSql),
           viewId: detail.id,
           maxRows: 1000,
+          filters: this.globalHierarchyFilterPayload(true),
         }).subscribe({
           next: (res) => {
             this.columnsForSource = res.columns ?? [];
@@ -1583,6 +1830,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.saveError.set('');
     this.valueColumn = col;
     this.showValueColumnDropdown = false;
+    this.valueColumnSearch = '';
     this.computeTileValue();
     this.cdr.markForCheck();
   }
@@ -1594,9 +1842,10 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    this.liveValue = null;
-    try { getTileDaxRequest(this.daxModel, this.columnsForSource); }
+    this.tileValueLoading = true;
+    try { getTileDaxRequest(this.effectiveDaxModel(), this.columnsForSource); }
     catch (error) {
+      this.setTileValue(null);
       this.daxExpressionError = error instanceof Error ? error.message : 'Invalid tile DAX measure.';
       this.cdr.markForCheck();
       return;
@@ -1607,51 +1856,88 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     if (this.dataSourceMode === 'table' && this.selectedDataSourceId) {
       this.computeTileValueFromServer();
     } else {
+      this.setTileValue(null);
       this.computeTileValueFromRows();
     }
   }
 
+  /** The previous value stays on screen while a new one loads, so the tile doesn't flash the empty canvas. */
+  private setTileValue(value: number | null): void {
+    this.liveValue = value;
+    this.previewFormatMeasure = undefined;
+    this.tileValueLoading = false;
+  }
+
   private computeTileValueFromServer(): void {
-    const needsColumn = !this.daxEnabled && this.calculation !== 'count';
-    if (needsColumn && !this.valueColumn) { this.liveValue = null; this.cdr.markForCheck(); return; }
+    const needsColumn = !this.tileDaxActive && this.calculation !== 'count';
+    if (needsColumn && !this.valueColumn) { this.setTileValue(null); this.cdr.markForCheck(); return; }
+    const sourceType = this.selectedDataSource?.modelType ?? 'Table';
+    // Dev's global hierarchy (resolved by column name) + our FK Cluster/Plant for code-based Table tiles.
+    const tableGlobals = !this.daxEnabled && sourceType.toLowerCase() === 'table'
+      ? tableClusterPlantFilters(this.filterValues['cluster'], this.filterValues['plant']) : [];
+    const globalFilters = [...this.globalHierarchyFilterPayload(), ...tableGlobals];
+    if (globalFilters.length) {
+      this.tileValueSubscription = this.widgetService.getFilteredChartData({
+        chartSource: this.selectedDataSourceId,
+        chartSourceType: sourceType,
+        viewId: null,
+        filters: globalFilters,
+        aggregation: this.calculation,
+        valueField: this.valueColumn || undefined,
+        daxModel: this.daxModel,
+      }).subscribe({
+        next: res => {
+          let value = Number(res.rows[0]?.['Value'] ?? 0);
+          if (!this.daxEnabled && this.calculation === 'average') value = Math.round(value * 100) / 100;
+          this.setTileValue(value);
+          this.cdr.markForCheck();
+        },
+        error: error => {
+          this.setTileValue(null);
+          this.daxExpressionError = error?.error?.error ?? error?.message ?? 'Failed to calculate filtered tile value.';
+          this.cdr.markForCheck();
+        },
+      });
+      return;
+    }
     this.tileValueSubscription = this.commonApi.getAggregate({
       sourceName: this.selectedDataSourceId,
-      sourceType: this.selectedDataSource?.modelType ?? 'Table',
+      sourceType,
       aggregation: this.calculation,
       valueField: this.valueColumn || undefined,
-      daxModel: this.daxModel,
+      daxModel: this.effectiveDaxModel(),
     }).subscribe({
       next: (res) => {
         let v = res.value ?? 0;
-        if (!this.daxEnabled && this.calculation === 'average') v = Math.round(v * 100) / 100;
-        this.liveValue = v;
+        if (!this.tileDaxActive && this.calculation === 'average') v = Math.round(v * 100) / 100;
+        this.setTileValue(v);
         this.cdr.markForCheck();
       },
       error: (error) => {
-        this.liveValue = null;
-        if (this.daxEnabled) this.daxExpressionError = error?.error?.error ?? error?.message ?? 'DAX calculation failed.';
+        this.setTileValue(null);
+        if (this.tileDaxActive) this.daxExpressionError = error?.error?.error ?? error?.message ?? 'DAX calculation failed.';
         this.cdr.markForCheck();
       },
     });
   }
 
-  private computeTileValueFromRows(): void {
-    const daxValue = evaluateTileDaxValue(this.tableRows, this.daxModel, this.columnsForSource);
+  private computeTileValueFromRows(rows: Record<string, unknown>[] = this.tableRows): void {
+    const daxValue = evaluateTileDaxValue(this.tableRows, this.effectiveDaxModel(), this.columnsForSource);
     if (daxValue !== undefined) { this.liveValue = daxValue; return; }
-    if (!this.tableRows.length) { this.liveValue = null; return; }
+    if (!rows.length) { this.liveValue = null; return; }
     if (this.calculation === 'count') {
       this.liveValue = this.valueColumn
-        ? this.tableRows.filter(r => { const v = r[this.valueColumn]; return v !== null && v !== undefined && v !== ''; }).length
-        : this.tableRows.length;
+        ? rows.filter(r => { const v = r[this.valueColumn]; return v !== null && v !== undefined && v !== ''; }).length
+        : rows.length;
     } else if (this.calculation === 'countDistinct' && this.valueColumn) {
-      this.liveValue = new Set(this.tableRows.map(r => r[this.valueColumn]).filter(v => v !== null && v !== undefined && v !== '')).size;
+      this.liveValue = new Set(rows.map(r => r[this.valueColumn]).filter(v => v !== null && v !== undefined && v !== '')).size;
     } else if (this.calculation === 'value' && this.valueColumn) {
-      this.liveValue = Number(this.tableRows[0]?.[this.valueColumn] ?? 0) || 0;
+      this.liveValue = Number(rows[0]?.[this.valueColumn] ?? 0) || 0;
     } else if (this.calculation === 'total' && this.valueColumn) {
-      this.liveValue = this.tableRows.reduce((sum, row) => sum + (Number(row[this.valueColumn] ?? 0) || 0), 0);
+      this.liveValue = rows.reduce((sum, row) => sum + (Number(row[this.valueColumn] ?? 0) || 0), 0);
     } else if (this.calculation === 'average' && this.valueColumn) {
-      const sum = this.tableRows.reduce((s, row) => s + (Number(row[this.valueColumn] ?? 0) || 0), 0);
-      this.liveValue = Math.round((sum / this.tableRows.length) * 100) / 100;
+      const sum = rows.reduce((s, row) => s + (Number(row[this.valueColumn] ?? 0) || 0), 0);
+      this.liveValue = Math.round((sum / rows.length) * 100) / 100;
     } else {
       // Operation needs a column but none is picked yet → show no value.
       this.liveValue = null;
@@ -1698,6 +1984,32 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.showIconDropdown = false;
   }
 
+  toggleShowTileIcon(): void {
+    this.pushUndo();
+    this.showTileIcon = !this.showTileIcon;
+  }
+
+  setTileLayout(layout: TileLayout): void {
+    if (this.tileLayout === layout) return;
+    this.pushUndo();
+    this.tileLayout = layout;
+  }
+
+  toggleValueBold(): void {
+    this.pushUndo();
+    this.valueBold = !this.valueBold;
+  }
+
+  toggleValueItalic(): void {
+    this.pushUndo();
+    this.valueItalic = !this.valueItalic;
+  }
+
+  setValueColor(color: string): void {
+    this.pushUndo();
+    this.valueColor = color;
+  }
+
   toggleBadgeColorDropdown(): void {
     this.showBadgeColorDropdown = !this.showBadgeColorDropdown;
   }
@@ -1718,13 +2030,119 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
 
   // ─── Help modal ───────────────────────────────────────────
   showHelpModal = false;
-  helpExpandedArticle: number | null = 0;
+  helpSearchTerm = '';
+  helpVote: 'yes' | 'no' | null = null;
+  helpArticles: TileHelpArticle[] = [
+    {
+      id: 'data-source',
+      question: 'How do I choose a data source?',
+      expanded: false,
+      steps: [
+        'In Data Source, choose Table, View, or Import.',
+        'Select the table or view to use, or choose an imported dataset. The available columns load for the selected source.',
+        'Use the live preview to check the tile value before saving.',
+      ],
+    },
+    {
+      id: 'calculation',
+      question: 'How do I calculate the tile value?',
+      expanded: false,
+      steps: [
+        'In the calculation controls, choose Value, Count, Count Distinct, Total, or Average.',
+        'Select a value column when the chosen calculation requires one. Count can count all records without a column.',
+        'Value shows the first row’s selected column value; Count counts records or non-empty column values; Count Distinct counts unique values; Total sums a numeric column; Average calculates its mean.',
+      ],
+    },
+    {
+      id: 'visual-settings',
+      question: 'How do I customize the tile appearance and number?',
+      expanded: false,
+      steps: [
+        'Open Visual Settings to choose a tile color and icon.',
+        'Open Number Formatting to add a prefix or suffix, set decimal places, and choose whether to shorten large numbers.',
+        'Use the badge controls to add badge text and choose its color. Review the preview as you make changes.',
+      ],
+    },
+    {
+      id: 'breakdown',
+      question: 'How do I add breakdown details?',
+      expanded: false,
+      steps: [
+        'Add a row in the breakdown section and enter its label and value.',
+        'Choose a source, column, and color for the row when you want its value to come from a data source.',
+        'Remove a row with its delete control. Breakdown rows are optional.',
+      ],
+    },
+    {
+      id: 'dax-model',
+      question: 'When should I use the DAX Model?',
+      expanded: false,
+      steps: [
+        'Open the optional DAX Model section and enable it when the standard tile calculations do not meet your needs.',
+        'Select or define a DAX measure and configure its expression and source columns.',
+        'Resolve any validation errors and check the preview before saving.',
+      ],
+    },
+    {
+      id: 'filters',
+      question: 'How do I filter the tile?',
+      expanded: false,
+      steps: [
+        'Use Show Filter in the top toolbar to show or hide the workspace filter bar, then select the available filter values.',
+        'In the interactive filters section, add a filter and set its label, control type, source table, and source column.',
+        'Interactive filters let viewers narrow the tile data. Remove a filter using its row action.',
+      ],
+    },
+    {
+      id: 'save-tile',
+      question: 'How do I save, update, or discard a tile?',
+      expanded: false,
+      steps: [
+        'Enter a tile name, description, and category, then select a data source and complete any required calculation settings.',
+        'Choose Save or Update to persist the tile and remain in the builder. Choose Save & Close to save and leave the builder.',
+        'Choose Discard to leave without saving. If validation messages appear, complete the required fields and try again.',
+      ],
+    },
+  ];
 
-  openHelpModal(): void { this.showHelpModal = true; }
-  closeHelpModal(): void { this.showHelpModal = false; }
+  get filteredHelpArticles(): TileHelpArticle[] {
+    const term = this.helpSearchTerm.trim().toLowerCase();
+    if (!term) return this.helpArticles;
+    return this.helpArticles.filter(article =>
+      `${article.question} ${article.steps.join(' ')}`.toLowerCase().includes(term),
+    );
+  }
 
-  toggleHelpArticle(index: number): void {
-    this.helpExpandedArticle = this.helpExpandedArticle === index ? null : index;
+  onHelpSearchChange(): void {
+    const firstMatch = this.filteredHelpArticles[0];
+    this.helpArticles.forEach(article => (article.expanded = article === firstMatch));
+  }
+
+  clearHelpSearch(): void {
+    this.helpSearchTerm = '';
+    this.helpArticles.forEach(article => (article.expanded = false));
+  }
+
+  openHelpModal(): void {
+    this.helpSearchTerm = '';
+    this.helpVote = null;
+    this.helpArticles.forEach(article => (article.expanded = false));
+    this.showHelpModal = true;
+  }
+
+  closeHelpModal(): void {
+    this.showHelpModal = false;
+    this.helpSearchTerm = '';
+    this.helpVote = null;
+  }
+
+  toggleHelpArticle(article: TileHelpArticle): void {
+    const shouldExpand = !article.expanded;
+    this.helpArticles.forEach(a => (a.expanded = a.id === article.id && shouldExpand));
+  }
+
+  setHelpVote(vote: 'yes' | 'no'): void {
+    this.helpVote = vote;
   }
 
   // ─── Learn modal ───────────────────────────────────────────
@@ -1775,7 +2193,10 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       const view = this.availableViews.find(v => v.viewName === sourceName);
       if (!view) return;
       this.commonApi.getDatabaseViewById(view.id).subscribe({
-        next: (detail) => this.commonApi.previewView({ connectionId: detail.connectionId, sql: detail.generatedSql, viewId: detail.id, maxRows: 1000 }).subscribe({ next: done, error: () => {} }),
+        next: (detail) => this.commonApi.previewView({
+          connectionId: detail.connectionId, sql: detail.generatedSql, viewId: detail.id, maxRows: 1000,
+          filters: this.globalHierarchyFilterPayload(),
+        }).subscribe({ next: done, error: () => {} }),
         error: () => {},
       });
     } else {
@@ -1948,6 +2369,11 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       valueColumn:         this.valueColumn,
       tileColor:           this.tileColor,
       tileIcon:            this.tileIcon,
+      showTileIcon:        this.showTileIcon,
+      tileLayout:          this.tileLayout,
+      valueBold:           this.valueBold,
+      valueItalic:         this.valueItalic,
+      valueColor:          this.valueColor,
       prefix:              this.prefix,
       suffix:              this.suffix,
       decimalPlaces:       this.decimalPlaces,
@@ -1956,6 +2382,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       badgeColor:          this.badgeColor,
       breakdownRows:       this.breakdownRows.map(r => ({ ...r })),
       interactiveFilters:  this.interactiveFilters.map(f => ({ ...f })),
+      drillDownViewId:     this.drillDownViewId,
     });
   }
 
@@ -1972,6 +2399,11 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.valueColumn         = s.valueColumn;
     this.tileColor           = s.tileColor;
     this.tileIcon            = s.tileIcon;
+    this.showTileIcon        = s.showTileIcon ?? true;
+    this.tileLayout          = resolveTileLayout(s.tileLayout);
+    this.valueBold           = s.valueBold ?? false;
+    this.valueItalic         = s.valueItalic ?? false;
+    this.valueColor          = s.valueColor ?? '';
     this.prefix              = s.prefix;
     this.suffix              = s.suffix;
     this.decimalPlaces       = s.decimalPlaces;
@@ -1980,6 +2412,8 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.badgeColor          = s.badgeColor;
     this.breakdownRows       = s.breakdownRows.map(r => ({ ...r }));
     this.interactiveFilters  = s.interactiveFilters.map(f => ({ ...f }));
+    this.drillDownViewId     = s.drillDownViewId ?? null;
+    this.drillDownViewName   = this.drillDownViewId ? (this.drillDownViews.find(v => v.id === this.drillDownViewId)?.viewName ?? this.drillDownViewName) : '';
     // Reload columns for restored source (keep the restored column so preview reappears)
     const src = this.dataSources.find(d => d.id === this.selectedDataSourceId);
     if (src) { this.loadColumnsForSource(src.id, src.modelType, true); }
@@ -1991,11 +2425,17 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.showTablePreview = false;
     this.tileTitle = 'Tile Name'; this.selectedDataSourceId = '';
     this.calculation = 'value'; this.valueColumn = '';
+    // Clear the loaded source data too, so the Column dropdown/preview don't keep the previous source.
+    this.columnsForSource = []; this.tableRows = []; this.valueColumnSearch = '';
     this.tileColor = 'blue'; this.tileIcon = 'well';
+    this.showTileIcon = true; this.valueBold = false; this.valueItalic = false; this.valueColor = '';
+    this.tileLayout = 'two-rows';
     this.prefix = ''; this.suffix = ''; this.decimalPlaces = 0; this.shortenBigNumbers = false;
     this.badgeText = ''; this.badgeColor = 'none';
     this.breakdownRows = [];
     this.interactiveFilters = [];
+    this.drillDownViewId = null;
+    this.drillDownViewName = '';
   }
 
   toggleLock(): void {
@@ -2013,6 +2453,11 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       valueColumn: this.valueColumn,
       tileColor: this.tileColor,
       tileIcon: this.tileIcon,
+      showTileIcon: this.showTileIcon,
+      tileLayout: this.tileLayout,
+      valueBold: this.valueBold,
+      valueItalic: this.valueItalic,
+      valueColor: this.valueColor,
       prefix: this.prefix,
       suffix: this.suffix,
       decimalPlaces: this.decimalPlaces,
@@ -2021,6 +2466,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       badgeColor: this.badgeColor,
       breakdownRows: this.breakdownRows.map(r => ({ ...r })),
       interactiveFilters: this.interactiveFilters.map(f => ({ ...f })),
+      drillDownViewId: this.drillDownViewId,
     };
   }
 
@@ -2034,6 +2480,11 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.valueColumn = s.valueColumn;
     this.tileColor = s.tileColor;
     this.tileIcon = s.tileIcon;
+    this.showTileIcon = s.showTileIcon ?? true;
+    this.tileLayout = resolveTileLayout(s.tileLayout);
+    this.valueBold = s.valueBold ?? false;
+    this.valueItalic = s.valueItalic ?? false;
+    this.valueColor = s.valueColor ?? '';
     this.prefix = s.prefix;
     this.suffix = s.suffix;
     this.decimalPlaces = s.decimalPlaces;
@@ -2042,6 +2493,8 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.badgeColor = s.badgeColor;
     this.breakdownRows = s.breakdownRows.map(r => ({ ...r }));
     this.interactiveFilters = s.interactiveFilters.map(f => ({ ...f }));
+    this.drillDownViewId = s.drillDownViewId ?? null;
+    this.drillDownViewName = this.drillDownViewId ? (this.drillDownViews.find(v => v.id === this.drillDownViewId)?.viewName ?? this.drillDownViewName) : '';
     this.computeTileValue();
   }
 
@@ -2093,7 +2546,20 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
     this.showClearAllConfirm = false;
   }
 
-  discard(): void { this.router.navigateByUrl(this.returnUrl); }
+  showDiscardConfirm = false;
+
+  discard(): void {
+    this.showDiscardConfirm = true;
+  }
+
+  cancelDiscard(): void {
+    this.showDiscardConfirm = false;
+  }
+
+  confirmDiscard(): void {
+    this.showDiscardConfirm = false;
+    this.router.navigateByUrl(this.returnUrl);
+  }
 
   private loadExistingTile(id: number): void {
     this.widgetService.getWidgetById(id).subscribe({
@@ -2112,6 +2578,11 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
 
         this.tileColor = design.tileColor ?? 'blue';
         this.tileIcon = design.tileIcon ?? 'well';
+        this.showTileIcon = design.showTileIcon ?? true;
+        this.tileLayout = resolveTileLayout(design.tileLayout);
+        this.valueBold = design.valueBold ?? false;
+        this.valueItalic = design.valueItalic ?? false;
+        this.valueColor = design.valueColor ?? '';
         this.calculation = design.aggregation ?? 'count';
         this.valueColumn = design.valueField ?? '';
         this.prefix = design.prefix ?? '';
@@ -2123,6 +2594,17 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
         this.breakdownRows = design.breakdownRows ?? [];
         this.hydrateBreakdownValues();
         this.interactiveFilters = design.interactiveFilters ?? [];
+        this.drillDownViewId = design.drillDownViewId ?? null;
+        this.drillDownViewName = '';
+        if (this.drillDownViewId) {
+          this.commonApi.getDatabaseViews('view').subscribe({
+            next: (views) => {
+              this.drillDownViews = views;
+              this.drillDownViewName = views.find(v => v.id === this.drillDownViewId)?.viewName ?? `View #${this.drillDownViewId}`;
+              this.cdr.markForCheck();
+            },
+          });
+        }
 
         // Restore data source mode and selection
         if (design.dataSourceMode === 'view') {
@@ -2141,6 +2623,7 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
                       sql: this.injectGlobalFilterParams(detail.generatedSql),
                       viewId: detail.id,
                       maxRows: 1000,
+                      filters: this.globalHierarchyFilterPayload(),
                     }).subscribe({
                       next: (res) => {
                         this.columnsForSource = res.columns ?? [];
@@ -2208,9 +2691,12 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
       label: this.tileTitle, prefix: this.prefix, suffix: this.suffix,
       decimalPlaces: this.decimalPlaces, shortenBigNumbers: this.shortenBigNumbers,
       tileColor: this.tileColor, tileIcon: this.tileIcon,
+      showTileIcon: this.showTileIcon, valueBold: this.valueBold, valueItalic: this.valueItalic, valueColor: this.valueColor,
+      tileLayout: this.tileLayout,
       badgeText: this.badgeText, badgeColor: this.badgeColor,
       breakdownRows: this.breakdownRows,
       interactiveFilters: this.interactiveFilters.map(f => ({ ...f })),
+      drillDownViewId: this.drillDownViewId,
     });
   }
 
@@ -2334,9 +2820,12 @@ export class TileBuilderComponent implements OnInit, OnDestroy {
         label: state.tileTitle, prefix: state.prefix, suffix: state.suffix,
         decimalPlaces: state.decimalPlaces, shortenBigNumbers: state.shortenBigNumbers,
         tileColor: state.tileColor, tileIcon: state.tileIcon,
+        showTileIcon: state.showTileIcon, valueBold: state.valueBold, valueItalic: state.valueItalic, valueColor: state.valueColor,
+        tileLayout: state.tileLayout,
         badgeText: state.badgeText, badgeColor: state.badgeColor,
         breakdownRows: state.breakdownRows,
         interactiveFilters: state.interactiveFilters,
+        drillDownViewId: state.drillDownViewId,
       });
 
       const sourceModel = this.dataSources.find(d => d.id === state.selectedDataSourceId);

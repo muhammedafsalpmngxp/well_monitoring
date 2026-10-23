@@ -1,10 +1,21 @@
-﻿import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, ElementRef, ViewChild, HostListener, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, ElementRef, ViewChild, HostListener, NgZone } from '@angular/core';
 import { dateRangePopupPlacement } from '../../../shared/components/date-range-popup/date-range-popup.placement';
+import { advancedHierarchyFilters } from '../../../core/utils/advanced-hierarchy-filter.util';
+import { AdvancedFilterComponent, type AdvancedFilterValue } from '../../../shared/components/advanced-filter/advanced-filter.component';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EMPTY, Subscription, of, Subject } from 'rxjs';
 import { switchMap, map, catchError, takeUntil, expand, reduce } from 'rxjs/operators';
 import { CommonApiService, DatabaseViewListItem, SourceDto, TableDataDto, PlantFilterDto } from '../../../core/services/common-api.service';
+import {
+  GlobalFilterSelection,
+  globalSelectionLabel,
+  globalSelectionValues,
+  hasGlobalSelection,
+  matchesGlobalSelection,
+  isGlobalFilterOptionChecked, GlobalFilterClearState, toggleGlobalSelection,
+} from '../../../core/utils/global-filter-selection.util';
 import { TenantReportsService } from '../../../core/services/tenant-reports.service';
+import { clusterBannerSelectionKey, resolveClusterBanner } from '../shared/report-cluster-banner.util';
 import { DaxModelService, SavedDaxModelDto } from '../../../core/services/dax-model.service';
 import { restoreDaxOperation } from '../../../core/utils/dax-evaluator.util';
 import { LearnVideoService } from '../../../core/services/learn-video.service';
@@ -52,6 +63,7 @@ import {
   GridReadyEvent,
   GridApi,
   GridOptions,
+  IRowNode,
   ColumnRowGroupChangedEvent,
   GetContextMenuItemsParams,
   MenuItemDef,
@@ -59,6 +71,8 @@ import {
   CellClickedEvent,
   CellValueChangedEvent,
   CellClassParams,
+  ColumnHeaderClickedEvent,
+  HeaderClassParams,
   ICellRendererParams,
   RowClassParams,
   RowHeightParams,
@@ -83,7 +97,9 @@ import {
   CfOperator,
   CfScope,
   ReportConditionalFilter,
+  ReportLegendItem,
 } from '../shared/report-config.model';
+import { coerceNumberAllowPercent } from '../../../core/utils/percent-number.util';
 import {
   buildReportGridColumns,
   computeTotalsRows,
@@ -91,18 +107,61 @@ import {
   reconcileRowLayout,
   materializeRows,
   isNumericColumn,//row gruping
+  isAggregatableColumn,
   isDateColumn,
   REPORT_AGG_FUNCS,
   MANUAL_ROW_FLAG,
   MANUAL_ROW_ID,
   SOURCE_ROW_INDEX,
+  ROW_COLOR_KEY,
+  getReportRowColorKey,
+  getReportGroupRowColorKey,
+  getReportGroupRowStyle,
+  createColumnConfigResolver,
+  getReportCellSetting,
+  clearReportCellSettingsForRecord,
+  reportCellSettingKey,
+  isReportCellSettingForField,
   hasRowMerges,
   VERTICAL_CELL_ROW_HEIGHT,
   rowHasVerticalCell,
   borderSidesFor,
   unionCellBorder,
   hasAnyBorderSide,
+  ROW_NUMBER_COL_ID,
+  resolveHeaderBackgroundColor,
+  resolveHeaderTextColor,
+  TOTALS_LABEL_FIELD,
+  getPinnedSummaryLabel,
+  getSummaryRowStyle,
+  buildReportAutoGroupColumnStyles,
+  getReportColumnField,
+  DUPLICATE_HIGHLIGHT_BG,
+  DUPLICATE_HIGHLIGHT_TEXT,
+  ReportHeaderGroupRef,
+  resolveGroupHeaderAlign,
 } from '../shared/report-grid-columns.util';
+import { growReportColumnsToFitValues } from '../shared/report-column-autosize.util';
+import {
+  ReportColumnKeyedSettings,
+  columnKeyRenamer,
+  getRenamedColumnDisplayNames,
+  renameConditionalFilterColumns,
+  renameDaxModelColumns,
+  renameReportColumnKeys,
+  renamedOutputRenamer,
+  sameColumnRenames,
+  toSourceColumnKeys,
+} from '../shared/report-column-rename.util';
+import {
+  columnNameSet,
+  columnsAfterRules,
+  dropMissingColumnKeys,
+  mergeConditionalFilters,
+  mergeDaxModels,
+  mergeReportColumnKeys,
+  mergeTemplateRules,
+} from '../shared/report-template-merge.util';
 import { ReportExportColorService, ExportCellColorSource } from '../shared/report-export-color.service';
 import { positionReportPaginationPopup } from '../shared/report-grid-popup.util';
 import { applyConditionalFilters } from '../../../core/utils/conditional-filter.util';
@@ -124,6 +183,7 @@ import {
   DAX_FUNCTION_SNIPPETS,
   buildDaxOperationExpression,
   formatDaxValue,
+  getActiveDaxMeasures,
 } from '../../../core/utils/dax-evaluator.util';
 import type { DaxMeasureConfig, DaxDisplayPreference, DaxEvaluationScope, DaxModelConfig } from '../../../core/utils/dax-evaluator.util';
 import { ToastService } from '../../../core/services/toast.service';
@@ -158,42 +218,37 @@ ModuleRegistry.registerModules([
   FiltersToolPanelModule,
 ]);
 
-// 'None' (clear) plus two shades across the spectrum — a "Custom Color…" picker
-// covers anything beyond this curated set (see colorMenuItems/openCustomColorPicker).
+// 'None' (clear) plus a curated set of the colors most commonly used in reports — a
+// "Custom Color…" picker (see colorMenuItems/openCustomColorPicker) covers anything
+// beyond this short list, so the context-menu color submenu stays compact (no scrolling).
 const CELL_COLOR_PALETTE = [
-  '#FFFFFF',
-  '#FEE2E2', '#FCA5A5',
-  '#FFEDD5', '#FDBA74',
-  '#FEF3C7', '#FCD34D',
-  '#FEF9C3', '#FDE047',
-  '#ECFCCB', '#BEF264',
-  '#DCFCE7', '#86EFAC',
-  '#D1FAE5', '#6EE7B7',
-  '#CCFBF1', '#5EEAD4',
-  '#CFFAFE', '#67E8F9',
-  '#DBEAFE', '#93C5FD',
-  '#E0E7FF', '#A5B4FC',
-  '#EDE9FE', '#C4B5FD',
-  '#F3E8FF', '#D8B4FE',
-  '#FAE8FF', '#F0ABFC',
-  '#FCE7F3', '#F9A8D4',
-  '#FFE4E6', '#FDA4AF',
-  '#E5E7EB', '#9CA3AF',
+  '#FFFFFF', // None
+  '#FEE2E2', // red
+  '#FFEDD5', // orange
+  '#FEF9C3', // yellow
+  '#DCFCE7', // green
+  '#D1FAE5', // emerald
+  '#CFFAFE', // cyan
+  '#DBEAFE', // blue
+  '#E0E7FF', // indigo
+  '#F3E8FF', // purple
+  '#E5E7EB', // gray
 ];
 
 // Readable text colors ('#FFFFFF' is the sentinel for "None"/default text color;
 // the "Custom Color…" picker can still choose true white for text on dark cells).
 const TEXT_COLOR_PALETTE = [
-  '#FFFFFF',
-  '#111827', '#374151',
-  '#DC2626', '#EA580C',
-  '#D97706', '#CA8A04',
-  '#65A30D', '#16A34A',
-  '#059669', '#0D9488',
-  '#0891B2', '#2563EB',
-  '#4F46E5', '#7C3AED',
-  '#9333EA', '#C026D3',
-  '#DB2777',
+  '#FFFFFF', // None (default)
+  '#111827', // near-black
+  '#374151', // gray
+  '#DC2626', // red
+  '#EA580C', // orange
+  '#CA8A04', // amber
+  '#16A34A', // green
+  '#0891B2', // cyan
+  '#2563EB', // blue
+  '#7C3AED', // purple
+  '#DB2777', // pink
 ];
 
 export type ReportTypeId = 'table' | 'summary' | 'chart';
@@ -305,12 +360,16 @@ interface ReportSheetSnapshot {  dataSourceMode: 'table' | 'view';
   nextCalculatedIndex: number;
   conditionalRules: ConditionalRule[];
   daxModel: DaxModelConfig;
+  legendItems: ReportLegendItem[];
   conditionalFilters: ReportConditionalFilter[];
   parameterFilters: ParameterFilterRule[];
   headerTitle: string;
   headerSubtitle: string;
   headerSubtitle2: string;
   bannerText: string;
+  clusterBannerText: string;
+  clusterBannerSelection: string;
+  customClusterBannerEnabled: boolean;
   headerBackgroundColor: string;
   headerTextColor: string;
   bannerBackgroundColor: string;
@@ -322,14 +381,21 @@ interface ReportSheetSnapshot {  dataSourceMode: 'table' | 'view';
   headerCellColors: Record<string, string>;
   headerCellTextColors: Record<string, string>;
   rowColors: Record<number, string>;
+  rowColorsByKey: Record<string, string>;
   rowTextColors: Record<number, string>;
+  rowTextColorsByKey: Record<string, string>;
+  summaryRowColors?: Record<string, string>;
+  summaryRowTextColors?: Record<string, string>;
   pageRowColors: Record<number, string>;
   cellColors: Record<string, string>;
   cellTextColors: Record<string, string>;
   columnGroupColors: ColumnGroupColorRow[];
   groupColors: Record<string, string>;
   subGroupColors: Record<string, string>;
+  groupTextColors: Record<string, string>;
+  subGroupTextColors: Record<string, string>;
   pinnedColumns: string[];
+  dataBarColumns?: string[];
   leftLogoUrl: string;
   rightLogoUrl: string;
   rightLogoColor: string;
@@ -353,9 +419,12 @@ interface ReportSheetSnapshot {  dataSourceMode: 'table' | 'view';
   cellAlignments: Record<string, TextAlign>;
   headerCellAlignments: Record<string, TextAlign>;
   reportAlignment?: TextAlign;
+  groupHeaderAlignments: Record<string, TextAlign>;
+  subGroupHeaderAlignments: Record<string, TextAlign>;
   cellBorders: Record<string, CellBorder>;
   headerCellBorders: Record<string, CellBorder>;
   reportBorder?: BorderType;
+  rowNumberHeader?: string;
   viewMode: TableDensity;
   gridRowHeight: number;
   columnSizingMode: 'auto' | 'fit';
@@ -386,7 +455,7 @@ interface FilterField {
 }
 
 interface GlobalFilterState {
-  filterValues: Record<string, string>;
+  filterValues: Record<string, GlobalFilterSelection>;
   quickRange: string;
   fromDate: string;
   toDate: string;
@@ -416,6 +485,25 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   reportDescription = '';
   editingDescription = false;
   editingTitle = false;
+  clusterBannerText = '';
+  clusterBannerSelection = '';
+  private clusterBannerChoice?: { selectionKey: string; enabled: boolean };
+
+  get customClusterBannerEnabled(): boolean {
+    const selectionKey = clusterBannerSelectionKey(this.filterValues?.['cluster']);
+    if (!selectionKey) return false;
+    return this.clusterBannerChoice?.selectionKey === selectionKey ? this.clusterBannerChoice.enabled : true;
+  }
+
+  set customClusterBannerEnabled(enabled: boolean) {
+    this.clusterBannerChoice = {
+      selectionKey: clusterBannerSelectionKey(this.filterValues?.['cluster']),
+      enabled,
+    };
+  }
+  clusterBannerDraft = '';
+  editingClusterBanner = false;
+  private editingClusterSelection = '';
 
   private readonly notify: NotificationHelper;
   get successMessage(): string { return this.notify.successMessage; }
@@ -434,7 +522,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   readonly quickRangeOptions = ['Today', 'Till Last Tuesday', 'This Week', 'This Month', 'Last Month', 'This Quarter', 'This Year', 'After', 'Custom'];
 
-  filterValues: Record<string, string> = {
+  filterValues: Record<string, GlobalFilterSelection> = {
     country: 'All',
     sector: 'All',
     businessUnit: 'All',
@@ -445,7 +533,88 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   quickRange = '';
   fromDate = '';
   toDate = '';
-  openFilterName: string | null = null;
+  private globalFilterClearState?: GlobalFilterClearState;
+
+  get globalFilterClear(): GlobalFilterClearState {
+    return this.globalFilterClearState ??= new GlobalFilterClearState();
+  }
+  private openFilterNameValue: string | null = null;
+
+  get openFilterName(): string | null {
+    return this.openFilterNameValue;
+  }
+
+  set openFilterName(name: string | null) {
+    this.openFilterNameValue = name;
+    // Closing a dropdown left in the "Clear all" state reverts that filter to All.
+    const abandoned = this.globalFilterClear.release(name);
+    if (abandoned) this.revertClearedGlobalFilter(abandoned.key);
+  }
+
+  clearGlobalFilterSelection(key: unknown, event: Event): void {
+    event.stopPropagation();
+    this.globalFilterClear.clear(key, this.openFilterName);
+  }
+
+  isGlobalFilterCleared(key: unknown): boolean {
+    return this.globalFilterClear.isCleared(key);
+  }
+
+  private revertClearedGlobalFilter(key: unknown): void {
+    if (hasGlobalSelection(this.filterValues[String(key)])) this.selectFilterOption(String(key), 'All');
+  }
+
+  /** The selected cluster names, or '' when none ('All') is selected. */
+  get selectedClusterName(): string {
+    return this.clusterBanner.selectedClusterName;
+  }
+
+  private get clusterBanner() {
+    return resolveClusterBanner({
+      customClusterBannerEnabled: this.customClusterBannerEnabled,
+      clusterBannerText: this.clusterBannerText,
+      clusterBannerSelection: this.clusterBannerSelection,
+    }, this.filterValues?.['cluster'], this.reportName || 'Report Name');
+  }
+
+  get showClusterBanner(): boolean {
+    return this.clusterBanner.visible;
+  }
+
+  get showClusterBannerEditor(): boolean {
+    return this.showClusterBanner && this.editingClusterBanner
+      && this.editingClusterSelection === this.clusterBanner.selectionKey;
+  }
+
+  /** Secondary banner title, e.g. "JOB PROGRESS REPORT - NIMR". */
+  get clusterBannerTitle(): string {
+    return this.clusterBanner.title;
+  }
+
+  startEditClusterBanner(): void {
+    if (!this.showClusterBanner || this.showClusterBannerEditor) return;
+    this.clusterBannerDraft = this.clusterBannerTitle;
+    this.editingClusterSelection = this.clusterBanner.selectionKey;
+    this.editingClusterBanner = true;
+  }
+
+  updateClusterBannerText(text: string): void {
+    if (!this.showClusterBannerEditor) return;
+    this.clusterBannerDraft = text;
+    this.clusterBannerText = text;
+    this.clusterBannerSelection = this.editingClusterSelection;
+  }
+
+  setCustomClusterBannerEnabled(enabled: boolean): void {
+    this.customClusterBannerEnabled = enabled;
+    this.cancelEditClusterBanner();
+  }
+
+  cancelEditClusterBanner(): void {
+    this.editingClusterBanner = false;
+    this.clusterBannerDraft = '';
+    this.editingClusterSelection = '';
+  }
   private allPlants: PlantFilterDto[] = [];
   private readonly destroy$ = new Subject<void>();
   private initialGlobalFilterState: GlobalFilterState | null = null;
@@ -492,9 +661,9 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     return `${m}-${d}-${y}`;
   }
 
-  get activeFilters(): { key: string; label: string; value: string }[] {
+  get activeFilters(): { key: string; label: string; value: GlobalFilterSelection }[] {
     const hierarchyFilters = this.filterFields
-      .filter(f => this.filterValues[f.key] && this.filterValues[f.key] !== 'All')
+      .filter(f => hasGlobalSelection(this.filterValues[f.key]))
       .map(f => ({ key: f.key, label: f.label, value: this.filterValues[f.key] }));
     if (this.fromDate) hierarchyFilters.push({ key: 'fromDate', label: 'From', value: this.fromDate });
     if (this.toDate) hierarchyFilters.push({ key: 'toDate', label: 'To', value: this.toDate });
@@ -503,6 +672,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   resetGlobalFilters(): void {
+    this.advancedFilters = [];
+    this.advancedFilterRef?.clear();
     const defaults = this.initialGlobalFilterState;
     for (const field of this.filterFields) {
       this.filterValues[field.key] = defaults?.filterValues[field.key] ?? 'All';
@@ -531,9 +702,29 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.showGlobalFilter = !this.showGlobalFilter;
   }
 
+  private advancedFilters: ReturnType<typeof advancedHierarchyFilters> = [];
+  @ViewChild('advancedFilter') private advancedFilterRef?: AdvancedFilterComponent;
+
+  applyAdvancedFilter(value: AdvancedFilterValue): void {
+    this.advancedFilters = advancedHierarchyFilters(value.hierarchy);
+    this.refreshGlobalFilterData();
+  }
+
   toggleFilterDropdown(name: string, event: Event): void {
     event.stopPropagation();
     this.openFilterName = this.openFilterName === name ? null : name;
+  }
+
+  filterLabel(selection: GlobalFilterSelection): string {
+    return globalSelectionLabel(selection);
+  }
+
+  hasGlobalSelection(selection: GlobalFilterSelection): boolean {
+    return hasGlobalSelection(selection);
+  }
+
+  isFilterOptionSelected(selection: GlobalFilterSelection, value: string): boolean {
+    return isGlobalFilterOptionChecked(selection, value);
   }
 
   /** Snap a date to the last Tuesday on or before it (ISO string). */
@@ -596,14 +787,16 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    const v = value || 'All';
-    this.filterValues[name] = v;
+    this.filterValues[name] = value === 'All'
+      ? 'All'
+      : toggleGlobalSelection(this.filterValues[name] ?? 'All', value, this.filterFields.find(field => field.key === name)?.options, this.globalFilterClear.consume(name));
     const hierarchy = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
     const idx = hierarchy.indexOf(name);
     for (let i = idx + 1; i < hierarchy.length; i++) this.filterValues[hierarchy[i]] = 'All';
     this.rebuildCascadingOptions();
-    this.refreshGlobalFilterData();
     this.openFilterName = null;
+    this.refreshGlobalFilterData();
+    if (name === 'quickRange') this.openFilterName = null;
     this.cdr.markForCheck();
   }
 
@@ -621,6 +814,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       this.showDaxColumnDropdown = false;
       this.showDaxNumeratorDropdown = false;
       this.showDaxDenominatorDropdown = false;
+      this.daxColumnSearch = '';
       this.cdr.markForCheck();
     }
     this.closeSheetMenu();
@@ -676,6 +870,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   private refreshGlobalFilterData(): void {
+    if (this.clusterBannerChoice?.selectionKey !== clusterBannerSelectionKey(this.filterValues?.['cluster'])) {
+      this.clusterBannerChoice = undefined;
+    }
+    if (!this.showClusterBannerEditor) this.cancelEditClusterBanner();
     if (this.dataSourceMode === 'view' && this.selectedDataModelId) {
       this.loadViewPreviewForEdit(this.selectedDataModelId, false);
     } else if (this.tablePreviewData) {
@@ -700,25 +898,25 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   private autoSelectSingle(): void {
-    const active = (v: string) => v && v !== 'All';
+    const active = (v: GlobalFilterSelection) => hasGlobalSelection(v);
     const selectors: ((p: PlantFilterDto) => string)[] = [p => p.country, p => p.sector, p => p.businessUnit, p => p.division, p => p.cluster, p => p.plantDescription];
     const keys = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
     if (this.filterFields[0].options.length === 1) this.filterValues['country'] = this.filterFields[0].options[0];
     let filtered = this.allPlants;
     for (let i = 0; i < keys.length - 1; i++) {
-      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(p => selectors[i](p) === this.filterValues[keys[i]]);
+      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(p => matchesGlobalSelection(selectors[i](p), this.filterValues[keys[i]]));
       const opts = this.distinctValues(filtered, selectors[i + 1]);
       if (opts.length === 1 && active(this.filterValues[keys[i]])) this.filterValues[keys[i + 1]] = opts[0];
     }
   }
 
   private rebuildCascadingOptions(): void {
-    const active = (v: string) => v && v !== 'All';
+    const active = (v: GlobalFilterSelection) => hasGlobalSelection(v);
     const selectors: ((p: PlantFilterDto) => string)[] = [p => p.country, p => p.sector, p => p.businessUnit, p => p.division, p => p.cluster, p => p.plantDescription];
     const keys = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
     let filtered = this.allPlants;
     for (let i = 0; i < keys.length - 1; i++) {
-      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(p => selectors[i](p) === this.filterValues[keys[i]]);
+      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(p => matchesGlobalSelection(selectors[i](p), this.filterValues[keys[i]]));
       this.filterFields[i + 1].options = active(this.filterValues[keys[i]]) ? this.distinctValues(filtered, selectors[i + 1]) : [];
     }
   }
@@ -837,11 +1035,14 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   // DAX Model: calculated measures rendered as extra grid columns (row scope) or a totals value (column scope).
   daxModelSectionExpanded = false;
+  legendsSectionExpanded = false;
+  legendItems: ReportLegendItem[] = [];
   readonly daxFunctionSnippets = [...DAX_FUNCTION_SNIPPETS];
   // Starts at 2: the default model already owns id 'measure-1', so the next created measure is unique.
   private nextDaxMeasureIndex = 2;
   selectedDaxSnippet = '';
   selectedDaxColumns: string[] = [];
+  daxColumnSearch = '';
   showDaxColumnDropdown = false;
   showDaxNumeratorDropdown = false;
   showDaxDenominatorDropdown = false;
@@ -1011,7 +1212,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   rowGroupColors: Record<string, string> = {};
   // Row grouping is managed only via the right panel; hide AG Grid's drag-to-group bar.
   gridRowGroupPanelShow: 'always' | 'onlyWhenGrouping' | 'never' = 'never';
-  gridGroupDefaultExpanded = 0;
+  // Row groups start fully expanded (-1 = all levels); users can still collapse/expand by clicking.
+  gridGroupDefaultExpanded = -1;
   gridSideBar: Record<string, unknown> = {
     toolPanels: [
       {
@@ -1069,7 +1271,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   // Conditional-formatting rules + modal state
   conditionalRules: ConditionalRule[] = [];
   showConditionalModal = false;
-  cfField = '';
+  cfFields: string[] = [];
   cfOperator: CfOperator = 'gt';
   cfValue = '';
   cfValue2 = '';
@@ -1096,6 +1298,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     { value: 'startsWith', label: 'Starts with' },
     { value: 'isEmpty', label: 'Is empty' },
     { value: 'notEmpty', label: 'Is not empty' },
+    { value: 'duplicate', label: 'Duplicate values' },
   ];
 
   readonly totalOptions = ['Sum', 'Average', 'Count'];
@@ -1349,26 +1552,72 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     // groupings + settings). For a different source only the colors/style properties apply,
     // since its columns don't exist here. The report name is populated in both cases.
     if (setup.templateJson) {
+      let keyedBySource = false;
       try {
-        const cfg = JSON.parse(setup.templateJson);
+        // Template formatting is keyed by source column; this report's own formatting is moved to
+        // source keys while the template is overlaid, then everything is keyed by the final
+        // displayed names — so renames on either side never orphan formatting.
+        const cfg = toSourceColumnKeys(JSON.parse(setup.templateJson));
         const currentName = this.currentSource().sourceName;
         const sameSource = !!setup.sourceName && !!currentName
           && setup.sourceName.toLowerCase() === currentName.toLowerCase();
+        const renamesBefore = this.columnKeyRenames ?? this.currentColumnRenames();
+        this.renameColumnKeyedState(renamesBefore, new Map(), false);
+        keyedBySource = true;
+
+        // Keep this report's own settings; add only template items whose columns exist here.
+        const own = structuredClone(this.columnKeyedState());
+        const ownFilters = structuredClone(this.conditionalFilters);
+        const ownDax = cloneDaxModel(this.daxModel);
+        const ownRowPaint = structuredClone({
+          rowColors: this.rowColors, rowTextColors: this.rowTextColors, pageRowColors: this.pageRowColors,
+          summaryRowColors: this.summaryRowColors, summaryRowTextColors: this.summaryRowTextColors,
+        });
+        const rules = mergeTemplateRules(this.parameterFilters, cfg.parameterFilters ?? [], this.columnKeyFields);
+        const available = columnNameSet([
+          ...columnsAfterRules(this.columnKeyFields, rules),
+          ...Object.keys(this.columnConfigs).filter(field => this.columnConfigs[field]?.custom),
+          ...(sameSource ? (cfg.columns ?? []).filter(column => column.custom).map(column => column.field) : []),
+          ...[...ownDax.measures, ...(cfg.daxModel?.measures ?? [])].map(measure => measure.name?.trim() ?? ''),
+          ROW_NUMBER_COL_ID,
+        ]);
+        const template = { ...dropMissingColumnKeys(cfg, available), parameterFilters: rules, conditionalFilters: [], daxModel: undefined };
+
         if (sameSource) {
-          this.mergeSavedSetupColumns(cfg);
-          this.restoreFiltersFromConfig(cfg);
-          this.restoreSettingsFromConfig(cfg);
-          this.restoreAppearanceFromConfig(cfg);
+          this.mergeSavedSetupColumns(template);
+          this.restoreFiltersFromConfig(template);
+          this.restoreSettingsFromConfig(template);
+          this.restoreAppearanceFromConfig(template);
         } else {
           // Different source: only colors/fonts apply. Structural, data-bound properties
           // (row layout, manual/deleted rows, merges, calculated fields) reference rows and
           // fields that don't exist here and would wipe out the grid, so they're skipped.
-          this.applyStyleOnlyFromConfig(cfg);
+          this.applyStyleOnlyFromConfig(template);
+          // Column grouping is keyed by column name, so it carries over to same-named columns.
+          this.mergeSavedSetupGrouping(template);
         }
-        // DAX, conditional filters and data transformation are rule definitions, not row structure,
-        // so restore them for both same- and different-source applies.
-        this.restoreRulesFromConfig(cfg);
+        this.restoreRulesFromConfig(template);
+        Object.assign(this, mergeReportColumnKeys(own, this.columnKeyedState()));
+        this.rowColors = { ...ownRowPaint.rowColors, ...this.rowColors };
+        this.rowTextColors = { ...ownRowPaint.rowTextColors, ...this.rowTextColors };
+        this.pageRowColors = { ...ownRowPaint.pageRowColors, ...this.pageRowColors };
+        this.summaryRowColors = { ...ownRowPaint.summaryRowColors, ...this.summaryRowColors };
+        this.summaryRowTextColors = { ...ownRowPaint.summaryRowTextColors, ...this.summaryRowTextColors };
+        const renamesAfter = this.currentColumnRenames();
+        this.renameColumnKeyedState(new Map(), renamesAfter, false);
+
+        // This report's DAX / conditional filters may reference its earlier rename outputs.
+        const followRenames = renamedOutputRenamer(renamesBefore, renamesAfter);
+        this.conditionalFilters = mergeConditionalFilters(
+          renameConditionalFilterColumns(ownFilters, followRenames), cfg.conditionalFilters ?? [], available);
+        this.nextConditionalFilterId = this.conditionalFilters.reduce((max, f) => Math.max(max, f.id + 1), 1);
+        this.daxModel = mergeDaxModels(renameDaxModelColumns(ownDax, followRenames, renamesBefore.values()), cfg.daxModel, available);
+        this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
+        this.syncDaxSelectionFromModel();
+        this.columnKeyRenames = renamesAfter;
       } catch {
+        // Source-keyed formatting is re-keyed to the displayed names on the next sync.
+        if (keyedBySource) this.columnKeyRenames = new Map();
         this.notify.showError('Failed to apply the saved setup.');
       }
       this.showSavedSetupModal = false;
@@ -1456,7 +1705,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.hasDuplicateParameterFilters) {
-      this.saveSetupValidationError = 'Each Data Transformation action can be used only once for the same source columns.';
+      this.saveSetupValidationError = 'Data Transformation with same action, source column and rule parameter cannot be repeated.';
       return;
     }
     this.saveSetupValidationError = '';
@@ -1489,14 +1738,22 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   headerRowColor = '';
   headerCellColors: Record<string, string> = {};
   rowColors: Record<number, string> = {};
+  rowColorsByKey: Record<string, string> = {};
+  summaryRowColors: Record<string, string> = {};
+  summaryRowTextColors: Record<string, string> = {};
   // Row background by position within a page (0-based) — same position colors on every page.
   pageRowColors: Record<number, string> = {};
   cellColors: Record<string, string> = {};
   headerRowTextColor = '';
   headerCellTextColors: Record<string, string> = {};
   rowTextColors: Record<number, string> = {};
+  rowTextColorsByKey: Record<string, string> = {};
   cellTextColors: Record<string, string> = {};
   pinnedColumns: string[] = [];
+  dataBarColumns: string[] = [];
+  /** Source records behind a cell or group row, shown by "Drill to Detail". */
+  reportDrill: { subtitle: string; columns: ColDef[]; rows: Record<string, unknown>[] } | null = null;
+  readonly reportDrillDefaultColDef: ColDef = { sortable: true, resizable: true, filter: true, minWidth: 140 };
   mergedCellRanges: MergedCellRange[] = [];
 
   //Excel-like manual row edits (insert/delete rows, edit blank cells)
@@ -1510,7 +1767,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   showEmbedDialog = false;
   embedSpan: 'horizontal' | 'vertical' = 'horizontal';
   embedCount = 2;
-  private embedTargets: { rows: number[]; fields: string[] } | null = null;
+  private embedTargets: { rows: { rowIndex: number; rowColorKey?: string }[]; fields: string[] } | null = null;
 
   // Text orientation (keyed `rowIndex:field` for cells, field for headers)
   cellOrientations: Record<string, TextOrientation> = {};
@@ -1520,12 +1777,17 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   headerCellAlignments: Record<string, TextAlign> = {};
   // Report-wide alignment applied when no cell/header is selected (overridden by the per-cell/header maps).
   reportAlignment?: TextAlign;
+  // Column group / sub-group header alignment, keyed by group / sub-group name (default center).
+  groupHeaderAlignments: Record<string, TextAlign> = {};
+  subGroupHeaderAlignments: Record<string, TextAlign> = {};
   // Outlined borders: per data cell (page-relative key) and per header column, stored as the set
   // of sides each cell carries (so shared edges are drawn once — no doubled lines).
   cellBorders: Record<string, CellBorder> = {};
   headerCellBorders: Record<string, CellBorder> = {};
   // Report-wide border placement applied when no cell/header is selected (overridden by the per-cell/header maps).
   reportBorder?: BorderType;
+  // Custom header text for the auto '#' (row-number) column; empty/undefined = default '#'.
+  rowNumberHeader?: string;
   // Open state of the toolbar border options flyout (Google-Sheets-style placement grid).
   showBorderMenu = false;
 
@@ -1554,7 +1816,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     // Tags each body cell with color-derived class ids so AG Grid's native Excel export paints it (see gridExcelStyles).
     cellClass: (params) => this.exportCellClass(params),
     // Tags the header cell too, so a column's header color (set in Appearance) also exports.
-    headerClass: (params) => this.exportHeaderClass(params.column?.getColDef().field),
+    headerClass: (params) => this.exportHeaderClass(params.column?.getColDef().field ?? params.column?.getColId()),
   };
   // Excel-export style registry, rebuilt from the current cell/row/column colors so the exported .xlsx matches the preview.
   gridExcelStyles: ExcelStyle[] = [];
@@ -1577,20 +1839,16 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     // .report-total-row rule) — they intentionally do NOT follow the "Footer Font Size" setting,
     // which only sizes the text banner.
     if (node?.footer || node?.rowPinned === 'bottom') {
-      return undefined;
+      return getSummaryRowStyle(this, getPinnedSummaryLabel(node));
     }
-    if (node?.group && !node.footer && typeof node.field === 'string') {
-      const bg = this.rowGroupColors[node.field];
-      if (bg) return { background: bg };
-    }
-    return undefined;
+    return getReportGroupRowStyle(this.buildLiveConfig(), node);
   };
 
   // Rows containing a vertical-orientation cell get an explicit tall height so the rotated
   // text can wrap into multiple columns (AG's autoHeight can't measure rotated content).
   getRowHeight = (params: RowHeightParams): number | undefined => {
     if (!params.node?.rowPinned && !params.node?.group && !params.node?.footer
-      && rowHasVerticalCell(this.cellOrientations, params.node?.rowIndex)) {
+      && rowHasVerticalCell(this.cellOrientations, params.node?.rowIndex, params.data)) {
       return VERTICAL_CELL_ROW_HEIGHT;
     }
     return this.gridRowHeight;
@@ -1599,22 +1857,13 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   // Total/grand-total footer label reflects the grouped column's aggregation (Average/Sum),
   // falling back to "Total" when none is set.
   gridAutoGroupColumnDef: ColDef = {
+    ...buildReportAutoGroupColumnStyles(() => this.buildLiveConfig()),
     minWidth: 180,
     // Long group labels are truncated with an ellipsis in a fixed-height row; the tooltip
     // exposes the full text on hover (autoHeight is intentionally avoided — see note below).
     tooltip: (params) => (params.value != null ? String(params.value) : ''),
     // NB: no autoHeight/wrapText here — autoHeight on the auto-group column uses measured row
     // heights, which desyncs the pinned totals row from the frozen '#' column (matches viewer).
-    // The auto group column isn't built by the shared util, so mirror its row-color lookup
-    // here — otherwise a row color applied to a group row skips the group cell (e.g. "84 (7)").
-    cellStyle: (params) => {
-      const rowIndex = params.node?.rowIndex;
-      if (params.node?.rowPinned || rowIndex == null || rowIndex < 0) return null;
-      const bg = this.pageRowColors[rowIndex] ?? this.rowColors[rowIndex];
-      const fg = this.rowTextColors[rowIndex];
-      if (!bg && !fg) return null;
-      return { ...(bg ? { backgroundColor: bg } : {}), ...(fg ? { color: fg } : {}) };
-    },
     cellRendererParams: {
       footerValueGetter: (params: { colDef?: { showRowGroup?: boolean | string }; value?: unknown }) => {
         const field = typeof params?.colDef?.showRowGroup === 'string' ? params.colDef.showRowGroup : undefined;
@@ -1672,6 +1921,24 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     return this.expandGridApi && !this.expandGridApi.isDestroyed() ? this.expandGridApi : null;
   }
 
+  /**
+   * Closes any open AG Grid popup (column/context menu) whenever the page
+   * scrolls. Registered on `document` in the capture phase so it also fires for
+   * scrolls on nested containers (the builder canvas and the grid body) that
+   * don't bubble. Without this, the menu — anchored to `document.body` — stays
+   * put while the report scrolls, leaving it detached/floating over the content.
+   *
+   * Scrolls that originate INSIDE an open menu (e.g. a long color submenu list)
+   * are ignored — otherwise scrolling within the submenu would dismiss the very
+   * menu the user is interacting with.
+   */
+  private readonly hideGridMenusOnScroll = (event: Event): void => {
+    const target = event.target as Node | null;
+    if (target instanceof Element && target.closest('.ag-menu, .ag-popup')) return;
+    this.liveGridApi?.hidePopupMenu();
+    this.liveExpandGridApi?.hidePopupMenu();
+  };
+
   /** Set on a source switch so the next data render auto-fits columns (firstDataRendered fires only once). */
   private autoSizeOnNextRender = false;
 
@@ -1704,12 +1971,15 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     }, 250);
   }
 
-  /** After new source data renders, auto-fit columns once so headers/values show fully. */
+  /** After new data renders, fit columns so every value shows in full on one line. A source switch
+   *  re-runs the full auto-size; other data changes (e.g. a global filter) only widen columns. */
   onMainRowDataUpdated(): void {
-    if (!this.autoSizeOnNextRender) return;
-    this.autoSizeOnNextRender = false;
-    this.liveGridApi?.autoSizeAllColumns();
-    this.columnSizingMode = 'auto';
+    if (this.autoSizeOnNextRender) {
+      this.autoSizeOnNextRender = false;
+      this.autoSizeAllColumns();
+      return;
+    }
+    if (this.columnSizingMode === 'auto') this.growColumnsToFitValues('main');
   }
 
   setViewMode(mode: TableDensity): void {
@@ -1721,6 +1991,19 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   autoSizeAllColumns(): void {
     this.liveGridApi?.autoSizeAllColumns();
     this.columnSizingMode = 'auto';
+    this.growColumnsToFitValues('main');
+  }
+
+  /** Widens columns to their longest value across all pages (AG autoSize only measures rendered rows). */
+  private growColumnsToFitValues(grid: 'main' | 'expand'): void {
+    setTimeout(() => {
+      const api = grid === 'main' ? this.liveGridApi : this.liveExpandGridApi;
+      growReportColumnsToFitValues(api, {
+        container: document.querySelector(grid === 'main' ? '.builder-canvas__live-table ag-grid-angular' : '.rb-expand-grid'),
+        skipCell: (node, column) =>
+          getReportCellSetting(this.cellOrientations, node.data, node.rowIndex, column.getColDef().field ?? '') === 'vertical',
+      });
+    });
   }
 
   /** Opens the preview grid in a larger, resizable modal. */
@@ -1737,6 +2020,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   /** Size columns to their content so all text shows fully (overflow → horizontal scroll). */
   onExpandFirstDataRendered(): void {
     this.liveExpandGridApi?.autoSizeAllColumns();
+    this.growColumnsToFitValues('expand');
   }
 
   /** Closes the modal and persists its column widths/order back to the main grid. */
@@ -1839,6 +2123,9 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   subGroupColors: Record<string, string> = {};
   // Per-group background overrides, keyed by group name.
   groupColors: Record<string, string> = {};
+  // Per-group / per-sub-group text-color overrides, keyed by group / sub-group name.
+  groupTextColors: Record<string, string> = {};
+  subGroupTextColors: Record<string, string> = {};
 
   /** Distinct group names in the report, in column order (drives the per-group color pickers). */
   get groupNames(): string[] {
@@ -1856,6 +2143,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.rebuildPreviewGrid();
   }
 
+  setGroupTextColor(name: string, color: string): void {
+    if (color) this.groupTextColors[name] = color;
+    else delete this.groupTextColors[name];
+    this.rebuildPreviewGrid();
+  }
+
   /** Distinct sub-group names in the report, in column order (drives the per-sub-group color pickers). */
   get subGroupNames(): string[] {
     const names: string[] = [];
@@ -1869,6 +2162,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   setSubGroupColor(name: string, color: string): void {
     if (color) this.subGroupColors[name] = color;
     else delete this.subGroupColors[name];
+    this.rebuildPreviewGrid();
+  }
+
+  setSubGroupTextColor(name: string, color: string): void {
+    if (color) this.subGroupTextColors[name] = color;
+    else delete this.subGroupTextColors[name];
     this.rebuildPreviewGrid();
   }
 
@@ -1917,6 +2216,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadSavedDaxModels();
+    document.addEventListener('scroll', this.hideGridMenusOnScroll, true);
     this._prevSidebarState = this.layoutState.isCollapsed;
     this.layoutState.collapse();
     this.applyQuickRange('Till Last Tuesday');
@@ -2091,7 +2391,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       switchMap(match => {
         if (!match) throw new Error(`Report source view "${viewName}" was not found.`);
         this.selectedDataModelId = match.viewName;
-        return previewReportView(this.commonApi, match.id, { ...this.filterValues }, this.fromDate, this.toDate);
+        return previewReportView(this.commonApi, match.id, { ...this.filterValues }, this.fromDate, this.toDate, this.advancedFilters ?? []);
       }),
       takeUntil(this.destroy$),
     ).subscribe({
@@ -2154,8 +2454,18 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   private mergeSavedSetupColumns(config: any): void {
     const cols: any[] = Array.isArray(config.columns) ? config.columns : [];
     if (!cols.length) return;
-    for (const col of cols) {
-      if (!col.field || !this.selectedRawFields.includes(col.field)) continue;
+    for (let i = 0; i < cols.length; i++) {
+      const col = cols[i];
+      if (!col.field) continue;
+      const present = this.selectedRawFields.includes(col.field);
+      // Source fields that this source doesn't provide are skipped, but a saved *custom* column
+      // (manually inserted, often renamed + grouped) has no source counterpart — recreate it so
+      // its header and column grouping survive the apply, preserving its saved position.
+      if (!present && !col.custom) continue;
+      if (!present && col.custom) {
+        this.insertSavedFieldByOrder(cols, i, col.field, this.selectedRawFields);
+        if (col.shown !== false) this.insertSavedFieldByOrder(cols, i, col.field, this.columnFields);
+      }
       const existing = this.columnConfigs[col.field] ?? { shown: true, group: '', subGroup: '', total: '', color: '' };
       this.columnConfigs[col.field] = {
         ...existing,
@@ -2170,7 +2480,52 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       };
     }
     const known = new Set(this.selectedRawFields);
-    this.restoreRowGroupingFromColumns(cols.filter(c => known.has(c.field)));
+    const savedColumns = cols.filter(c => known.has(c.field));
+    // Only a template that defines row grouping changes it; aggregations/colors it doesn't mention are kept.
+    if (savedColumns.some(c => c.rowGroup || c.aggFunc || c.rowGroupColor)) {
+      const own = { fields: [...this.rowGroupFields], aggs: { ...this.rowGroupAggs }, colors: { ...this.rowGroupColors } };
+      this.restoreRowGroupingFromColumns(savedColumns);
+      if (!this.rowGroupFields.length) this.rowGroupFields = own.fields;
+      this.rowGroupAggs = { ...own.aggs, ...this.rowGroupAggs };
+      this.rowGroupColors = { ...own.colors, ...this.rowGroupColors };
+    }
+  }
+
+  /**
+   * Different-source apply: copies a template's column Group / Sub group onto this source's
+   * columns with the same (case-insensitive) name. Columns this source lacks are skipped, and
+   * the grouping stays keyed by the source column, so Data Transformation renames still resolve.
+   */
+  private mergeSavedSetupGrouping(config: any): void {
+    const cols: any[] = Array.isArray(config?.columns) ? config.columns : [];
+    const fieldsByName = new Map(this.selectedRawFields.map(field => [field.toLowerCase(), field]));
+    for (const col of cols) {
+      const group = typeof col?.group === 'string' ? col.group.trim() : '';
+      const subGroup = typeof col?.subGroup === 'string' ? col.subGroup.trim() : '';
+      if (!col?.field || (!group && !subGroup)) continue;
+      const field = fieldsByName.get(String(col.field).toLowerCase());
+      if (!field) continue;
+      const existing = this.columnConfigs[field] ?? { shown: true, group: '', subGroup: '', total: '', color: '' };
+      this.columnConfigs[field] = {
+        ...existing,
+        group: group || existing.group || '',
+        subGroup: subGroup || existing.subGroup || '',
+      };
+    }
+  }
+
+  /**
+   * Inserts a recreated custom field into `target` just after the nearest preceding saved column
+   * that already exists in `target`, so the restored column keeps its saved relative position
+   * (falling back to the front when no earlier saved column is present).
+   */
+  private insertSavedFieldByOrder(savedCols: any[], idx: number, field: string, target: string[]): void {
+    let at = 0;
+    for (let j = idx - 1; j >= 0; j--) {
+      const prev = target.indexOf(savedCols[j]?.field);
+      if (prev >= 0) { at = prev + 1; break; }
+    }
+    target.splice(at, 0, field);
   }
 
   /** Rebuilds the ordered row-group field list and per-field aggregations from saved columns. */
@@ -2207,6 +2562,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   private restoreAppearanceFromConfig(config: any): void {
+    this.clusterBannerText = config.clusterBannerText ?? '';
+    this.clusterBannerSelection = config.clusterBannerSelection
+      ?? clusterBannerSelectionKey((config as ReportJsonConfig).filters?.find(filter => filter.key === 'cluster')?.value);
+    this.setCustomClusterBannerEnabled(config.customClusterBannerEnabled !== false);
     if (config.headerTitle) this.headerTitle = config.headerTitle;
     if (config.headerSubtitle) this.headerSubtitle = config.headerSubtitle;
     if (config.headerSubtitle2) this.headerSubtitle2 = config.headerSubtitle2;
@@ -2234,6 +2593,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     }
     if (config.subGroupColors) this.subGroupColors = config.subGroupColors;
     if (config.groupColors) this.groupColors = config.groupColors;
+    if (config.groupTextColors) this.groupTextColors = config.groupTextColors;
+    if (config.subGroupTextColors) this.subGroupTextColors = config.subGroupTextColors;
     if (config.rightLogoColor) this.rightLogoColor = config.rightLogoColor;
     if (config.fontFamily) this.fontFamily = config.fontFamily;
     if (config.fontSize) this.fontSize = config.fontSize;
@@ -2243,13 +2604,18 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     if (config.gridHeaderHeight) this.gridHeaderHeight = config.gridHeaderHeight;
     this.updateGridTheme();
     if (config.rowColors) this.rowColors = config.rowColors;
+    if (config.rowColorsByKey) this.rowColorsByKey = config.rowColorsByKey;
+    this.summaryRowColors = { ...(config.summaryRowColors ?? {}) };
+    this.summaryRowTextColors = { ...(config.summaryRowTextColors ?? {}) };
     if (config.pageRowColors) this.pageRowColors = config.pageRowColors;
     if (config.cellColors) this.cellColors = config.cellColors;
     if (config.headerRowTextColor) this.headerRowTextColor = config.headerRowTextColor;
     if (config.headerCellTextColors) this.headerCellTextColors = config.headerCellTextColors;
     if (config.rowTextColors) this.rowTextColors = config.rowTextColors;
+    if (config.rowTextColorsByKey) this.rowTextColorsByKey = config.rowTextColorsByKey;
     if (config.cellTextColors) this.cellTextColors = config.cellTextColors;
     if (config.pinnedColumns) this.pinnedColumns = config.pinnedColumns;
+    if (config.dataBarColumns) this.dataBarColumns = [...config.dataBarColumns];
     if (config.mergedCellRanges) this.mergedCellRanges = config.mergedCellRanges;
     if (config.rowLayout) this.rowLayout = config.rowLayout;
     if (config.manualRows) this.manualRows = config.manualRows;
@@ -2261,15 +2627,19 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     if (config.cellAlignments) this.cellAlignments = config.cellAlignments;
     if (config.headerCellAlignments) this.headerCellAlignments = config.headerCellAlignments;
     if (config.reportAlignment) this.reportAlignment = config.reportAlignment;
+    if (config.groupHeaderAlignments) this.groupHeaderAlignments = { ...config.groupHeaderAlignments };
+    if (config.subGroupHeaderAlignments) this.subGroupHeaderAlignments = { ...config.subGroupHeaderAlignments };
     if (config.cellBorders) this.cellBorders = config.cellBorders;
     if (config.headerCellBorders) this.headerCellBorders = config.headerCellBorders;
     if (config.reportBorder != null) this.reportBorder = config.reportBorder;
+    if (config.rowNumberHeader != null) this.rowNumberHeader = config.rowNumberHeader;
     this.migrateBorders();
     if (config.themeId) this.selectedThemeId = config.themeId;
     if (config.themeAccent) this.gridAccentColor = config.themeAccent;
     if (config.headerRowColor) this.gridHeaderBg = config.headerRowColor;
     if (config.brandedRows != null) this.brandedRows = config.brandedRows;
     if (config.conditionalRules) this.conditionalRules = config.conditionalRules;
+    if (Array.isArray(config.legends)) this.legendItems = structuredClone(config.legends);
     if (config.daxModel) {
       this.daxModel = cloneDaxModel(config.daxModel);
       this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
@@ -2301,6 +2671,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
    * a setup from a different source doesn't wipe the current grid.
    */
   private applyStyleOnlyFromConfig(config: any): void {
+    this.clusterBannerText = config.clusterBannerText ?? '';
+    this.clusterBannerSelection = config.clusterBannerSelection
+      ?? clusterBannerSelectionKey((config as ReportJsonConfig).filters?.find(filter => filter.key === 'cluster')?.value);
+    this.setCustomClusterBannerEnabled(config.customClusterBannerEnabled !== false);
     if (config.headerTitle) this.headerTitle = config.headerTitle;
     if (config.headerSubtitle) this.headerSubtitle = config.headerSubtitle;
     if (config.headerSubtitle2) this.headerSubtitle2 = config.headerSubtitle2;
@@ -2328,7 +2702,11 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     if (config.headerCellColors) this.headerCellColors = config.headerCellColors;
     if (config.headerCellTextColors) this.headerCellTextColors = config.headerCellTextColors;
     if (config.rowColors) this.rowColors = config.rowColors;
+    if (config.rowColorsByKey) this.rowColorsByKey = config.rowColorsByKey;
+    this.summaryRowColors = { ...(config.summaryRowColors ?? {}) };
+    this.summaryRowTextColors = { ...(config.summaryRowTextColors ?? {}) };
     if (config.rowTextColors) this.rowTextColors = config.rowTextColors;
+    if (config.rowTextColorsByKey) this.rowTextColorsByKey = config.rowTextColorsByKey;
     if (config.pageRowColors) this.pageRowColors = config.pageRowColors;
     if (config.cellColors) this.cellColors = config.cellColors;
     if (config.cellTextColors) this.cellTextColors = config.cellTextColors;
@@ -2337,9 +2715,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     if (config.cellAlignments) this.cellAlignments = config.cellAlignments;
     if (config.headerCellAlignments) this.headerCellAlignments = config.headerCellAlignments;
     if (config.reportAlignment) this.reportAlignment = config.reportAlignment;
+    if (config.groupHeaderAlignments) this.groupHeaderAlignments = { ...config.groupHeaderAlignments };
+    if (config.subGroupHeaderAlignments) this.subGroupHeaderAlignments = { ...config.subGroupHeaderAlignments };
     if (config.cellBorders) this.cellBorders = config.cellBorders;
     if (config.headerCellBorders) this.headerCellBorders = config.headerCellBorders;
     if (config.reportBorder != null) this.reportBorder = config.reportBorder;
+    if (config.rowNumberHeader != null) this.rowNumberHeader = config.rowNumberHeader;
     this.migrateBorders();
     if (config.themeId) this.selectedThemeId = config.themeId;
     if (config.themeAccent) this.gridAccentColor = config.themeAccent;
@@ -2348,12 +2729,16 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     if (config.columnGroupColors) this.columnGroupColors = config.columnGroupColors;
     if (config.subGroupColors) this.subGroupColors = config.subGroupColors;
     if (config.groupColors) this.groupColors = config.groupColors;
+    if (config.groupTextColors) this.groupTextColors = config.groupTextColors;
+    if (config.subGroupTextColors) this.subGroupTextColors = config.subGroupTextColors;
     if (config.conditionalRules) this.conditionalRules = config.conditionalRules;
+    if (Array.isArray(config.legends)) this.legendItems = structuredClone(config.legends);
     this.updateGridTheme();
   }
 
   ngOnDestroy(): void {
     this.viewDestroyed = true;
+    document.removeEventListener('scroll', this.hideGridMenusOnScroll, true);
     if (this.groupTextRebuildTimer) clearTimeout(this.groupTextRebuildTimer);
     // Restore previous sidebar state when leaving the builder
     if (this._prevSidebarState !== undefined) {
@@ -2435,6 +2820,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     return this.shownColumns.length > 0;
   }
 
+  get hasPreviewSourceColumns(): boolean {
+    return !!this.tablePreviewData?.columns?.length;
+  }
+
   /** Columns marked as shown in the Column section, ordered by Raw section tick order. */
   get shownColumns(): string[] {
     return this.selectedRawFields.filter(f => this.columnConfigs[f]?.shown);
@@ -2446,6 +2835,74 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   get previewColumns(): string[] {
     // Base columns come from Data Transformation output when rules apply; DAX row-measure columns append after.
     return [...(this.transformedColumns ?? this.shownColumns), ...this.daxMeasureColumns];
+  }
+
+  // ─── Column renames (Data Transformation `rename_column`) ──────────────────
+  // Formatting is keyed by the displayed column name. This records the renames those keys
+  // currently follow; when the rules change the displayed names, the keys move with them.
+  // undefined = re-baseline on the next sync (after a wholesale state restore/load).
+  private columnKeyRenames?: Map<string, string>;
+
+  private get columnKeyFields(): string[] {
+    return [...new Set([
+      ...this.selectedRawFields,
+      ...this.calculatedFields.map(field => field.name),
+      ...(this.tablePreviewData?.columns ?? []),
+    ])];
+  }
+
+  /** Source column → displayed name under the currently applied rename rules. */
+  private currentColumnRenames(): Map<string, string> {
+    return getRenamedColumnDisplayNames(this.columnKeyFields, this.applicableParameterFilters);
+  }
+
+  /** Source column behind a displayed (possibly renamed) column. */
+  private columnSourceField(field: string): string {
+    // The synced map is current after every rebuild; exports call this per cell, so avoid recomputing.
+    for (const [source, display] of this.columnKeyRenames ?? this.currentColumnRenames()) if (display === field) return source;
+    return field;
+  }
+
+  /** Re-keys formatting after rename rules change the displayed column names. */
+  private syncColumnKeysWithRenames(): void {
+    const next = this.currentColumnRenames();
+    const previous = this.columnKeyRenames;
+    this.columnKeyRenames = next;
+    if (previous && !sameColumnRenames(previous, next)) this.renameColumnKeyedState(previous, next, true);
+  }
+
+  private renameColumnKeyedState(from: ReadonlyMap<string, string>, to: ReadonlyMap<string, string>, includeRules: boolean): void {
+    Object.assign(this, renameReportColumnKeys(this.columnKeyedState(), columnKeyRenamer(from, to)));
+    if (!includeRules) return;
+    // DAX / conditional filters already resolve source names; only rename-output names need to follow.
+    const renameOutputs = renamedOutputRenamer(from, to);
+    this.daxModel = renameDaxModelColumns(this.daxModel, renameOutputs, from.values());
+    this.conditionalFilters = renameConditionalFilterColumns(this.conditionalFilters, renameOutputs);
+  }
+
+  private columnKeyedState(): Required<ReportColumnKeyedSettings> {
+    return {
+      headerCellColors: this.headerCellColors,
+      headerCellTextColors: this.headerCellTextColors,
+      headerCellOrientations: this.headerCellOrientations,
+      headerCellAlignments: this.headerCellAlignments,
+      headerCellBorders: this.headerCellBorders,
+      cellColors: this.cellColors,
+      cellTextColors: this.cellTextColors,
+      cellOrientations: this.cellOrientations,
+      cellAlignments: this.cellAlignments,
+      cellBorders: this.cellBorders,
+      cellEmbeds: this.cellEmbeds,
+      cellOverrides: this.cellOverrides,
+      rowColorsByKey: this.rowColorsByKey,
+      rowTextColorsByKey: this.rowTextColorsByKey,
+      manualRows: this.manualRows,
+      mergedCellRanges: this.mergedCellRanges,
+      pinnedColumns: this.pinnedColumns,
+      dataBarColumns: this.dataBarColumns,
+      rowGroupFields: this.rowGroupFields,
+      conditionalRules: this.conditionalRules,
+    };
   }
 
   // Bound directly to ag-grid-angular's [rowData] — kept as a stable stored array
@@ -2463,7 +2920,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   /** Source rows straight from the data (plus calculated fields), before manual row edits. */
   private computeBaseRows(): Record<string, unknown>[] {
     if (!this.tablePreviewData?.rows) return [];
-    const rows = this.applyGlobalFilters(this.tablePreviewData.rows);
+    const rows = this.applyGlobalFilters(this.tablePreviewData.rows.map((row, index) => ({
+      ...row,
+      [ROW_COLOR_KEY]: getReportRowColorKey(row, this.tablePreviewData?.primaryKeys, index),
+    })));
     let result: Record<string, unknown>[] = rows;
     if (this.calculatedFields.length) {
       // AG Grid reads values straight off the row object, so calculated fields
@@ -2515,16 +2975,18 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
     const activeHierarchyFilters = this.filterFields
       .map(field => ({ key: field.key, value: this.filterValues[field.key] }))
-      .filter(filter => filter.value && filter.value !== 'All');
+      .filter(filter => hasGlobalSelection(filter.value));
     let filtered = rows;
     for (const filter of activeHierarchyFilters) {
       const column = this.findGlobalFilterColumn(filtered[0], filter.key);
       if (!column) continue;
-      const value = filter.value.toLowerCase();
-      filtered = filtered.filter(row => String(row[column] ?? '').trim().toLowerCase() === value);
+      filtered = filtered.filter(row => matchesGlobalSelection(row[column], filter.value));
     }
 
-    if (!this.fromDate && !this.toDate) return filtered;
+    // View previews are already scoped by the view's server-side date parameters. A second
+    // client-side pass can drop valid rows when the first inferred date column is blank or
+    // contains a different planned date; the viewer intentionally avoids this re-filter too.
+    if (this.dataSourceMode === 'view' || (!this.fromDate && !this.toDate)) return filtered;
     const columns = Object.keys(filtered[0] ?? {});
     const dateColumn = columns.find(column => isDateColumn(filtered, column));
     const monthColumn = columns.find(column => column.trim().toLowerCase() === 'month');
@@ -2592,8 +3054,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Raw numeric result (not display-formatted) so AG Grid's own numeric formatter applies — matches how the viewer computes calculated fields. */
   private computeCalcRawValue(row: Record<string, unknown>, cf: CalculatedField): number | null {
-    const a = Number(row[cf.columnA]);
-    const b = Number(row[cf.columnB]);
+    const a = coerceNumberAllowPercent(row[cf.columnA]);
+    const b = coerceNumberAllowPercent(row[cf.columnB]);
     if (isNaN(a) || isNaN(b)) return null;
     switch (cf.operation) {
       case 'add': return a + b;
@@ -2633,6 +3095,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     { value: 'split_column', label: 'Split Column' },
     { value: 'merge_columns', label: 'Merge Columns' },
     { value: 'trim_text', label: 'Trim / Clean Text' },
+    { value: 'append_text', label: 'Append Text' },
+    { value: 'prepend_text', label: 'Prepend Text' },
     { value: 'extract_value', label: 'Extract Values' },
     { value: 'math_transform', label: 'Math Operation' },
   ];
@@ -2716,6 +3180,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   private restoreParameterFiltersFromConfig(config: any): void {
+    // Loaded formatting matches the loaded rules; re-baseline instead of re-keying.
+    this.columnKeyRenames = undefined;
     this.parameterFilters = (config?.parameterFilters ?? []).map((r: ParameterFilterRule) => ({
       ...r,
       sourceColumns: getRuleSourceColumns(r),
@@ -2781,14 +3247,14 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   selectParameterAction(rule: ParameterFilterRule, value: ParameterFilterAction): void {
     const actionChanged = rule.action !== value;
+    const selectedColumns = getRuleSourceColumns(rule);
     rule.action = value;
     if (value === 'type_change' && rule.targetType == null) rule.targetType = '';
     if (value === 'deduplicate' && rule.dedupStrategy == null) rule.dedupStrategy = '';
     if (actionChanged) {
-      // Changing the action resets the previously selected source columns so a selection made for
-      // the old action can't carry over (and may be invalid) under the new one.
-      rule.sourceColumns = [];
-      rule.sourceColumn = '';
+      const availableColumns = new Set(this.getFilteredSourceColumns(rule.id));
+      rule.sourceColumns = selectedColumns.filter(column => availableColumns.has(column));
+      rule.sourceColumn = rule.sourceColumns[0] ?? '';
     }
     this.openFilterField = null;
     this.onParameterFilterChange();
@@ -2944,10 +3410,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     let allCols = this.availableSourceColumns;
     const rule = this.parameterFilters.find(r => r.id === ruleId);
     if (rule?.action === 'math_transform') {
-      // Math Operation is numeric-only — its Source Column picker offers numeric columns only.
-      allCols = allCols.filter(col => this.isNumericField(col));
+      // Math Operation is numeric-only — numeric and percentage ("12.5%") columns are offered.
+      allCols = allCols.filter(col => this.isAggregatableField(col));
     } else if (rule && this.textOnlyParameterActions.has(rule.action as ParameterFilterAction)) {
-      // Text operations can't run on numeric columns — the picker hides numeric columns.
+      // Text operations can't run on pure numeric columns; percentage text columns stay available.
       allCols = allCols.filter(col => !this.isNumericField(col));
     }
     return search ? allCols.filter(col => col.toLowerCase().includes(search)) : allCols;
@@ -2996,6 +3462,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Builds a ReportJsonConfig from a per-sheet snapshot (used for the active sheet and every other sheet on save). */
   private configFromState(s: Omit<ReportSheetSnapshot, 'nextCalculatedIndex'>): ReportJsonConfig {
+    const legends = s.legendItems ?? [];
+    const sourceColumn = createColumnConfigResolver({
+      columns: s.selectedRawFields.map(field => ({ field, header: field })),
+      parameterFilters: s.parameterFilters,
+    });
+    const groupFields = s.rowGroupFields.map(field => sourceColumn(field)?.field ?? field);
     return {
       columns: s.selectedRawFields
         .map(f => {
@@ -3005,7 +3477,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
           // ghost group that would resurface in the saved report.
           base.group = (base.group ?? '').trim();
           base.subGroup = (base.subGroup ?? '').trim();
-          const groupIndex = s.rowGroupFields.indexOf(f);
+          const groupIndex = groupFields.indexOf(f);
           return {
             ...base,
             ...(groupIndex >= 0 ? { rowGroup: true, rowGroupIndex: groupIndex } : {}),
@@ -3025,6 +3497,9 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       headerSubtitle: s.headerSubtitle,
       headerSubtitle2: s.headerSubtitle2,
       bannerText: s.bannerText,
+      clusterBannerText: s.clusterBannerText,
+      clusterBannerSelection: s.clusterBannerSelection,
+      customClusterBannerEnabled: s.customClusterBannerEnabled,
       headerBackgroundColor: s.headerBackgroundColor,
       headerTextColor: s.headerTextColor,
       bannerBackgroundColor: s.bannerBackgroundColor,
@@ -3037,6 +3512,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       columnGroupColors: s.columnGroupColors,
       subGroupColors: s.subGroupColors,
       groupColors: s.groupColors,
+      groupTextColors: s.groupTextColors,
+      subGroupTextColors: s.subGroupTextColors,
       rightLogoColor: s.rightLogoColor,
       fontFamily: s.fontFamily,
       fontSize: s.fontSize,
@@ -3048,6 +3525,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       brandedRows: s.brandedRows,
       themeAccent: s.gridAccentColor,
       rowColors: s.rowColors,
+      rowColorsByKey: s.rowColorsByKey,
+      summaryRowColors: s.summaryRowColors,
+      summaryRowTextColors: s.summaryRowTextColors,
+      rowTextColorsByKey: s.rowTextColorsByKey,
       pageRowColors: s.pageRowColors,
       paginationPageSize: s.gridPaginationPageSize,
       cellColors: s.cellColors,
@@ -3057,6 +3538,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       cellTextColors: s.cellTextColors,
       headerCellTextColors: s.headerCellTextColors,
       pinnedColumns: s.pinnedColumns,
+      dataBarColumns: s.dataBarColumns,
       calculatedFields: s.calculatedFields,
       mergedCellRanges: s.mergedCellRanges,
       rowLayout: s.rowLayout,
@@ -3069,11 +3551,15 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       cellAlignments: s.cellAlignments,
       headerCellAlignments: s.headerCellAlignments,
       reportAlignment: s.reportAlignment,
+      groupHeaderAlignments: s.groupHeaderAlignments,
+      subGroupHeaderAlignments: s.subGroupHeaderAlignments,
       cellBorders: s.cellBorders,
       headerCellBorders: s.headerCellBorders,
       reportBorder: s.reportBorder,
+      rowNumberHeader: s.rowNumberHeader,
       conditionalRules: s.conditionalRules,
       daxModel: s.daxModel,
+      ...(legends.length ? { legends } : {}),
       conditionalFilters: s.conditionalFilters,
       parameterFilters: s.parameterFilters,
       pageOrientation: 'Portrait',
@@ -3111,6 +3597,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
    * reapplied after, so a structural edit never undoes manual sizing either.
    */
   rebuildPreviewGrid(): void {
+    // Keep formatting attached to columns whose displayed name a rename rule just changed.
+    this.syncColumnKeysWithRenames();
     // enableCellSpan is an AG Grid INITIAL property, so a change only takes effect on a fresh grid.
     // Flip it up front and, if it changed, tear the grid down (empty rows + detectChanges) so the
     // *ngIf recreates it with the new value before we push the real rows/columns below.
@@ -3123,6 +3611,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     }
     const prevWidths = this.liveGridApi?.getColumnState()?.map(s => ({ colId: s.colId, width: s.width }));
     this.previewRows = this.computePreviewRows();
+    console.log('Preview rows computed:', this.previewRows);
     this.gridColumnDefs = this.decorateCustomHeaders(this.decorateWithSelectionHighlight(
       this.decorateSingleLineHeaders(
         this.decorateEmbeddedCells(
@@ -3173,14 +3662,25 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
           const width = widthByCol.get(colId);
           return width != null ? { colId, width } : { colId };
         });
-        setTimeout(() => this.liveGridApi?.applyColumnState({ state, applyOrder: true }), 0);
+        setTimeout(() => {
+          this.liveGridApi?.applyColumnState({ state, applyOrder: true });
+          this.growColumnsAfterWidthRestore();
+        }, 0);
       } else if (widths.length) {
         // Runs after Angular has pushed the new columnDefs into the grid (next macrotask).
-        setTimeout(() => this.liveGridApi?.applyColumnState({ state: widths, applyOrder: false }), 0);
+        setTimeout(() => {
+          this.liveGridApi?.applyColumnState({ state: widths, applyOrder: false });
+          this.growColumnsAfterWidthRestore();
+        }, 0);
       }
     }
     this.updateExcelStyles();
     this.scheduleHistorySnapshot();
+  }
+
+  /** Restoring pre-rebuild widths would otherwise undo widening for longer values in the new rows. */
+  private growColumnsAfterWidthRestore(): void {
+    if (this.columnSizingMode === 'auto') this.growColumnsToFitValues('main');
   }
 
   /** Repaints cell/header colors and cell merges in place — no columnDefs reset, so column widths are untouched. */
@@ -3255,22 +3755,35 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       cellColors: this.cellColors,
       pageRowColors: this.pageRowColors,
       rowColors: this.rowColors,
+      rowColorsByKey: this.rowColorsByKey,
       cellTextColors: this.cellTextColors,
       rowTextColors: this.rowTextColors,
-      getColumnColor: (field) => this.columnConfigs[field]?.color,
-      getColumnTextColor: (field) => this.columnConfigs[field]?.textColor,
+      rowTextColorsByKey: this.rowTextColorsByKey,
+      getColumnColor: (field) => this.columnConfigs[this.columnSourceField(field)]?.color,
+      getColumnTextColor: (field) => this.columnConfigs[this.columnSourceField(field)]?.textColor,
     };
   }
 
   /** Body-cell class ids encoding its bg/text color (page-relative, matching the on-screen cellStyle) so native Excel export can paint it. */
   private exportCellClass = (params: CellClassParams): string[] => {
+    const style = params.node?.rowPinned
+      ? getSummaryRowStyle(this, getPinnedSummaryLabel(params.node))
+      : getReportGroupRowStyle(this.buildLiveConfig(), params.node);
+    if (params.node?.rowPinned || style) {
+      const classes: string[] = [];
+      if (this.exportColors.isExportHex(style?.backgroundColor)) classes.push(this.exportColors.classId('bg', this.exportColors.normalizeHex(style.backgroundColor)));
+      if (this.exportColors.isExportHex(style?.color)) classes.push(this.exportColors.classId('fg', this.exportColors.normalizeHex(style.color)));
+      return classes;
+    }
     const field = params.colDef.field;
     const rowIndex = params.node?.rowIndex;
     if (!field || params.node?.rowPinned || rowIndex == null || rowIndex < 0) return [];
     const pageSize = getReportGridPageSize(params.api);
     const src = this.exportColorSource();
-    const bg = this.exportColors.resolveCellBackground(rowIndex, field, pageSize, src);
-    const fg = this.exportColors.resolveCellTextColor(rowIndex, field, pageSize, src);
+    const rowData = params.data as Record<string, unknown> | undefined;
+    const colorKey = typeof rowData?.[ROW_COLOR_KEY] === 'string' ? String(rowData[ROW_COLOR_KEY]) : undefined;
+    const bg = this.exportColors.resolveCellBackground(rowIndex, field, pageSize, src, colorKey);
+    const fg = this.exportColors.resolveCellTextColor(rowIndex, field, pageSize, src, colorKey);
     const classes: string[] = [];
     // Manual cell/row/column color wins; otherwise, when branded rows are on, odd rows carry the stripe so it persists in the export.
     let bgHex = this.exportColors.isExportHex(bg) ? this.exportColors.normalizeHex(bg) : '';
@@ -3282,8 +3795,13 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Header-cell class id encoding the column's header color (Appearance panel) so native Excel export paints it too. */
   private exportHeaderClass = (field: string | null | undefined): string[] => {
-    const bg = field ? this.headerCellColors[field] : undefined;
-    return this.exportColors.isExportHex(bg) ? [this.exportColors.classId('bg', this.exportColors.normalizeHex(bg))] : [];
+    const config = this.buildLiveConfig();
+    const bg = field ? resolveHeaderBackgroundColor(config, field) : undefined;
+    const fg = field ? resolveHeaderTextColor(config, field) : undefined;
+    const classes: string[] = [];
+    if (this.exportColors.isExportHex(bg)) classes.push(this.exportColors.classId('bg', this.exportColors.normalizeHex(bg)));
+    if (this.exportColors.isExportHex(fg)) classes.push(this.exportColors.classId('fg', this.exportColors.normalizeHex(fg)));
+    return classes;
   };
 
   /**
@@ -3298,10 +3816,17 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     const add = (list: string[], v?: string) => { if (this.exportColors.isExportHex(v)) list.push(this.exportColors.normalizeHex(v)); };
     Object.values(this.cellColors).forEach(v => add(bgs, v));
     Object.values(this.rowColors).forEach(v => add(bgs, v));
+    Object.values(this.rowColorsByKey).forEach(v => add(bgs, v));
     Object.values(this.pageRowColors).forEach(v => add(bgs, v));
     Object.values(this.headerCellColors).forEach(v => add(bgs, v));
+    Object.values(this.summaryRowColors).forEach(v => add(bgs, v));
+    Object.values(this.summaryRowTextColors).forEach(v => add(fgs, v));
+    add(bgs, this.headerRowColor);
+    add(fgs, this.headerRowTextColor);
+    Object.values(this.headerCellTextColors).forEach(v => add(fgs, v));
     Object.values(this.cellTextColors).forEach(v => add(fgs, v));
     Object.values(this.rowTextColors).forEach(v => add(fgs, v));
+    Object.values(this.rowTextColorsByKey).forEach(v => add(fgs, v));
     Object.values(this.columnConfigs).forEach(c => { add(bgs, c?.color); add(fgs, c?.textColor); });
     // Pre-register every built-in theme's branded stripe (excelStyles is INITIAL-only) so exports keep striping.
     this.builtInThemes.forEach(t => add(bgs, this.tint(t.accent, 0.06)));
@@ -3365,9 +3890,52 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   // drives both the highlight (via decorateWithSelectionHighlight) and the context menu's
   // bulk color/merge actions.
   private selectionAnchor: { rowIndex: number; field: string } | null = null;
-  selectionRange: { rows: number[]; fields: string[] } | null = null;
+  private selectionRangeValue: { rows: number[]; fields: string[] } | null = null;
+
+  get selectionRange(): { rows: number[]; fields: string[] } | null {
+    return this.selectionRangeValue;
+  }
+
+  set selectionRange(range: { rows: number[]; fields: string[] } | null) {
+    this.selectionRangeValue = range;
+    // Cell/column selections and group-header selections are mutually exclusive.
+    if (range && this.selectedGroupHeader) {
+      this.selectedGroupHeader = null;
+      this.refreshGroupHeaders();
+    }
+  }
+
+  /** Column group / sub-group header picked by clicking it; the alignment buttons then target it. */
+  selectedGroupHeader: ReportHeaderGroupRef | null = null;
+
+  onColumnHeaderClicked(event: ColumnHeaderClickedEvent): void {
+    const column = event.column;
+    if (!column || !('getColGroupDef' in column)) return;
+    const ref = (column.getColGroupDef()?.context as { reportHeaderGroup?: ReportHeaderGroupRef } | undefined)?.reportHeaderGroup;
+    if (!ref) return;
+    this.selectionRange = null;
+    this.selectionAnchor = null;
+    this.selectedColumnFields = [];
+    this.headerSelectionAnchor = null;
+    this.selectedGroupHeader = ref;
+    this.refreshGroupHeaders();
+    this.refreshGridStyles();
+    this.cdr.markForCheck();
+  }
+
+  private isGroupHeaderSelected(ref: ReportHeaderGroupRef): boolean {
+    const selected = this.selectedGroupHeader;
+    return !!selected && selected.level === ref.level && selected.name === ref.name;
+  }
+
+  /** Group header classes (alignment + selection) are re-evaluated on header refresh. */
+  private refreshGroupHeaders(): void {
+    this.liveGridApi?.refreshHeader();
+    this.liveExpandGridApi?.refreshHeader();
+  }
 
   onCellClicked(event: CellClickedEvent): void {
+    if (event.node.rowPinned || event.node.footer) return;
     const rowIndex = event.node.rowIndex;
     const field = event.column?.getColId();
     const mouseEvent = event.event as MouseEvent | null | undefined;
@@ -3445,6 +4013,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
         ...col,
         cellStyle: (params: CellClassParams) => {
           const base = typeof baseCellStyle === 'function' ? baseCellStyle(params) : baseCellStyle;
+          if (params.node?.rowPinned || params.node?.footer) return base ?? null;
           if (!isSelected(params.node?.rowIndex, field)) return base ?? null;
           return { ...(base ?? {}), outline: '2px solid #2563EB', outlineOffset: '-2px' };
         },
@@ -3484,9 +4053,36 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   private decorateCustomHeaders(defs: (ColDef | ColGroupDef)[]): (ColDef | ColGroupDef)[] {
     const decorate = (def: ColDef | ColGroupDef): ColDef | ColGroupDef => {
       if ('children' in def && def.children) {
-        return { ...def, children: def.children.map(decorate) } as ColGroupDef;
+        const group = def as ColGroupDef;
+        const ref = (group.context as { reportHeaderGroup?: ReportHeaderGroupRef } | undefined)?.reportHeaderGroup;
+        const baseClass = group.headerClass;
+        return {
+          ...group,
+          // Group headers are selectable (click), so add the selection highlight to their live class list.
+          ...(ref ? {
+            headerClass: (params: HeaderClassParams) => {
+              const base = typeof baseClass === 'function' ? baseClass(params) : baseClass;
+              const classes = Array.isArray(base) ? [...base] : base ? [base] : [];
+              if (this.isGroupHeaderSelected(ref)) classes.push('rb-group-header--selected');
+              return classes;
+            },
+          } : {}),
+          children: group.children.map(decorate),
+        } as ColGroupDef;
       }
       const col = def as ColDef;
+      if (col.colId === ROW_NUMBER_COL_ID) {
+        // The auto '#' column has no data field but its header text is user-editable (persisted to
+        // config.rowNumberHeader). It carries no filter/menu/selection handlers.
+        return {
+          ...col,
+          headerComponent: EditableHeaderComponent,
+          headerComponentParams: {
+            allowRename: true,
+            onRename: (field: string, name: string) => this.renameColumn(field, name),
+          },
+        };
+      }
       if (!col.field) return col;
       return {
         ...col,
@@ -3511,6 +4107,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   private clearGridSelection(): void {
     this.liveGridApi?.clearFocusedCell();
     this.liveExpandGridApi?.clearFocusedCell();
+    if (this.selectedGroupHeader) {
+      this.selectedGroupHeader = null;
+      this.refreshGroupHeaders();
+    }
     if (!this.selectionRange && !this.selectionAnchor && !this.selectedColumnFields.length) return;
     this.selectionRange = null;
     this.selectionAnchor = null;
@@ -3561,6 +4161,11 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Renames a custom column's display header (the underlying field id is unchanged). */
   renameColumn(field: string, name: string): void {
+    if (field === ROW_NUMBER_COL_ID) {
+      this.rowNumberHeader = name.trim() || undefined;
+      this.rebuildPreviewGrid();
+      return;
+    }
     const cfg = this.columnConfigs[field];
     if (!cfg) return;
     cfg.header = name;
@@ -3585,6 +4190,26 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   getContextMenuItems = (params: GetContextMenuItemsParams): (DefaultMenuItem | MenuItemDef)[] => {
+    if (params.node?.rowPinned || params.node?.footer) {
+      const label = getPinnedSummaryLabel(params.node);
+      const items: (DefaultMenuItem | MenuItemDef)[] = ['copy', 'export'];
+      if (label) {
+        items.push('separator', {
+          name: `${label} row background color`,
+          subMenu: this.colorMenuItems(color => {
+            if (color) this.summaryRowColors[label] = color;
+            else delete this.summaryRowColors[label];
+          }, this.summaryRowColors[label]),
+        }, {
+          name: `${label} row Text color`,
+          subMenu: this.colorMenuItems(color => {
+            if (color) this.summaryRowTextColors[label] = color;
+            else delete this.summaryRowTextColors[label];
+          }, this.summaryRowTextColors[label], TEXT_COLOR_PALETTE),
+        });
+      }
+      return this.wrapMenuActionsInZone(items) as (DefaultMenuItem | MenuItemDef)[];
+    }
     // AG Grid can report no column/row when the right-click lands on a spanned (merged) cell's
     // body or just off a cell — fall back to the active selection so structural actions
     // (Insert/Delete/Merge/Unmerge/Pin) still resolve to the cell the user has selected.
@@ -3593,6 +4218,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     const sel = rowIndex >= 0 && field ? this.getSelectionAround(rowIndex, field) : null;
     const isMultiCell = !!sel && (sel.rows.length > 1 || sel.fields.length > 1);
     const columnFields = isMultiCell ? sel!.fields : field ? [field] : [];
+    const headerFieldFor = (columnField: string): string => {
+      const column = columnField === params.column?.getColId() ? params.column : params.api?.getColumn?.(columnField);
+      return getReportColumnField(column?.getColDef?.() ?? {}) ?? columnField;
+    };
+    const headerFields = columnFields.map(headerFieldFor);
+    const headerField = field ? headerFieldFor(field) : undefined;
 
     // Offer Unmerge only when the current selection is exactly an existing merge. A new
     // multi-cell selection must still be able to merge, even when it touches an old range.
@@ -3602,12 +4233,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
     // --- Headers ---
     const headersChildren: MenuItemDef[] = [];
-    if (field) {
+    if (headerField) {
       headersChildren.push(
-        { name: 'Header color', subMenu: this.colorMenuItems(c => { columnFields.forEach(f => this.setHeaderCellColor(f, c)); }, this.headerCellColors[field]) },
-        { name: 'Header Text color', subMenu: this.colorMenuItems(c => { columnFields.forEach(f => this.setHeaderCellTextColor(f, c)); }, this.headerCellTextColors[field], TEXT_COLOR_PALETTE) },
-        { name: 'Header Text Orientation', subMenu: this.orientationMenuItems(o => { columnFields.forEach(f => this.setHeaderCellOrientation(f, o)); }, this.headerCellOrientations[field]) },
-        { name: 'Header Text Alignment', subMenu: this.alignmentMenuItems(a => { columnFields.forEach(f => this.setHeaderCellAlignment(f, a)); }, this.headerCellAlignments[field]) },
+        { name: 'Header color', subMenu: this.colorMenuItems(c => { headerFields.forEach(f => this.setHeaderCellColor(f, c)); }, this.headerCellColors[headerField]) },
+        { name: 'Header Text color', subMenu: this.colorMenuItems(c => { headerFields.forEach(f => this.setHeaderCellTextColor(f, c)); }, this.headerCellTextColors[headerField], TEXT_COLOR_PALETTE) },
+        { name: 'Header Text Orientation', subMenu: this.orientationMenuItems(o => { headerFields.forEach(f => this.setHeaderCellOrientation(f, o)); }, this.headerCellOrientations[headerField]) },
+        { name: 'Header Text Alignment', subMenu: this.alignmentMenuItems(a => { headerFields.forEach(f => this.setHeaderCellAlignment(f, a)); }, this.headerCellAlignments[headerField]) },
       );
     }
     headersChildren.push({ name: 'All headers color', subMenu: this.colorMenuItems(c => { this.headerRowColor = c; }, this.headerRowColor) });
@@ -3617,10 +4248,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     const cellsChildren: MenuItemDef[] = [];
     if (sel) {
       cellsChildren.push(
-        { name: 'Cell color', subMenu: this.colorMenuItems(c => { for (const r of sel.rows) for (const f of sel.fields) this.setCellColor(r, f, c); }, this.cellColors[this.cellKey(rowIndex, field!)]) },
-        { name: 'Cell Text color', subMenu: this.colorMenuItems(c => { for (const r of sel.rows) for (const f of sel.fields) this.setCellTextColor(r, f, c); }, this.cellTextColors[this.cellKey(rowIndex, field!)], TEXT_COLOR_PALETTE) },
-        { name: 'Text Orientation', subMenu: this.orientationMenuItems(o => { for (const r of sel.rows) for (const f of sel.fields) this.setCellOrientation(r, f, o); }, this.cellOrientations[this.cellKey(rowIndex, field!)]) },
-        { name: 'Text Alignment', subMenu: this.alignmentMenuItems(a => { for (const r of sel.rows) for (const f of sel.fields) this.setCellAlignment(r, f, a); }, this.cellAlignments[this.cellKey(rowIndex, field!)]) },
+        { name: 'Cell color', subMenu: this.colorMenuItems(c => { for (const r of sel.rows) for (const f of sel.fields) this.setCellColor(r, f, c); }, this.getCellSetting(this.cellColors, rowIndex, field!)) },
+        { name: 'Cell Text color', subMenu: this.colorMenuItems(c => { for (const r of sel.rows) for (const f of sel.fields) this.setCellTextColor(r, f, c); }, this.getCellSetting(this.cellTextColors, rowIndex, field!), TEXT_COLOR_PALETTE) },
+        { name: 'Text Orientation', subMenu: this.orientationMenuItems(o => { for (const r of sel.rows) for (const f of sel.fields) this.setCellOrientation(r, f, o); }, this.getCellSetting(this.cellOrientations, rowIndex, field!)) },
+        { name: 'Text Alignment', subMenu: this.alignmentMenuItems(a => { for (const r of sel.rows) for (const f of sel.fields) this.setCellAlignment(r, f, a); }, this.getCellSetting(this.cellAlignments, rowIndex, field!)) },
         { name: 'Split Cells', action: () => this.openEmbedDialog(sel) },
       );
     }
@@ -3639,21 +4270,28 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     const columnsChildren: MenuItemDef[] = [];
     if (field) {
       columnsChildren.push(
-        { name: 'Column color', subMenu: this.colorMenuItems(c => { columnFields.forEach(f => this.setColumnColor(f, c)); }, this.columnConfigs[field]?.color) },
+        { name: 'Column color', subMenu: this.colorMenuItems(c => { columnFields.forEach(f => this.setColumnColor(f, c)); }, this.columnConfigs[this.columnSourceField(field)]?.color) },
         { name: 'Insert column to left', action: () => this.insertColumnLeft(field) },
         { name: columnFields.length > 1 ? `Delete ${columnFields.length} Columns` : 'Delete column', action: () => this.deleteColumns(columnFields) },
-        { name: 'Column Text color', subMenu: this.colorMenuItems(c => { columnFields.forEach(f => this.setColumnTextColor(f, c)); }, this.columnConfigs[field]?.textColor, TEXT_COLOR_PALETTE) },
+        { name: 'Column Text color', subMenu: this.colorMenuItems(c => { columnFields.forEach(f => this.setColumnTextColor(f, c)); }, this.columnConfigs[this.columnSourceField(field)]?.textColor, TEXT_COLOR_PALETTE) },
       );
     }
 
     // --- Rows ---
     const rowsChildren: MenuItemDef[] = [];
+    const groupRowKey = getReportGroupRowColorKey(params.node);
     if (sel) {
       rowsChildren.push(
         { name: 'Insert Row above', action: () => this.insertRowAbove(Math.min(...sel.rows)) },
         { name: sel.rows.length > 1 ? `Delete ${sel.rows.length} Rows` : 'Delete Row', action: () => this.deleteRows(sel.rows) },
-        { name: 'Row color', subMenu: this.colorMenuItems(c => { sel.rows.forEach(r => this.setRowColor(r, c)); }, this.rowColors[rowIndex] ?? this.pageRowColors[rowIndex]) },
-        { name: 'Row Text color', subMenu: this.colorMenuItems(c => { sel.rows.forEach(r => this.setRowTextColor(r, c)); }, this.rowTextColors[rowIndex], TEXT_COLOR_PALETTE) },
+        { name: 'Row color', subMenu: this.colorMenuItems(c => {
+          if (groupRowKey) this.setGroupRowColor(groupRowKey, c, false);
+          else sel.rows.forEach(r => this.setRowColor(r, c));
+        }, groupRowKey ? this.rowColorsByKey[groupRowKey] : this.getRowColor(rowIndex) ?? this.pageRowColors[rowIndex]) },
+        { name: 'Row Text color', subMenu: this.colorMenuItems(c => {
+          if (groupRowKey) this.setGroupRowColor(groupRowKey, c, true);
+          else sel.rows.forEach(r => this.setRowTextColor(r, c));
+        }, groupRowKey ? this.rowTextColorsByKey[groupRowKey] : this.getRowTextColor(rowIndex), TEXT_COLOR_PALETTE) },
       );
     }
 
@@ -3669,7 +4307,14 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     if (columnsChildren.length) entityMenus.push({ name: 'Columns', subMenu: columnsChildren });
     if (rowsChildren.length) entityMenus.push({ name: 'Rows', subMenu: rowsChildren });
     if (entityMenus.length) items.push('separator', ...entityMenus);
-    if (field) items.push('separator', { name: 'Conditional Formatting', action: () => this.openConditionalFormatting(field) });
+    if (field) items.push('separator', { name: 'Conditional Formatting', action: () => this.openConditionalFormatting(columnFields) });
+    if (field && field !== ROW_NUMBER_COL_ID && this.isAggregatableField(field)) {
+      items.push({ name: this.dataBarColumns.includes(field) ? 'Remove Data Bars' : 'Show Data Bars', action: () => this.toggleDataBars(field) });
+    }
+    const drillNode = params.node;
+    if (drillNode && !drillNode.rowPinned && !drillNode.footer && this.reportDrillRecords(drillNode).length) {
+      items.push({ name: 'Drill to Detail', action: () => this.openReportDrill(drillNode) });
+    }
 
     return this.wrapMenuActionsInZone(items) as (DefaultMenuItem | MenuItemDef)[];
   };
@@ -3915,8 +4560,9 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.conditionalFilters = [];
     this.nextConditionalFilterId = 1;
     this.conditionalRules = [];
+    this.legendItems = [];
     this.showConditionalModal = false;
-    this.cfField = '';
+    this.cfFields = [];
     this.cfValue = '';
     this.cfValue2 = '';
     this.parameterFilters = [];
@@ -3939,6 +4585,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.daxSavedModelSelectedIds = new Set();
     this.daxSavedModelsSearch = '';
     this.pinnedColumns = [];
+    this.dataBarColumns = [];
     this.mergedCellRanges = [];
     this.rowLayout = [];
     this.manualRows = {};
@@ -3948,7 +4595,11 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.headerCellColors = {};
     this.headerCellTextColors = {};
     this.rowColors = {};
+    this.rowColorsByKey = {};
+    this.summaryRowColors = {};
+    this.summaryRowTextColors = {};
     this.rowTextColors = {};
+    this.rowTextColorsByKey = {};
     this.pageRowColors = {};
     this.cellColors = {};
     this.cellTextColors = {};
@@ -3960,6 +4611,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.headerCellBorders = {};
     this.subGroupColors = {};
     this.groupColors = {};
+    this.groupTextColors = {};
+    this.subGroupTextColors = {};
+    this.groupHeaderAlignments = {};
+    this.subGroupHeaderAlignments = {};
     this.selectionRange = null;
     this.selectionAnchor = null;
     this.selectedColumnFields = [];
@@ -3970,7 +4625,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   private runLiveViewPreview(view: DatabaseViewListItem): void {
     this.sourcePreviewSubscription?.unsubscribe();
     this.subs.push(this.sourcePreviewSubscription = previewReportView(
-      this.commonApi, view.id, { ...this.filterValues }, this.fromDate, this.toDate,
+      this.commonApi, view.id, { ...this.filterValues }, this.fromDate, this.toDate, this.advancedFilters ?? [],
     ).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res) => {
         if (res?.columns?.length) {
@@ -4150,6 +4805,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     }
     this.rowGroupFields = this.rowGroupFields.filter(field => !hasRemoved([field]));
     this.pinnedColumns = this.pinnedColumns.filter(field => !hasRemoved([field]));
+    this.dataBarColumns = this.dataBarColumns.filter(field => !hasRemoved([field]));
     this.conditionalFilters = this.conditionalFilters.filter(filter => !hasRemoved([filter.sourceColumn]));
     this.conditionalRules = this.conditionalRules.filter(rule => !hasRemoved([rule.field]));
     this.mergedCellRanges = this.mergedCellRanges.filter(range => {
@@ -4164,10 +4820,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       this.calcColumnB = '';
       this.showCalcModal = false;
     }
-    if (hasRemoved([this.cfField])) {
-      this.cfField = '';
-      this.showConditionalModal = false;
-    }
+    this.cfFields = this.cfFields.filter(field => !hasRemoved([field]));
+    if (!this.cfFields.length) this.showConditionalModal = false;
     if (hasRemoved(measureColumns(this.daxMeasureDraft))
       || hasRemoved(this.selectedDaxColumns)
       || (this.daxModel.selectedMeasureId
@@ -4205,19 +4859,98 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.rebuildPreviewGrid();
   }
 
+  toggleDataBars(column: string): void {
+    this.dataBarColumns = this.dataBarColumns.includes(column)
+      ? this.dataBarColumns.filter(c => c !== column)
+      : [...this.dataBarColumns, column];
+    this.rebuildPreviewGrid();
+  }
+
+  private reportDrillRecords(node: IRowNode): Record<string, unknown>[] {
+    const leaves = node.group ? node.allLeafChildren ?? [] : [node];
+    const records: Record<string, unknown>[] = [];
+    for (const leaf of leaves) {
+      const data = leaf.data as Record<string, unknown> | undefined;
+      if (data && !data[MANUAL_ROW_FLAG] && data[TOTALS_LABEL_FIELD] == null) records.push(data);
+    }
+    return records;
+  }
+
+  /** Opens the source records behind a cell (or, on a group row, behind every row in the group). */
+  openReportDrill(node: IRowNode): void {
+    const records = this.reportDrillRecords(node);
+    if (!records.length) return;
+    // Renamed rows also carry a hidden copy under the original name (for DAX); list only the renamed column.
+    const renames = this.currentColumnRenames();
+    const keys = new Set<string>();
+    for (const record of records) {
+      for (const key of Object.keys(record)) {
+        const renamedTo = renames.get(key);
+        if (!key.startsWith('__') && !(renamedTo && renamedTo in record)) keys.add(key);
+      }
+    }
+    const columns: ColDef[] = [...keys].map((key, index) => ({
+      colId: `drill-${index}`,
+      headerName: key,
+      headerTooltip: key,
+      valueGetter: params => params.data?.[key],
+    }));
+    const target = node.group ? `${node.rowGroupColumn?.getColDef().headerName ?? 'Group'}: ${node.key ?? ''} \u00b7 ` : '';
+    this.reportDrill = { subtitle: `${target}${records.length} ${records.length === 1 ? 'record' : 'records'}`, columns, rows: records };
+    this.cdr.markForCheck();
+  }
+
+  closeReportDrill(): void {
+    this.reportDrill = null;
+    this.cdr.markForCheck();
+  }
+
   setColumnColor(column: string, color: string): void {
-    if (this.columnConfigs[column]) {
-      this.columnConfigs[column].color = color;
+    const cfg = this.columnConfigs[this.columnSourceField(column)];
+    if (cfg) {
+      cfg.color = color;
     }
     this.refreshGridStyles();
   }
 
   setRowColor(rowIndex: number, color: string): void {
-    // Color by the row's absolute index so only that row is affected — not the same position on
-    // every pagination page (matches setRowTextColor and the cell-level colors).
-    if (color) this.rowColors[rowIndex] = color;
-    else delete this.rowColors[rowIndex];
+    const groupKey = getReportGroupRowColorKey(this.liveGridApi?.getDisplayedRowAtIndex(rowIndex));
+    if (groupKey) {
+      this.setGroupRowColor(groupKey, color, false);
+      return;
+    }
+    const key = this.getRowColorKeyAt(rowIndex);
+    if (key) {
+      clearReportCellSettingsForRecord(this.cellColors, rowIndex, key);
+      delete this.rowColors[rowIndex];
+      if (color) this.rowColorsByKey[key] = color;
+      else delete this.rowColorsByKey[key];
+    } else {
+      clearReportCellSettingsForRecord(this.cellColors, rowIndex);
+      if (color) this.rowColors[rowIndex] = color;
+      else delete this.rowColors[rowIndex];
+    }
     this.refreshGridStyles();
+  }
+
+  private getRowColorKeyAt(rowIndex: number): string | undefined {
+    const groupKey = getReportGroupRowColorKey(this.liveGridApi?.getDisplayedRowAtIndex(rowIndex));
+    if (groupKey) return groupKey;
+    const row = this.getGridRowDataAt(rowIndex);
+    const key = row?.[ROW_COLOR_KEY];
+    return typeof key === 'string' ? key : undefined;
+  }
+
+  private getRowColor(rowIndex: number): string | undefined {
+    const key = this.getRowColorKeyAt(rowIndex);
+    if (key?.startsWith('group:')) return this.rowColorsByKey[key];
+    return (key ? this.rowColorsByKey[key] : undefined) ?? this.rowColors[rowIndex];
+  }
+
+  private getRowTextColor(rowIndex: number): string | undefined {
+    const key = this.getRowColorKeyAt(rowIndex);
+    if (key?.startsWith('group:')) return this.rowTextColorsByKey[key];
+    return (key ? this.rowTextColorsByKey[key] : undefined) ?? this.rowTextColors[rowIndex];
   }
 
   setHeaderCellColor(column: string, color: string): void {
@@ -4230,8 +4963,24 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     return `${row}:${col}`;
   }
 
+  private getGridRowDataAt(rowIndex: number): Record<string, unknown> | undefined {
+    const api = this.liveGridApi;
+    return (api
+      ? api.getDisplayedRowAtIndex(rowIndex)?.data
+      : this.previewRows[rowIndex]) as Record<string, unknown> | undefined;
+  }
+
+  private cellSettingKeyAt(rowIndex: number, field: string): string {
+    const rowColorKey = this.getRowColorKeyAt(rowIndex);
+    return rowColorKey ? reportCellSettingKey(rowColorKey, field) : this.cellKey(rowIndex, field);
+  }
+
+  private getCellSetting<T>(settings: Record<string, T>, rowIndex: number, field: string): T | undefined {
+    return getReportCellSetting(settings, this.getGridRowDataAt(rowIndex), rowIndex, field);
+  }
+
   setCellColor(row: number, col: string, color: string): void {
-    const key = this.cellKey(row, col);
+    const key = this.cellSettingKeyAt(row, col);
     if (color) this.cellColors[key] = color;
     else delete this.cellColors[key];
     this.refreshGridStyles();
@@ -4305,11 +5054,14 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.selectedRawFields = this.selectedRawFields.filter(f => !drop.has(f));
     this.columnFields = this.columnFields.filter(f => !drop.has(f));
     this.pinnedColumns = this.pinnedColumns.filter(f => !drop.has(f));
+    this.dataBarColumns = this.dataBarColumns.filter(f => !drop.has(f));
     this.mergedCellRanges = this.mergedCellRanges.filter(r => !drop.has(r.field));
     for (const f of drop) {
       delete this.columnConfigs[f];
       delete this.headerCellColors[f];
-      for (const k of Object.keys(this.cellColors)) if (k.endsWith(`:${f}`)) delete this.cellColors[k];
+      for (const map of [this.cellColors, this.cellTextColors, this.cellOrientations, this.cellAlignments, this.cellEmbeds, this.cellBorders]) {
+        for (const k of Object.keys(map)) if (isReportCellSettingForField(k, f)) delete map[k];
+      }
       for (const k of Object.keys(this.cellOverrides)) if (k.endsWith(`:${f}`)) delete this.cellOverrides[k];
       for (const id of Object.keys(this.manualRows)) delete this.manualRows[id][f];
     }
@@ -4328,12 +5080,22 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     } else if (data[SOURCE_ROW_INDEX] != null) {
       this.cellOverrides[`${data[SOURCE_ROW_INDEX]}:${field}`] = event.newValue;
     }
+    // An edit can create/remove duplicates in other rows of this column, so repaint them.
+    const affectsDuplicates = this.conditionalRules.some(r =>
+      r.operator === 'duplicate' && r.enabled !== false && (r.field === field || r.scope === 'report'));
+    if (affectsDuplicates) event.api.refreshCells({ force: true });
   }
 
   //"Split Cells" — embed a sub-grid of blank editable cells
 
   openEmbedDialog(sel: { rows: number[]; fields: string[] }): void {
-    this.embedTargets = { rows: [...sel.rows], fields: [...sel.fields] };
+    this.embedTargets = {
+      rows: sel.rows.map(rowIndex => ({
+        rowIndex,
+        rowColorKey: this.getRowColorKeyAt(rowIndex),
+      })),
+      fields: [...sel.fields],
+    };
     this.embedSpan = 'horizontal';
     this.embedCount = 2;
     this.showEmbedDialog = true;
@@ -4350,9 +5112,11 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     const target = this.embedTargets;
     if (!target) { this.showEmbedDialog = false; return; }
     const count = Math.max(1, Math.min(20, Math.floor(this.embedCount) || 1));
-    for (const r of target.rows) {
+    for (const row of target.rows) {
       for (const f of target.fields) {
-        const key = this.cellKey(r, f);
+        const key = row.rowColorKey
+          ? reportCellSettingKey(row.rowColorKey, f)
+          : this.cellKey(row.rowIndex, f);
         const embed = this.cellEmbeds[key] ?? { rows: 1, cols: 1 };
         if (this.embedSpan === 'horizontal') embed.cols = count;
         else embed.rows = count;
@@ -4383,7 +5147,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   setCellOrientation(row: number, col: string, orientation: TextOrientation): void {
-    const key = this.cellKey(row, col);
+    const key = this.cellSettingKeyAt(row, col);
     if (orientation === 'vertical') this.cellOrientations[key] = 'vertical';
     else delete this.cellOrientations[key];
     // The cell class/renderer are baked into columnDefs, so a rebuild is needed; resetRowHeights
@@ -4415,7 +5179,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   setCellAlignment(row: number, col: string, align: TextAlign): void {
-    const key = this.cellKey(row, col);
+    const key = this.cellSettingKeyAt(row, col);
     this.cellAlignments[key] = align;
     this.refreshGridStyles();
   }
@@ -4444,7 +5208,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     let common: TextAlign | undefined;
     for (const r of sel.rows) {
       for (const f of sel.fields) {
-        const a = this.cellAlignments[this.cellKey(r, f)];
+        const a = this.getCellSetting(this.cellAlignments, r, f);
         if (a == null) return undefined;
         if (common == null) common = a;
         else if (common !== a) return undefined;
@@ -4455,23 +5219,31 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Alignment the toolbar highlights: the selection's when something is selected, otherwise the report-wide one. */
   get activeAlignment(): TextAlign | undefined {
+    if (this.selectedGroupHeader) return resolveGroupHeaderAlign(this, this.selectedGroupHeader);
     return this.selectionRange ? this.selectionAlignment : this.reportAlignment;
   }
 
-  /** Toolbar action: aligns the selected cells (or a header-only selection's headers), or the whole report when nothing is selected. */
+  /** Toolbar action: aligns the selected group header, cells (or a header-only selection's headers), or the whole report when nothing is selected. */
   applyTextAlign(align: TextAlign): void {
     const sel = this.selectionRange;
-    if (!sel) {
+    const group = this.selectedGroupHeader;
+    if (group) {
+      // Selected column group / sub-group header → align just that header (keyed by its name).
+      const target = group.level === 'group' ? this.groupHeaderAlignments : this.subGroupHeaderAlignments;
+      target[group.name] = align;
+    } else if (!sel) {
       // No selection → align the entire report (all cells and headers), clearing any per-cell/header overrides.
       this.reportAlignment = align;
       this.cellAlignments = {};
       this.headerCellAlignments = {};
+      this.groupHeaderAlignments = {};
+      this.subGroupHeaderAlignments = {};
     } else if (!sel.rows.length) {
       // Header-only column selection → align just the header(s).
       for (const f of sel.fields) this.headerCellAlignments[f] = align;
     } else {
       // Body/cell selection → align only the selected cells; leave the column headers untouched.
-      for (const r of sel.rows) for (const f of sel.fields) this.cellAlignments[this.cellKey(r, f)] = align;
+      for (const r of sel.rows) for (const f of sel.fields) this.cellAlignments[this.cellSettingKeyAt(r, f)] = align;
     }
     // Header alignment lives in columnDefs (headerClass), so rebuild; cells repaint with it.
     this.rebuildPreviewGrid();
@@ -4600,7 +5372,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
         ...col,
         autoHeight: true,
         cellRendererSelector: (params: ICellRendererParams) => {
-          const key = `${params.node?.rowIndex}:${field}`;
+          const rowColorKey = params.data?.[ROW_COLOR_KEY];
+          const stableKey = typeof rowColorKey === 'string'
+            ? reportCellSettingKey(rowColorKey, field)
+            : `${params.node?.rowIndex}:${field}`;
+          const legacyKey = `${params.node?.rowIndex}:${field}`;
+          const key = this.cellEmbeds[stableKey] ? stableKey : legacyKey;
           const embed = this.cellEmbeds[key];
           if (embed) {
             return {
@@ -4622,15 +5399,37 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   setColumnTextColor(column: string, color: string): void {
-    if (this.columnConfigs[column]) {
-      this.columnConfigs[column].textColor = color;
+    const cfg = this.columnConfigs[this.columnSourceField(column)];
+    if (cfg) {
+      cfg.textColor = color;
     }
     this.refreshGridStyles();
   }
 
   setRowTextColor(rowIndex: number, color: string): void {
-    if (color) this.rowTextColors[rowIndex] = color;
-    else delete this.rowTextColors[rowIndex];
+    const groupKey = getReportGroupRowColorKey(this.liveGridApi?.getDisplayedRowAtIndex(rowIndex));
+    if (groupKey) {
+      this.setGroupRowColor(groupKey, color, true);
+      return;
+    }
+    const rowColorKey = this.getRowColorKeyAt(rowIndex);
+    if (rowColorKey) {
+      clearReportCellSettingsForRecord(this.cellTextColors, rowIndex, rowColorKey);
+      delete this.rowTextColors[rowIndex];
+      if (color) this.rowTextColorsByKey[rowColorKey] = color;
+      else delete this.rowTextColorsByKey[rowColorKey];
+    } else {
+      clearReportCellSettingsForRecord(this.cellTextColors, rowIndex);
+      if (color) this.rowTextColors[rowIndex] = color;
+      else delete this.rowTextColors[rowIndex];
+    }
+    this.refreshGridStyles();
+  }
+
+  private setGroupRowColor(key: string, color: string, text: boolean): void {
+    const colors = text ? this.rowTextColorsByKey : this.rowColorsByKey;
+    if (color) colors[key] = color;
+    else delete colors[key];
     this.refreshGridStyles();
   }
 
@@ -4641,7 +5440,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   setCellTextColor(row: number, col: string, color: string): void {
-    const key = this.cellKey(row, col);
+    const key = this.cellSettingKeyAt(row, col);
     if (color) this.cellTextColors[key] = color;
     else delete this.cellTextColors[key];
     this.refreshGridStyles();
@@ -4778,11 +5577,13 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     return this.conditionalFilters.some(f => this.isDuplicateConditionalFilter(f));
   }
 
-  // --- Data Transformation: an action can be used only once per source-column set. ---
+  // --- Data Transformation: flag only identical actions, source columns, and rule parameters. ---
   private parameterFilterSignature(rule: ParameterFilterRule): string {
+    const { id: _id, enabled: _enabled, action, sourceColumn: _sourceColumn, sourceColumns: _sourceColumns, ...parameters } = rule;
     return this.duplicateSignature({
-      action: rule.action,
+      action,
       sourceColumns: [...new Set(getRuleSourceColumns(rule).map(column => column.trim().toLowerCase()))],
+      parameters,
     }, []);
   }
 
@@ -4790,7 +5591,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     return !!rule.action && getRuleSourceColumns(rule).length > 0;
   }
 
-  /** Rule parameters do not make a repeated action on the same columns distinct. */
+  /** True when another complete rule repeats the action, source columns, and rule parameters.. */
   isDuplicateParameterFilter(rule: ParameterFilterRule, rules: ParameterFilterRule[] = this.parameterFilters): boolean {
     if (!this.parameterFilterIsComplete(rule)) return false;
     const sig = this.parameterFilterSignature(rule);
@@ -4879,6 +5680,28 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.daxModelSectionExpanded = !this.daxModelSectionExpanded;
   }
 
+  toggleLegendsSection(): void {
+    this.legendsSectionExpanded = !this.legendsSectionExpanded;
+  }
+
+  addLegend(): void {
+    this.legendItems = [...this.legendItems, { color: '#D9EAF7', label: '' }];
+  }
+
+  get configuredLegends(): ReportLegendItem[] {
+    return this.legendItems.filter(item =>
+      !!item
+      && typeof item.color === 'string'
+      && /^#[0-9a-fA-F]{6}$/.test(item.color)
+      && typeof item.label === 'string'
+      && !!item.label.trim(),
+    );
+  }
+
+  removeLegend(index: number): void {
+    this.legendItems = this.legendItems.filter((_, itemIndex) => itemIndex !== index);
+  }
+
   /** Data columns selected for this report (not the DAX measures). */
   get daxSourceColumns(): string[] {
     return this.selectedRawFields;
@@ -4921,7 +5744,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   /** Columns offered in the DAX Column picker: numeric-only operations exclude text/non-numeric columns. */
   get daxSelectableColumns(): string[] {
     return this.daxOperationRequiresNumeric
-      ? this.daxSourceColumns.filter(c => this.isNumericField(c))
+      ? this.daxSourceColumns.filter(c => this.isAggregatableField(c))
       : this.daxSourceColumns;
   }
 
@@ -4939,7 +5762,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Numeric source columns — the Percentage numerator/denominator pickers only accept numeric columns. */
   get daxNumericSourceColumns(): string[] {
-    return this.daxSourceColumns.filter(c => this.isNumericField(c));
+    return this.daxSourceColumns.filter(c => this.isAggregatableField(c));
   }
 
   /** Row-scope measures: one computed value per row, rendered as an extra grid column. */
@@ -4992,6 +5815,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   toggleDaxColumnDropdown(event: Event): void {
     event.stopPropagation();
     this.showDaxColumnDropdown = !this.showDaxColumnDropdown;
+    this.daxColumnSearch = '';
     this.showDaxNumeratorDropdown = false;
     this.showDaxDenominatorDropdown = false;
   }
@@ -5021,6 +5845,15 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.daxNameError = '';
     this.daxColumnError = '';
     this.rebuildPreviewGrid();
+  }
+
+  get daxSelectableMeasureCount(): number {
+    return getActiveDaxMeasures({ daxModel: this.daxModel }).length;
+  }
+
+  toggleDaxMetricSelector(): void {
+    this.daxModel = { ...this.daxModel, allowMetricSelector: !this.daxModel.allowMetricSelector };
+    this.cdr.markForCheck();
   }
 
   updateDaxMeasureDraft(changes: Partial<DaxMeasureConfig>): void {
@@ -5112,6 +5945,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   private resetDaxOperationPickerState(): void {
     this.selectedDaxSnippet = '';
     this.selectedDaxColumns = [];
+    this.daxColumnSearch = '';
     this.showDaxColumnDropdown = false;
     this.showDaxNumeratorDropdown = false;
     this.showDaxDenominatorDropdown = false;
@@ -5197,11 +6031,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   selectAllDaxColumns(): void {
-    this.updateDaxColumns([...this.daxSelectableColumns]);
+    this.updateDaxColumns([...new Set([...this.selectedDaxColumns, ...this.filteredDaxSelectableColumns])]);
   }
 
   deselectAllDaxColumns(): void {
-    this.updateDaxColumns([]);
+    const visibleColumns = new Set(this.filteredDaxSelectableColumns);
+    this.updateDaxColumns(this.selectedDaxColumns.filter(column => !visibleColumns.has(column)));
   }
 
   toggleDaxNumeratorColumn(column: string): void {
@@ -5233,8 +6068,15 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   // Drive the single Select-all/Deselect-all toggle: true only when every selectable column is chosen.
   get allDaxColumnsSelected(): boolean {
-    const cols = this.daxSelectableColumns;
+    const cols = this.filteredDaxSelectableColumns;
     return cols.length > 0 && cols.every(c => this.selectedDaxColumns.includes(c));
+  }
+
+  get filteredDaxSelectableColumns(): string[] {
+    const search = this.daxColumnSearch.trim().toLowerCase();
+    return search
+      ? this.daxSelectableColumns.filter(column => column.toLowerCase().includes(search))
+      : this.daxSelectableColumns;
   }
   get allDaxNumeratorColumnsSelected(): boolean {
     const sel = this.daxMeasureDraft.numeratorColumns ?? [];
@@ -5323,12 +6165,17 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Columns that support numeric comparison ("greater than"): numeric or date. Pure text can't. */
   isComparableField(field: string): boolean {
-    return this.isNumericField(field) || this.isDateField(field);
+    return this.isAggregatableField(field) || this.isDateField(field);
   }
 
-  /** Total-row aggregations for a column: Sum/Average only apply to numeric columns; others get Count only. */
+  /** Total-row aggregations for a column: Sum/Average apply to numeric and percentage ("12.5%") columns; others get Count only. */
   totalOptionsFor(field: string): string[] {
-    return this.isNumericField(field) ? this.totalOptions : ['Count'];
+    return this.isAggregatableField(field) ? this.totalOptions : ['Count'];
+  }
+
+  /** Numeric or percentage ("12.5%") columns — offered to every numeric operation (totals, Math, DAX, comparisons). */
+  isAggregatableField(field: string): boolean {
+    return isAggregatableColumn(this.previewRows, field);
   }
 
   toggleRowGroupField(field: string): void {
@@ -5374,14 +6221,13 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Keeps the accordion in sync when the user drags/reorders groups in the grid's top panel. */
   onColumnRowGroupChanged(event: ColumnRowGroupChangedEvent): void {
+    if (event.source === 'gridInitializing' || event.source === 'gridOptionsChanged') return;
     const cols = event.api?.getRowGroupColumns?.() ?? [];
-    const next = cols.map(c => c.getColId());
+    const resolve = createColumnConfigResolver(this.buildLiveConfig());
+    const next = cols.map(c => resolve(c.getColId())?.field ?? c.getColId());
     const changed = next.length !== this.rowGroupFields.length || next.some((f, i) => f !== this.rowGroupFields[i]);
     if (!changed) return;
     this.rowGroupFields = next;
-    event.api.forEachNode(node => {
-      if (node.group) node.setExpanded(false);
-    });
     this.cdr.detectChanges();
   }
 
@@ -5599,14 +6445,51 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   //  Feature: Conditional formatting
-  /** Rules that target the column the modal is currently editing. */
+  /** Rules that target any column currently being edited in the modal. */
   get conditionalRulesForField(): ConditionalRule[] {
-    return this.conditionalRules.filter(r => r.field === this.cfField);
+    return this.conditionalRules.filter(r => this.cfFields.includes(r.field));
+  }
+
+  /** Selected column headers shown in the conditional-formatting modal title. */
+  get cfHeader(): string {
+    return this.cfFields
+      .map(field => this.gridApi?.getColumn(field)?.getColDef().headerName || field)
+      .join(', ');
   }
 
   /** Operators that don't need a comparison value. */
   get cfNeedsValue(): boolean {
-    return this.cfOperator !== 'isEmpty' && this.cfOperator !== 'notEmpty';
+    return !this.isValuelessCfOperator(this.cfOperator);
+  }
+
+  private isValuelessCfOperator(op: CfOperator): boolean {
+    return op === 'isEmpty' || op === 'notEmpty' || op === 'duplicate';
+  }
+
+  /** Picking "Duplicate values" switches to its light-red highlight with locked dark-red text, Excel-style. */
+  onCfOperatorChange(op: CfOperator): void {
+    const wasDuplicate = this.cfOperator === 'duplicate';
+    this.cfOperator = op;
+    if (op === 'duplicate') {
+      this.cfBgColor = DUPLICATE_HIGHLIGHT_BG;
+      this.cfUseBgColor = true;
+      this.cfTextColor = DUPLICATE_HIGHLIGHT_TEXT;
+      this.cfUseTextColor = true;
+    } else if (wasDuplicate) {
+      // Leaving the locked state: hand Text color back to the user at its usual default.
+      this.cfTextColor = '#111827';
+      this.cfUseTextColor = false;
+    }
+  }
+
+  /** Duplicate rules always use the fixed dark-red text, so the Text color control is locked. */
+  get cfTextColorLocked(): boolean {
+    return this.cfOperator === 'duplicate';
+  }
+
+  /** Duplicate rules always use the fixed light-red highlight, so the Background control is locked. */
+  get cfBgColorLocked(): boolean {
+    return this.cfOperator === 'duplicate';
   }
 
   /** At least one visual format must be enabled for a rule to be addable. */
@@ -5614,8 +6497,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     return this.cfUseBgColor || this.cfUseTextColor || this.cfBold;
   }
 
-  openConditionalFormatting(field: string): void {
-    this.cfField = field;
+  openConditionalFormatting(fields: string | string[]): void {
+    this.cfFields = [...new Set(typeof fields === 'string' ? [fields] : fields)];
     this.cfOperator = 'gt';
     this.cfValue = '';
     this.cfValue2 = '';
@@ -5630,20 +6513,27 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   addConditionalRule(): void {
     if (this.cfNeedsValue && this.cfValue.trim() === '') return;
-    if (!this.cfHasFormat) return;
+    if (!this.cfHasFormat || !this.cfFields.length) return;
+    const rule = {
+      operator: this.cfOperator,
+      value: this.cfNeedsValue ? this.cfValue.trim() : undefined,
+      value2: this.cfOperator === 'between' ? this.cfValue2.trim() : undefined,
+      backgroundColor: this.cfBgColorLocked
+        ? DUPLICATE_HIGHLIGHT_BG
+        : (this.cfUseBgColor && this.cfBgColor ? this.cfBgColor : undefined),
+      textColor: this.cfTextColorLocked
+        ? DUPLICATE_HIGHLIGHT_TEXT
+        : (this.cfUseTextColor && this.cfTextColor ? this.cfTextColor : undefined),
+      bold: this.cfBold || undefined,
+      scope: this.cfScope,
+    };
     this.conditionalRules = [
       ...this.conditionalRules,
-      {
+      ...this.cfFields.map(field => ({
         id: this.uid(),
-        field: this.cfField,
-        operator: this.cfOperator,
-        value: this.cfNeedsValue ? this.cfValue.trim() : undefined,
-        value2: this.cfOperator === 'between' ? this.cfValue2.trim() : undefined,
-        backgroundColor: this.cfUseBgColor && this.cfBgColor ? this.cfBgColor : undefined,
-        textColor: this.cfUseTextColor && this.cfTextColor ? this.cfTextColor : undefined,
-        bold: this.cfBold || undefined,
-        scope: this.cfScope,
-      },
+        field,
+        ...rule,
+      })),
     ];
     this.cfValue = '';
     this.cfValue2 = '';
@@ -5662,7 +6552,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   /** Human-readable summary of a rule for the modal's rule list. */
   conditionalRuleLabel(rule: ConditionalRule): string {
     const op = this.cfOperators.find(o => o.value === rule.operator)?.label ?? rule.operator;
-    if (rule.operator === 'isEmpty' || rule.operator === 'notEmpty') return op;
+    if (this.isValuelessCfOperator(rule.operator)) return op;
     if (rule.operator === 'between') return `${op} ${rule.value} and ${rule.value2}`;
     return `${op} ${rule.value}`;
   }
@@ -5683,8 +6573,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   computeCalcValue(row: Record<string, unknown>, field: string): string {
     const calc = this.calculatedFields.find(f => f.name === field);
     if (!calc) return String(row[field] ?? '—');
-    const a = Number(row[calc.columnA]);
-    const b = Number(row[calc.columnB]);
+    const a = coerceNumberAllowPercent(row[calc.columnA]);
+    const b = coerceNumberAllowPercent(row[calc.columnB]);
     if (isNaN(a) || isNaN(b)) return '—';
     switch (calc.operation) {
       case 'add': return (a + b).toLocaleString();
@@ -5845,6 +6735,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Snapshots every per-sheet builder property so it can be restored later. */
   private captureSheetState(): ReportSheetSnapshot {
+    // A rename edited since the last rebuild must not leave formatting keyed by the old name.
+    this.syncColumnKeysWithRenames();
     return {
       dataSourceMode: this.dataSourceMode,
       selectedDataModelId: this.selectedDataModelId,
@@ -5867,12 +6759,16 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       nextCalculatedIndex: this.nextCalculatedIndex,
       conditionalRules: structuredClone(this.conditionalRules),
       daxModel: cloneDaxModel(this.daxModel),
+      legendItems: structuredClone(this.legendItems),
       conditionalFilters: structuredClone(this.conditionalFilters),
       parameterFilters: structuredClone(this.parameterFilters),
       headerTitle: this.headerTitle,
       headerSubtitle: this.headerSubtitle,
       headerSubtitle2: this.headerSubtitle2,
       bannerText: this.bannerText,
+      clusterBannerText: this.clusterBannerText,
+      clusterBannerSelection: this.clusterBannerSelection,
+      customClusterBannerEnabled: this.customClusterBannerEnabled,
       headerBackgroundColor: this.headerBackgroundColor,
       headerTextColor: this.headerTextColor,
       bannerBackgroundColor: this.bannerBackgroundColor,
@@ -5884,14 +6780,21 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       headerCellColors: { ...this.headerCellColors },
       headerCellTextColors: { ...this.headerCellTextColors },
       rowColors: { ...this.rowColors },
+      rowColorsByKey: { ...this.rowColorsByKey },
+      summaryRowColors: { ...this.summaryRowColors },
+      summaryRowTextColors: { ...this.summaryRowTextColors },
       rowTextColors: { ...this.rowTextColors },
+      rowTextColorsByKey: { ...this.rowTextColorsByKey },
       pageRowColors: { ...this.pageRowColors },
       cellColors: { ...this.cellColors },
       cellTextColors: { ...this.cellTextColors },
       columnGroupColors: structuredClone(this.columnGroupColors),
       subGroupColors: { ...this.subGroupColors },
       groupColors: { ...this.groupColors },
+      groupTextColors: { ...this.groupTextColors },
+      subGroupTextColors: { ...this.subGroupTextColors },
       pinnedColumns: [...this.pinnedColumns],
+      dataBarColumns: [...this.dataBarColumns],
       leftLogoUrl: this.leftLogoUrl,
       rightLogoUrl: this.rightLogoUrl,
       rightLogoColor: this.rightLogoColor,
@@ -5915,9 +6818,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       cellAlignments: { ...this.cellAlignments },
       headerCellAlignments: { ...this.headerCellAlignments },
       reportAlignment: this.reportAlignment,
+      groupHeaderAlignments: { ...this.groupHeaderAlignments },
+      subGroupHeaderAlignments: { ...this.subGroupHeaderAlignments },
       cellBorders: { ...this.cellBorders },
       headerCellBorders: { ...this.headerCellBorders },
       reportBorder: this.reportBorder,
+      rowNumberHeader: this.rowNumberHeader,
       viewMode: this.viewMode,
       gridRowHeight: this.gridRowHeight,
       columnSizingMode: this.columnSizingMode,
@@ -5927,6 +6833,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   /** Restores a previously captured sheet snapshot into the live builder state. */
   private applySheetState(s: ReportSheetSnapshot): void {
+    // The restored formatting already matches the restored rules; re-baseline instead of re-keying.
+    this.columnKeyRenames = undefined;
     this.dataSourceMode = s.dataSourceMode;
     this.selectedDataModelId = s.selectedDataModelId;
     this.selectedRawFields = [...s.selectedRawFields];
@@ -5948,6 +6856,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.nextCalculatedIndex = s.nextCalculatedIndex;
     this.conditionalRules = structuredClone(s.conditionalRules);
     this.daxModel = cloneDaxModel(s.daxModel);
+    this.legendItems = structuredClone(s.legendItems ?? []);
     this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
     this.syncDaxSelectionFromModel();
     this.conditionalFilters = structuredClone(s.conditionalFilters ?? []);
@@ -5958,6 +6867,9 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.headerSubtitle = s.headerSubtitle;
     this.headerSubtitle2 = s.headerSubtitle2;
     this.bannerText = s.bannerText;
+    this.clusterBannerText = s.clusterBannerText ?? '';
+    this.clusterBannerSelection = s.clusterBannerSelection ?? '';
+    this.setCustomClusterBannerEnabled(s.customClusterBannerEnabled !== false);
     this.headerBackgroundColor = s.headerBackgroundColor;
     this.headerTextColor = s.headerTextColor;
     this.bannerBackgroundColor = s.bannerBackgroundColor;
@@ -5969,14 +6881,21 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.headerCellColors = { ...s.headerCellColors };
     this.headerCellTextColors = { ...s.headerCellTextColors };
     this.rowColors = { ...s.rowColors };
+    this.rowColorsByKey = { ...(s.rowColorsByKey ?? {}) };
+    this.summaryRowColors = { ...(s.summaryRowColors ?? {}) };
+    this.summaryRowTextColors = { ...(s.summaryRowTextColors ?? {}) };
     this.rowTextColors = { ...s.rowTextColors };
+    this.rowTextColorsByKey = { ...(s.rowTextColorsByKey ?? {}) };
     this.pageRowColors = { ...s.pageRowColors };
     this.cellColors = { ...s.cellColors };
     this.cellTextColors = { ...s.cellTextColors };
     this.columnGroupColors = structuredClone(s.columnGroupColors);
     this.subGroupColors = { ...(s.subGroupColors ?? {}) };
     this.groupColors = { ...(s.groupColors ?? {}) };
+    this.groupTextColors = { ...(s.groupTextColors ?? {}) };
+    this.subGroupTextColors = { ...(s.subGroupTextColors ?? {}) };
     this.pinnedColumns = [...s.pinnedColumns];
+    this.dataBarColumns = [...(s.dataBarColumns ?? [])];
     this.leftLogoUrl = s.leftLogoUrl;
     this.rightLogoUrl = s.rightLogoUrl;
     this.rightLogoColor = s.rightLogoColor;
@@ -6001,9 +6920,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.cellAlignments = { ...(s.cellAlignments ?? {}) };
     this.headerCellAlignments = { ...(s.headerCellAlignments ?? {}) };
     this.reportAlignment = s.reportAlignment;
+    this.groupHeaderAlignments = { ...(s.groupHeaderAlignments ?? {}) };
+    this.subGroupHeaderAlignments = { ...(s.subGroupHeaderAlignments ?? {}) };
     this.cellBorders = { ...(s.cellBorders ?? {}) };
     this.headerCellBorders = { ...(s.headerCellBorders ?? {}) };
     this.reportBorder = s.reportBorder;
+    this.rowNumberHeader = s.rowNumberHeader;
     this.viewMode = s.viewMode;
     this.gridRowHeight = s.gridRowHeight;
     this.columnSizingMode = s.columnSizingMode;
@@ -6016,6 +6938,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
    *  report-level metadata (shared across sheets), so they carry over — a new sheet still
    *  saves under the same report name. */
   private resetBuilderForNewSheet(): void {
+    this.columnKeyRenames = undefined;
     this.nameValidationError = '';
     this.dataSourceMode = 'table';
     this.selectedDataModelId = '';
@@ -6027,6 +6950,9 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.headerSubtitle = '';
     this.headerSubtitle2 = '';
     this.bannerText = '';
+    this.clusterBannerText = '';
+    this.clusterBannerSelection = '';
+    this.setCustomClusterBannerEnabled(true);
     this.headerBackgroundColor = 'linear-gradient(90.37deg, #162B6F 0%, #1B3585 30%, #21409A 58%, #2852B1 82%, #315FC2 100%)';
     this.headerTextColor = '#FFFFFF';
     this.bannerBackgroundColor = '#EDEFF4';
@@ -6049,7 +6975,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.tableHeadingFontSize = 12;
     this.gridHeaderHeight = 36;
     this.reportAlignment = undefined;
+    this.groupHeaderAlignments = {};
+    this.subGroupHeaderAlignments = {};
     this.reportBorder = undefined;
+    this.rowNumberHeader = undefined;
     this.selectedThemeId = '';
     this.brandedRows = false;
     this.gridAccentColor = '#21409A';
@@ -6179,6 +7108,91 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   helpVote: 'yes' | 'no' | null = null;
   helpArticles: HelpArticle[] = [
     {
+      id: 'report-source',
+      question: 'How do I choose a data source?',
+      expanded: false,
+      steps: [
+        'Open Source Details and choose Table or View, then select the data model for the report.',
+        'The selected source supplies the fields used by column selection, grouping, filters, transformations, and calculations.',
+        'Changing to a different source clears field selections and their dependent setup, including grouping, filters, transformations, calculations, and cell edits. The report name, category, and appearance are preserved.',
+        'Selecting the same source again keeps its existing setup.',
+      ],
+    },
+    {
+      id: 'select-fields',
+      question: 'How do I select report fields?',
+      expanded: false,
+      steps: [
+        'In Column Selection, search for fields or filter the list to all, selected, or unselected columns.',
+        'Tick the fields to use. The order you select them determines their nested order in the report.',
+        'Use Select All or Deselect All to change the selection in one action.',
+        'Deselecting a field also clears its dependent grouping, filters, transformations, and calculations. Reselecting it restores the field option only.',
+      ],
+    },
+    {
+      id: 'configure-columns',
+      question: 'How do I configure columns?',
+      expanded: false,
+      steps: [
+        'In Column Grouping, tick the selected fields you want displayed in the report.',
+        'Enter the same Group name for columns that should sit under a shared heading; add a Sub group name to nest them further.',
+        'Choose a total aggregation for supported columns. Use Clear All Grouping to remove column group and subgroup names.',
+        'The preview updates as you change the column configuration.',
+      ],
+    },
+    {
+      id: 'group-rows-totals',
+      question: 'How do I group report rows and show totals?',
+      expanded: false,
+      steps: [
+        'In Row Grouping, select one or more fields to group the preview rows. Drag the group chips at the top of the grid to change their order.',
+        'For numeric grouped fields, choose Sum or Average when you want an aggregation; choose No total to omit it.',
+        'Use the Total section to enable subtotals after groups, a grand-total row at the bottom, or a totals row.',
+        'You can also set a group-title row color for selected row-group fields.',
+      ],
+    },
+    {
+      id: 'calculated-columns',
+      question: 'Can I add a calculated column?',
+      expanded: false,
+      steps: [
+        'In Column Grouping, choose Add calculated column.',
+        'Enter a column name, choose Column A and Column B from the selected fields, and select an operation such as addition, subtraction, multiplication, division, or percentage.',
+        'Review the displayed formula, then choose Add Column. The calculation uses the selected fields and appears in the report preview.',
+      ],
+    },
+    {
+      id: 'global-filters',
+      question: 'How do I apply global filters?',
+      expanded: false,
+      steps: [
+        'Use the filter bar above the report preview to select available values such as Country, Sector, or Business Unit, and set the date range when shown.',
+        'The preview refreshes with the selected global filters.',
+        'Use Show Filter or Hide Filter to collapse or reopen the filter bar.',
+      ],
+    },
+    {
+      id: 'conditional-filters',
+      question: 'How do conditional filters work?',
+      expanded: false,
+      steps: [
+        'Open Conditional Filters and choose Add Filter.',
+        'Choose a source column, condition, condition value, and mode to keep or exclude matching rows.',
+        'Give the rule a name if needed. The preview reflects complete filter rules; a missing condition value or duplicate rule is flagged for correction.',
+      ],
+    },
+    {
+      id: 'data-transformations',
+      question: 'What can I do in Data Transformation?',
+      expanded: false,
+      steps: [
+        'Open Data Transformation and choose Add Parameter Filter, then select an action and its source column or columns.',
+        'Available actions include changing a data type, renaming a column, replacing nulls, deduplicating rows, splitting or merging columns, cleaning text, extracting values, and applying a math operation.',
+        'Fill in the required Rule Parameters for the selected action. An enabled rule with missing required parameters will not run and cannot be saved.',
+        'Transformation rules are applied to the report data; remove or disable a rule when you no longer need it.',
+      ],
+    },
+    {
       id: 'deduplicate-rows',
       question: 'How do I choose which duplicate rows to keep?',
       expanded: false,
@@ -6207,51 +7221,46 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
         'Choose First N Chars, Last N Chars or Substring, then enter the length and start position if needed.',
         'Numeric values are read as text for extraction. For example, the first three characters of 123456 are "123".',
         'The extracted result is text. Use Change Data Type afterwards if you need a numeric result.',
-        'An action can be used only once for the same source columns, even with different parameters.',
+        'A rule is considered repeated only when its action, source columns and rule parameters all match another rule.',
       ],
     },
     {
-      id: 'add-report',
-      question: 'How do I add a report?',
+      id: 'saved-setups',
+      question: 'How do I save or reuse a report setup?',
       expanded: false,
       steps: [
-        'Select a data model from the Source Details section.',
-        'Changing the source clears previous column selections, grouping, filters, transformations, calculations and cell edits.',
-        'Report name, category and overall appearance are preserved. Selecting the same source does not clear its setup.',
-        'Tick the fields you want in Column Selection. Other column pickers update immediately.',
-        'Configure columns, then click Save.',
+        'Use Save as Reusable Setup to store the report configuration for reuse.',
+        'Open Use Saved Setup, select a saved setup, and review its configuration before applying it.',
+        'A reusable setup covers the report field, grouping, total, filter, transformation, and DAX configuration. It does not replace the report name, category, or appearance.',
       ],
     },
     {
-      id: 'resize-columns',
-      question: 'How do I configure columns?',
+      id: 'report-appearance',
+      question: 'How do I customize report appearance?',
       expanded: false,
       steps: [
-        'Choose available fields in Column Selection, then go to Column Grouping.',
-        'Tick the columns you want to show.',
-        'Enter Group and Sub-group names to nest columns under shared headings.',
-        'Deselecting a field in Column Selection clears dependent grouping, filters, transformations and calculations.',
-        'Reselecting a field restores its column option, but does not restore deleted rules or measures.',
-      ],
-    },
-    {
-      id: 'apply-filters',
-      question: 'How do I apply filters?',
-      expanded: false,
-      steps: [
-        'Use the Global Filter bar at the top of the page.',
-        'Select values for Country, Sector, Business Unit, etc.',
-        'Filters apply to the report preview automatically.',
+        'Open the Appearance tab to configure optional presentation settings.',
+        'Add header or footer text, choose logos, and adjust color theme and typography.',
+        'Review the report preview as you make changes. Appearance settings are preserved when you change the data source.',
       ],
     },
     {
       id: 'save-report',
-      question: 'How do I save the report?',
+      question: 'How do I save, publish, or close the report?',
       expanded: false,
       steps: [
-        'Enter a report name in the toolbar.',
-        'Pick a category from the dropdown.',
-        'Click Save as Draft or Add Report to publish.',
+        'Enter the report name and description, then choose a category in the toolbar.',
+        'Choose Save or Update to save a draft and remain in the builder. If available to you, choose Add Report to publish it.',
+        'Choose Save & Close or Update & Close to save the draft and leave the builder. Choose Discard to leave without saving, and confirm if prompted.',
+      ],
+    },
+    {
+      id: 'clear-report-setup',
+      question: 'What does Clear All do?',
+      expanded: false,
+      steps: [
+        'Choose Clear All in the builder toolbar and confirm in the dialog.',
+        'This resets the report type, data mapping, and display options. The action cannot be undone.',
       ],
     },
   ];
@@ -6259,39 +7268,32 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   get filteredHelpArticles(): HelpArticle[] {
     const term = this.helpSearchTerm.trim().toLowerCase();
     if (!term) return this.helpArticles;
-    return this.helpArticles.filter(a => a.question.toLowerCase().includes(term));
+    return this.helpArticles.filter(a =>
+      `${a.question} ${a.steps.join(' ')}`.toLowerCase().includes(term),
+    );
+  }
+
+  onHelpSearchChange(): void {
+    const firstMatch = this.filteredHelpArticles[0];
+    this.helpArticles.forEach(article => (article.expanded = article === firstMatch));
+  }
+
+  clearHelpSearch(): void {
+    this.helpSearchTerm = '';
+    this.helpArticles.forEach(article => (article.expanded = false));
   }
 
   discard(): void {
-    // Check if there are unsaved changes
-    if (this.hasUnsavedChanges()) {
-      this.showDiscardConfirm = true;
-    } else {
-      this.router.navigateByUrl(this.returnUrl);
-    }
+    this.showDiscardConfirm = true;
   }
 
-  confirmDiscardSave(): void {
-    this.showDiscardConfirm = false;
-    this.saveReport('draft',true);
-  }
-
-  confirmDiscardNo(): void {
+  confirmDiscard(): void {
     this.showDiscardConfirm = false;
     this.router.navigateByUrl(this.returnUrl);
   }
 
   cancelDiscard(): void {
     this.showDiscardConfirm = false;
-  }
-
-  private hasUnsavedChanges(): boolean {
-    // If user has typed a name, selected columns, or is editing an existing report
-    return (
-      (this.reportName !== '' && this.reportName !== 'Report Name') ||
-      this.selectedRawFields.length > 0 ||
-      this.editingReportId !== null
-    );
   }
 
   saveAndClose(): void {
@@ -6344,8 +7346,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
    * Empty/default styling is omitted so the saved reportJson stays small.
    */
   private buildTemplateConfig(): Record<string, unknown> {
+    this.syncColumnKeysWithRenames();
     const cfg: Record<string, unknown> = {};
     const nonEmpty = (o: Record<string, unknown> | null | undefined) => !!o && Object.keys(o).length > 0;
+    const liveColumns = this.buildLiveConfig().columns ?? [];
 
     // Preserve every selected field so a saved setup can restore its accordion selections.
     const columns = this.selectedRawFields
@@ -6358,7 +7362,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
         if (cc?.group) entry['group'] = cc.group;
         if (cc?.subGroup) entry['subGroup'] = cc.subGroup;
         if (cc?.total) entry['total'] = cc.total;
-        const gi = this.rowGroupFields.indexOf(field);
+        // Manually-inserted (custom) columns don't exist in the data source, so the flag is the
+        // only thing that lets a re-applied setup recreate them along with their header/grouping.
+        if (cc?.custom) entry['custom'] = true;
+        const gi = liveColumns.find(column => column.field === field)?.rowGroupIndex ?? -1;
         if (gi >= 0) { entry['rowGroup'] = true; entry['rowGroupIndex'] = gi; }
         if (this.rowGroupAggs[field]) entry['aggFunc'] = this.rowGroupAggs[field];
         if (this.rowGroupColors[field]) entry['rowGroupColor'] = this.rowGroupColors[field];
@@ -6382,6 +7389,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     if (nonEmpty(this.cellBorders)) cfg['cellBorders'] = this.cellBorders;
     if (nonEmpty(this.headerCellBorders)) cfg['headerCellBorders'] = this.headerCellBorders;
     if (this.reportBorder) cfg['reportBorder'] = this.reportBorder;
+    if (this.rowNumberHeader?.trim()) cfg['rowNumberHeader'] = this.rowNumberHeader.trim();
     if (this.selectedThemeId) cfg['themeId'] = this.selectedThemeId;
     if (this.gridAccentColor && this.gridAccentColor !== '#21409A') cfg['themeAccent'] = this.gridAccentColor;
     if (this.brandedRows) cfg['brandedRows'] = true;
@@ -6389,25 +7397,36 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     if (nonEmpty(this.cellTextColors)) cfg['cellTextColors'] = this.cellTextColors;
     if (nonEmpty(this.cellOrientations)) cfg['cellOrientations'] = this.cellOrientations;
     if (nonEmpty(this.rowColors)) cfg['rowColors'] = this.rowColors;
+    if (nonEmpty(this.rowColorsByKey)) cfg['rowColorsByKey'] = this.rowColorsByKey;
+    if (nonEmpty(this.summaryRowColors)) cfg['summaryRowColors'] = this.summaryRowColors;
+    if (nonEmpty(this.summaryRowTextColors)) cfg['summaryRowTextColors'] = this.summaryRowTextColors;
     if (nonEmpty(this.rowTextColors)) cfg['rowTextColors'] = this.rowTextColors;
+    if (nonEmpty(this.rowTextColorsByKey)) cfg['rowTextColorsByKey'] = this.rowTextColorsByKey;
     if (nonEmpty(this.pageRowColors)) cfg['pageRowColors'] = this.pageRowColors;
 
     const hasGrouping = columns.some(c => c['group'] || c['subGroup']);
     if (hasGrouping && this.columnGroupColors?.length) cfg['columnGroupColors'] = this.columnGroupColors;
     if (hasGrouping && Object.keys(this.subGroupColors).length) cfg['subGroupColors'] = this.subGroupColors;
     if (hasGrouping && Object.keys(this.groupColors).length) cfg['groupColors'] = this.groupColors;
+    if (hasGrouping && Object.keys(this.groupTextColors).length) cfg['groupTextColors'] = this.groupTextColors;
+    if (hasGrouping && Object.keys(this.subGroupTextColors).length) cfg['subGroupTextColors'] = this.subGroupTextColors;
+    if (hasGrouping && nonEmpty(this.groupHeaderAlignments)) cfg['groupHeaderAlignments'] = this.groupHeaderAlignments;
+    if (hasGrouping && nonEmpty(this.subGroupHeaderAlignments)) cfg['subGroupHeaderAlignments'] = this.subGroupHeaderAlignments;
     if (this.groupTextColor && this.groupTextColor !== '#FFFFFF') cfg['groupTextColor'] = this.groupTextColor;
     if (this.subGroupTextColor && this.subGroupTextColor !== '#FFFFFF') cfg['subGroupTextColor'] = this.subGroupTextColor;
 
     if (this.conditionalRules?.length) cfg['conditionalRules'] = this.conditionalRules;
 
     if (this.daxModel?.enabled && this.daxModel.measures?.some(m => m.expression?.trim())) cfg['daxModel'] = this.daxModel;
+    if (this.legendItems.length) cfg['legends'] = this.legendItems;
 
     if (this.conditionalFilters?.length) cfg['conditionalFilters'] = this.conditionalFilters;
 
     if (this.parameterFilters?.length) cfg['parameterFilters'] = this.parameterFilters;
 
-    return cfg;
+    // Key column formatting by source column so the setup follows any target report's renames.
+    const toSource = columnKeyRenamer(this.columnKeyRenames ?? this.currentColumnRenames(), new Map());
+    return { ...renameReportColumnKeys(cfg as ReportColumnKeyedSettings, toSource), columnKeyBasis: 'source' };
   }
 
   // get source information for the current report
@@ -6465,7 +7484,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
     if (this.hasDuplicateParameterFilters) {
       this.dataTransformExpanded = true;
-      this.notify.showError('Each Data Transformation action can be used only once for the same source columns. Remove the repeated rule or change its action or source columns.');
+      this.notify.showError('The same Data Transformation action, source columns, and rule parameters cannot be repeated. Remove the repeated rule or change one of those settings.');
       return null;
     }
 
@@ -6487,6 +7506,20 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     // become the top-level fields so single-page readers still render page 1; the full
     // `sheets` array drives the multi-page viewer.
     const sheets = this.buildAllSheets();
+    const incompleteLegendSheet = sheets.find(sheet =>
+      (sheet.config.legends ?? []).some(legend =>
+        !legend
+        || typeof legend.label !== 'string'
+        || !legend.label.trim()
+        || typeof legend.color !== 'string'
+        || !/^#[0-9a-fA-F]{6}$/.test(legend.color),
+      ),
+    );
+    if (incompleteLegendSheet) {
+      this.legendsSectionExpanded = true;
+      this.notify.showError(`Complete or remove every legend entry in "${incompleteLegendSheet.name}" before saving.`);
+      return null;
+    }
     const missingParameterSheet = sheets.map(sheet => ({
       sheet, error: getParameterSelectionError(sheet.config.parameterFilters ?? []),
     })).find(item => item.error);
@@ -6499,7 +7532,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       return rules.some(rule => this.isDuplicateParameterFilter(rule, rules));
     });
     if (duplicateSheet) {
-      this.notify.showError(`Repeated Data Transformation actions exist in "${duplicateSheet.name}". Each action can be used only once for the same source columns.`);
+      this.notify.showError(`Repeated Data Transformation rules exist in "${duplicateSheet.name}". The action, source columns, and rule parameters must not all match.`);
       return null;
     }
     const primary = sheets[0];
@@ -6677,11 +7710,17 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   // Help modal
   openHelpModal(): void {
+    this.helpSearchTerm = '';
+    this.helpVote = null;
+    this.helpArticles.forEach(article => (article.expanded = false));
     this.showHelpModal = true;
   }
 
   closeHelpModal(): void {
     this.showHelpModal = false;
+    this.helpSearchTerm = '';
+    this.helpVote = null;
+    this.helpArticles.forEach(article => (article.expanded = false));
   }
 
   toggleHelpArticle(article: HelpArticle): void {

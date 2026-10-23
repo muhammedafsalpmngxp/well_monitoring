@@ -1,4 +1,74 @@
+import '@angular/compiler';
 import { describe, expect, it, vi } from 'vitest';
+import * as ExcelJS from 'exceljs';
+import { ReportViewerComponent } from './report-viewer.component';
+import { GlobalFilterSelection } from '../../../core/utils/global-filter-selection.util';
+import { clusterBannerSelectionKey } from '../shared/report-cluster-banner.util';
+
+describe('ReportViewerComponent cluster banner', () => {
+  it.each<{ selection: GlobalFilterSelection; label: string }>([
+    { selection: 'Nimr', label: 'Nimr' },
+    { selection: '  Nimr  ', label: 'Nimr' },
+    { selection: [' Nimr ', 'Amal '], label: 'Nimr, Amal' },
+    { selection: ['Nimr', 'Nimr', 'All'], label: 'Nimr' },
+    { selection: 'All', label: '' },
+    { selection: '', label: '' },
+    { selection: [], label: '' },
+    { selection: ['All', '', '  '], label: '' },
+  ])('formats cluster names for $selection', ({ selection, label }) => {
+    const component: ReportViewerComponent = Object.create(ReportViewerComponent.prototype);
+    component.filterCluster = selection;
+
+    expect(component.selectedClusterName).toBe(label);
+    expect(component.clusterBannerTitle).toBe(label ? `REPORT - ${label.toUpperCase()}` : 'REPORT');
+    expect(component.showClusterBanner).toBe(false);
+  });
+
+  it('uses the same visibility and retained custom title in the viewer and Excel', () => {
+    const component: ReportViewerComponent = Object.create(ReportViewerComponent.prototype);
+    component.report = {
+      id: 1, reportName: 'Report', categoryId: 1, sourceName: 'source', sourceType: 'view',
+      status: 'draft', createdBy: 1, tenantId: 1, createdAt: '', updatedAt: '',
+    };
+    component.filterCluster = 'Nimr';
+    component.config = { customClusterBannerEnabled: false };
+    expect(component.showClusterBanner).toBe(false);
+    const sheet = new ExcelJS.Workbook().addWorksheet('Report');
+    component['addExcelClusterBanner'](sheet, 3, 5);
+    expect(sheet.getCell(5, 1).value).toBeNull();
+
+    component.config = {
+      customClusterBannerEnabled: true,
+      clusterBannerText: 'Custom Nimr title',
+      clusterBannerSelection: clusterBannerSelectionKey('Nimr'),
+    };
+    expect(component.showClusterBanner).toBe(true);
+    expect(component.clusterBannerTitle).toBe('Custom Nimr title');
+    component['addExcelClusterBanner'](sheet, 3, 5);
+    expect(sheet.getCell(5, 1).value).toBe('Custom Nimr title');
+    component.filterCluster = 'Amal';
+    expect(component.clusterBannerTitle).toBe('Custom Nimr title');
+    component.filterCluster = 'All';
+    expect(component.showClusterBanner).toBe(false);
+  });
+});
+
+describe('ReportViewerComponent global option appearance', () => {
+  const component: ReportViewerComponent = Object.create(ReportViewerComponent.prototype);
+
+  it.each<GlobalFilterSelection>(['All', '', []])('checks every item checkbox for unrestricted selection %j', selection => {
+    expect(component.isFilterOptionSelected(selection, 'Amal')).toBe(true);
+    expect(component.isFilterOptionSelected(selection, 'Nimr')).toBe(true);
+    expect(component.isFilterOptionSelected(selection, 'All')).toBe(true);
+    expect(component.filterLabel(selection)).toBe('All');
+  });
+
+  it.each<GlobalFilterSelection>(['Amal', ['Amal', 'GB']])('checks only selected values for %j', selection => {
+    expect(component.isFilterOptionSelected(selection, 'Amal')).toBe(true);
+    expect(component.isFilterOptionSelected(selection, 'Nimr')).toBe(false);
+    expect(component.isFilterOptionSelected(selection, 'All')).toBe(false);
+  });
+});
 // import { describe, it, expect, vi } from 'vitest';
 
 /**

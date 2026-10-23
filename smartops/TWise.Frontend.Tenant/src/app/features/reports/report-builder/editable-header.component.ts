@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IHeaderAngularComp } from 'ag-grid-angular';
 import { IHeaderParams } from 'ag-grid-community';
@@ -121,7 +121,7 @@ interface EditableHeaderParams extends IHeaderParams {
     .eh__sort { flex-shrink: 0; color: #21409A; display: flex; }
   `],
 })
-export class EditableHeaderComponent implements IHeaderAngularComp {
+export class EditableHeaderComponent implements IHeaderAngularComp, OnDestroy {
   params!: EditableHeaderParams;
   editing = false;
   draft = '';
@@ -134,6 +134,11 @@ export class EditableHeaderComponent implements IHeaderAngularComp {
   headerAlign: 'left' | 'center' | 'right' = 'center';
   verticalHeader = false;
   private clickTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Tracks whether this column's filter popup is currently open so the button acts as a
+  // toggle (AG Grid won't close a popup when its own anchor is clicked). See onFilterClicked.
+  private filterOpen = false;
+  private filterAnchorEl: HTMLElement | null = null;
 
   @ViewChild('input') set inputRef(ref: ElementRef<HTMLTextAreaElement> | undefined) {
     if (ref) { ref.nativeElement.focus(); ref.nativeElement.select(); }
@@ -224,7 +229,44 @@ export class EditableHeaderComponent implements IHeaderAngularComp {
 
   onFilterClicked(event: Event): void {
     event.stopPropagation();
-    this.params.showFilter?.(event.currentTarget as HTMLElement);
+    const anchor = event.currentTarget as HTMLElement;
+    // AG Grid ignores clicks on the popup's anchor, so a second click never closes the popup
+    // by itself — close it explicitly. The DOM check covers popups closed via Apply/Escape.
+    if (this.filterOpen && this.isFilterPopupInDom()) {
+      this.params.api?.hideColumnFilter?.();
+      this.resetFilterTracking();
+      anchor.blur();
+      return;
+    }
+    this.params.showFilter?.(anchor);
+    this.filterOpen = true;
+    this.filterAnchorEl = anchor;
+    document.addEventListener('mousedown', this.onOutsideMousedown, true);
+  }
+
+  // Keeps filterOpen in sync when the popup closes by any means other than clicking this
+  // button (selecting outside, another column, etc.) so the toggle doesn't go stale.
+  private onOutsideMousedown = (event: MouseEvent): void => {
+    const target = event.target as HTMLElement | null;
+    // Clicking this button again: let onFilterClicked handle the toggle.
+    if (this.filterAnchorEl?.contains(target)) return;
+    // Interacting inside the open filter popup: keep it open.
+    if (target?.closest?.('.ag-popup, .ag-menu')) return;
+    this.resetFilterTracking();
+  };
+
+  private isFilterPopupInDom(): boolean {
+    return !!document.querySelector('.ag-popup .ag-filter-menu, .ag-popup .ag-filter');
+  }
+
+  private resetFilterTracking(): void {
+    this.filterOpen = false;
+    this.filterAnchorEl = null;
+    document.removeEventListener('mousedown', this.onOutsideMousedown, true);
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('mousedown', this.onOutsideMousedown, true);
   }
 
   onMenuClicked(event: Event): void {

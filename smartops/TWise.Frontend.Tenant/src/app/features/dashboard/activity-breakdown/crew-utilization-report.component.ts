@@ -105,7 +105,9 @@ export class CrewUtilizationReportComponent implements OnChanges, AfterViewInit 
       type: 'numericColumn', filter: 'agNumberColumnFilter', flex: 1,
       valueFormatter: (params: { value: number | null | undefined }) => params.value == null ? 'N/A' : params.value.toLocaleString('en-US'),
     })),
-    { field: 'utilization', headerName: 'Utilization %', type: 'numericColumn', filter: 'agNumberColumnFilter', flex: 1,
+    { field: 'utilization', headerName: 'Utilization %',
+      headerTooltip: 'Overlapping activities count separately, so utilization may exceed 100%.',
+      type: 'numericColumn', filter: 'agNumberColumnFilter', flex: 1,
       valueFormatter: params => params.value == null ? 'N/A' : `${Number(params.value).toLocaleString('en-US', { maximumFractionDigits: 1 })}%` },
     { field: 'status', headerName: 'Status', minWidth: 165, flex: 1,
       cellClassRules: {

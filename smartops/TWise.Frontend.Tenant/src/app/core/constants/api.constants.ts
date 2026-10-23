@@ -22,6 +22,7 @@ export const API_ENDPOINTS = {
     BI_SOURCES: '/common/bi-sources',
     TABLE_DATA: '/common/table-data',
     FILTERED_CHART_DATA: '/common/chart-data/filtered',
+    SYNC_TIME:  '/common/sync-time',
   },
   IMPORTS: {
     BASE:   '/imports',

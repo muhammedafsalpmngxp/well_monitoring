@@ -18,33 +18,48 @@ export interface DashboardWidgetImage {
  * at once when nothing has requested a web font yet, and never covers faces first needed by
  * `onclone`'s own restyling (e.g. un-truncating a bold title). The words were then positioned with
  * the narrower fallback font and painted with the real one, so they ran into each other in the
- * exported PNG/PDF. Explicitly load every font the clone's text uses (html2canvas awaits a promise
- * returned from `onclone`), so measuring and painting use the same font. Call it LAST in `onclone`.
+ * exported PNG/PDF. Load the actual text in both documents: the clone measures it, but the source
+ * document's canvas paints it. Await this before measuring layout and again after export restyling.
  */
-export function loadCloneFonts(document: Document, root: HTMLElement, timeoutMs = 3000): Promise<void> {
+export async function loadCloneFonts(document: Document, root: HTMLElement, timeoutMs = 10000): Promise<void> {
   const fonts = document.fonts;
   const view = document.defaultView;
-  if (!fonts || !view) return Promise.resolve();
-  const faces = new Set<string>();
+  if (!fonts || !view) return;
+  const faces = new Map<string, string>();
   for (const element of [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]) {
-    const hasText = Array.from(element.childNodes).some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim());
-    if (!hasText) continue;
+    const text = Array.from(element.childNodes)
+      .filter(node => node.nodeType === Node.TEXT_NODE)
+      .map(node => node.textContent ?? '').join('');
+    if (!text.trim()) continue;
     const style = view.getComputedStyle(element);
-    faces.add(`${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`);
+    const face = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    faces.set(face, (faces.get(face) ?? '') + text);
   }
-  // Never let a font that fails to load hold the export up indefinitely.
-  const timeout = new Promise<void>(resolve => view.setTimeout(resolve, timeoutMs));
-  const loaded = Promise.all(Array.from(faces, face => fonts.load(face).catch(() => [])))
-    .then(() => fonts.ready)
-    .then(() => undefined);
-  return Promise.race([loaded, timeout]);
+  const fontSets = new Set([fonts, globalThis.document.fonts].filter((set): set is FontFaceSet => !!set));
+  let timer: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = view.setTimeout(() => reject(new Error('Dashboard export fonts did not finish loading. Please try again.')), timeoutMs);
+  });
+  try {
+    await Promise.race([
+      Promise.all(Array.from(fontSets, async set => {
+        await Promise.all(Array.from(faces, ([face, text]) => set.load(face, text)));
+        await set.ready;
+      })),
+      timeout,
+    ]);
+    void root.offsetHeight;
+  } finally {
+    view.clearTimeout(timer);
+  }
 }
 
-/** Individual exports use layout pixels: html2canvas does not consistently render CSS zoom. */
+/** Capture in layout pixels: html2canvas scales text bounds under CSS zoom, but not canvas fonts. */
 export function prepareIndividualChartExportClone(widget: HTMLElement, width: number): void {
   let ancestor: HTMLElement | null = widget;
   while (ancestor) {
     ancestor.style.setProperty('zoom', '1', 'important');
+    ancestor.style.setProperty('--app-zoom-factor', '1');
     ancestor = ancestor.parentElement;
   }
   widget.style.setProperty('box-sizing', 'border-box', 'important');
@@ -54,11 +69,9 @@ export function prepareIndividualChartExportClone(widget: HTMLElement, width: nu
 }
 
 /**
- * A data table wider than its card (the reason it scrolls horizontally on screen) needs either
- * wrapping or more room to show every column in an export. Wrapping inside html2canvas has proven
- * unreliable, so measure the real, on-screen (un-cloned) natural table width here and grow the
- * capture box to fit it instead — the composited dashboard then scales the whole card down
- * uniformly to its designed slot, so nothing is clipped, just smaller.
+ * Individual chart downloads can grow to the table's natural width to reveal every column.
+ * Dashboard downloads instead keep the card width and wrap the table, avoiding compression
+ * when the captured card is composited back into its dashboard slot.
  */
 export function measureDashboardWidgetCaptureWidth(widget: HTMLElement, baseWidth: number): number {
   const widgetStyle = getComputedStyle(widget);
@@ -171,6 +184,9 @@ export function expandDashboardChartScrollAreas(widget: HTMLElement): void {
     table.style.setProperty('width', '100%', 'important');
     table.style.setProperty('min-width', '0', 'important');
     for (const cell of table.querySelectorAll<HTMLElement>('th, td')) {
+      // html2canvas inlines measured column widths; fixed layout otherwise keeps the wide table.
+      cell.style.setProperty('width', 'auto', 'important');
+      cell.style.setProperty('inline-size', 'auto', 'important');
       cell.style.setProperty('white-space', 'normal', 'important');
       cell.style.setProperty('overflow-wrap', 'anywhere', 'important');
     }
@@ -306,8 +322,9 @@ export function prepareDashboardWidgetClone(
  * so dropping the rest changes nothing in the image.
  */
 export function onlyDashboardWidget(widget: HTMLElement): (element: Element) => boolean {
-  return element => !(element.contains(widget) || widget.contains(element)
-    || element.closest('head') || element.tagName === 'STYLE' || element.tagName === 'LINK');
+  return element => !!(widget.contains(element) && element.closest('.ops-dashboard__card-controls, .wv-period-tabs'))
+    || !(element.contains(widget) || widget.contains(element)
+      || element.closest('head') || element.tagName === 'STYLE' || element.tagName === 'LINK');
 }
 
 /** Retain the displayed appearance; optionally reveal inner scroll content for downloads only. */
@@ -320,26 +337,33 @@ export function captureVisibleDashboardWidget(
 ): Promise<HTMLCanvasElement> {
   const rect = widget.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return Promise.reject(new Error('Dashboard widget has no visible size.'));
-  const computed = getComputedStyle(widget);
-  // Grow the capture box, not just reveal it, when an inner table is naturally wider than the card.
-  const captureWidth = includeScrollableContent ? measureDashboardWidgetCaptureWidth(widget, rect.width) : rect.width;
-  const width = captureWidth > rect.width ? `${captureWidth}px` : computed.width;
+  const layoutWidth = widget.offsetWidth;
+  const layoutHeight = widget.offsetHeight;
+  if (layoutWidth <= 0 || layoutHeight <= 0) return Promise.reject(new Error('Dashboard widget has no layout size.'));
+  // DOM bounds include app zoom; canvas font sizes do not. Remove zoom in the clone and apply
+  // the displayed scale to the completed capture, keeping text, SVG charts and boxes consistent.
+  const captureScale = 2 * rect.width / layoutWidth;
+  // Keep the dashboard slot's width: widening for long table headers squeezes the entire card
+  // when composited back into that slot. expandDashboardChartScrollAreas wraps the table instead.
+  const captureWidth = layoutWidth;
   return html2canvas(widget, {
-    scale: 2,
+    scale: captureScale,
     useCORS: true,
     backgroundColor: '#ffffff',
     x: 0,
     y: 0,
     width: captureWidth,
-    height: includeScrollableContent ? undefined : rect.height,
+    height: includeScrollableContent ? undefined : layoutHeight,
     scrollX: 0,
     scrollY: 0,
     windowWidth: document.documentElement.clientWidth,
     windowHeight: document.documentElement.clientHeight,
     ignoreElements: onlyDashboardWidget(widget),
-    onclone: (document, clone) => {
+    onclone: async (document, clone) => {
       prepareClone?.(clone);
-      prepareDashboardWidgetClone(document, clone, width, computed.height, staticTable);
+      prepareIndividualChartExportClone(clone, captureWidth);
+      await loadCloneFonts(document, clone);
+      prepareDashboardWidgetClone(document, clone, `${captureWidth}px`, `${layoutHeight}px`, staticTable);
       if (includeScrollableContent) expandDashboardChartScrollAreas(clone);
       return loadCloneFonts(document, clone);
     },

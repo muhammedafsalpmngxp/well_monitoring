@@ -90,11 +90,11 @@
           class="ops-dashboard__filter-select"
           [class.open]="openFilterName === 'country'"
           (click)="toggleFilterDropdown('country', $event)"
-          [attr.title]="filterCountry || 'Select'"
+          [attr.title]="filterLabel(filterCountry)"
         >
-          <span [class.ops-dashboard__filter-select-placeholder]="!filterCountry">{{
-            filterCountry || 'Select'
-          }}</span>
+          <span [class.ops-dashboard__filter-select-placeholder]="!hasGlobalSelection(filterCountry)">
+            {{ filterLabel(filterCountry) }}
+          </span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M4 6l4 4 4-4"
@@ -111,18 +111,17 @@
           >
             <div appKeyClick
               class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
-              *ngIf="filterCountry"
+              *ngIf="hasGlobalSelection(filterCountry)"
               (click)="selectFilterOption('country', '')"
             >
               All
             </div>
+            <div appKeyClick class="ops-dashboard__filter-select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('country')" (click)="clearGlobalFilterSelection('country', $event)">Clear all</div>
             <div appKeyClick
               class="ops-dashboard__filter-select-option"
               *ngFor="let c of filterCountryOptions"
-              [class.active]="c === filterCountry"
               (click)="selectFilterOption('country', c)"
-            >
-              {{ c }}
+             [appGlobalFilterOption]="!isGlobalFilterCleared('country') && isFilterOptionSelected(filterCountry, c)" [globalFilterValue]="c"> {{ c }}
             </div>
           </div>
         </div>
@@ -133,11 +132,11 @@
           class="ops-dashboard__filter-select"
           [class.open]="openFilterName === 'sector'"
           (click)="toggleFilterDropdown('sector', $event)"
-          [attr.title]="filterSector || 'Select'"
+          [attr.title]="filterLabel(filterSector)"
         >
-          <span [class.ops-dashboard__filter-select-placeholder]="!filterSector">{{
-            filterSector || 'Select'
-          }}</span>
+          <span [class.ops-dashboard__filter-select-placeholder]="!hasGlobalSelection(filterSector)">
+            {{ filterLabel(filterSector) }}
+          </span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M4 6l4 4 4-4"
@@ -154,18 +153,17 @@
           >
             <div appKeyClick
               class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
-              *ngIf="filterSector"
+              *ngIf="hasGlobalSelection(filterSector)"
               (click)="selectFilterOption('sector', '')"
             >
               All
             </div>
+            <div appKeyClick class="ops-dashboard__filter-select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('sector')" (click)="clearGlobalFilterSelection('sector', $event)">Clear all</div>
             <div appKeyClick
               class="ops-dashboard__filter-select-option"
               *ngFor="let s of filterSectorOptions"
-              [class.active]="s === filterSector"
               (click)="selectFilterOption('sector', s)"
-            >
-              {{ s }}
+             [appGlobalFilterOption]="!isGlobalFilterCleared('sector') && isFilterOptionSelected(filterSector, s)" [globalFilterValue]="s"> {{ s }}
             </div>
           </div>
         </div>
@@ -176,11 +174,11 @@
           class="ops-dashboard__filter-select"
           [class.open]="openFilterName === 'businessUnit'"
           (click)="toggleFilterDropdown('businessUnit', $event)"
-          [attr.title]="filterBusinessUnit || 'Select'"
+          [attr.title]="filterLabel(filterBusinessUnit)"
         >
-          <span [class.ops-dashboard__filter-select-placeholder]="!filterBusinessUnit">{{
-            filterBusinessUnit || 'Select'
-          }}</span>
+          <span [class.ops-dashboard__filter-select-placeholder]="!hasGlobalSelection(filterBusinessUnit)">
+            {{ filterLabel(filterBusinessUnit) }}
+          </span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M4 6l4 4 4-4"
@@ -197,18 +195,17 @@
           >
             <div appKeyClick
               class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
-              *ngIf="filterBusinessUnit"
+              *ngIf="hasGlobalSelection(filterBusinessUnit)"
               (click)="selectFilterOption('businessUnit', '')"
             >
               All
             </div>
+            <div appKeyClick class="ops-dashboard__filter-select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('businessUnit')" (click)="clearGlobalFilterSelection('businessUnit', $event)">Clear all</div>
             <div appKeyClick
               class="ops-dashboard__filter-select-option"
               *ngFor="let b of filterBusinessUnitOptions"
-              [class.active]="b === filterBusinessUnit"
               (click)="selectFilterOption('businessUnit', b)"
-            >
-              {{ b }}
+             [appGlobalFilterOption]="!isGlobalFilterCleared('businessUnit') && isFilterOptionSelected(filterBusinessUnit, b)" [globalFilterValue]="b"> {{ b }}
             </div>
           </div>
         </div>
@@ -219,11 +216,11 @@
           class="ops-dashboard__filter-select"
           [class.open]="openFilterName === 'division'"
           (click)="toggleFilterDropdown('division', $event)"
-          [attr.title]="filterDivision || 'Select'"
+          [attr.title]="filterLabel(filterDivision)"
         >
-          <span [class.ops-dashboard__filter-select-placeholder]="!filterDivision">{{
-            filterDivision || 'Select'
-          }}</span>
+          <span [class.ops-dashboard__filter-select-placeholder]="!hasGlobalSelection(filterDivision)">
+            {{ filterLabel(filterDivision) }}
+          </span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M4 6l4 4 4-4"
@@ -240,18 +237,17 @@
           >
             <div appKeyClick
               class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
-              *ngIf="filterDivision"
+              *ngIf="hasGlobalSelection(filterDivision)"
               (click)="selectFilterOption('division', '')"
             >
               All
             </div>
+            <div appKeyClick class="ops-dashboard__filter-select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('division')" (click)="clearGlobalFilterSelection('division', $event)">Clear all</div>
             <div appKeyClick
               class="ops-dashboard__filter-select-option"
               *ngFor="let d of filterDivisionOptions"
-              [class.active]="d === filterDivision"
               (click)="selectFilterOption('division', d)"
-            >
-              {{ d }}
+             [appGlobalFilterOption]="!isGlobalFilterCleared('division') && isFilterOptionSelected(filterDivision, d)" [globalFilterValue]="d"> {{ d }}
             </div>
           </div>
         </div>
@@ -267,11 +263,11 @@
           (click)="
             (isAdmin || filterClusterOptions.length > 1) && toggleFilterDropdown('cluster', $event)
           "
-          [attr.title]="filterCluster || 'Select'"
+          [attr.title]="filterLabel(filterCluster)"
         >
-          <span [class.ops-dashboard__filter-select-placeholder]="!filterCluster">{{
-            filterCluster || 'Select'
-          }}</span>
+          <span [class.ops-dashboard__filter-select-placeholder]="!hasGlobalSelection(filterCluster)">
+            {{ filterLabel(filterCluster) }}
+          </span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M4 6l4 4 4-4"
@@ -304,18 +300,17 @@
           >
             <div appKeyClick
               class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
-              *ngIf="filterCluster"
+              *ngIf="hasGlobalSelection(filterCluster)"
               (click)="selectFilterOption('cluster', '')"
             >
               All
             </div>
+            <div appKeyClick class="ops-dashboard__filter-select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('cluster')" (click)="clearGlobalFilterSelection('cluster', $event)">Clear all</div>
             <div appKeyClick
               class="ops-dashboard__filter-select-option"
               *ngFor="let c of filterClusterOptions"
-              [class.active]="c === filterCluster"
               (click)="selectFilterOption('cluster', c)"
-            >
-              {{ c }}
+             [appGlobalFilterOption]="!isGlobalFilterCleared('cluster') && isFilterOptionSelected(filterCluster, c)" [globalFilterValue]="c"> {{ c }}
             </div>
           </div>
         </div>
@@ -329,11 +324,11 @@
           (click)="
             (isAdmin || filterPlantOptions.length > 1) && toggleFilterDropdown('plant', $event)
           "
-          [attr.title]="filterPlant || 'Select'"
+          [attr.title]="filterLabel(filterPlant)"
         >
-          <span [class.ops-dashboard__filter-select-placeholder]="!filterPlant">{{
-            filterPlant || 'Select'
-          }}</span>
+          <span [class.ops-dashboard__filter-select-placeholder]="!hasGlobalSelection(filterPlant)">
+            {{ filterLabel(filterPlant) }}
+          </span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M4 6l4 4 4-4"
@@ -366,18 +361,17 @@
           >
             <div appKeyClick
               class="ops-dashboard__filter-select-option ops-dashboard__filter-select-option--clear"
-              *ngIf="filterPlant"
+              *ngIf="hasGlobalSelection(filterPlant)"
               (click)="selectFilterOption('plant', '')"
             >
               All
             </div>
+            <div appKeyClick class="ops-dashboard__filter-select-option global-filter-clear-all" *ngIf="!isGlobalFilterCleared('plant')" (click)="clearGlobalFilterSelection('plant', $event)">Clear all</div>
             <div appKeyClick
               class="ops-dashboard__filter-select-option"
               *ngFor="let p of filterPlantOptions"
-              [class.active]="p === filterPlant"
               (click)="selectFilterOption('plant', p)"
-            >
-              {{ p }}
+             [appGlobalFilterOption]="!isGlobalFilterCleared('plant') && isFilterOptionSelected(filterPlant, p)" [globalFilterValue]="p"> {{ p }}
             </div>
           </div>
         </div>
@@ -542,22 +536,24 @@
               </svg>
             </button>
           </div>
-          <span class="ab-toolbar__label">Show</span>
-          <div class="ab-toggle-group">
-            <button
-              class="ab-toggle-btn"
-              [class.active]="!showUnassigned"
-              (click)="setCrewView('assigned')"
-            >
-              Assigned
-            </button>
-            <button
-              class="ab-toggle-btn"
-              [class.active]="showUnassigned"
-              (click)="setCrewView('unassigned')"
-            >
-              Unassigned
-            </button>
+          <div hidden>
+            <span class="ab-toolbar__label">Show</span>
+            <div class="ab-toggle-group">
+              <button
+                class="ab-toggle-btn"
+                [class.active]="!showUnassigned"
+                (click)="setCrewView('assigned')"
+              >
+                Assigned
+              </button>
+              <button
+                class="ab-toggle-btn"
+                [class.active]="showUnassigned"
+                (click)="setCrewView('unassigned')"
+              >
+                Unassigned
+              </button>
+            </div>
           </div>
           <ng-container *ngIf="!showUnassigned">
             <span class="ab-toolbar__label">View</span>
@@ -807,9 +803,9 @@
                   />
                 </svg>
                 <input
+                  #crewSearchInput
                   type="text"
                   placeholder="Search crew group or crew ID…"
-                  [(ngModel)]="searchTerm"
                 />
               </div>
               <div class="ab-gantt__filter-wrap">
@@ -1068,9 +1064,16 @@
 
                     <!-- Well rows -->
                     <ng-container *ngIf="group.expanded">
+                      <ng-container *ngIf="crewWindow(group) as crewRange">
+                      <div
+                        *ngIf="crewRange.before"
+                        class="ab-virtual-spacer"
+                        aria-hidden="true"
+                        [style.height.px]="crewRange.before"
+                      ></div>
                       <ng-container
                         *ngFor="
-                          let well of visibleCrews(group);
+                          let well of crewRange.crews;
                           let crewIndex = index;
                           trackBy: trackHierarchyRow
                         "
@@ -1100,7 +1103,7 @@
                             <span class="ab-row__name" [title]="well.name">{{
                               scheduleFilter === 'actual' || (well.unassigned && !showUnassigned)
                                 ? well.name
-                                : 'crew-' + (crewIndex + 1)
+                                : 'crew-' + (crewRange.start + crewIndex + 1)
                             }}</span>
                             <span
                               *ngIf="
@@ -1139,8 +1142,8 @@
                                   ' of ' +
                                   totalDays +
                                   (scheduleFilter === 'actual'
-                                    ? ' calendar days of recorded actual work'
-                                    : ' calendar days booked across all clusters (including preview)')
+                                    ? ' calendar days of capacity (overlapping actual activities counted separately)'
+                                    : ' calendar days of capacity (activities allocated within this plan only)')
                                 : null
                             "
                             [style.border-color]="crewPlanning ? '#CBD5E1' : getWellBarColor(well)"
@@ -1173,6 +1176,13 @@
                             >Maps</span
                           >
                         </div>
+                      </ng-container>
+                      <div
+                        *ngIf="crewRange.after"
+                        class="ab-virtual-spacer"
+                        aria-hidden="true"
+                        [style.height.px]="crewRange.after"
+                      ></div>
                       </ng-container>
                     </ng-container>
                   </ng-container>
@@ -1400,8 +1410,15 @@
                       </div>
                       <!-- Well bar rows -->
                       <ng-container *ngIf="group.expanded">
+                        <ng-container *ngIf="crewWindow(group) as crewRange">
+                        <div
+                          *ngIf="crewRange.before"
+                          class="ab-virtual-spacer"
+                          aria-hidden="true"
+                          [style.height.px]="crewRange.before"
+                        ></div>
                         <ng-container
-                          *ngFor="let well of visibleCrews(group); trackBy: trackHierarchyRow"
+                          *ngFor="let well of crewRange.crews; trackBy: trackHierarchyRow"
                         >
                           <div
                             class="ab-bar-row"
@@ -1496,7 +1513,7 @@
                                   }}</span>
                                   <button
                                     class="ab-add-btn"
-                                    *ngIf="well.unassigned && scheduleFilter !== 'actual'"
+                                    *ngIf="canAssignCrew && well.unassigned && scheduleFilter !== 'actual'"
                                     (click)="
                                       openAssign(
                                         group.name,
@@ -1528,6 +1545,13 @@
                               </ng-container>
                             </div>
                           </div>
+                        </ng-container>
+                        <div
+                          *ngIf="crewRange.after"
+                          class="ab-virtual-spacer"
+                          aria-hidden="true"
+                          [style.height.px]="crewRange.after"
+                        ></div>
                         </ng-container>
                       </ng-container>
                     </ng-container>

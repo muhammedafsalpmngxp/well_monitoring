@@ -1,3 +1,5 @@
+@use '../../../../styles/tile-layout' as tile-layout;
+
 // ─── Toast messages ─────────────────────────────────────────────────
 :host {
     text-transform: capitalize;
@@ -109,7 +111,7 @@
     min-height: 0;
     overflow: hidden;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
         width: 3px;
@@ -120,7 +122,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 30px;
     }
 
@@ -148,7 +150,8 @@
 
 // ─── Filter bar (mirrors ops-dashboard design exactly) ─────────────
 .board-filterbar {
-    display: flex;
+    position: relative;
+    display: grid;
     gap: 12px;
     flex-wrap: wrap;
     padding: 16px;
@@ -156,8 +159,50 @@
     border: 1px solid #E2E7EF;
     background: #FFF;
     box-shadow: 0 1px 8px 0 rgba(0, 0, 0, 0.06);
-    grid-template-columns: repeat(10, 1fr);
+    grid-template-columns: repeat(11, 1fr);
     margin-bottom: 17px;
+
+    // Hidden on desktop — this is only the off-canvas drawer's header, shown
+    // by the <=1199px media query below once the filter bar becomes a fixed drawer.
+    &__mobile-header {
+        display: none;
+        grid-column: 1 / -1;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 0 10px;
+        margin: 0 0 2px;
+        font-size: 16px;
+        font-weight: 700;
+        color: #101828;
+        font-family: var(--font-family-base);
+        border-bottom: 1px solid #E7ECF3;
+    }
+
+    &__close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        border-radius: 6px;
+        flex-shrink: 0;
+
+        &:hover {
+            background: var(--color-bg-app);
+            color: var(--color-text-primary);
+        }
+    }
+
+    // On desktop the wrapper is transparent to layout — its field children
+    // participate directly in the 11-column grid above, unchanged.
+    &__scroll {
+        display: contents;
+    }
 
     &__field {
         display: flex;
@@ -539,14 +584,14 @@
         max-height: 230px;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
 
         &::-webkit-scrollbar {
             width: 3px;
         }
 
         &::-webkit-scrollbar-thumb {
-            background: #21409A;
+            background: var(--scrollbar-thumb);
             border-radius: 30px;
         }
     }
@@ -1084,7 +1129,7 @@
         overflow-x: hidden;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
 
         li {
             padding: 10px 14px;
@@ -1232,7 +1277,7 @@
     gap: 0;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
         width: 3px;
@@ -1243,7 +1288,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 30px;
     }
 }
@@ -1259,7 +1304,7 @@
     flex-direction: column;
     gap: 12px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
         width: 3px;
@@ -1270,7 +1315,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 30px;
     }
 }
@@ -1425,6 +1470,10 @@ gridster-item {
     background: transparent;
 }
 
+.board-gridster-item--tile {
+    container-type: size;
+}
+
 @each $name, $color, $background in ('amber', #F59E0B, #FFFBEB), ('teal', #14B8A6, #F0FDFA), ('gray', #9CA3AF, #F3F4F6) {
     .board-kpi-slot__icon--#{$name},
     .add-tiles-modal__tile-icon--#{$name} {
@@ -1434,6 +1483,10 @@ gridster-item {
 }
 
 .board-kpi-slot {
+    &.tile-layout--single-row {
+        @include tile-layout.card-row('.board-kpi-slot__icon', '.board-kpi-slot__title', '.board-kpi-slot__value');
+    }
+
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1461,8 +1514,8 @@ gridster-item {
         border-style: solid;
         border-color: #E7ECF3;
         background: #fff;
-        padding: 12px 10px;
-        gap: 4px;
+        padding: min(6cqi, 7.9cqb) min(5cqi, 6.6cqb);
+        gap: clamp(2px, min(2cqi, 2.63cqb), 10px);
         cursor: grab;
         // Same single scroll box as a chart card: when the tile is resized smaller than its
         // content, the tile itself scrolls instead of clipping the badge/breakdown. "safe" centres
@@ -1477,6 +1530,40 @@ gridster-item {
         // squeezing them.
         > * {
             flex-shrink: 0;
+        }
+
+        .board-kpi-slot__icon {
+            width: clamp(24px, min(18cqi, 23.7cqb), 64px);
+            height: clamp(24px, min(18cqi, 23.7cqb), 64px);
+            flex: 0 0 auto;
+
+            svg {
+                width: 56%;
+                height: 56%;
+            }
+        }
+
+        .board-kpi-slot__title {
+            font-size: clamp(10px, min(6cqi, 7.9cqb), 22px);
+            line-height: 1.2;
+        }
+
+        .board-kpi-slot__value {
+            font-size: clamp(16px, min(10cqi, 13.2cqb), 42px);
+            line-height: 1.15;
+        }
+
+        .board-kpi-slot__breakdown {
+            gap: clamp(3px, min(3cqi, 4cqb), 12px);
+        }
+
+        .board-kpi-slot__breakdown-row {
+            font-size: clamp(10px, min(6cqi, 7.9cqb), 20px);
+        }
+
+        .board-kpi-slot__badge {
+            font-size: clamp(9px, min(5cqi, 6.6cqb), 16px);
+            padding: 0.2em 0.8em;
         }
 
         scrollbar-width: thin;
@@ -1646,6 +1733,12 @@ gridster-item {
     max-height: 160px;
     overflow: auto;
 
+    &--with-trend {
+        // Let the period menu extend beyond the filter row.
+        max-height: none;
+        overflow: visible;
+    }
+
     &__field {
         display: flex;
         flex-direction: column;
@@ -1743,6 +1836,11 @@ gridster-item {
         background: transparent;
         cursor: default;
         pointer-events: none;
+        // Fill exactly the (13-row) placeholder item instead of the slot's 380px floor.
+        min-height: 0;
+        height: 100%;
+        padding: 16px;
+        box-sizing: border-box;
 
         .board-chart-slot__empty-illustration {
             max-width: 300px;
@@ -1824,6 +1922,70 @@ gridster-item {
         white-space: nowrap;
         flex: 1;
         min-width: 0;
+    }
+
+    &__menu {
+        position: relative;
+        flex-shrink: 0;
+        pointer-events: auto;
+    }
+
+    &__menu-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: #fff;
+        border: 1px solid #C9D3E2;
+        border-radius: 8px;
+        cursor: pointer;
+
+        &:hover,
+        &.open {
+            border-color: var(--color-primary);
+        }
+    }
+
+    &__menu-list {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        min-width: 210px;
+        background: #fff;
+        border: 1px solid #E7ECF3;
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        z-index: 210;
+        padding: 6px;
+        list-style: none;
+        margin: 0;
+    }
+
+    &__menu-item {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: var(--font-family-base);
+        color: #344054;
+        cursor: pointer;
+
+        &:hover {
+            background: #F9FAFB;
+        }
+    }
+
+    &__menu-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__menu-icon {
+        display: block;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
     }
 
     &__remove {
@@ -1926,6 +2088,14 @@ gridster-item {
         }
     }
 
+    &__body {
+        flex: 1 0 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
     &__preview {
         position: relative;
         // Grows to fill a tall card but never shrinks, so the chart keeps a
@@ -1939,6 +2109,10 @@ gridster-item {
     // A KPI tile dropped into a chart slot — centers the same icon+value
     // look as .board-kpi-slot within the (much larger) chart card footprint.
     &__tile-body {
+        &.tile-layout--single-row {
+            @include tile-layout.card-row('.board-kpi-slot__icon', '.board-kpi-slot__title', '.board-kpi-slot__value');
+        }
+
         flex: 1;
         display: flex;
         flex-direction: column;
@@ -2195,7 +2369,7 @@ gridster-item {
         border: 1px solid #E7ECF3;
         pointer-events: auto;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
 
         &::-webkit-scrollbar {
             width: 3px;
@@ -2206,7 +2380,7 @@ gridster-item {
         }
 
         &::-webkit-scrollbar-thumb {
-            background: #21409A;
+            background: var(--scrollbar-thumb);
             border-radius: 30px;
         }
 
@@ -2383,7 +2557,7 @@ gridster-item {
     }
 
     &__label {
-        font-size: 12px;
+        font-size: 9px;
         font-weight: 500;
         font-family: var(--font-family-base);
         color: #344054;
@@ -2498,6 +2672,23 @@ gridster-item {
 
         &.active {
             border-color: #C84B40;
+        }
+    }
+
+    &--indigo {
+        border: 1px solid #C7D2FE;
+        background: #EEF2FF;
+
+        .board-panel-btn__icon {
+            background: #4F46E5;
+        }
+
+        .board-panel-btn__label {
+            color: #4338CA;
+        }
+
+        &.active {
+            border-color: #4F46E5;
         }
     }
 }
@@ -3159,7 +3350,7 @@ gridster-item {
         overflow-x: hidden;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
 
         li {
             padding: 9px 12px;
@@ -3743,6 +3934,31 @@ gridster-item {
         border-radius: 16px;
     }
 
+    &__empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 24px 16px;
+        color: var(--color-text-secondary);
+        font-size: 13px;
+        text-align: center;
+
+        button {
+            border: 0;
+            padding: 4px 8px;
+            background: transparent;
+            color: #21409A;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    }
+
+    &__feedback {
+        color: var(--color-text-secondary);
+    }
+
     &__icon {
         display: flex;
         align-items: center;
@@ -4139,7 +4355,7 @@ gridster-item {
         z-index: 1000;
         padding: 4px;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
 
         &::-webkit-scrollbar {
             width: 6px;
@@ -4150,7 +4366,7 @@ gridster-item {
         }
 
         &::-webkit-scrollbar-thumb {
-            background: #21409A;
+            background: var(--scrollbar-thumb);
             border-radius: 30px;
         }
     }
@@ -4450,7 +4666,7 @@ gridster-item {
         overflow-y: auto;
         flex: 1;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
 
         &::-webkit-scrollbar {
             width: 3px;
@@ -4461,7 +4677,7 @@ gridster-item {
         }
 
         &::-webkit-scrollbar-thumb {
-            background: #21409A;
+            background: var(--scrollbar-thumb);
             border-radius: 30px;
         }
     }
@@ -4718,7 +4934,7 @@ gridster-item {
         padding: 8px 0 4px;
         overflow-x: auto;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
 
         &::-webkit-scrollbar {
             height: 3px;
@@ -4729,7 +4945,7 @@ gridster-item {
         }
 
         &::-webkit-scrollbar-thumb {
-            background: #21409A;
+            background: var(--scrollbar-thumb);
             border-radius: 30px;
         }
     }
@@ -5407,7 +5623,7 @@ gridster-item {
     border-radius: 8px;
     border: 1px solid #E7ECF3;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
         width: 3px;
@@ -5418,7 +5634,7 @@ gridster-item {
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 30px;
     }
 }
@@ -5453,7 +5669,7 @@ gridster-item {
     max-height: 160px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
         width: 3px;
@@ -5464,7 +5680,7 @@ gridster-item {
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 30px;
     }
 
@@ -5740,7 +5956,7 @@ gridster-item {
         border: 1px #E7ECF3 solid;
         border-radius: 8px;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
     }
 
     &__footer {
@@ -5771,6 +5987,11 @@ gridster-item {
         &:hover {
             background: var(--color-bg-app);
             color: var(--color-text-primary);
+        }
+
+        &.active {
+            background: #E8F0FF;
+            color: #21409A;
         }
     }
 }
@@ -5845,6 +6066,10 @@ gridster-item {
 
 .paddingSpaceallMain1 {
     padding: 16px;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .helpLikeBtn {
@@ -6041,10 +6266,7 @@ gridster-item {
 .board-trend-mode {
     display: flex;
     width: max-content;
-    align-self: flex-end;
-    margin: 0 0 6px auto;
-    // Stay clickable even when the parent chart preview has pointer-events
-    // disabled (to let drag-and-drop pass through the chart canvas).
+    margin-left: auto;
     pointer-events: auto;
     position: relative;
 
@@ -6062,6 +6284,7 @@ gridster-item {
         color: #344054;
         cursor: pointer;
         white-space: nowrap;
+        margin-block: 5px;
 
         svg {
             flex-shrink: 0;
@@ -6137,11 +6360,15 @@ gridster-item {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  gap: 8px;
-  margin: 0 0 10px;
+  gap: 5px;
+  margin: 5px 0 5px 0;
 }
 
 .board-inline-tile {
+  .board-inline-tile__info.tile-layout--single-row {
+    @include tile-layout.text-row('.board-inline-tile__label', '.board-inline-tile__value');
+  }
+
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6214,6 +6441,69 @@ gridster-item {
 
 .page-header__left{
     flex: auto!important;
+}
+
+// ─── Off-canvas filter panel (mirrors ops-dashboard's drawer) ──────────────
+// Switches the filter bar from an 11-col grid over to a fixed, slide-in drawer
+// at <=1199px (independent of the other 768px mobile layout tweaks below).
+@media (max-width: 1199px) {
+    .board-filterbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 1001;
+        display: flex;
+        flex-direction: column;
+        width: min(85vw, 320px);
+        max-width: 320px;
+        height: 100dvh;
+        margin-bottom: 0;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: 4px 0 24px rgba(16, 24, 40, 0.18);
+        overflow: auto;
+
+        // Fixed header — never scrolls
+        &__mobile-header {
+            display: flex;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            border-bottom: 1px solid #E2E7EF;
+        }
+
+        &__close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 8px;
+            background: var(--color-bg-app, #f3f4f6);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+        }
+
+        // Scrollable middle section — everything between the header and the icon-button row
+        &__scroll {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        &__actions {
+            flex-wrap: wrap;
+        }
+    }
 }
 
 // ─── Toolbar (name / category / description + Undo · Clear All · Help · Learn): responsive ───
@@ -6322,7 +6612,7 @@ gridster-item {
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
         width: 3px;
@@ -6334,7 +6624,7 @@ gridster-item {
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 30px;
     }
 
@@ -6588,4 +6878,14 @@ gridster-item {
     .add-tiles-modal__filterbar {
         grid-template-columns: minmax(0, 1fr);
     }
+}
+
+.discard-confirm {
+  text-transform: none;
+}
+
+// Saved Filter panel floats (appFloatingMenu) so it is never cut off at the screen edge;
+// it also must never be wider than the screen.
+.saved-filter-panel {
+  max-width: calc(100vw - 16px);
 }

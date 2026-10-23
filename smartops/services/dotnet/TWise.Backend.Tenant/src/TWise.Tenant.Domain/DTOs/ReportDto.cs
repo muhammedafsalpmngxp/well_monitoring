@@ -36,7 +36,8 @@ public record ReportDto(
     long CreatedBy,
     long TenantId,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    string? CategoryDescription = null
 );
 
 // ── Version history ─────────────────────────────────────────────────────────

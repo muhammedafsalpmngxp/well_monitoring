@@ -434,7 +434,7 @@
                           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                       </svg>
                     </button>
-                    <div class="report-card__menu-panel" *ngIf="openMenuId === report.id">
+                    <div class="report-card__menu-panel" appFloatingMenu (floatingMenuScroll)="closeMenu()" *ngIf="openMenuId === report.id">
                       <button class="report-card__menu-item report-card__menu-item--edit"
                         (click)="viewReport(report); closeMenu()" *ngIf="false">
                         <span class="report-card__menu-icon">

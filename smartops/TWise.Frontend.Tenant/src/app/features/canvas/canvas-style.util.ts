@@ -1,5 +1,6 @@
 import type Highcharts from 'highcharts';
 import { CHART_COLORS } from '../../core/constants/chart-view.constants';
+import { highchartsLegendPosition } from '../../core/utils/chart-legend-position.util';
 
 /**
  * How an object looks, as Power BI's Format pane sets it. General settings apply to every object (title, effects,
@@ -384,15 +385,11 @@ export function styleChart(options: Highcharts.Options, style: ItemStyle | undef
   const next: Highcharts.Options = { ...options };
   const axisLabel = { ...(style.axisFontSize ? { fontSize: `${style.axisFontSize}px` } : {}), ...(style.axisColor ? { color: style.axisColor } : {}) };
   if (style.legend !== undefined || style.legendPosition || style.legendSize || style.legendColor) {
-    const position = style.legendPosition ?? 'bottom';
-    const side = position === 'left' || position === 'right';
     const legend = options.legend as Highcharts.LegendOptions | undefined;
     next.legend = {
       ...legend,
       ...(style.legend !== undefined ? { enabled: style.legend } : {}),
-      layout: side ? 'vertical' : 'horizontal',
-      align: side ? position : 'center',
-      verticalAlign: side ? 'middle' : position,
+      ...highchartsLegendPosition(style.legendPosition ?? 'bottom'),
       itemStyle: {
         ...(legend?.itemStyle ?? {}),
         ...(style.legendSize ? { fontSize: `${style.legendSize}px` } : {}),

@@ -399,15 +399,38 @@
                 </div>
             </div>
 
-            <!-- Custom date range row -->
-            <div class="avr-form-row" *ngIf="validationPeriod === 'Custom Date'">
+            <div class="avr-form-row avr-form-row--stretch">
                 <div class="avr-form-field avr-form-field--grow">
-                    <label class="avr-form-field__label">Start Date <span class="avr-required">*</span></label>
-                    <input type="date" class="avr-input" [(ngModel)]="customStartDate" />
+                    <label class="avr-form-field__label" for="avr-timestamp-column">Timestamp Column</label>
+                    <div class="avr-select-wrap avr-combo">
+                        <input id="avr-timestamp-column" type="text" class="avr-select"
+                            placeholder="Search a column" autocomplete="off" role="combobox"
+                            [attr.aria-expanded]="timestampColumnDropdownOpen"
+                            [ngModel]="timestampColumnSearch"
+                            (ngModelChange)="onTimestampColumnSearchChange($event)"
+                            (focus)="openTimestampColumnDropdown()" (blur)="closeTimestampColumnDropdown()"
+                            [disabled]="sourceType !== 'table' || !columnOptions.length" />
+                        <div class="avr-combo__panel" *ngIf="timestampColumnDropdownOpen">
+                            <ng-container *ngIf="filteredTimestampColumnOptions.length; else avrNoTimestampColumnMatch">
+                                <div appKeyClick class="avr-combo__option" *ngFor="let column of filteredTimestampColumnOptions"
+                                    [class.avr-combo__option--active]="column === timestampColumn"
+                                    (mousedown)="$event.preventDefault()" (click)="selectTimestampColumn(column)">{{ column }}</div>
+                            </ng-container>
+                            <ng-template #avrNoTimestampColumnMatch>
+                                <div class="avr-combo__empty">No matching columns</div>
+                            </ng-template>
+                        </div>
+                    </div>
                 </div>
                 <div class="avr-form-field avr-form-field--grow">
-                    <label class="avr-form-field__label">End Date <span class="avr-required">*</span></label>
-                    <input type="date" class="avr-input" [(ngModel)]="customEndDate" />
+                    <label class="avr-form-field__label" for="avr-start-date">Start Date</label>
+                    <input id="avr-start-date" type="datetime-local" step="0.0000001" class="avr-input" [ngModel]="customStartDate"
+                        (ngModelChange)="onDateRangeChanged('start', $event)" />
+                </div>
+                <div class="avr-form-field avr-form-field--grow">
+                    <label class="avr-form-field__label" for="avr-end-date">End Date</label>
+                    <input id="avr-end-date" type="datetime-local" step="0.0000001" class="avr-input" [ngModel]="customEndDate"
+                        (ngModelChange)="onDateRangeChanged('end', $event)" />
                 </div>
             </div>
 

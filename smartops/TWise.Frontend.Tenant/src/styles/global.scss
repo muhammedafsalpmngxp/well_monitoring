@@ -10,6 +10,16 @@
 @use 'forms';
 @use 'tables';
 @use 'layout';
+@use 'global-filter-options';
+@use 'chart-legend-layout';
+
+// ─── Scrollbars ──────────────────────────────────────────────────────────────
+// Every custom scrollbar (scrollbar-color / ::-webkit-scrollbar-thumb) uses these, so the
+// thumb colour is changed in one place.
+:root {
+  --scrollbar-thumb: #C1C7D0;
+  --scrollbar-thumb-hover: #98A2B3;
+}
 
 // ─── Global toast & error banners ────────────────────────────────────────────
 
@@ -71,4 +81,143 @@
 @keyframes toastSlideDown {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+// ─── WIP delete confirmation ────────────────────────────────────────────────
+
+.wip-delete-confirm-backdrop {
+   position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
+}
+
+.wip-delete-confirm-modal {
+   position: relative;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 24px 24px;
+  background: var(--color-bg-card, #fff);
+  border-radius: 8px;
+  border: 1px solid #E9EEF5;
+
+ 
+  &__close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app, #f9fafb);
+    }
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    margin-bottom: 14px;
+    border-radius: 50%;
+    // Soft red halo behind the trash icon, matching the redesigned delete popup.
+    background: #FEE4E2;
+    box-shadow: 0 0 0 14px #FEF3F2, 0 0 30px 26px #FEF3F2;
+  }
+
+  &__title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary, #101828);
+  }
+
+  &__body {
+    margin: 0 0 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-text-muted, #667085);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: end;
+    gap: 10px;
+    width: 100%;
+  }
+
+  &__cancel {
+    padding: 10px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #DCE3ED;
+    background: #FFF;
+    color: var(--color-text-primary, #344054);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app, #f9fafb);
+    }
+  }
+
+  &__confirm {
+    padding: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: #EF5350;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #B91C1C;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .wip-delete-confirm-modal {
+    padding: 52px 20px 20px;
+
+    &__body {
+      font-size: 16px;
+    }
+
+    &__actions {
+      justify-content: center;
+      gap: 10px;
+    }
+
+    &__cancel,
+    &__confirm {
+      min-height: 48px;
+      padding: 0 12px;
+      font-size: 16px;
+    }
+  }
 }

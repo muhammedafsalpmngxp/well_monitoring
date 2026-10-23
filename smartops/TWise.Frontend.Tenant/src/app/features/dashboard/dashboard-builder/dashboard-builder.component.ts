@@ -1,5 +1,10 @@
-﻿import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
+import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
+import { resolveTileLayout, type TileLayout } from '../../../core/utils/tile-layout.util';
+import { buildTimelineOptions } from '../../../core/utils/timeline-chart.util';
+import { buildHistogramOptions } from '../../../core/utils/histogram-chart.util';
 import { dateRangePopupPlacement } from '../../../shared/components/date-range-popup/date-range-popup.placement';
+import { advancedHierarchyFilters } from '../../../core/utils/advanced-hierarchy-filter.util';
+import { AdvancedFilterComponent, type AdvancedFilterValue } from '../../../shared/components/advanced-filter/advanced-filter.component';
 import { inferPlantFilter, isPlantFilter } from '../../../core/utils/plant-filter.util';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
@@ -31,14 +36,22 @@ import { svgChartImage, writeAiDeck } from '../../../core/utils/ai-deck.util';
 import { LayoutStateService } from '../../../core/services/layout-state.service';
 import { ChartView, ChartViewIcon, chartSwitchOptions, chartViewIcon, chartViewLabel, toChartView } from '../../../core/constants/chart-view.constants';
 import { appendDaxToChartData, getActiveDaxMeasures, appendDaxToTableRows, getDaxRowColumnMeasures, DaxModelConfig, evaluateTileDaxValue, formatDaxValue, getSelectedDaxMeasure } from '../../../core/utils/dax-evaluator.util';
+import { tableClusterPlantFilters } from '../../../core/utils/table-global-filter.util';
 import { applyConditionalFilters, getSavedConditionalFilters } from '../../../core/utils/conditional-filter.util';
 import { applyParameterFilters, getSavedParameterFilters, remapDesignColumns } from '../../../core/utils/parameter-filter.util';
 import { appendLockedFilterTitle } from '../../../core/utils/locked-filter-title.util';
 import { CustomDashboardFilter, DashboardChartFilter, mergeDashboardSharedFilters } from '../../../core/utils/dashboard-shared-filter.util';
+import { GlobalFilterSelection, globalSelectionValues, hasGlobalSelection, isGlobalFilterOptionChecked, GlobalFilterClearState, toggleGlobalSelection, matchesGlobalSelection,
+  globalSelectionLabel, globalSelectionPayload, globalSelectionQueryValue, parseGlobalSelection } from '../../../core/utils/global-filter-selection.util';
 import { hasFutureDateParameter } from '../../../core/utils/view-date-parameters.util';
 import { getLayoutRowLimit, matchPersistedLayoutItems, migrateLegacyWidgetsToLayout, sanitizePersistedLayout, DEFAULT_LAYOUT_COLUMNS, DEFAULT_TILE_COLUMNS, DEFAULT_TILE_ROWS, DEFAULT_CHART_ROWS } from '../../../core/utils/dashboard-layout.util';
 import { CHART_AUTO_COLORS, chartFallbackColor, getSeriesColorByName, usesPeriodLineCategoryColorRules, usesSeriesCategoryColorRules } from '../../../core/utils/chart-color.util';
+import { legendLayoutClass, LegendPosition, readLegendPosition } from '../../../core/utils/chart-legend-position.util';
+import { buildScatterOptions } from '../../../core/utils/scatter-chart.util';
+import { buildHeatmapOptions, resolveHeatmapMeasure } from '../../../core/utils/heatmap-chart.util';
 import { buildKpiChartOptions, computeKpiValue } from '../../../core/utils/kpi-chart.util';
+import type { InteractionDataAdapter } from '../interaction-config/interaction-config.component';
+import { DashboardInteractionConfig, InteractionVisualInput, readInteractionConfig } from '../interaction-config/interaction.util';
 
 const CHART_COLORS = [...CHART_AUTO_COLORS];
 const ROW_BG_COLORS  = ['#F3F6FF', '#EBFFF2', '#FFFAF1', '#FFF1F1', '#E8F8FF'];
@@ -52,12 +65,12 @@ export interface SavedFilterPreset {
   id: number;
   name: string;
   accent: 'purple' | 'green' | 'orange' | 'yellow';
-  country: string;
-  sector: string;
-  businessUnit: string;
-  division: string;
-  cluster: string;
-  plant: string;
+  country: GlobalFilterSelection;
+  sector: GlobalFilterSelection;
+  businessUnit: GlobalFilterSelection;
+  division: GlobalFilterSelection;
+  cluster: GlobalFilterSelection;
+  plant: GlobalFilterSelection;
   quickRange: string;
   fromDate: string;
   toDate: string;
@@ -82,6 +95,11 @@ export interface TileSelectorItem {
   badgeText?: string;
   /** One of tile-builder's badgeColorOptions: none/blue/green/orange/red. */
   badgeColor?: string;
+  showIcon?: boolean;
+  tileLayout?: TileLayout;
+  valueBold?: boolean;
+  valueItalic?: boolean;
+  valueColor?: string;
   designJson?: string;
   categoryName?: string;
   /** User-placed position/size (drag or resize) — persisted so the layout builder reuses it
@@ -101,6 +119,7 @@ export interface ChartSelectorItem {
   source: string;
   sourceType: string;
   designJson?: string;
+  hideDataTableOverride?: boolean;
   categoryName?: string;
   width?: number;
   height?: number;
@@ -143,20 +162,58 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   private pendingRevealChartId: string | null = null;
   // ─── Filter bar ───────────────────────────────────────────
   filterBarVisible = true;
-  country = '';
-  sector = '';
-  businessUnit = '';
-  division = '';
-  cluster = 'All';
-  plant = 'All';
+  country: GlobalFilterSelection = '';
+  sector: GlobalFilterSelection = '';
+  businessUnit: GlobalFilterSelection = '';
+  division: GlobalFilterSelection = '';
+  cluster: GlobalFilterSelection = 'All';
+  plant: GlobalFilterSelection = 'All';
+  readonly globalSelectionLabel = globalSelectionLabel;
+  readonly globalSelectionValues = globalSelectionValues;
+  readonly isGlobalFilterOptionChecked = isGlobalFilterOptionChecked;
   // Same default as the dashboard view page: from Jan 1 of this year to the last Tuesday.
   fromDate = `${new Date().getFullYear()}-01-01`;
   toDate = this.lastTuesday(new Date());
   quickRange = '';
-  openFilterName: string | null = null;
+  private globalFilterClearState?: GlobalFilterClearState;
+
+  get globalFilterClear(): GlobalFilterClearState {
+    return this.globalFilterClearState ??= new GlobalFilterClearState();
+  }
+  private openFilterNameValue: string | null = null;
+
+  get openFilterName(): string | null {
+    return this.openFilterNameValue;
+  }
+
+  set openFilterName(name: string | null) {
+    this.openFilterNameValue = name;
+    // Closing a dropdown left in the "Clear all" state reverts that filter to All.
+    const abandoned = this.globalFilterClear.release(name);
+    if (abandoned) this.revertClearedGlobalFilter(abandoned.key);
+  }
+
+  clearGlobalFilterSelection(key: unknown, event: Event): void {
+    event.stopPropagation();
+    this.globalFilterClear.clear(key, this.openFilterName);
+  }
+
+  isGlobalFilterCleared(key: unknown): boolean {
+    return this.globalFilterClear.isCleared(key);
+  }
+
+  private revertClearedGlobalFilter(key: unknown): void {
+    if (['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'].includes(String(key))) {
+      const field = key as 'country' | 'sector' | 'businessUnit' | 'division' | 'cluster' | 'plant';
+      if (hasGlobalSelection(this[field])) this.selectFilterOption(field, 'All');
+      return;
+    }
+    const filter = this.customFilters.find(f => f.id === key);
+    if (filter && hasGlobalSelection(filter.value)) this.selectCustomFilterOption(filter.id, 'All');
+  }
   /** Extra dashboard-wide filters the editor adds from the right-side "Filters" panel (on top of country/sector/etc). */
   customFilters: CustomDashboardFilter[] = [];
-  private pendingCustomFilterValues: Record<string, string> = {};
+  private pendingCustomFilterValues: Record<string, GlobalFilterSelection> = {};
 
   countryOptions:  string[] = [];
   sectorOptions:   string[] = [];
@@ -225,12 +282,12 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
 
   get currentFilterChips(): { label: string; value: string }[] {
     return [
-      { label: 'Country', value: this.country },
-      { label: 'Sector', value: this.sector },
-      { label: 'Business Unit', value: this.businessUnit },
-      { label: 'Division', value: this.division },
-      { label: 'Cluster', value: this.cluster },
-      { label: 'Plant', value: this.plant },
+      { label: 'Country', value: globalSelectionLabel(this.country) },
+      { label: 'Sector', value: globalSelectionLabel(this.sector) },
+      { label: 'Business Unit', value: globalSelectionLabel(this.businessUnit) },
+      { label: 'Division', value: globalSelectionLabel(this.division) },
+      { label: 'Cluster', value: globalSelectionLabel(this.cluster) },
+      { label: 'Plant', value: globalSelectionLabel(this.plant) },
       { label: 'Quick Range', value: this.quickRange },
       { label: 'From Date', value: this.fromDate },
       { label: 'To Date', value: this.toDate },
@@ -239,7 +296,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
 
   presetMeta(preset: SavedFilterPreset): string {
     return [preset.country, preset.sector, preset.businessUnit, preset.division, preset.cluster]
-      .filter(v => v && v !== 'All').join(' • ');
+      .filter(hasGlobalSelection).map(globalSelectionLabel).join(' • ');
   }
 
   /** Whether this preset is the one currently applied — only ever true for a single row. */
@@ -256,12 +313,12 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
           id: f.id,
           name: f.filterName,
           accent: this.presetAccents[i % this.presetAccents.length],
-          country: f.country ?? '',
-          sector: f.sector ?? '',
-          businessUnit: f.businessUnit ?? '',
-          division: f.division ?? '',
-          cluster: f.cluster ?? '',
-          plant: f.plant ?? '',
+          country: parseGlobalSelection(f.country ?? ''),
+          sector: parseGlobalSelection(f.sector ?? ''),
+          businessUnit: parseGlobalSelection(f.businessUnit ?? ''),
+          division: parseGlobalSelection(f.division ?? ''),
+          cluster: parseGlobalSelection(f.cluster ?? ''),
+          plant: parseGlobalSelection(f.plant ?? ''),
           quickRange: f.quickRange ?? '',
           fromDate: f.fromDate ?? '',
           toDate: f.toDate ?? '',
@@ -396,12 +453,12 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
 
     this.savedFilterService.save(this.dashboardId, {
       filterName: name,
-      country: this.country,
-      sector: this.sector,
-      businessUnit: this.businessUnit,
-      division: this.division,
-      cluster: this.cluster,
-      plant: this.plant,
+      country: globalSelectionQueryValue(this.country),
+      sector: globalSelectionQueryValue(this.sector),
+      businessUnit: globalSelectionQueryValue(this.businessUnit),
+      division: globalSelectionQueryValue(this.division),
+      cluster: globalSelectionQueryValue(this.cluster),
+      plant: globalSelectionQueryValue(this.plant),
       quickRange: this.quickRange,
       fromDate: this.fromDate,
       toDate: this.toDate,
@@ -410,12 +467,12 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
         id: saved.id,
         name: saved.filterName,
         accent: this.presetAccents[this.savedFilterPresets.length % this.presetAccents.length],
-        country: saved.country ?? '',
-        sector: saved.sector ?? '',
-        businessUnit: saved.businessUnit ?? '',
-        division: saved.division ?? '',
-        cluster: saved.cluster ?? '',
-        plant: saved.plant ?? '',
+        country: parseGlobalSelection(saved.country ?? ''),
+        sector: parseGlobalSelection(saved.sector ?? ''),
+        businessUnit: parseGlobalSelection(saved.businessUnit ?? ''),
+        division: parseGlobalSelection(saved.division ?? ''),
+        cluster: parseGlobalSelection(saved.cluster ?? ''),
+        plant: parseGlobalSelection(saved.plant ?? ''),
         quickRange: saved.quickRange ?? '',
         fromDate: saved.fromDate ?? '',
         toDate: saved.toDate ?? '',
@@ -738,7 +795,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   // ─── Right panel ──────────────────────────────────────────
-  activePanel: 'widgets' | 'filters' | 'tiles' | 'charts' | 'styling' | null = null;
+  activePanel: 'widgets' | 'filters' | 'tiles' | 'charts' | 'styling' | 'interactions' | null = null;
 
   // ─── Page tabs ────────────────────────────────────────────
   tabs: BuilderTab[] = [{ id: 'tab-1', label: 'Overview' }];
@@ -1104,48 +1161,59 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   selectFilterOption(field: string, value: string): void {
-    (this as Record<string, unknown>)[field] = value;
     switch (field) {
-      case 'country':      this.sector = ''; this.businessUnit = ''; this.division = ''; this.cluster = 'All'; this.plant = 'All'; break;
-      case 'sector':       this.businessUnit = ''; this.division = ''; this.cluster = 'All'; this.plant = 'All'; break;
-      case 'businessUnit': this.division = ''; this.cluster = 'All'; this.plant = 'All'; break;
-      case 'division':     this.cluster = 'All'; this.plant = 'All'; break;
-      case 'cluster':      this.plant = 'All'; break;
-      case 'quickRange':   this.applyQuickRange(value); break;
+      case 'country':      this.country = toggleGlobalSelection(this.country, value, this.countryOptions, this.globalFilterClear.consume('country')); this.sector = ''; this.businessUnit = ''; this.division = ''; this.cluster = 'All'; this.plant = 'All'; break;
+      case 'sector':       this.sector = toggleGlobalSelection(this.sector, value, this.sectorOptions, this.globalFilterClear.consume('sector')); this.businessUnit = ''; this.division = ''; this.cluster = 'All'; this.plant = 'All'; break;
+      case 'businessUnit': this.businessUnit = toggleGlobalSelection(this.businessUnit, value, this.buOptions, this.globalFilterClear.consume('businessUnit')); this.division = ''; this.cluster = 'All'; this.plant = 'All'; break;
+      case 'division':     this.division = toggleGlobalSelection(this.division, value, this.divisionOptions, this.globalFilterClear.consume('division')); this.cluster = 'All'; this.plant = 'All'; break;
+      case 'cluster':      this.cluster = toggleGlobalSelection(this.cluster, value, this.clusterOptions, this.globalFilterClear.consume('cluster')); this.plant = 'All'; break;
+      case 'plant':        this.plant = toggleGlobalSelection(this.plant, value, this.plantOptions, this.globalFilterClear.consume('plant')); break;
+      case 'quickRange':   this.quickRange = value; this.applyQuickRange(value); this.openFilterName = null; break;
     }
-    this.rebuildCascadingOptions();
+    const resetCluster = field === 'cluster' && !hasGlobalSelection(this.cluster);
+    const resetPlant = resetCluster || (field === 'plant' && !hasGlobalSelection(this.plant));
+    this.rebuildCascadingOptions(resetCluster, resetPlant);
     this.openFilterName = null;
     this.reloadPlacedPreviews();
     this.persistFilterState();
     this.cdr.markForCheck();
   }
 
-  /** Re-fetches every placed tile/chart's value using the current global filters (view-based sources only, same as the Dashboard viewer). */
+  /** Refreshes placed widgets and previously loaded library cards with the current global filters. */
   onGlobalDateChange(): void {
     this.reloadPlacedPreviews();
     this.persistFilterState();
   }
 
   private reloadPlacedPreviews(): void {
+    this.isRefreshingFilteredPreviews = false;
+    const chartIds = new Set(this.loadedChartPreviewIds);
+    const tileKeys = new Set(this.tilePreviewRequests.keys());
     this.tilePreviewReload$.next();
+    this.chartPreviewReload$.next();
     this.tilePreviewRequests.clear();
-    this.tileSlots.forEach(tile => {
-      if (!tile) return;
-      this.loadTilePreview(tile);
-    });
-    this.chartSlotsData.forEach(chart => {
-      this.loadedChartPreviewIds.delete(chart.id);
-      this.loadChartPreview(chart);
-    });
+    this.loadedChartPreviewIds.clear();
+    const tiles = new Set([
+      ...this.tileSlots.filter((tile): tile is TileSelectorItem => tile !== null),
+      ...[...this.standardTiles, ...this.myTiles]
+        .filter(tile => tileKeys.has(JSON.stringify([tile.id, tile.designJson]))),
+    ]);
+    const charts = new Set([
+      ...this.chartSlotsData,
+      ...[...this.standardCharts, ...this.myCharts].filter(chart => chartIds.has(chart.id)),
+    ]);
+    tiles.forEach(tile => this.loadTilePreview(tile));
+    charts.forEach(chart => this.loadChartPreview(chart));
+    this.isRefreshingFilteredPreviews = this.isRefreshingPreviews;
   }
 
   private injectGlobalFilterParams(sql: string, preserveFutureDateRange = false): string {
-    const declarations: Record<string, string> = {
-      country: this.country, sector: this.sector, businessUnit: this.businessUnit,
-      division: this.division, cluster: this.cluster, plant: this.plant,
+    const declarations: Record<string, GlobalFilterSelection> = {
+      country: globalSelectionQueryValue(this.country), sector: globalSelectionQueryValue(this.sector), businessUnit: globalSelectionQueryValue(this.businessUnit),
+      division: globalSelectionQueryValue(this.division), cluster: globalSelectionQueryValue(this.cluster), plant: globalSelectionQueryValue(this.plant),
     };
     for (const [name, value] of Object.entries(declarations)) {
-      if (!value || value === 'All' || !/^[A-Za-z0-9\s\-_.,()]+$/.test(value)) continue;
+      if (typeof value !== 'string' || !value || value === 'All' || !/^[A-Za-z0-9\s\-_.,()]+$/.test(value)) continue;
       const parameter = `@${name}`;
       const declaration = new RegExp(`DECLARE\\s+${parameter}\\s+(\\w+(?:\\s*\\([^)]*\\))?)(?:\\s*=[^;]+)?;`, 'i');
       if (declaration.test(sql)) {
@@ -1176,24 +1244,20 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
    * @plant params to piggyback on, unlike views) — same mechanism as the live Operations Dashboard.
    */
   private applyGlobalRowFilter(rows: Record<string, unknown>[], plantClone = false): Record<string, unknown>[] {
-    const cluster = this.cluster !== 'All' ? this.cluster : '';
-    const plant = !plantClone && this.plant !== 'All' ? this.plant : '';
-    if (!cluster && !plant) return rows;
-    return rows.filter(row => {
-      if (cluster) {
-        const col = this.findColumn(row, 'cluster');
-        if (col && String(row[col]).toLowerCase() !== cluster.toLowerCase()) return false;
-      }
-      if (plant) {
-        const col = this.findColumn(row, 'plant');
-        if (col && String(row[col]).toLowerCase() !== plant.toLowerCase()) return false;
-      }
-      return true;
-    });
+    const selections: [string, GlobalFilterSelection][] = [
+      ['country', this.country], ['sector', this.sector], ['businessUnit', this.businessUnit],
+      ['division', this.division], ['cluster', this.cluster], ['plant', plantClone ? 'All' : this.plant],
+    ];
+    return rows.filter(row => selections.every(([field, selection]) => {
+      const column = this.findColumn(row, field);
+      return !column || matchesGlobalSelection(row[column], selection);
+    }));
   }
 
   /** Resets the Add Tiles/Add Charts modal's filter row (shared fields) to their defaults. */
   clearAdvancedFilters(event?: Event): void {
+    this.advancedFilters = [];
+    this.advancedFilterRef?.clear();
     event?.stopPropagation();
     this.country = '';
     this.sector = '';
@@ -1209,7 +1273,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     this.activePresetId = null;
     this.autoSelectSingle();
     this.rebuildCascadingOptions();
-    this.reloadPlacedPreviews();
+    this.reloadAdvancedPreviews();
     this.persistFilterState();
     this.cdr.markForCheck();
   }
@@ -1265,12 +1329,12 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     if (this.hasRestoredFilterState) return;
     this.savedFilterService.getDefault(dashboardId).pipe(takeUntil(this.destroy$)).subscribe(def => {
       if (!def) return;
-      this.country = def.country ?? this.country;
-      this.sector = def.sector ?? this.sector;
-      this.businessUnit = def.businessUnit ?? this.businessUnit;
-      this.division = def.division ?? this.division;
-      this.cluster = def.cluster ?? this.cluster;
-      this.plant = def.plant ?? this.plant;
+      if (def.country != null) this.country = parseGlobalSelection(def.country);
+      if (def.sector != null) this.sector = parseGlobalSelection(def.sector);
+      if (def.businessUnit != null) this.businessUnit = parseGlobalSelection(def.businessUnit);
+      if (def.division != null) this.division = parseGlobalSelection(def.division);
+      if (def.cluster != null) this.cluster = parseGlobalSelection(def.cluster);
+      if (def.plant != null) this.plant = parseGlobalSelection(def.plant);
       this.quickRange = def.quickRange ?? this.quickRange;
       if (def.fromDate) this.fromDate = this.toDateOnly(def.fromDate);
       if (def.toDate) this.toDate = this.toDateOnly(def.toDate);
@@ -1292,35 +1356,35 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private autoSelectSingle(): void {
-    const active = (v: string) => v && v !== 'All';
+    const active = hasGlobalSelection;
     if (this.countryOptions.length === 1) this.country = this.countryOptions[0];
     let filtered = this.allPlants;
-    if (active(this.country)) filtered = filtered.filter(p => p.country === this.country);
+    if (active(this.country)) filtered = filtered.filter(p => matchesGlobalSelection(p.country, this.country));
     const sectors = this.distinctValues(filtered, p => p.sector);
     if (sectors.length === 1) this.sector = sectors[0];
-    if (active(this.sector)) filtered = filtered.filter(p => p.sector === this.sector);
+    if (active(this.sector)) filtered = filtered.filter(p => matchesGlobalSelection(p.sector, this.sector));
     const bus = this.distinctValues(filtered, p => p.businessUnit);
     if (bus.length === 1) this.businessUnit = bus[0];
-    if (active(this.businessUnit)) filtered = filtered.filter(p => p.businessUnit === this.businessUnit);
+    if (active(this.businessUnit)) filtered = filtered.filter(p => matchesGlobalSelection(p.businessUnit, this.businessUnit));
     const divs = this.distinctValues(filtered, p => p.division);
     if (divs.length === 1) this.division = divs[0];
   }
 
-  private rebuildCascadingOptions(): void {
+  private rebuildCascadingOptions(suppressAutoCluster = false, suppressAutoPlant = false): void {
     let filtered = this.allPlants;
-    if (this.country) filtered = filtered.filter(p => p.country === this.country);
-    this.sectorOptions = this.country ? this.distinctValues(filtered, p => p.sector) : [];
-    if (this.sector) filtered = filtered.filter(p => p.sector === this.sector);
-    this.buOptions = this.sector ? this.distinctValues(filtered, p => p.businessUnit) : [];
-    if (this.businessUnit) filtered = filtered.filter(p => p.businessUnit === this.businessUnit);
-    this.divisionOptions = this.businessUnit ? this.distinctValues(filtered, p => p.division) : [];
-    if (this.division) filtered = filtered.filter(p => p.division === this.division);
-    this.clusterOptions = this.division ? this.distinctValues(filtered, p => p.cluster) : [];
+    if (hasGlobalSelection(this.country)) filtered = filtered.filter(p => matchesGlobalSelection(p.country, this.country));
+    this.sectorOptions = hasGlobalSelection(this.country) ? this.distinctValues(filtered, p => p.sector) : [];
+    if (hasGlobalSelection(this.sector)) filtered = filtered.filter(p => matchesGlobalSelection(p.sector, this.sector));
+    this.buOptions = hasGlobalSelection(this.sector) ? this.distinctValues(filtered, p => p.businessUnit) : [];
+    if (hasGlobalSelection(this.businessUnit)) filtered = filtered.filter(p => matchesGlobalSelection(p.businessUnit, this.businessUnit));
+    this.divisionOptions = hasGlobalSelection(this.businessUnit) ? this.distinctValues(filtered, p => p.division) : [];
+    if (hasGlobalSelection(this.division)) filtered = filtered.filter(p => matchesGlobalSelection(p.division, this.division));
+    this.clusterOptions = hasGlobalSelection(this.division) ? this.distinctValues(filtered, p => p.cluster) : [];
     // Narrowing down to a single cluster/plant should auto-select it instead of leaving it on 'All'.
-    if (this.cluster === 'All' && this.clusterOptions.length === 1) this.cluster = this.clusterOptions[0];
-    if (this.cluster && this.cluster !== 'All') filtered = filtered.filter(p => p.cluster === this.cluster);
+    if (!suppressAutoCluster && this.cluster === 'All' && this.clusterOptions.length === 1) this.cluster = this.clusterOptions[0];
+    if (hasGlobalSelection(this.cluster)) filtered = filtered.filter(p => matchesGlobalSelection(p.cluster, this.cluster));
     this.plantOptions = this.distinctValues(filtered, p => p.plantDescription);
-    if (this.plant === 'All' && this.plantOptions.length === 1) this.plant = this.plantOptions[0];
+    if (!suppressAutoPlant && this.plant === 'All' && this.plantOptions.length === 1) this.plant = this.plantOptions[0];
   }
 
   private distinctValues(plants: PlantFilterDto[], selector: (p: PlantFilterDto) => string): string[] {
@@ -1348,7 +1412,13 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   // ─── Header actions ───────────────────────────────────────
-  discard(): void { this.router.navigateByUrl(this.returnUrl); }
+  showDiscardConfirm = false;
+  discard(): void { this.showDiscardConfirm = true; }
+  cancelDiscard(): void { this.showDiscardConfirm = false; }
+  confirmDiscard(): void {
+    this.showDiscardConfirm = false;
+    this.router.navigateByUrl(this.returnUrl);
+  }
 
   saveAndClose(): void { this.saveDashboard(true); }
   saveAsDraft(): void { this.saveDashboard(false); }
@@ -1376,6 +1446,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
         type: 'chart',
         width: c.width || null,
         height: c.height || null,
+        hideDataTableOverride: c.hideDataTableOverride,
         ...(c.presetColumn ? { presetColumn: c.presetColumn, presetValue: c.presetValue ?? '' } : {}),
       })),
     ];
@@ -1387,6 +1458,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
       configJson: JSON.stringify({
         widgets, chartColumns: this.effectiveColumns, layout: this.buildPersistedLayout(), branding: this.branding,
         customFilters: this.customFilters.map(({ value, ...filter }) => filter),
+        interactions: this.interactionConfig ?? undefined,
       }),
     };
 
@@ -1414,8 +1486,8 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
         const savedDashboardId = this.dashboardId ?? response.data?.dashboardId;
         if (savedDashboardId) {
           this.savedFilterService.saveDefault(savedDashboardId, {
-            country: this.country, sector: this.sector, businessUnit: this.businessUnit,
-            division: this.division, cluster: this.cluster, plant: this.plant,
+            country: globalSelectionQueryValue(this.country), sector: globalSelectionQueryValue(this.sector), businessUnit: globalSelectionQueryValue(this.businessUnit),
+            division: globalSelectionQueryValue(this.division), cluster: globalSelectionQueryValue(this.cluster), plant: globalSelectionQueryValue(this.plant),
             quickRange: this.quickRange, fromDate: this.fromDate, toDate: this.toDate,
           }).pipe(takeUntil(this.destroy$)).subscribe({ error: () => {} });
         }
@@ -1491,9 +1563,10 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
         const tileMap  = new Map([...(library.tiles ?? []), ...(placedWidgets.tiles ?? [])].map(t => [t.id, t]));
         const chartMap = new Map([...(library.charts ?? []), ...(placedWidgets.charts ?? [])].map(c => [c.id, c]));
 
-        let configWidgets: { chartId: number; sortOrder: number; type?: string; width?: number; height?: number; presetColumn?: string; presetValue?: string }[] = [];
+        let configWidgets: { chartId: number; sortOrder: number; type?: string; width?: number; height?: number; presetColumn?: string; presetValue?: string; hideDataTableOverride?: boolean }[] = [];
         let persistedLayout: DashboardLayoutConfig | undefined;
         this.branding = {};
+        this.interactionConfig = null;
         if (d.configJson) {
           try {
             const cfg = JSON.parse(d.configJson);
@@ -1502,6 +1575,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
             this.isInternalSharedDashboard ||= Number.isFinite(userId) && Array.isArray(sharedUserIds)
               && sharedUserIds.some(sharedUserId => Number(sharedUserId) === userId);
             this.branding = normalizeDashboardBranding(cfg.branding);
+            this.interactionConfig = readInteractionConfig(cfg.interactions);
             this.customFilters = ((cfg.customFilters ?? []) as Omit<CustomDashboardFilter, 'value'>[])
               .map(f => ({ ...f, value: 'All' }));
             configWidgets = (cfg.widgets ?? []).sort((a: { sortOrder?: number }, b: { sortOrder?: number }) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -1538,6 +1612,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
               if (this.chartSlotsData.some(chart => chart.id === item.id)) item.id = this.newCloneSlotId();
               item.width  = cw.width  || undefined;
               item.height = cw.height || undefined;
+              item.hideDataTableOverride = cw.hideDataTableOverride;
               if (cw.presetColumn) {
                 // Rebuild a clone slot: unique key, preset filter, and "-value" title suffix
                 item.id = this.newCloneSlotId();
@@ -1667,12 +1742,69 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     this.cdr.markForCheck();
   }
 
-  selectPanel(panel: 'widgets' | 'filters' | 'tiles' | 'charts' | 'styling'): void {
+  selectPanel(panel: 'widgets' | 'filters' | 'tiles' | 'charts' | 'styling' | 'interactions'): void {
     this.activePanel = this.activePanel === panel ? null : panel;
     if (panel === 'tiles')   { this.syncTileSelectionFromSlots(); this.showTilesModal  = true; }
     if (panel === 'charts')  { this.syncChartSelectionFromSlots(); this.showChartsModal = true; }
     if (panel === 'filters') { this.showFiltersModal = true; }
     if (panel === 'styling') { this.showStylingModal = true; }
+    if (panel === 'interactions') { this.openInteractionConfig(); }
+    this.cdr.markForCheck();
+  }
+
+  // ─── Interaction configuration ─────────────────────────────
+  showInteractionModal = false;
+  interactionConfig: DashboardInteractionConfig | null = null;
+  private interactionVisuals: { sources: unknown[]; charts: InteractionVisualInput[]; tiles: InteractionVisualInput[] } | null = null;
+  readonly interactionAdapter: InteractionDataAdapter = {
+    transformSql: sql => this.injectGlobalFilterParams(sql, true),
+    previewFilters: viewId => this.globalPreviewFilters(viewId),
+    filterRows: rows => this.applyGlobalRowFilter(rows),
+  };
+
+  /** Rebuilt only when the widget library arrays are replaced, so the modal sees the library as soon as it finishes loading. */
+  private currentInteractionVisuals() {
+    const sources = [this.standardCharts, this.myCharts, this.standardTiles, this.myTiles];
+    if (!this.interactionVisuals || this.interactionVisuals.sources.some((source, index) => source !== sources[index])) {
+      this.interactionVisuals = {
+        sources, charts: [...this.standardCharts, ...this.myCharts], tiles: [...this.standardTiles, ...this.myTiles],
+      };
+    }
+    return this.interactionVisuals;
+  }
+
+  get interactionCharts(): InteractionVisualInput[] { return this.currentInteractionVisuals().charts; }
+  get interactionTiles(): InteractionVisualInput[] { return this.currentInteractionVisuals().tiles; }
+
+  private interactionInlineCache: { config: DashboardInteractionConfig; visuals: unknown;
+    value: { config: DashboardInteractionConfig; charts: InteractionVisualInput[]; tiles: InteractionVisualInput[] } | null } | null = null;
+
+  /** The saved interaction setup rendered on the builder page itself, so it is visible once the popup closes. */
+  get interactionInline(): { config: DashboardInteractionConfig; charts: InteractionVisualInput[]; tiles: InteractionVisualInput[] } | null {
+    const config = this.interactionConfig;
+    if (!config) return null;
+    const visuals = this.currentInteractionVisuals();
+    if (this.interactionInlineCache?.config !== config || this.interactionInlineCache.visuals !== visuals) {
+      const wanted = (kind: 'chart' | 'tile') => new Set(config.visuals.filter(ref => ref.kind === kind).map(ref => ref.id));
+      const charts = visuals.charts.filter(chart => wanted('chart').has(chart.id));
+      const tiles = visuals.tiles.filter(tile => wanted('tile').has(tile.id));
+      this.interactionInlineCache = { config, visuals, value: charts.length + tiles.length ? { config, charts, tiles } : null };
+    }
+    return this.interactionInlineCache.value;
+  }
+
+  openInteractionConfig(): void {
+    this.showInteractionModal = true;
+  }
+
+  closeInteractionConfig(): void {
+    this.showInteractionModal = false;
+    this.activePanel = null;
+    this.cdr.markForCheck();
+  }
+
+  applyInteractionConfig(config: DashboardInteractionConfig | null): void {
+    this.interactionConfig = config;
     this.cdr.markForCheck();
   }
 
@@ -1848,8 +1980,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   selectCustomFilterOption(id: string, value: string): void {
     const filter = this.customFilters.find(f => f.id === id);
     if (!filter) return;
-    filter.value = value;
-    this.openFilterName = null;
+    filter.value = toggleGlobalSelection(filter.value, value, this.getFilterValues(filter), this.globalFilterClear.consume(id));
     this.reloadPlacedPreviews();
     this.persistFilterState();
     this.cdr.markForCheck();
@@ -1937,6 +2068,11 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     let inactiveLabel = 'Inactive';
     let badgeText: string | undefined;
     let badgeColor: string | undefined;
+    let showIcon = true;
+    let tileLayout: TileLayout = 'two-rows';
+    let valueBold = false;
+    let valueItalic = false;
+    let valueColor = '';
 
     if (widget.designJson) {
       try {
@@ -1964,15 +2100,25 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
         }
         if (design.badgeText) badgeText = design.badgeText;
         if (design.badgeColor && design.badgeColor !== 'none') badgeColor = design.badgeColor;
+        showIcon = design.showTileIcon !== false;
+        tileLayout = resolveTileLayout(design.tileLayout);
+        valueBold = design.valueBold === true;
+        valueItalic = design.valueItalic === true;
+        valueColor = design.valueColor || '';
       } catch { /* ignore bad JSON */ }
     }
 
-    return { id: String(widget.id), title, value: '\u2014', accent, icon, active, inactive, activeLabel, inactiveLabel, badgeText, badgeColor, designJson: widget.designJson, categoryName: widget.categoryName };
+    return { id: String(widget.id), title, value: '\u2014', accent, icon, active, inactive, activeLabel, inactiveLabel, badgeText, badgeColor, showIcon, tileLayout, valueBold, valueItalic, valueColor, designJson: widget.designJson, categoryName: widget.categoryName };
   }
 
   private readonly tilePreviewRequests = new Map<string, Observable<string>>();
   private readonly tilePreviewReload$ = new Subject<void>();
   private readonly pendingTilePreviews = new Set<string>();
+  isRefreshingFilteredPreviews = false;
+
+  get isRefreshingPreviews(): boolean {
+    return this.pendingTilePreviews.size > 0 || Object.values(this.chartPreviewLoading).some(Boolean);
+  }
 
   readonly prepareDashboardPreview = async (): Promise<void> => {
     this.tileSlots.forEach(tile => { if (tile) this.loadTilePreview(tile); });
@@ -1998,19 +2144,29 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
 
     let request$ = this.tilePreviewRequests.get(key);
     if (!request$) {
+      // Non-DAX Table tiles apply the global Cluster/Plant as best-effort FK-joined filters.
+      const tableGlobals = !(design['daxModel'] as DaxModelConfig)?.enabled ? tableClusterPlantFilters(this.cluster, this.plant) : [];
       const value$ = !isView && sourceType.toLowerCase() === 'table'
-        ? this.getTileAggregate(source, design)
-            .pipe(map(res => this.formatTileNumber(res.value ?? 0, design)))
+        ? (tableGlobals.length
+            ? this.widgetService.getFilteredChartData({ chartSource: source, chartSourceType: 'Table', viewId: null,
+                filters: tableGlobals, aggregation: (design['aggregation'] as string) ?? 'count', valueField: (design['valueField'] as string) || undefined })
+                .pipe(map(res => this.formatTileNumber(Number(res.rows?.[0]?.['Value'] ?? 0), design)))
+            : this.getTileAggregate(source, design)
+                .pipe(map(res => this.formatTileNumber(res.value ?? 0, design))))
         : (isView
             ? this.commonApi.getDatabaseViewById(viewId).pipe(
-                switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: this.injectGlobalFilterParams(view.generatedSql), viewId: view.id, maxRows: 1000 })),
+                switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: this.injectGlobalFilterParams(view.generatedSql), viewId: view.id, maxRows: 1000, filters: this.globalPreviewFilters(view.id) })),
               )
             : this.widgetService.getTableData(source, sourceType)
           ).pipe(map(res => this.computeTileValue(this.applyGlobalRowFilter(res.rows ?? []), design)));
       this.pendingTilePreviews.add(key);
       request$ = value$.pipe(
         takeUntil(this.tilePreviewReload$), takeUntil(this.destroy$),
-        finalize(() => this.pendingTilePreviews.delete(key)),
+        finalize(() => {
+          this.pendingTilePreviews.delete(key);
+          if (!this.isRefreshingPreviews) this.isRefreshingFilteredPreviews = false;
+          this.cdr.markForCheck();
+        }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
       this.tilePreviewRequests.set(key, request$);
@@ -2019,6 +2175,8 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
       next: value => { tile.value = value; this.cdr.markForCheck(); },
       error: () => {
         this.tilePreviewRequests.delete(key);
+        if (isView && this.advancedFilters?.length)
+          this.notify.showError(`Failed to apply Advanced Filters to tile: ${tile.title}`);
         if ((design['daxModel'] as DaxModelConfig)?.enabled) { tile.value = 'DAX error'; this.cdr.markForCheck(); }
       },
     });
@@ -2260,7 +2418,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   trendChartPreviews: Record<string, boolean> = {};
   chartLocalFilterValues: Record<string, Record<string, string>> = {};
   /** Attached KPI tiles rendered above each chart card (board slot + Add Charts modal), keyed by chart.id. */
-  chartInlineTiles: Record<string, { label: string; value: string; color: string; icon: string; breakdown: { label: string; value: string; color: string }[] }[]> = {};
+  chartInlineTiles: Record<string, { label: string; value: string; color: string; icon: string; tileLayout?: TileLayout; showIcon?: boolean; valueBold?: boolean; valueItalic?: boolean; valueColor?: string; breakdown: { label: string; value: string; color: string }[] }[]> = {};
   private slotPreviewFiltersCache = new WeakMap<ChartSelectorItem, {
     designJson: ChartSelectorItem['designJson'];
     source: string;
@@ -2308,7 +2466,14 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   /** Per-chart "Show Data Labels" preference (default true) so board re-renders honour the saved flag. */
   private chartShowDataLabels: Record<string, boolean> = {};
 
+  // Bar/column "Switch Metrics": retained rows + viewer-selected metric so a switch re-aggregates client-side.
+  private chartRawRows: Record<string, Record<string, unknown>[]> = {};
+  chartMetricColumns: Record<string, string[]> = {};
+  chartActiveMetric: Record<string, string> = {};
+  openChartMetric: Record<string, boolean> = {};
+
   private readonly loadedChartPreviewIds = new Set<string>();
+  private readonly chartPreviewReload$ = new Subject<void>();
   private readonly chartPreviewGenerations: Record<string, number> = {};
 
   /**
@@ -2319,15 +2484,32 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
    * cluster/plant column left to filter afterwards, so this hierarchy must travel with the request
    * itself or a filter change silently does nothing.
    */
-  private globalHierarchyFilterPayload(isView: boolean): { sourceTable: string; sourceColumn: string; controlType: string; value: string; label: string }[] {
+  private advancedFilters: ReturnType<typeof advancedHierarchyFilters> = [];
+  @ViewChild('advancedFilter') private advancedFilterRef?: AdvancedFilterComponent;
+
+  applyAdvancedFilter(value: AdvancedFilterValue): void {
+    this.advancedFilters = advancedHierarchyFilters(value.hierarchy);
+    this.reloadAdvancedPreviews();
+  }
+
+  private reloadAdvancedPreviews(): void {
+    this.reloadPlacedPreviews();
+  }
+
+  private globalHierarchyFilterPayload(isView: boolean): ReturnType<typeof advancedHierarchyFilters> {
     if (!isView) return [];
-    const values: Record<string, string> = {
+    const values: Record<string, GlobalFilterSelection> = {
       country: this.country, sector: this.sector, businessUnit: this.businessUnit,
       division: this.division, cluster: this.cluster, plant: this.plant,
     };
-    return Object.entries(values)
-      .filter(([, value]) => value && value !== 'All')
-      .map(([key, value]) => ({ sourceTable: key, sourceColumn: key, controlType: 'Dropdown', value, label: key }));
+    return [...Object.entries(values)
+      .filter(([, value]) => hasGlobalSelection(value))
+      .map(([key, value]) => ({ sourceTable: key, sourceColumn: key, ...globalSelectionPayload(value), label: key })),
+      ...(this.advancedFilters ?? [])];
+  }
+
+  private globalPreviewFilters(viewId: number) {
+    return this.globalHierarchyFilterPayload(viewId > 0).filter(filter => filter.advancedHierarchy || (filter.values?.length ?? 0) > 1);
   }
 
   /** Loads a single chart's preview on demand when its card scrolls into view. */
@@ -2336,14 +2518,13 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   private loadChartPreview(chart: ChartSelectorItem): void {
     if (this.loadedChartPreviewIds.has(chart.id)) return;
     if (!chart.designJson || !chart.source) return;
+    let design: Record<string, unknown>;
+    try { design = JSON.parse(chart.designJson); } catch { return; }
     this.loadedChartPreviewIds.add(chart.id);
     const generation = (this.chartPreviewGenerations[chart.id] ?? 0) + 1;
     this.chartPreviewGenerations[chart.id] = generation;
     this.chartPreviewLoading[chart.id] = true;
     this.chartAdditionalFilterNoData[chart.id] = false;
-    let design: Record<string, unknown>;
-    try { design = JSON.parse(chart.designJson); } catch { return; }
-
     const source     = (design['source']     as string) ?? chart.source;
     const sourceType = (design['sourceType'] as string) ?? chart.sourceType ?? 'Table';
     const viewId     = (design['viewId']     as number) ?? 0;
@@ -2377,8 +2558,8 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
       value: filter.locked ? filter.lockedValue : (this.chartLocalFilterValues?.[chart.id]?.[filter.sourceColumn] ?? ''),
     })), sharedFilters, filter => ({
       sourceTable: filter.sourceTable, sourceColumn: filter.sourceColumn, label: filter.label,
-      controlType: 'Dropdown', locked: false, value: filter.value, dashboardAdditional: true,
-    })).filter(filter => !!filter.value);
+      ...globalSelectionPayload(filter.value), locked: false, dashboardAdditional: true,
+    })).filter(filter => !!filter.value || !!filter.values?.length);
     if (localFilters.length && serverPreset) {
       localFilters.push({
         sourceTable: serverPreset.sourceTable!, sourceColumn: serverPreset.sourceColumn,
@@ -2387,21 +2568,28 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
       });
     }
 
+    // Table charts filter cluster/plant server-side via FK (optional, skipped when no FK path);
+    // when applied, skip the client-side applyGlobalRowFilter so rows aren't double/wrong-filtered.
+    const tableGlobals = !isView && !(design['daxModel'] as DaxModelConfig)?.enabled ? tableClusterPlantFilters(this.cluster, this.plant) : [];
+    let serverTableFiltered = false;
+
     let data$;
     if (localFilters.length) {
+      serverTableFiltered = tableGlobals.length > 0;
       data$ = this.widgetService.getFilteredChartData({
         chartSource: source, chartSourceType: sourceType, viewId: isView ? viewId : null,
         preserveFutureDateRange: true,
-        filters: [...localFilters, ...this.globalHierarchyFilterPayload(isView).filter(filter => !clonePlant || !isPlantFilter(filter))],
+        filters: [...localFilters, ...this.globalHierarchyFilterPayload(isView).filter(filter => !clonePlant || !isPlantFilter(filter)), ...tableGlobals],
         fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
         ...(isTrend ? { mode: this.chartTrendModes[chart.id] } : {}),
       });
     } else if (serverPreset) {
+      serverTableFiltered = tableGlobals.length > 0;
       data$ = this.widgetService.getFilteredChartData({
         chartSource: source, chartSourceType: sourceType, viewId: isView ? viewId : null,
         preserveFutureDateRange: true,
         filters: [{ sourceTable: serverPreset.sourceTable!, sourceColumn: serverPreset.sourceColumn,
-          controlType: serverPreset.controlType || 'Dropdown', label: serverPreset.label, value: chart.presetValue ?? '' }, ...this.globalHierarchyFilterPayload(isView).filter(filter => !clonePlant || !isPlantFilter(filter))],
+          controlType: serverPreset.controlType || 'Dropdown', label: serverPreset.label, value: chart.presetValue ?? '' }, ...this.globalHierarchyFilterPayload(isView).filter(filter => !clonePlant || !isPlantFilter(filter)), ...tableGlobals],
         fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
         ...(isTrend ? { mode: this.chartTrendModes[chart.id] } : {}),
       });
@@ -2409,23 +2597,38 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
       data$ = this.widgetService.getFilteredChartData({ chartSource: source, chartSourceType: sourceType, viewId, preserveFutureDateRange: true, filters: this.globalHierarchyFilterPayload(isView), mode: this.chartTrendModes[chart.id], fromDate: this.fromDate || undefined, toDate: this.toDate || undefined });
     } else if (isView) {
       data$ = this.commonApi.getDatabaseViewById(viewId).pipe(
-          switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: this.injectGlobalFilterParams(view.generatedSql, true), viewId: view.id, maxRows: 1000 })),
-          catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[] })),
+          switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: this.injectGlobalFilterParams(view.generatedSql, true), viewId: view.id, maxRows: 1000, filters: this.globalPreviewFilters(view.id) })),
         );
     } else {
-      data$ = this.widgetService.getTableData(source, sourceType).pipe(
+      serverTableFiltered = tableGlobals.length > 0;
+      data$ = (serverTableFiltered
+        ? this.widgetService.getFilteredChartData({
+            chartSource: source, chartSourceType: 'Table', viewId: null, preserveFutureDateRange: true, filters: tableGlobals,
+            fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
+            ...(isTrend ? { mode: this.chartTrendModes[chart.id] } : {}),
+          })
+        : this.widgetService.getTableData(source, sourceType)).pipe(
         catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[] })),
       );
     }
 
-    data$.pipe(takeUntil(this.destroy$)).subscribe({
+    data$.pipe(
+      takeUntil(this.chartPreviewReload$),
+      takeUntil(this.destroy$),
+      finalize(() => {
+        if (this.chartPreviewGenerations[chart.id] !== generation) return;
+        this.chartPreviewLoading[chart.id] = false;
+        if (!this.isRefreshingPreviews) this.isRefreshingFilteredPreviews = false;
+        this.cdr.markForCheck();
+      }),
+    ).subscribe({
       next: (res) => {
         if (this.chartPreviewGenerations[chart.id] !== generation) return;
         delete this.chartLocalFilterErrors[chart.id];
         const paramFilters = getSavedParameterFilters(design);
         const activeDesign = remapDesignColumns(design, paramFilters);
         this.chartDesigns[chart.id] = activeDesign;
-        const { rows: transformedRows, columns: transformedCols } = applyParameterFilters(this.applyGlobalRowFilter(res.rows ?? [], clonePlant), paramFilters, res.columns ?? []);
+        const { rows: transformedRows, columns: transformedCols } = applyParameterFilters(serverTableFiltered ? (res.rows ?? []) : this.applyGlobalRowFilter(res.rows ?? [], clonePlant), paramFilters, res.columns ?? []);
         let rows   = applyConditionalFilters(transformedRows, getSavedConditionalFilters(activeDesign));
         rows = this.applyLockedInteractiveFilters(rows, activeDesign);
         const columns = transformedCols;
@@ -2439,7 +2642,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
           localFilters.some(filter => filter.dashboardAdditional);
         const multiY = (activeDesign['multiYColumns'] as string[]) ?? [];
         const chartTypeVal = (activeDesign['chartType'] as string) ?? 'bar';
-        const specialTypes = ['gauge', 'histogram', 'sankey', 'timeline', 'bullet', 'bubble', 'heatmap'];
+        const specialTypes = ['gauge', 'histogram', 'sankey', 'timeline', 'bullet', 'bubble', 'scatter', 'heatmap'];
         const showDataLabels = activeDesign['showDataLabels'] as boolean | undefined;
         this.chartShowDataLabels[chart.id] = showDataLabels !== false;
         delete this.advancedCharts[chart.id];
@@ -2479,6 +2682,15 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
           this.chartTableCache[chart.id] = this.buildChartTableData(chart.id);
           this.chartPreviewOptions[chart.id] = applyChartZoom(applyDataLabelPreference(applyChartSort(this.buildChartOptions((activeDesign['chartType'] as string) ?? 'bar', categories, [], chart.title, series, activeDesign), activeDesign['sortOrder']), showDataLabels));
         } else {
+          const ct = (activeDesign['chartType'] as string) ?? 'bar';
+          const metricCols = (ct === 'bar' || ct === 'column') ? (activeDesign['metricColumns'] ?? []) : [];
+          this.chartMetricColumns[chart.id] = metricCols.length > 1 ? metricCols : [];
+          if (this.chartMetricColumns[chart.id].length) {
+            if (!this.chartActiveMetric[chart.id] || !this.chartMetricColumns[chart.id].includes(this.chartActiveMetric[chart.id]))
+              this.chartActiveMetric[chart.id] = this.chartMetricColumns[chart.id][0];
+            activeDesign['yAggColumn'] = this.chartActiveMetric[chart.id];
+            this.chartRawRows[chart.id] = rows;
+          }
           const { cats, vals } = this.aggregateChart(rows, activeDesign);
           appendDaxToChartData(daxMeasures, rows, columns, cats, vals);
           this.chartAggData[chart.id]   = { cats, vals, title: chart.title, seriesName: (activeDesign['yAxis'] as string) || (activeDesign['yAggColumn'] as string) || 'Value', xHeader: (activeDesign['xAxisTitle'] as string) || (activeDesign['xAxis'] as string) || 'Parameter' };
@@ -2518,25 +2730,47 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   /** Loads a chart's attached KPI tiles so they render above the chart in the builder (board slot + Add Charts modal). */
+  /** Live breakdown values for a chart's inline tiles, mirroring the tile's main value: the chart's
+   *  active local/clone filters flow to the breakdown; global hierarchy applies to View sources only. */
+  private hydrateInlineBreakdown(target: { value: string }[], defs: { sourceName?: string; sourceType?: string; column?: string }[],
+    localFilters: { sourceTable: string; sourceColumn: string; controlType: string; value: string; label: string }[], chartSource: string): void {
+    defs.forEach((d, i) => {
+      if (!d?.sourceName || !d?.column) return;
+      const isView = (d.sourceType ?? 'Table').toLowerCase() === 'view';
+      const locals = localFilters.map(f => ({
+        sourceTable: !f.sourceTable || f.sourceTable.toLowerCase() === chartSource.toLowerCase() ? d.sourceName! : f.sourceTable,
+        sourceColumn: f.sourceColumn, controlType: f.controlType, value: f.value, label: f.label,
+      }));
+      const globals = isView ? this.globalHierarchyFilterPayload(true).filter(g => g.advancedHierarchy || !locals.some(l =>
+        l.sourceColumn.toLowerCase() === g.sourceColumn.toLowerCase() || l.label.toLowerCase() === g.label.toLowerCase())) : [];
+      this.commonApi.getBreakdownValueFiltered({
+        sourceName: d.sourceName, sourceType: d.sourceType ?? 'Table', column: d.column,
+        filters: [...locals, ...globals],
+        fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
+      }).pipe(takeUntil(this.chartPreviewReload$), takeUntil(this.destroy$))
+        .subscribe(v => { if (target[i]) { target[i].value = String(Math.round(v * 100) / 100); this.cdr.markForCheck(); } });
+    });
+  }
+
   private loadInlineTilesForChart(chartId: string, tileIds: number[], chart: ChartSelectorItem, localFilters: { sourceTable: string; sourceColumn: string; controlType: string; label: string; value: string; values?: string[] }[] = []): void {
     if (!tileIds?.length) { this.chartInlineTiles[chartId] = []; return; }
     // Chart's active local (interactive) filters, forwarded to attached view tiles so they filter with the chart.
     const viewLocalFilters = localFilters.filter(f => f.value || (f.values?.length ?? 0));
     const localScopedGlobals = this.globalHierarchyFilterPayload(true).filter(g =>
-      !viewLocalFilters.some(l => l.sourceColumn.toLowerCase() === g.sourceColumn.toLowerCase()
+      g.advancedHierarchy || !viewLocalFilters.some(l => l.sourceColumn.toLowerCase() === g.sourceColumn.toLowerCase()
         || l.label.toLowerCase() === g.label.toLowerCase()));
     let design: { interactiveFilters?: { sourceColumn?: string; sourceTable?: string; controlType?: string; label?: string }[] } = {};
     try { design = JSON.parse(chart.designJson ?? '{}'); } catch {}
     const preset = design.interactiveFilters?.find(filter =>
       filter.sourceColumn?.toLowerCase() === chart.presetColumn?.toLowerCase());
-    type InlineTile = { label: string; value: string; color: string; icon: string; breakdown: { label: string; value: string; color: string }[] };
+    type InlineTile = { label: string; value: string; color: string; icon: string; tileLayout?: TileLayout; showIcon?: boolean; valueBold?: boolean; valueItalic?: boolean; valueColor?: string; breakdown: { label: string; value: string; color: string }[] };
     const slots: (InlineTile | null)[] = tileIds.map(() => null);
     const rebuild = () => {
       this.chartInlineTiles[chartId] = slots.filter((s): s is InlineTile => s !== null);
       this.cdr.markForCheck();
     };
     tileIds.forEach((tileId, slotIdx) => {
-      this.widgetService.getWidgetById(tileId).pipe(takeUntil(this.destroy$)).subscribe({
+      this.widgetService.getWidgetById(tileId).pipe(takeUntil(this.chartPreviewReload$), takeUntil(this.destroy$)).subscribe({
         next: (tile) => {
           let d: Record<string, unknown> = {};
           try { d = JSON.parse(tile.designJson ?? '{}'); } catch { /* ignore */ }
@@ -2545,13 +2779,24 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
           const label = ((d['title'] as string) || tile.name) ?? '';
           const color = (d['tileColor'] as string) ?? 'blue';
           const icon = (d['tileIcon'] as string) ?? 'well';
-          const breakdown = ((d['breakdownRows'] as { label?: string; value?: unknown; color?: string }[]) ?? [])
-            .filter(r => r && (r.label || r.value))
-            .map(r => ({ label: r.label ?? '', value: String(r.value ?? ''), color: r.color ?? 'blue' }));
+          const showIcon = d['showTileIcon'] !== false;
+          const tileLayout = resolveTileLayout(d['tileLayout']);
+          const valueBold = d['valueBold'] === true;
+          const valueItalic = d['valueItalic'] === true;
+          const valueColor = (d['valueColor'] as string) || '';
+          const breakdownDefs = ((d['breakdownRows'] as { label?: string; value?: unknown; color?: string; sourceName?: string; sourceType?: string; column?: string }[]) ?? [])
+            .filter(r => r && (r.label || r.value));
+          const breakdown = breakdownDefs.map(r => ({ label: r.label ?? '', value: String(r.value ?? ''), color: r.color ?? 'blue' }));
+          const breakdownLocals = chart.presetColumn
+            ? [{ sourceTable: preset?.sourceTable && preset.sourceTable.toLowerCase() !== chart.source.toLowerCase() ? preset.sourceTable : '', sourceColumn: chart.presetColumn, controlType: preset?.controlType || 'Dropdown', value: chart.presetValue ?? '', label: preset?.label || chart.presetColumn }]
+            : viewLocalFilters.filter(f => f.value && f.controlType !== 'MultiSelect').map(f => ({ sourceTable: f.sourceTable, sourceColumn: f.sourceColumn, controlType: f.controlType, value: f.value, label: f.label }));
+          this.hydrateInlineBreakdown(breakdown, breakdownDefs, breakdownLocals, chart.source);
           if (!source) { rebuild(); return; }
           const viewId = (tile as { sourceId?: number }).sourceId ?? (d['viewId'] as number) ?? 0;
           const isView = sourceType.toLowerCase() === 'view' && viewId > 0;
           const isTable = sourceType.toLowerCase() === 'table';
+          // Inline tiles follow the chart's global Cluster/Plant: non-DAX Table tiles filter via FK.
+          const inlineTableGlobals = isTable && !(d['daxModel'] as DaxModelConfig)?.enabled ? tableClusterPlantFilters(this.cluster, this.plant) : [];
           const cloneFilter = chart.presetColumn ? {
             sourceTable: !preset?.sourceTable || preset.sourceTable.toLowerCase() === chart.source.toLowerCase() ? source : preset.sourceTable,
             sourceColumn: chart.presetColumn,
@@ -2564,7 +2809,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
                 chartSource: source, chartSourceType: sourceType, viewId: isView ? viewId : null,
                 filters: [cloneFilter, ...this.globalHierarchyFilterPayload(isView).filter(filter =>
                   filter.sourceColumn.toLowerCase() !== cloneFilter.sourceColumn.toLowerCase() &&
-                  filter.label.toLowerCase() !== cloneFilter.label.toLowerCase())],
+                  filter.label.toLowerCase() !== cloneFilter.label.toLowerCase()), ...inlineTableGlobals],
                 fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
                 ...(isTable ? { aggregation: (d['aggregation'] as string) ?? 'count', valueField: (d['valueField'] as string) || undefined, daxModel: d['daxModel'] as DaxModelConfig } : {}),
               }).pipe(map(res => {
@@ -2583,19 +2828,38 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
                 filters: [...viewLocalFilters, ...localScopedGlobals],
                 fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
               }).pipe(map(res => this.computeTileValue(res.rows ?? [], d)))
+            : (isTable && viewLocalFilters.some(f => f.value && f.controlType !== 'MultiSelect'))
+            ? this.widgetService.getFilteredChartData({
+                chartSource: source, chartSourceType: sourceType, viewId: null,
+                // Table aggregate tiles FK-join their local filters; hierarchy globals aren't real
+                // tables, so send only the chart's active local filters (same as the chart detail page).
+                filters: [...viewLocalFilters.filter(f => f.value && f.controlType !== 'MultiSelect').map(f => ({
+                  sourceTable: !f.sourceTable || f.sourceTable.toLowerCase() === chart.source.toLowerCase() ? source : f.sourceTable,
+                  sourceColumn: f.sourceColumn, controlType: f.controlType, value: f.value, label: f.label,
+                })), ...inlineTableGlobals],
+                fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
+                aggregation: (d['aggregation'] as string) ?? 'count', valueField: (d['valueField'] as string) || undefined,
+                daxModel: d['daxModel'] as DaxModelConfig,
+              }).pipe(map(res => this.formatTileNumber(Number(res.rows?.[0]?.['Value'] ?? 0), d)))
             : (!isView && isTable)
-            ? this.getTileAggregate(source, d)
-                .pipe(map(res => this.formatTileNumber(res.value ?? 0, d)))
+            ? (inlineTableGlobals.length
+                ? this.widgetService.getFilteredChartData({
+                    chartSource: source, chartSourceType: 'Table', viewId: null, filters: inlineTableGlobals,
+                    fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
+                    aggregation: (d['aggregation'] as string) ?? 'count', valueField: (d['valueField'] as string) || undefined,
+                  }).pipe(map(res => this.formatTileNumber(Number(res.rows?.[0]?.['Value'] ?? 0), d)))
+                : this.getTileAggregate(source, d)
+                    .pipe(map(res => this.formatTileNumber(res.value ?? 0, d))))
             : (isView
                 ? this.commonApi.getDatabaseViewById(viewId).pipe(
-                    switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: this.injectGlobalFilterParams(view.generatedSql), viewId: view.id, maxRows: 1000 })),
+                    switchMap(view => this.commonApi.previewView({ connectionId: view.connectionId, sql: this.injectGlobalFilterParams(view.generatedSql), viewId: view.id, maxRows: 1000, filters: this.globalPreviewFilters(view.id) })),
                   )
                 : this.widgetService.getTableData(source, sourceType)
               ).pipe(map(res => this.computeTileValue(res.rows ?? [], d)));
-          value$.pipe(takeUntil(this.destroy$)).subscribe({
-            next: (value) => { slots[slotIdx] = { label, value, color, icon, breakdown }; rebuild(); },
+          value$.pipe(takeUntil(this.chartPreviewReload$), takeUntil(this.destroy$)).subscribe({
+            next: (value) => { slots[slotIdx] = { label, value, color, icon, tileLayout, showIcon, valueBold, valueItalic, valueColor, breakdown }; rebuild(); },
             error: () => {
-              if ((d['daxModel'] as DaxModelConfig)?.enabled) slots[slotIdx] = { label, value: 'DAX error', color, icon, breakdown };
+              if ((d['daxModel'] as DaxModelConfig)?.enabled) slots[slotIdx] = { label, value: 'DAX error', color, icon, tileLayout, showIcon, valueBold, valueItalic, valueColor, breakdown };
               rebuild();
             },
           });
@@ -2730,7 +2994,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     const categories = [...grouped.keys()];
     const allCols    = [...((design['multiYColumns'] as string[]) ?? [])];
     const comboLineCols: string[] = (design['comboLineColumns'] as string[]) ?? [];
-    const hasDualY = comboLineCols.length > 0 && (design['chartType'] === 'combo' || design['chartType'] === 'multiline');
+    const hasDualY = comboLineCols.length > 0 && (design['chartType'] === 'combo' || design['chartType'] === 'multiline' || design['chartType'] === 'grouped');
     if (hasDualY) {
       for (const col of comboLineCols) {
         if (!allCols.includes(col)) allCols.push(col);
@@ -2932,6 +3196,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     const showAxis = design?.showAxisTitle as boolean | undefined;
     const xTitle = showAxis ? ((design?.xAxisTitle as string) || undefined) : undefined;
     const yTitle = showAxis ? ((design?.yAxisTitle as string) || undefined) : undefined;
+    const y2Title = showAxis ? ((design?.yAxis2Title as string) || undefined) : undefined;
 
     if (chartType === 'pie' || chartType === 'donut') {
       return {
@@ -2939,8 +3204,8 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
         title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
         tooltip: { pointFormat: '<b>{point.y}</b> ({point.percentage:.0f}%)' },
         plotOptions: { pie: { innerSize: chartType === 'donut' ? '55%' : '0%', borderWidth: 2, borderColor: '#fff',
-          dataLabels: { enabled: true, distance: -28, format: '{point.y}',
-            style: { color: '#fff', fontWeight: '700', fontSize: '11px', textOutline: 'none' } } } },
+          dataLabels: { enabled: true, distance: chartType === 'donut' ? '-20%' : -28, format: '{point.y}', allowOverlap: true, crop: false, overflow: 'allow',
+            style: { color: '#fff', fontWeight: '700', fontSize: '11px', textOutline: 'none' } } as any } },
         series: [{ type: 'pie', name: title,
           data: cats.map((c, i) => ({ name: c, y: vals[i], color: this.pointColor(c, vals[i] ?? 0, design, i, design?.yAxis ?? 'Value') })).filter(d => d.y !== 0) }],
       };
@@ -2969,8 +3234,8 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
       };
       if (hasDualY) {
         opts.yAxis = [
-          { title: { text: undefined }, gridLineColor: '#F1F3F6' },
-          { title: { text: undefined }, opposite: true, gridLineWidth: 0 },
+          { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+          { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
         ];
         opts.tooltip = { shared: true };
       }
@@ -3019,10 +3284,10 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
       return {
         chart: { type: 'column', backgroundColor: 'transparent' },
         title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-        xAxis: { categories: cats, labels: { style: { fontSize: '10px', color: '#667085' } }, lineColor: '#E7ECF3' },
+        xAxis: { categories: cats, title: { text: xTitle }, labels: { style: { fontSize: '10px', color: '#667085' } }, lineColor: '#E7ECF3' },
         yAxis: [
-          { title: { text: undefined }, gridLineColor: '#F1F3F6' },
-          { title: { text: undefined }, opposite: true, gridLineWidth: 0 },
+          { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+          { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
         ],
         tooltip: { shared: true },
         plotOptions: {
@@ -3034,10 +3299,18 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     }
 
     if (chartType === 'grouped' && hasMulti) {
+      const hasDualY = series!.some((s: any) => s.yAxis === 1);
       return {
         chart: { type: 'column', backgroundColor: 'transparent' },
         title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
         ...axes,
+        ...(hasDualY ? {
+          yAxis: [
+            { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+            { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
+          ],
+          tooltip: { shared: true },
+        } : {}),
         plotOptions: { column: { grouping: true, borderRadius: 4, borderWidth: 0, dataLabels: { enabled: true, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } } } },
         series: series!,
       };
@@ -3098,17 +3371,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
 
     if (chartType === 'histogram') {
       const col = design.yAggColumn || design.yAxis || '';
-      const rawValues = rows.map(r => Number(r[col])).filter(v => !Number.isNaN(v));
-      return {
-        chart: { backgroundColor: 'transparent' },
-        title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-        xAxis: [{ alignTicks: false }, { title: { text: 'Histogram' }, alignTicks: false, opposite: true }],
-        yAxis: [{ title: { text: undefined } }, { title: { text: 'Frequency' }, opposite: true }],
-        series: [
-          { name: col || 'Raw data', type: 'scatter' as const, data: rawValues, visible: false, id: 'db-histogram-raw' },
-          { name: col || 'Histogram', type: 'histogram' as any, xAxis: 1, yAxis: 1, baseSeries: 'db-histogram-raw', zIndex: -1, color: chartFallbackColor(`${col || 'Histogram'}:`, 0) },
-        ],
-      };
+      return buildHistogramOptions(rows, col, design.histogramBins, undefined, CHART_AUTO_COLORS);
     }
 
     if (chartType === 'bullet') {
@@ -3131,6 +3394,13 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
         plotOptions: { series: { pointPadding: 0.25, borderWidth: 0, color: chartFallbackColor(`${measureCol || 'Value'}:`, 0), targetOptions: { width: '200%' } } } as any,
         series: [{ type: 'bullet' as any, name: measureCol || 'Value', data }],
       };
+    }
+
+    if (chartType === 'scatter') {
+      return buildScatterOptions({
+        rows, xColumn: design.xAxis ?? '', yColumn: design.yAggColumn || design.yAxis || '',
+        categoryColumn: design.scatterCategoryColumn || undefined,
+      });
     }
 
     if (chartType === 'bubble') {
@@ -3156,31 +3426,10 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     }
 
     if (chartType === 'heatmap') {
-      const xAxis = design.xAxis ?? '';
-      const yCol = design.heatmapYColumn ?? '';
-      const valueCol = design.yAggColumn || design.yAxis || '';
-      const xCats = [...new Set(rows.map(r => safeStr(r[xAxis])))];
-      const yCats = [...new Set(rows.map(r => safeStr(r[yCol])))];
-      const cellMap = new Map<string, number>();
-      for (const row of rows) {
-        const xi = xCats.indexOf(safeStr(row[xAxis]));
-        const yi = yCats.indexOf(safeStr(row[yCol]));
-        if (xi < 0 || yi < 0) continue;
-        const key = `${xi}-${yi}`;
-        cellMap.set(key, (cellMap.get(key) ?? 0) + (Number(row[valueCol]) || 0));
-      }
-      const data = [...cellMap.entries()].map(([key, v]) => {
-        const [xi, yi] = key.split('-').map(Number);
-        return [xi, yi, v] as [number, number, number];
+      return buildHeatmapOptions({
+        rows, xColumn: design.xAxis ?? '', yColumn: design.heatmapYColumn ?? '', ...resolveHeatmapMeasure(design.yAggColumn, design.yAxis),
+        xTitle: design.xAxisTitle || undefined, yTitle: design.yAxisTitle || undefined, showLegend: design.showLegend !== false,
       });
-      return {
-        chart: { type: 'heatmap', backgroundColor: 'transparent' },
-        title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-        xAxis: { categories: xCats, title: { text: undefined } },
-        yAxis: { categories: yCats, title: { text: undefined }, reversed: true },
-        colorAxis: { minColor: '#EAF2FF', maxColor: '#2563EB' } as any,
-        series: [{ type: 'heatmap' as const, name: valueCol || 'Value', data, dataLabels: { enabled: true } }],
-      };
     }
 
     if (chartType === 'sankey') {
@@ -3206,15 +3455,9 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     }
 
     // timeline
-    const dateCol = design.timelineDateColumn ?? '';
-    const labelCol = design.timelineLabelColumn ?? '';
-    const data = rows.map(r => ({ name: safeStr(r[labelCol]), label: safeStr(r[dateCol]) }));
-    return {
-      chart: { type: 'timeline' as any, backgroundColor: 'transparent' },
-      title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-      xAxis: { visible: false }, yAxis: { visible: false },
-      series: [{ type: 'timeline' as any, name: labelCol || 'Timeline', data }],
-    };
+    return buildTimelineOptions(rows, {
+      start: design.timelineDateColumn ?? '', end: design.timelineEndColumn ?? '', task: design.timelineLabelColumn ?? '',
+    });
   }
 
   /** Re-type the cached multi-series data for the chart type currently being previewed. */
@@ -3234,7 +3477,11 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
           out.type = s.name === 'Total' ? 'line' : 'column';
           out.stacking = s.name === 'Total' ? undefined : 'normal';
           break;
-        case 'grouped': case 'bar':
+        case 'grouped':
+          out.type = 'column';
+          if (isComboLine) out.yAxis = 1;
+          break;
+        case 'bar':
           out.type = 'column';
           break;
         case 'column':
@@ -3350,6 +3597,29 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     this.cdr.markForCheck();
   }
 
+  toggleChartMetricMenu(id: string, event: Event): void {
+    event.stopPropagation();
+    const wasOpen = this.openChartMetric[id];
+    this.openChartMetric = {};
+    if (!wasOpen) this.openChartMetric[id] = true;
+    this.cdr.markForCheck();
+  }
+
+  switchChartMetric(id: string, col: string): void {
+    this.openChartMetric = {};
+    if (col === this.chartActiveMetric[id]) { this.cdr.markForCheck(); return; }
+    this.chartActiveMetric[id] = col;
+    const rows = this.chartRawRows[id];
+    if (!rows) { this.cdr.markForCheck(); return; }
+    const design = { ...this.chartDesigns[id], yAggColumn: col };
+    const { cats, vals } = this.aggregateChart(rows, design);
+    this.chartAggData[id] = { ...this.chartAggData[id], cats, vals };
+    this.chartTableCache[id] = this.buildChartTableData(id);
+    this.chartPreviewOptions[id] = applyChartZoom(applyDataLabelPreference(
+      this.buildChartOptions(this.cardChartType[id], cats, vals, this.chartAggData[id].title, undefined, design), this.chartShowDataLabels[id]));
+    this.cdr.markForCheck();
+  }
+
   getChartLegendItems(id: string): { name: string; color: string }[] {
     const data = this.chartAggData[id];
     if (!data) return [];
@@ -3372,12 +3642,35 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
     }));
   }
 
-  shouldIncludeDataTable(id: string): boolean {
-    return this.chartDesigns[id]?.includeDataTable === true;
+  shouldIncludeDataTable(id: string, hideDataTableOverride?: boolean): boolean {
+    return hideDataTableOverride !== true && this.chartDesigns[id]?.includeDataTable === true;
+  }
+
+  canToggleDataTable(slot: ChartSelectorItem): boolean {
+    return this.resolvedCardType(slot) !== 'table'
+      && (this.chartDesigns[slot.id]?.includeDataTable === true || slot.hideDataTableOverride === true);
+  }
+
+  toggleDataTable(slot: ChartSelectorItem): void {
+    slot.hideDataTableOverride = slot.hideDataTableOverride !== true;
+    this.commitUndoPoint();
+    this.closeChartMenu();
+    this.cdr.markForCheck();
   }
 
   shouldShowLegend(id: string): boolean {
     return this.chartDesigns[id]?.showLegend !== false;
+  }
+
+  readonly legendLayoutClass = legendLayoutClass;
+  legendPositionFor(id: string): LegendPosition {
+    return readLegendPosition(this.chartDesigns[id]);
+  }
+
+  /** Left/right legends scroll, which would clip a pill's hover bubble, so they show the full name as a native title. */
+  isSideLegendFor(id: string): boolean {
+    const position = this.legendPositionFor(id);
+    return position === 'left' || position === 'right';
   }
 
   getChartTableData(id: string): { headers: string[]; rows: (string | number)[][]; rowColors: string[]; rowBgColors: string[] } {
@@ -3868,6 +4161,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
           type: 'chart',
           width: slot.width || null,
           height: slot.height || null,
+          hideDataTableOverride: slot.hideDataTableOverride,
           ...(slot.presetColumn ? { presetColumn: slot.presetColumn, presetValue: slot.presetValue ?? '' } : {}),
         }));
         if (cfg.layout) {
@@ -3949,7 +4243,8 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
 
   private boardSignature(snapshot: BuilderBoardSnapshot): string {
     const key = (slot: TileSelectorItem | ChartSelectorItem | null) =>
-      slot ? [slot.id, slot.x, slot.y, slot.width, slot.height] : null;
+      slot ? [slot.id, slot.x, slot.y, slot.width, slot.height,
+        'hideDataTableOverride' in slot ? slot.hideDataTableOverride : undefined] : null;
     return JSON.stringify([snapshot.tileSlots.map(key), snapshot.chartSlotsData.map(key)]);
   }
 
@@ -4073,13 +4368,130 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
 
   // ─── Help modal ───────────────────────────────────────────
   showHelpModal        = false;
-  helpExpandedArticle: number | null = 0;
+  helpSearchQuery = '';
+  helpExpandedArticle: string | null = 'dashboard-details';
+  helpVote: 'yes' | 'no' | null = null;
 
-  openHelpModal(): void  { this.showHelpModal = true; }
-  closeHelpModal(): void { this.showHelpModal = false; }
+  readonly helpArticles = [
+    {
+      id: 'dashboard-details',
+      question: 'How do I set up dashboard details?',
+      steps: [
+        'Double-click the dashboard title to rename it.',
+        'Choose a category from the category menu and double-click the description field to add or edit its description.',
+        'Choose a valid category and enter a description before saving. The description check is skipped when saving an internally shared dashboard.',
+      ],
+    },
+    {
+      id: 'add-widgets',
+      question: 'How do I add or remove tiles and charts?',
+      steps: [
+        'Choose Tiles for KPI cards or Charts for visualisations from the right-hand panel.',
+        'Browse or search the Standard and My libraries, select the items you want, then choose Add to Dashboard. You can also drop a library item onto an empty dashboard slot.',
+        'Use the remove (×) control on a tile or chart to take it off the dashboard. Removing a widget does not delete it from its library.',
+      ],
+    },
+    {
+      id: 'arrange-widgets',
+      question: 'How do I arrange or resize widgets?',
+      steps: [
+        'Drag a tile or chart by its six-dot handle to reorder it on the canvas.',
+        'Drag the lower-right resize handle on a tile or chart to change its size; the layout is saved with the dashboard.',
+        'The dashboard rearranges widgets to fit the canvas. Use Undo if a recent move or resize was accidental.',
+      ],
+    },
+    {
+      id: 'configure-charts',
+      question: 'How do I configure or copy a chart?',
+      steps: [
+        'Use the filter controls shown above a chart to refine that chart’s preview; choose All to remove a local selection.',
+        'Open the chart’s options menu to clone it for all available values or for a selected value, or copy it to another dashboard.',
+        'Use the chart’s remove (×) control to remove only that chart from the current dashboard.',
+      ],
+    },
+    {
+      id: 'dashboard-filters',
+      question: 'How do I filter dashboard data?',
+      steps: [
+        'Use the top filter bar to select Country, Sector, Business Unit, Division, Cluster, Plant, a quick date range, or exact dates. Available choices follow the selections made in earlier fields.',
+        'Open Advanced Filter for additional conditions. Use the Filters panel to add dashboard filter fields from a data source and column.',
+        'Hide or show the top filter bar with the Show Filter / Hide Filter button. Filter selections affect previews and are kept for your current browser session.',
+      ],
+    },
+    {
+      id: 'saved-filters',
+      question: 'How do I save and reuse a filter selection?',
+      steps: [
+        'Set the dashboard filters you want, then use the saved-filter controls beside the filter bar to save the current selection with a name.',
+        'Open Saved Filters to apply a saved selection, mark it as a favorite, rename it, or delete it.',
+        'Use the clear-filters control to return filter values to their defaults; this does not remove widgets from the dashboard.',
+      ],
+    },
+    {
+      id: 'dashboard-styling',
+      question: 'How do I change dashboard styling?',
+      steps: [
+        'Choose Styling in the right-hand panel to open the dashboard branding options.',
+        'Adjust the available branding settings and apply them to the current dashboard.',
+        'Save the dashboard to keep styling changes.',
+      ],
+    },
+    {
+      id: 'undo-clear',
+      question: 'How do Undo and Clear All work?',
+      steps: [
+        'Undo reverses the most recent supported dashboard edit, including widget changes and chart moves or resizes. It is disabled when there is nothing to undo.',
+        'Clear All removes every tile and chart from the canvas after you confirm.',
+        'Save after making changes you want to keep.',
+      ],
+    },
+    {
+      id: 'save-dashboard',
+      question: 'How do I save, update, or leave the builder?',
+      steps: [
+        'Choose Save to save the dashboard and keep editing. When editing an existing dashboard, this updates it.',
+        'Choose Save & Close (or Update & Close) to save and return to the previous page.',
+        'Choose Discard to leave without saving; confirm that you want to discard unsaved changes.',
+      ],
+    },
+  ];
 
-  toggleHelpArticle(index: number): void {
-    this.helpExpandedArticle = this.helpExpandedArticle === index ? null : index;
+  get filteredHelpArticles() {
+    const query = this.helpSearchQuery.trim().toLowerCase();
+    if (!query) return this.helpArticles;
+    return this.helpArticles.filter(article =>
+      `${article.question} ${article.steps.join(' ')}`.toLowerCase().includes(query),
+    );
+  }
+
+  openHelpModal(): void {
+    this.helpSearchQuery = '';
+    this.helpExpandedArticle = 'dashboard-details';
+    this.helpVote = null;
+    this.showHelpModal = true;
+  }
+
+  closeHelpModal(): void {
+    this.showHelpModal = false;
+    this.helpSearchQuery = '';
+    this.helpVote = null;
+  }
+
+  toggleHelpArticle(id: string): void {
+    this.helpExpandedArticle = this.helpExpandedArticle === id ? null : id;
+  }
+
+  onHelpSearchChange(): void {
+    this.helpExpandedArticle = this.filteredHelpArticles[0]?.id ?? null;
+  }
+
+  clearHelpSearch(): void {
+    this.helpSearchQuery = '';
+    this.helpExpandedArticle = this.helpArticles[0].id;
+  }
+
+  submitHelpVote(vote: 'yes' | 'no'): void {
+    this.helpVote = vote;
   }
 
   // ─── Learn modal ──────────────────────────────────────────────────────────

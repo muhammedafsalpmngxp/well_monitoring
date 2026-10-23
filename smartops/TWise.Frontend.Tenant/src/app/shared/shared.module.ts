@@ -20,6 +20,7 @@ import { VersionHistoryDialogComponent } from './components/version-history/vers
 import { ReliabilityDetailsDialogComponent } from './components/reliability-details/reliability-details-dialog.component';
 import { CategoryManagerComponent } from './components/category-manager/category-manager.component';
 import { CategorySearchComponent } from './components/category-manager/category-search.component';
+import { DaxMetricSelectComponent } from './components/dax-metric-select/dax-metric-select.component';
 import { MultiSelectComponent } from './components/multi-select/multi-select.component';
 import { AdvancedFilterComponent } from './components/advanced-filter/advanced-filter.component';
 import { DateInputComponent } from './components/date-input/date-input.component';
@@ -37,7 +38,11 @@ import { LazyVisibleDirective } from './directives/lazy-visible.directive';
 import { ScrollPositionPersistDirective } from './directives/scroll-position-persist.directive';
 import { A11yDialogDirective } from './directives/a11y-dialog.directive';
 import { KeyClickDirective } from './directives/key-click.directive';
+import { LegendPagerDirective } from './directives/legend-pager.directive';
+import { FloatingMenuDirective } from './directives/floating-menu.directive';
 import { FieldLabelDirective } from './directives/field-label.directive';
+import { GlobalFilterOptionDirective } from './directives/global-filter-option.directive';
+import { TileTooltipDirective } from './directives/tile-tooltip.directive';
 
 const SHARED_COMPONENTS = [
   ChartTableComponent,
@@ -73,16 +78,22 @@ const SHARED_DIRECTIVES = [ClickOutsideDirective, HasRoleDirective, LazyVisibleD
     AdvancedChartComponent,
     AdvancedChartMappingComponent,
     CategorySearchComponent,
+    DaxMetricSelectComponent,
     AgGridAngular,
     CategoryNameCellRendererComponent,
     CategoryDashboardCellRendererComponent,
     CategoryActionsCellRendererComponent,
     A11yDialogDirective,
     KeyClickDirective,
+    LegendPagerDirective,
+    FloatingMenuDirective,
     FieldLabelDirective,
+    GlobalFilterOptionDirective,
+    TileTooltipDirective,
   ],
   exports: [
     CategorySearchComponent,
+    DaxMetricSelectComponent,
     AdvancedChartComponent,
     AdvancedChartMappingComponent,
     // Angular modules re-exported for convenience
@@ -96,7 +107,11 @@ const SHARED_DIRECTIVES = [ClickOutsideDirective, HasRoleDirective, LazyVisibleD
     ...SHARED_DIRECTIVES,
     A11yDialogDirective,
     KeyClickDirective,
+    LegendPagerDirective,
+    FloatingMenuDirective,
     FieldLabelDirective,
+    GlobalFilterOptionDirective,
+    TileTooltipDirective,
   ],
 })
 export class SharedModule {}

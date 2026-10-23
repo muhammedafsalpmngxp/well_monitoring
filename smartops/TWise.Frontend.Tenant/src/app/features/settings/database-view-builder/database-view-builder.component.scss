@@ -3,7 +3,7 @@
 // Shared thin/blue scrollbar used across every scrollable region on this page.
 @mixin db-builder-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -15,7 +15,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -582,7 +582,7 @@
       overflow-x: hidden;
       padding: 4px;
       scrollbar-width: thin;
-      scrollbar-color: #21409A transparent;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
 
       &::-webkit-scrollbar {
         width: 6px;
@@ -593,7 +593,7 @@
       }
 
       &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 30px;
       }
     }
@@ -1309,7 +1309,7 @@
   overflow-x: hidden;
   padding: 4px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -1320,7 +1320,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -1864,7 +1864,7 @@
     overflow-x: hidden;
     padding: 4px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 6px;
@@ -1875,7 +1875,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }

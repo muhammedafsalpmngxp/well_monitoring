@@ -18,9 +18,11 @@ import { DaxModelComponent } from './dax-model/dax-model.component';
 import { permissionGuard } from '../../core/guards/permission.guard';
 import { adminGuard } from '../../core/guards/admin.guard';
 
+const SETTINGS_MODULES = ['settings.database-view', 'settings.data-sync', 'settings.data-sources', 'settings.marketplace', 'settings.power-bi', 'settings.learn-videos', 'settings.dax-model'];
+
 const routes: Routes = [
   { path: '',                      redirectTo: 'database-view', pathMatch: 'full' },
-  { path: 'settings',              component: SettingsComponent, canActivate: [permissionGuard], data: { permission: 'settings.general' } },
+  { path: 'settings',              component: SettingsComponent, canActivate: [permissionGuard], data: { permission: SETTINGS_MODULES } },
   { path: 'database-view',         component: DatabaseViewComponent, canActivate: [permissionGuard], data: { permission: 'settings.database-view' } },
   { path: 'database-view/builder', component: DatabaseViewBuilderComponent, canActivate: [permissionGuard], runGuardsAndResolvers: 'always', data: { permission: 'settings.database-view', permissionAction: 'build' } },
   { path: 'database-view/:id',     component: DatabaseViewDetailComponent, canActivate: [permissionGuard], data: { permission: 'settings.database-view' } },

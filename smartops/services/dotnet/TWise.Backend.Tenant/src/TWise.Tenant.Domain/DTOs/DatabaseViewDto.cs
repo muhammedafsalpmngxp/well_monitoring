@@ -109,7 +109,8 @@ public record PreviewDatabaseViewRequest(
     string? Sql = null,
     long? ViewId = null,
     int MaxRows = 100,
-    Dictionary<string, string>? GlobalFilters = null
+    Dictionary<string, string>? GlobalFilters = null,
+    IReadOnlyList<ChartFilterParam>? Filters = null
 );
 
 public record PreviewDatabaseViewResponse(

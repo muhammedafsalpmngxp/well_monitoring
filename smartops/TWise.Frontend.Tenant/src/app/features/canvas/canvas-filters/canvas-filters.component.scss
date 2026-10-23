@@ -44,7 +44,7 @@
     padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: var(--color-primary) transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   &__section {

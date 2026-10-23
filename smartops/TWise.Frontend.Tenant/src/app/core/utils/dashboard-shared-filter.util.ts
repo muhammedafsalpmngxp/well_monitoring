@@ -3,7 +3,7 @@ export interface CustomDashboardFilter {
   label: string;
   sourceTable: string;
   sourceColumn: string;
-  value: string;
+  value: GlobalFilterSelection;
   additional?: boolean;
 }
 
@@ -15,6 +15,7 @@ export interface DashboardChartFilter {
   value: string;
   locked?: boolean;
   dashboardAdditional?: boolean;
+  values?: string[];
 }
 
 /** Shared selections override unlocked local selections only on the same source field. */
@@ -30,16 +31,17 @@ export function mergeDashboardSharedFilters<T extends DashboardChartFilter>(
     if (filter.locked || filter.controlType !== 'Dropdown') return filter;
     const shared = sharedFilters.find(candidate =>
       matches(filter, candidate) &&
-      candidate.value && candidate.value !== 'All');
-    return shared ? { ...filter, value: shared.value,
+      hasGlobalSelection(candidate.value));
+    return shared ? { ...filter, ...globalSelectionPayload(shared.value),
       ...(shared.additional ? { dashboardAdditional: true } : {}) } : filter;
   });
   if (createAdditionalFilter) {
     for (const shared of sharedFilters) {
-      if (!shared.additional || !shared.value || shared.value === 'All' ||
+      if (!shared.additional || !hasGlobalSelection(shared.value) ||
           localFilters.some(filter => matches(filter, shared))) continue;
       merged.push(createAdditionalFilter(shared));
     }
   }
   return merged;
 }
+import { GlobalFilterSelection, globalSelectionPayload, hasGlobalSelection } from './global-filter-selection.util';

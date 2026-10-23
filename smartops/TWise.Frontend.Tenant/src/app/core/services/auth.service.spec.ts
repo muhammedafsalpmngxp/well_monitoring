@@ -16,6 +16,7 @@ const loginResponse: LoginResponse = {
   token: 'access-token',
   refreshToken: 'refresh-token',
   userId: 42,
+  employeeId: 'EMP00042',
   email: 'user@example.com',
   displayName: 'Regular User',
   role: 'operator',
@@ -109,6 +110,7 @@ describe('AuthService', () => {
         STORAGE.USER_DATA,
         JSON.stringify({
           userId: 42,
+          employeeId: 'EMP00042',
           email: 'user@example.com',
           displayName: 'Regular User',
           role: 'operator',
@@ -120,7 +122,7 @@ describe('AuthService', () => {
     it('should expose the logged-in user via getCurrentUser', () => {
       service.login(credentials).subscribe();
 
-      expect(service.getCurrentUser()).toMatchObject({ userId: 42, role: 'operator' });
+      expect(service.getCurrentUser()).toMatchObject({ userId: 42, employeeId: 'EMP00042', role: 'operator' });
     });
 
     it('should not touch storage or tokens before the response arrives', () => {
@@ -129,6 +131,45 @@ describe('AuthService', () => {
 
       expect(tokenService.setAccessToken).not.toHaveBeenCalled();
       expect(storageService.setItem).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('employee ID in session updates', () => {
+    it.each([null, undefined, '', '   '])('keeps a missing employee ID (%s) null instead of using the user ID', employeeId => {
+      service.applySession({ ...loginResponse, employeeId });
+
+      expect(service.getCurrentUser()?.employeeId).toBeNull();
+    });
+
+    it('updates the employee ID when the session is refreshed', () => {
+      service.applySession(loginResponse);
+      service.applySession({ ...loginResponse, employeeId: '00076' });
+
+      expect(service.getCurrentUser()?.employeeId).toBe('00076');
+    });
+
+    it('clears an old employee ID when refresh explicitly returns null', () => {
+      const token = `header.${btoa(JSON.stringify({ sub: '42', tenantId: 7, email: loginResponse.email, role: 'operator' }))}.signature`;
+      service.applySession({ ...loginResponse, token });
+      service.applySession({ ...loginResponse, token, employeeId: null });
+
+      expect(service.getCurrentUser()?.employeeId).toBeNull();
+    });
+
+    it('preserves the same user employee ID when an older response omits it', () => {
+      const token = `header.${btoa(JSON.stringify({ sub: '42', tenantId: 7, email: loginResponse.email, role: 'operator' }))}.signature`;
+      service.applySession({ ...loginResponse, token });
+      service.applySession({ ...loginResponse, token, employeeId: undefined });
+
+      expect(service.getCurrentUser()?.employeeId).toBe('EMP00042');
+    });
+
+    it('does not carry an employee ID over to a different user', () => {
+      const token = `header.${btoa(JSON.stringify({ sub: '43', tenantId: 7, email: 'other@example.com', role: 'operator' }))}.signature`;
+      service.applySession(loginResponse);
+      service.applySession({ ...loginResponse, userId: 43, token, email: 'other@example.com', employeeId: undefined });
+
+      expect(service.getCurrentUser()?.employeeId).toBeNull();
     });
   });
 
@@ -274,6 +315,14 @@ describe('AuthService', () => {
   });
 
   describe('getCurrentUser', () => {
+    it.each(['00076', null, undefined])('hydrates employee ID %s from a cached profile with a valid token', employeeId => {
+      const token = `header.${btoa(JSON.stringify({ sub: '42', tenantId: 7, email: loginResponse.email, role: 'operator' }))}.signature`;
+      tokenService.getAccessToken.mockReturnValue(token);
+      storageService.getItem.mockReturnValue(JSON.stringify({ ...loginResponse, employeeId }));
+
+      expect(service.getCurrentUser()?.employeeId).toBe(employeeId ?? null);
+    });
+
     it('should hydrate from storage when no user is held in memory', () => {
       storageService.getItem.mockReturnValue(
         JSON.stringify({ userId: 99, email: 'stored@example.com', role: 'viewer' }),

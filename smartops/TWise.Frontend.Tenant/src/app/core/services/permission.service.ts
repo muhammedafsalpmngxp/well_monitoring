@@ -3,6 +3,10 @@ import { TokenService } from './token.service';
 
 export type PermissionAction = 'v' | 'c' | 'm' | 'a';
 
+/** Modules the admin role always keeps, so an admin cannot lock themselves out of access management.
+ *  'settings.ai' is not a ControlPlane module (no role can be ticked for it); its pages are admin-only. */
+const ADMIN_ALWAYS_MODULES: readonly string[] = ['user-management.users', 'user-management.roles', 'settings.ai'];
+
 @Injectable({ providedIn: 'root' })
 export class PermissionService {
   private readonly permissions = signal<Map<string, string>>(new Map());
@@ -29,7 +33,6 @@ export class PermissionService {
         .padEnd(Math.ceil(encodedPayload.length / 4) * 4, '=');
       const payload = JSON.parse(atob(base64Payload));
 
-      // Admin role has full access — no need to check individual permissions
       const role = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
                 || payload['role'] || '';
       this.isAdmin = role.toLowerCase() === 'admin';
@@ -54,7 +57,7 @@ export class PermissionService {
   }
 
   hasPermission(moduleCode: string, action: PermissionAction = 'v'): boolean {
-    if (this.isAdmin) return true;
+    if (this.isAdmin && ADMIN_ALWAYS_MODULES.includes(moduleCode)) return true;
     return this.permissions().get(moduleCode)?.includes(action) ?? false;
   }
 

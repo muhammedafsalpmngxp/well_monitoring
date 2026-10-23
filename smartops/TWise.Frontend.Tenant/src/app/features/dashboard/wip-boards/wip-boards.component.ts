@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
-import { NavigationEnd, Router } from '@angular/router';
+import { NavigationEnd, NavigationStart, Router } from '@angular/router';
 import { catchError, EMPTY, filter, finalize, forkJoin, of, Subject, Subscription, switchMap, take } from 'rxjs';
 import { CategoryService } from '../../../core/services/category.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
@@ -216,12 +216,15 @@ export class WipBoardsComponent implements OnInit, OnDestroy {
     this.loadTenantUsersForNameResolution();
     // This route is kept alive by ListRouteReuseStrategy, so revisiting reattaches the same
     // instance without re-running ngOnInit. Collapse every category on each entry so a category
-    // left open before navigating away never stays expanded on return.
+    // left open before navigating away never stays expanded on return. Back keeps the page as it was.
+    let viaBack = false;
     this.routerSub = this.router.events
-      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .pipe(filter((e): e is NavigationStart | NavigationEnd => e instanceof NavigationStart || e instanceof NavigationEnd))
       .subscribe((e) => {
+        if (e instanceof NavigationStart) { viaBack = e.navigationTrigger === 'popstate'; return; }
         if (e.urlAfterRedirects.includes('/wip-boards')) {
           this.showPendingSuccess();
+          if (viaBack) return;
           this.searchTerm = '';
           this.activeTab = 'all';
           this.sortOption = 'default';
@@ -319,7 +322,7 @@ export class WipBoardsComponent implements OnInit, OnDestroy {
     return data.map((cat, gi) => ({
       id: `cat-${cat.categoryId}`,
       label: cat.categoryName,
-      description: this.apiCategories.find(c => c.categoryName === cat.categoryName)?.description,
+      description: cat.description ?? undefined,
       icon: WipBoardsComponent.GROUP_ICONS[gi % WipBoardsComponent.GROUP_ICONS.length],
       expanded: false,
       boards: cat.dashboards.map((d, bi) => this.mapToBoard(d, bi)),
@@ -1205,7 +1208,10 @@ export class WipBoardsComponent implements OnInit, OnDestroy {
     this.showCategoryManager = false;
     this.categoryService.getCategoriesByType('dashboard').subscribe(cats => {
       this.apiCategories = cats;
-      this.groups.forEach(g => { g.description = cats.find(c => c.categoryName === g.label)?.description; });
+      [...this.groups, ...this.sharedGroups].forEach(group => {
+        const category = cats.find(c => `cat-${c.categoryId}` === group.id);
+        if (category) group.description = category.description;
+      });
       this.cdr.markForCheck();
     });
   }

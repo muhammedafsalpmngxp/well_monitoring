@@ -35,7 +35,7 @@
   overflow: auto;
   height: calc(100dvh / var(--app-zoom-factor, 1) - 194px);
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -46,7 +46,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -278,7 +278,7 @@
     overflow-y: auto;
     padding: 14px 14px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
@@ -289,7 +289,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -1363,6 +1363,13 @@ $board-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 90px 100px 32
   justify-content: center;
   background: rgba(15, 23, 42, 0.45);
   z-index: 1000;
+
+  // Above the sidebar's own breakpoint it's a persistent flex column reserving
+  // `--sidebar-width`, not an overlay — center the modal in the remaining space
+  // instead of across the full viewport, or it overlaps the sidebar.
+  @media (min-width: 993px) {
+    padding-left: var(--sidebar-width);
+  }
 }
 
 .history-modal {
@@ -1447,7 +1454,7 @@ $board-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 90px 100px 32
     background: #fff;
     border-radius: 16px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 6px;
@@ -1458,7 +1465,7 @@ $board-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 90px 100px 32
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -1822,7 +1829,7 @@ $board-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 90px 100px 32
   flex-direction: column;
   gap: 10px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -1833,7 +1840,7 @@ $board-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 90px 100px 32
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }

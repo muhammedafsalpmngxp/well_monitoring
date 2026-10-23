@@ -22,7 +22,7 @@
   overflow: auto;
   height: calc(100dvh / var(--app-zoom-factor, 1) - 188px);
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -33,7 +33,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -1271,7 +1271,7 @@ $chart-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 120px;
     overflow-y: auto;
     padding: 14px 14px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
@@ -1282,7 +1282,7 @@ $chart-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 120px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -1420,7 +1420,7 @@ $chart-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 120px;
   flex-direction: column;
   gap: 10px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -1431,7 +1431,7 @@ $chart-table-columns: 22px minmax(200px, 1.3fr) minmax(200px, 2fr) 120px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }

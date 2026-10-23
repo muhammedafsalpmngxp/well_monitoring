@@ -18,9 +18,12 @@ public record PlantFilterDto(
     string Country
 );
 
-public record AdvancedFilterDataDto(
+/// <summary>Reference options for the Advanced Filter panel, including resource values from ref.local_filters.</summary>
+public sealed record AdvancedFilterDataDto(
     IReadOnlyList<OrgStructureRow> OrgStructure,
-    IReadOnlyList<CompanyRow> Companies
+    IReadOnlyList<CompanyRow> Companies,
+    IReadOnlyList<string> ResourceTypes,
+    string? ResourceTypesError = null
 );
 
 public record OrgStructureRow(

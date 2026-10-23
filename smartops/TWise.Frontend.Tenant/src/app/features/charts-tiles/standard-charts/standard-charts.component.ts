@@ -200,7 +200,7 @@ export class StandardChartsComponent implements OnInit, OnDestroy {
       next: (widgets) => {
         if (!widgets?.length) { this.stopLoading(startedAt); return; }
         const accents: ChartAccent[] = ['purple', 'blue', 'green', 'orange', 'coral'];
-        // Group by categoryName
+        // Group by categoryId so same-name categories stay separate
         const grouped = new Map<string, ChartItem[]>();
         widgets.forEach((w: Widget, i: number) => {
           let design: { chartType?: string } = {};
@@ -220,7 +220,7 @@ export class StandardChartsComponent implements OnInit, OnDestroy {
             previewImage: CHART_PREVIEW_BY_ACCENT[accent],
             widget: w,
           };
-          const key = w.categoryName ?? 'Uncategorised';
+          const key = w.categoryId != null ? `cat-${w.categoryId}` : (w.categoryName ?? 'Uncategorised');
           if (!grouped.has(key)) grouped.set(key, []);
           grouped.get(key)!.push(item);
         });
@@ -228,13 +228,14 @@ export class StandardChartsComponent implements OnInit, OnDestroy {
         const icons: ('settings' | 'productivity' | 'crew')[] = ['settings', 'productivity', 'crew'];
         let iconIdx = 0;
         const apiGroups: ChartGroup[] = [];
-        for (const [label, charts] of grouped) {
+        for (const [key, charts] of grouped) {
+          const label = charts[0].category;
           apiGroups.push({
-            id: label.toLowerCase().replace(/\s+/g, '-'),
+            id: key.toLowerCase().replace(/\s+/g, '-'),
             label,
-            subtitle: this.apiCategories.find(c => c.categoryName === label)?.description,
+            subtitle: charts[0].widget?.categoryDescription ?? undefined,
             icon: icons[iconIdx++ % 3],
-            expanded: false,
+            expanded: this.groups.find(g => g.label === label)?.expanded ?? false,
             charts,
           });
         }
@@ -494,7 +495,8 @@ export class StandardChartsComponent implements OnInit, OnDestroy {
   }
 
   get categoryOptions(): { value: string; label: string }[] {
-    return this.apiCategories.map(c => ({ value: c.categoryName, label: c.categoryName }));
+    return [...new Set(this.allCharts.map(c => c.category))]
+      .map(category => ({ value: category, label: category }));
   }
 
   /** Groups filtered by the active tab, search term and category. */
@@ -724,6 +726,7 @@ export class StandardChartsComponent implements OnInit, OnDestroy {
       })),
     ).subscribe({
       next: () => {
+        this.listRouteReuse.invalidate('wip-charts');
         this.togglingChartId = null;
         this.pendingUnpublishChart = null;
         this.groups = this.groups

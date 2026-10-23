@@ -256,7 +256,8 @@ public class ReportService(IReportRepository repo) : IReportService
         r.CreatedBy,
         r.TenantId,
         r.CreatedAt,
-        r.UpdatedAt
+        r.UpdatedAt,
+        CategoryDescription: r.Category?.Description
     );
 
     private static string? WithCopiedFrom(string? json, long id)

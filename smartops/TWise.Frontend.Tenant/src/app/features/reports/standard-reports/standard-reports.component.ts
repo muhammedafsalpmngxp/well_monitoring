@@ -170,20 +170,19 @@ export class StandardReportsComponent implements OnInit, OnDestroy {
   }
 
   private mapToGroups(reports: TenantReportDto[]): ReportGroup[] {
-    const grouped = new Map<string, TenantReportDto[]>();
+    const grouped = new Map<number, TenantReportDto[]>();
     for (const r of reports) {
-      const cat = r.categoryName || 'Uncategorized';
-      if (!grouped.has(cat)) grouped.set(cat, []);
-      grouped.get(cat)!.push(r);
+      if (!grouped.has(r.categoryId)) grouped.set(r.categoryId, []);
+      grouped.get(r.categoryId)!.push(r);
     }
-    return Array.from(grouped.entries()).map(([label, items], gi) => {
+    return Array.from(grouped.entries()).map(([categoryId, items], gi) => {
       const icon = StandardReportsComponent.GROUP_ICONS[gi % StandardReportsComponent.GROUP_ICONS.length];
       return {
-        id: `cat-${gi}`,
-        label,
+        id: `cat-${categoryId}`,
+        label: items[0].categoryName || 'Uncategorized',
         icon,
-        subtitle: this.apiCategories.find(c => c.categoryName === label)?.description || StandardReportsComponent.GROUP_SUBTITLE,
-        expanded: false,
+        subtitle: items[0].categoryDescription || StandardReportsComponent.GROUP_SUBTITLE,
+        expanded: this.groups.find(g => g.id === `cat-${categoryId}`)?.expanded ?? false,
         reports: items.map((r, ri) => this.mapToReport(r, ri)),
       };
     });

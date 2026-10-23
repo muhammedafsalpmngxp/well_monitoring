@@ -405,7 +405,7 @@
                         </svg>
                       </button>
 
-                      <div class="board-card__menu-panel" *ngIf="openMenuBoardId === board.id">
+                      <div class="board-card__menu-panel" appFloatingMenu (floatingMenuScroll)="closeBoardMenu()" *ngIf="openMenuBoardId === board.id">
                         <button *ngIf="canCopyToDraft" class="board-card__menu-item board-card__menu-item--copy"
                           (click)="copyToDraft(board)">
                           <span class="board-card__menu-icon">
@@ -528,7 +528,7 @@
                         {{ board.modifiedLabel }}</span>
                     </div>
                     <ng-container *appHasRole="'admin'">
-                      <label *ngIf="board.status === 'Published' || board.status === 'Inactive'"
+                      <label *ngIf="showCardToggle && (board.status === 'Published' || board.status === 'Inactive')"
                         class="board-card__toggle" [attr.title]="board.isActive ? 'Deactivate Board' : 'Activate Board'"
                         (click)="$event.stopPropagation()">
                         <input type="checkbox" [checked]="board.isActive" [disabled]="togglingBoardId === board.id"

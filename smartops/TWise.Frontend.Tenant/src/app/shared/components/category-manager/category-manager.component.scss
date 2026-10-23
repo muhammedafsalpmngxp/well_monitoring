@@ -6,6 +6,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
+
+  // Above the sidebar's own breakpoint (sidebar.component.scss) it's a persistent flex
+  // column reserving `--sidebar-width`, not an overlay — center the modal in the
+  // remaining space instead of across the full viewport, or it overlaps the sidebar.
+  @media (min-width: 993px) {
+    padding-left: var(--sidebar-width);
+  }
 }
 
 .cm {
@@ -390,14 +397,14 @@ max-width: 1062px;
     font-family: inherit;
 
     &--primary {
-      background: #1D2939;
+      background: #21409A;
       color: #fff;
       flex: 1;
       justify-content: center;
 
-      &:hover {
-        background: #101828;
-      }
+      // &:hover {
+      //   background: #101828;
+      // }
 
       &:disabled {
         opacity: 0.6;
@@ -512,7 +519,7 @@ max-width: 1062px;
       .ag-body-viewport,
       .ag-center-cols-viewport {
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
 
         &::-webkit-scrollbar {
           width: 3px;
@@ -524,7 +531,7 @@ max-width: 1062px;
         }
 
         &::-webkit-scrollbar-thumb {
-          background: #21409A;
+          background: var(--scrollbar-thumb);
           border-radius: 30px;
         }
       }
@@ -601,7 +608,7 @@ max-width: 1062px;
 :host ::ng-deep .cm-grid .ag-body-vertical-scroll-viewport,
 :host ::ng-deep .cm-grid .ag-body-horizontal-scroll-viewport {
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 :host ::ng-deep .cm-grid .ag-body-viewport::-webkit-scrollbar,
@@ -623,7 +630,7 @@ max-width: 1062px;
 :host ::ng-deep .cm-grid .ag-center-cols-viewport::-webkit-scrollbar-thumb,
 :host ::ng-deep .cm-grid .ag-body-vertical-scroll-viewport::-webkit-scrollbar-thumb,
 :host ::ng-deep .cm-grid .ag-body-horizontal-scroll-viewport::-webkit-scrollbar-thumb {
-  background: #21409A;
+  background: var(--scrollbar-thumb);
   border-radius: 30px;
 }
 

@@ -45,23 +45,37 @@ public static class DashboardGroupingHelper
         {
             CategoryId = c.CategoryId,
             CategoryName = c.CategoryName,
+            Description = c.Description,
             DashboardCount = dashboards.Count(d => d.CategoryId == c.CategoryId),
             Dashboards = dashboards.Where(d => d.CategoryId == c.CategoryId)
-                .Select(d => new DashboardSummaryResponse
-                {
-                    DashboardId = d.DashboardId,
-                    DashboardName = d.DashboardName,
-                    CategoryId = d.CategoryId,
-                    CategoryName = c.CategoryName,
-                    Status = d.Status,
-                    Description = d.Description,
-                    WidgetCount = CountWidgetsFromConfig(d.ConfigJson),
-                    ModifiedDate = d.ModifiedAt,
-                    CreatedBy = d.CreatedBy,
-                    VersionNo = d.VersionNo
-                }).ToList()
+                .Select(d => ToSummary(d, c.CategoryName)).ToList()
         }).ToList();
     }
+
+    public const string OthersGroupName = "Others";
+
+    /// <summary>The user's boards that sit in a category someone else created, so they stay reachable to be moved.</summary>
+    public static DashboardCategoryResponse OthersGroup(IReadOnlyList<Dashboard> dashboards) => new()
+    {
+        CategoryId = 0,
+        CategoryName = OthersGroupName,
+        DashboardCount = dashboards.Count,
+        Dashboards = dashboards.Select(d => ToSummary(d, OthersGroupName)).ToList()
+    };
+
+    private static DashboardSummaryResponse ToSummary(Dashboard d, string categoryName) => new()
+    {
+        DashboardId = d.DashboardId,
+        DashboardName = d.DashboardName,
+        CategoryId = d.CategoryId,
+        CategoryName = categoryName,
+        Status = d.Status,
+        Description = d.Description,
+        WidgetCount = CountWidgetsFromConfig(d.ConfigJson),
+        ModifiedDate = d.ModifiedAt,
+        CreatedBy = d.CreatedBy,
+        VersionNo = d.VersionNo
+    };
 
     /// <summary>The rows of the requested kind (no kind means dashboards).</summary>
     // ponytail: filters in memory after the list query, as these lists already load every row with its ConfigJson; filter in SQL with JSON_VALUE if the lists grow large.
@@ -81,11 +95,17 @@ public sealed class GetWipDashboardsHandler(
 
         var userId = currentUser.UserId ?? "system";
         logger.LogInformation("Fetching WIP dashboards for user {UserId}.", userId);
-        var categories = await repo.GetDashboardCategoriesAsync(ct);
-        var dashboards = await repo.GetDashboardsByCreatorAsync(userId,
-            [DashboardStatus.Draft, DashboardStatus.Completed], ct);
-        return Result<IReadOnlyList<DashboardCategoryResponse>>.Success(
-            DashboardGroupingHelper.GroupByCategory(categories, DashboardGroupingHelper.OfKind(dashboards, request.Kind)));
+        // Same rule as the Manage Category list: the default category plus the ones this user created.
+        var categories = (await repo.GetDashboardCategoriesAsync(ct))
+            .Where(c => c.CategoryId == 1 || c.CreatedBy == userId)
+            .ToList();
+        var dashboards = DashboardGroupingHelper.OfKind(await repo.GetDashboardsByCreatorAsync(userId,
+            [DashboardStatus.Draft, DashboardStatus.Completed], ct), request.Kind);
+        var groups = DashboardGroupingHelper.GroupByCategory(categories, dashboards).ToList();
+        var ownIds = categories.Select(c => c.CategoryId).ToHashSet();
+        var inOtherCategories = dashboards.Where(d => !ownIds.Contains(d.CategoryId)).ToList();
+        if (inOtherCategories.Count > 0) groups.Add(DashboardGroupingHelper.OthersGroup(inOtherCategories));
+        return Result<IReadOnlyList<DashboardCategoryResponse>>.Success(groups);
     }
 }
 

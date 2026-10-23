@@ -28,7 +28,7 @@ public sealed class BiWritePermissionFilter(
             context.Result = new UnauthorizedResult();
             return;
         }
-        if (user.IsInRole("admin"))
+        if (user.IsInRole("admin") && IsAdminOnly(http.Request.Path.Value, context.ActionArguments))
         {
             await next();
             return;
@@ -85,6 +85,19 @@ public sealed class BiWritePermissionFilter(
             return;
         }
         await next();
+    }
+
+    // Actions only the admin role may perform; they do not depend on the admin's module ticks.
+    private static bool IsAdminOnly(string? path, IDictionary<string, object?> arguments)
+    {
+        if (path is not null && new[] { "/publish", "/unpublish", "/copy-to-draft", "/share-link", "/share-internal" }
+                .Any(suffix => path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)))
+            return true;
+        if (path?.Contains("/restore/", StringComparison.OrdinalIgnoreCase) == true) return true;
+
+        arguments.TryGetValue("request", out var request);
+        var status = request switch { UpdateWidgetRequest w => w.Status, UpdateReportRequest r => r.Status, _ => null };
+        return string.Equals(status, "published", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string WidgetModule(string? type, bool published) => type?.ToLowerInvariant() switch

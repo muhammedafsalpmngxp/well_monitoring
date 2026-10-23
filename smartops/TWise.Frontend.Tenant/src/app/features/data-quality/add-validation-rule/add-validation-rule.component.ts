@@ -82,7 +82,10 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
     const primaryKeyColumns = primaryKeys
       .filter(primaryKey => !fields.some(field => field.toLowerCase() === primaryKey.toLowerCase()))
       .map(primaryKey => `[${primaryKey.replace(/[[\]]/g, '')}]`);
-    const projectedColumns = [...primaryKeyColumns, ...columns];
+    const timestampSql = this.quotedTimestampColumn();
+    const timestampAlreadyProjected = [...primaryKeys, ...fields]
+      .some(field => field.replace(/[\[\]]/g, '').toLowerCase() === this.timestampColumn.toLowerCase());
+    const projectedColumns = [...primaryKeyColumns, ...columns, ...(timestampSql && !timestampAlreadyProjected ? [timestampSql] : [])];
     const colList = columns.join(', ');
     const projectedColList = projectedColumns.join(', ');
     const quotedTable = this.quoteTableForDisplay(table);
@@ -90,7 +93,7 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
     const rangeCondition = this.rangeCheckCondition(condition, fields[0]);
     const withCondition = (whereClause: string, appendedCondition = condition) => whereClause + (appendedCondition ? ` AND (${appendedCondition})` : '');
     const withDateDefault = (predicate: string, nullSafe = false) => {
-      const extra = this.defaultDatePredicates(fields, columns, nullSafe);
+      const extra = [...this.defaultDatePredicates(fields, columns, nullSafe), ...this.timestampDatePredicates()];
       return extra.length ? `(${predicate}) AND ${extra.join(' AND ')}` : predicate;
     };
 
@@ -100,11 +103,15 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
         const duplicateColumns = this.parseDuplicateCondition(condition, fields, columns);
         const dupColList = duplicateColumns ?? colList;
         const primaryKeyProjection = this.buildPrimaryKeyProjection(primaryKeyColumns);
+        const timestampAggregate = timestampSql && !dupColList.toLowerCase().includes(timestampSql.toLowerCase())
+          ? `MIN(${timestampSql}) AS ${timestampSql}, `
+          : '';
         const dupFilters = [
           ...(condition && !duplicateColumns ? [`(${condition})`] : []),
           ...this.defaultDatePredicates(fields, columns, false),
+          ...this.timestampDatePredicates(),
         ];
-        return `SELECT ${primaryKeyProjection}${dupColList}, COUNT(*) AS dup_count FROM ${quotedTable}`
+        return `SELECT ${primaryKeyProjection}${timestampAggregate}${dupColList}, COUNT(*) AS dup_count FROM ${quotedTable}`
           + (dupFilters.length ? ` WHERE ${dupFilters.join(' AND ')}` : '') + ` GROUP BY ${dupColList} HAVING COUNT(*) > 1`;
       }
       case 'Range Check': {
@@ -175,6 +182,27 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
     });
   }
 
+  private timestampDatePredicates(table?: string): string[] {
+    if (!this.timestampColumn || (!this.customStartDate && !this.customEndDate)) return [];
+    if (table && table.toLowerCase() !== this.sourceTable.toLowerCase()) return [];
+    const column = `[${this.timestampColumn.replace(/]/g, ']]')}]`;
+    const start = this.customStartDate ? this.formatSqlTimestamp(this.customStartDate) : null;
+    const end = this.customEndDate ? this.formatSqlTimestamp(this.customEndDate) : null;
+    if ((this.customStartDate && !start) || (this.customEndDate && !end)) return [];
+    if (!this.customStartDate || !this.customEndDate) {
+      return [`${column} = '${start ?? end}'`];
+    }
+    return [`${column} >= '${start}'`, `${column} <= '${end}'`];
+  }
+
+  private formatSqlTimestamp(value: string): string | null {
+    const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,7}))?)?$/.exec(value);
+    if (!match) return null;
+    const seconds = match[4] ?? '00';
+    const fraction = (match[5] ?? '').padEnd(7, '0');
+    return `${match[1]} ${match[2]}:${match[3]}:${seconds}.${fraction}`;
+  }
+
   private resolvedFieldType(field: string): string | undefined {
     const direct = this.fieldTypeFor(field) ?? this.columnTypes[field];
     if (direct) return direct;
@@ -189,6 +217,11 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
   private buildPrimaryKeyProjection(primaryKeyColumns: string[]): string {
     const projection = primaryKeyColumns.map(column => `MIN(${column}) AS ${column}`).join(', ');
     return projection ? `${projection}, ` : '';
+  }
+
+  private quotedTimestampColumn(table?: string): string {
+    if (!this.timestampColumn || (table && table.toLowerCase() !== this.sourceTable.toLowerCase())) return '';
+    return `[${this.timestampColumn.replace(/]/g, ']]')}]`;
   }
 
   /**
@@ -251,6 +284,9 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
       const condition = this.expandShorthandCondition(rawCondition, columns[0]);
       const quotedTable = this.quoteTableForDisplay(table);
       const tableLiteral = table.replaceAll("'", "''");
+      const timestampSql = this.quotedTimestampColumn(table);
+      const timestampInFields = columns.some(column => column.toLowerCase() === this.timestampColumn.toLowerCase());
+      const timestampColumnProjection = timestampSql && !timestampInFields ? `${timestampSql}, ` : '';
       const columnsSql = columns.map(col => `[${col.replace(/[\[\]]/g, '')}]`).join(', ');
       const primaryKeys = this.primaryKeysByTable.get(table) ?? [];
       const primaryKeyColumns = primaryKeys
@@ -262,8 +298,11 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
 
       if (this.category === 'Reference' || this.category === 'Data Integrity') {
         const primaryKeyProjection = this.buildNormalizedPrimaryKeyProjection(primaryKeyColumns, true);
-        const dupFilters = [...(condition ? [`(${condition})`] : []), ...this.defaultDatePredicates(columns, quotedColumns, false)];
-        selects.push(`SELECT '${tableLiteral}' AS source_table, ${primaryKeyProjection}COUNT(*) AS duplicate_count FROM ${quotedTable}`
+        const timestampAggregate = timestampSql && !columnsSql.toLowerCase().includes(timestampSql.toLowerCase())
+          ? `MIN(${timestampSql}) AS ${timestampSql}, `
+          : '';
+        const dupFilters = [...(condition ? [`(${condition})`] : []), ...this.defaultDatePredicates(columns, quotedColumns, false), ...this.timestampDatePredicates(table)];
+        selects.push(`SELECT '${tableLiteral}' AS source_table, ${primaryKeyProjection}${timestampAggregate}COUNT(*) AS duplicate_count FROM ${quotedTable}`
           + (dupFilters.length ? ` WHERE ${dupFilters.join(' AND ')}` : '')
           + ` GROUP BY ${columnsSql} HAVING COUNT(*) > 1`);
         return;
@@ -273,9 +312,9 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
         const first = `[${columns[0].replace(/[\[\]]/g, '')}]`;
         const second = `[${columns[1].replace(/[\[\]]/g, '')}]`;
         const baseWhere = condition || `${first} IS NOT NULL AND ${second} IS NOT NULL AND ${first} > ${second}`;
-        const dateFilters = this.defaultDatePredicates(columns, quotedColumns, false);
+        const dateFilters = [...this.defaultDatePredicates(columns, quotedColumns, false), ...this.timestampDatePredicates(table)];
         const where = dateFilters.length ? `(${baseWhere}) AND ${dateFilters.join(' AND ')}` : baseWhere;
-        selects.push(`SELECT ${top}'${tableLiteral}' AS source_table, ${primaryKeyValue}${columnsSql} FROM ${quotedTable} WHERE ${where}`);
+        selects.push(`SELECT ${top}'${tableLiteral}' AS source_table, ${primaryKeyValue}${timestampColumnProjection}${columnsSql} FROM ${quotedTable} WHERE ${where}`);
         return;
       }
 
@@ -303,9 +342,9 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
           ? check
           : condition ? `${check} AND (${condition})` : check;
         const isNullCheck = !['Range Check', 'Calculation', 'Formula', 'Calculation / Formula', 'Format Validation'].includes(this.category);
-        const dateFilters = this.defaultDatePredicates([col], [quotedCol], isNullCheck);
+        const dateFilters = [...this.defaultDatePredicates([col], [quotedCol], isNullCheck), ...this.timestampDatePredicates(table)];
         const where = dateFilters.length ? `(${baseWhere}) AND ${dateFilters.join(' AND ')}` : baseWhere;
-        selects.push(`SELECT ${top}'${tableLiteral}' AS source_table, ${primaryKeyValue}'${colLiteral}' AS column_name, CAST(${quotedCol} AS NVARCHAR(4000)) AS value FROM ${quotedTable} WHERE ${where}`);
+        selects.push(`SELECT ${top}'${tableLiteral}' AS source_table, ${primaryKeyValue}${timestampColumnProjection}'${colLiteral}' AS column_name, CAST(${quotedCol} AS NVARCHAR(4000)) AS value FROM ${quotedTable} WHERE ${where}`);
       });
     });
     return selects.join('\nUNION ALL\n');
@@ -757,11 +796,18 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
   }
 
   get filteredSourceTableOptions(): string[] {
-    return this.filterOptions(this.sourceTableOptions, this.sourceTableSearch);
+    const options = this.filterOptions(this.sourceTableOptions, this.sourceTableSearch);
+    return this.sourceTableDropdownOpen ? options.filter(table => table !== this.sourceTable) : options;
   }
 
   get filteredColumnOptions(): string[] {
-    return this.filterOptions(this.columnOptions, this.tableColumnSearch);
+    const options = this.filterOptions(this.columnOptions, this.tableColumnSearch);
+    return this.columnDropdownOpen ? options.filter(column => !this.selectedColumns.includes(column)) : options;
+  }
+
+  get filteredTimestampColumnOptions(): string[] {
+    const options = this.filterOptions(this.columnOptions, this.timestampColumnSearch);
+    return this.timestampColumnDropdownOpen ? options.filter(column => column !== this.timestampColumn) : options;
   }
 
   get filteredViewOptions(): DatabaseViewListItem[] {
@@ -843,6 +889,7 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
   }
 
   openSourceTableDropdown(): void {
+    this.sourceTableSearch = '';
     this.sourceTableDropdownOpen = true;
   }
 
@@ -871,11 +918,14 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
   }
 
   openColumnDropdown(): void {
-    if (this.columnOptions.length) this.columnDropdownOpen = true;
+    if (!this.columnOptions.length) return;
+    this.tableColumnSearch = '';
+    this.columnDropdownOpen = true;
   }
 
   closeColumnDropdown(): void {
     this.columnDropdownOpen = false;
+    this.tableColumnSearch = this.selectedColumns[0] ?? '';
   }
 
   selectTableColumn(col: string): void {
@@ -889,6 +939,9 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
   // ─── Validation Settings ─────────────────────────────────────────────────
   validationPeriod = '';
   maximumRecords = '';
+  timestampColumn = '';
+  timestampColumnSearch = '';
+  timestampColumnDropdownOpen = false;
   conditionLogic = '';
   /** True once the user has typed into the query box directly — their text then overrides auto-generation. */
   queryTouched = false;
@@ -929,6 +982,38 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
 
   onAdditionalConditionChanged(value: string): void {
     this.additionalCondition = value ?? '';
+    this.refreshGeneratedQuery();
+  }
+
+  onTimestampColumnSearchChange(value: string): void {
+    this.timestampColumnSearch = value ?? '';
+    this.timestampColumnDropdownOpen = true;
+    const selected = this.columnOptions.find(column => column.toLowerCase() === this.timestampColumnSearch.trim().toLowerCase());
+    this.timestampColumn = selected ?? '';
+    this.refreshGeneratedQuery();
+  }
+
+  openTimestampColumnDropdown(): void {
+    if (this.sourceType !== 'table' || !this.columnOptions.length) return;
+    this.timestampColumnSearch = '';
+    this.timestampColumnDropdownOpen = true;
+  }
+
+  closeTimestampColumnDropdown(): void {
+    this.timestampColumnDropdownOpen = false;
+    this.timestampColumnSearch = this.timestampColumn;
+  }
+
+  selectTimestampColumn(column: string): void {
+    this.timestampColumn = column;
+    this.timestampColumnSearch = column;
+    this.timestampColumnDropdownOpen = false;
+    this.refreshGeneratedQuery();
+  }
+
+  onDateRangeChanged(endpoint: 'start' | 'end', value: string): void {
+    if (endpoint === 'start') this.customStartDate = value ?? '';
+    else this.customEndDate = value ?? '';
     this.refreshGeneratedQuery();
   }
 
@@ -983,6 +1068,9 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
   onSourceTableChange(): void {
     this.tableColumnSearch = '';
     this.selectedColumns = [];
+    this.timestampColumn = '';
+    this.timestampColumnSearch = '';
+    this.timestampColumnDropdownOpen = false;
     if (!this.sourceTable) { this.columnOptions = []; this.columnTypes = {}; this.primaryKeyColumns = []; return; }
     // Pass just the table name — the backend resolves schema via sys.tables lookup
     // The full schema.table is preserved in sourceTable for query generation
@@ -1017,13 +1105,15 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
         this.severity = rule.severity;
         // Preserve existing date range — period name not stored, so leave empty to keep saved dates on update
         this.validationPeriod = '';
-        if (rule.startDate && rule.endDate) {
-          this.customStartDate = rule.startDate;
-          this.customEndDate = rule.endDate;
-        }
+        this.customStartDate = this.toDateTimeLocal(rule.startDate ?? '');
+        this.customEndDate = this.toDateTimeLocal(rule.endDate ?? '');
         this.maximumRecords = rule.maxRecords != null ? String(rule.maxRecords) : '';
         this.conditionLogic = rule.query ?? '';
         this.queryTouched = !!this.conditionLogic.trim();
+        const timestampSelection = this.extractTimestampSelection(this.conditionLogic);
+        this.timestampColumn = timestampSelection.column;
+        if (timestampSelection.startDate) this.customStartDate = this.toDateTimeLocal(timestampSelection.startDate);
+        if (timestampSelection.endDate) this.customEndDate = this.toDateTimeLocal(timestampSelection.endDate);
         this.description = rule.ruleDesc ?? '';
         this.ruleIsActive = rule.activeYn === 'Y';
 
@@ -1054,15 +1144,46 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
 
         if (tables.length) this.sourceTable = tables[0];
         this.sourceTableSearch = this.sourceTable;
+        if (this.sourceType === 'table' && this.sourceTable) {
+          this.onSourceTableChange();
+          this.timestampColumn = timestampSelection.column;
+          this.timestampColumnSearch = timestampSelection.column;
+        }
 
         this.cdr.markForCheck();
       },
     });
   }
 
+  private extractTimestampSelection(query: string): { column: string; startDate?: string; endDate?: string } {
+    const dateValue = `(\\d{4}-\\d{2}-\\d{2}(?:[ T]\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d+)?)?)?)`;
+    const equalities = [...query.matchAll(new RegExp(`\\[([^\\]]+)\\]\\s*=\\s*'${dateValue}'`, 'gi'))];
+    const ranges = [...query.matchAll(new RegExp(`\\[([^\\]]+)\\]\\s*>=\\s*'${dateValue}'\\s+AND\\s+\\[\\1\\]\\s*(?:<=\\s*'${dateValue}'|<\\s*DATEADD\\(DAY,\\s*1,\\s*'${dateValue}'\\))`, 'gi'))];
+    const equality = equalities.at(-1);
+    const range = ranges.at(-1);
+    if (range && (!equality || (range.index ?? 0) > (equality.index ?? 0))) {
+      return { column: range[1].replace(/]]/g, ']'), startDate: range[2], endDate: range[3] ?? range[4] };
+    }
+    return equality
+      ? { column: equality[1].replace(/]]/g, ']'), startDate: equality[2] }
+      : { column: '' };
+  }
+
+  private toDateTimeLocal(value: string): string {
+    if (!value) return '';
+    const normalized = value.replace(' ', 'T');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return `${normalized}T00:00`;
+    const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?(?:\.(\d{1,7}))?$/.exec(normalized);
+    if (!match) return '';
+    return `${match[1]}T${match[2]}:${match[3] ?? '00'}${match[4] ? `.${match[4].padEnd(7, '0')}` : ''}`;
+  }
+
   switchSourceType(type: 'table' | 'view'): void {
     if (this.sourceType === type) return;
     this.sourceType = type;
+    this.timestampColumn = '';
+    this.timestampColumnSearch = '';
+    this.timestampColumnDropdownOpen = false;
     this.sourceTable = '';
     this.sourceTableSearch = '';
     this.selectedColumns = [];
@@ -1376,9 +1497,9 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
     if (!this.severity) missing.push('Severity');
     if (!this.description.trim()) missing.push('Rule Description');
     if (this.fieldGroups.length === 0) missing.push('Source Fields');
-    if (this.validationPeriod === 'Custom Date') {
-      if (!this.customStartDate) missing.push('Start Date');
-      if (!this.customEndDate) missing.push('End Date');
+    const hasDateRange = !!(this.customStartDate || this.customEndDate);
+    if (hasDateRange) {
+      if (!this.timestampColumn) missing.push('Timestamp Column');
       if (this.customStartDate && this.customEndDate && this.customStartDate > this.customEndDate) {
         this.notify.showError('Start Date must be before End Date.');
         this.cdr.detectChanges();
@@ -1458,9 +1579,9 @@ export class AddValidationRuleComponent implements OnInit, OnChanges {
       table,
       severity: this.severity,
       query: generatedQuery,
-      validationPeriod: this.validationPeriod || undefined,
-      customStartDate: this.validationPeriod === 'Custom Date' ? this.customStartDate : undefined,
-      customEndDate: this.validationPeriod === 'Custom Date' ? this.customEndDate : undefined,
+      validationPeriod: this.customStartDate || this.customEndDate ? 'Custom Date' : this.validationPeriod || undefined,
+      customStartDate: this.customStartDate || undefined,
+      customEndDate: this.customEndDate || undefined,
       maxRecords: this.maximumRecords ? Number.parseInt(this.maximumRecords, 10) : undefined,
       primaryField,
       fields: allFields.join(', '),

@@ -1,20 +1,52 @@
 import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
+import { resolveTileLayout, type TileLayout } from '../../../core/utils/tile-layout.util';
+import { buildTimelineOptions } from '../../../core/utils/timeline-chart.util';
+import { buildHistogramOptions } from '../../../core/utils/histogram-chart.util';
+import { buildScatterOptions } from '../../../core/utils/scatter-chart.util';
+import { buildHeatmapOptions, resolveHeatmapMeasure } from '../../../core/utils/heatmap-chart.util';
+import { aggregateChartRows } from '../../../core/utils/chart-aggregation.util';
+import { advancedHierarchyFilters, advancedHierarchySourceColumns } from '../../../core/utils/advanced-hierarchy-filter.util';
+import type { AdvancedFilterValue } from '../../../shared/components/advanced-filter/advanced-filter.component';
 import { dateRangePopupPlacement } from '../../../shared/components/date-range-popup/date-range-popup.placement';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
 import { applyChartSort, CHART_SORT_ORDERS, ChartSortOrder } from '../../../core/utils/chart-sort.util';
 import { highlightLegendPoint } from '../../../core/utils/chart-legend-hover.util';
+import {
+  DEFAULT_LEGEND_POSITION,
+  LEGEND_POSITION_OPTIONS,
+  LegendPosition,
+  highchartsLegendPosition,
+  legendLayoutClass,
+  readLegendPosition,
+} from '../../../core/utils/chart-legend-position.util';
 import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
 import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, Subscription, forkJoin } from 'rxjs';
 import { switchMap, takeUntil } from 'rxjs/operators';
 import type Highcharts from 'highcharts';
-import { CellMouseOutEvent, CellMouseOverEvent, ColDef, RowClassParams, themeQuartz } from 'ag-grid-community';
+import { CellClassParams, CellDoubleClickedEvent, CellMouseOutEvent, CellMouseOverEvent, ColDef, Column, ColumnPinnedEvent, DefaultMenuItem, GetContextMenuItemsParams, GridApi, GridReadyEvent, IRowNode, MenuItemDef, RowClassParams, themeQuartz } from 'ag-grid-community';
 import { DateUtil } from '../../../core/utils/date.util';
+import {
+  TABLE_CF_OPERATORS,
+  TableColumnStat,
+  TableGridOptions,
+  applyTableGridColumnOptions,
+  buildDrillColumns,
+  cloneTableGridOptions,
+  computeTableColumnStats,
+  defaultTableGridOptions,
+  drillLeafData,
+  hasTableGridOptions,
+  isTableCfRuleComplete,
+} from '../../../core/utils/table-grid-features.util';
+import { REPORT_AGG_FUNCS, evaluateConditionalRules } from '../../reports/shared/report-grid-columns.util';
+import type { CfOperator } from '../../reports/shared/report-config.model';
 import { getViewDateRangeDefaults, replaceViewDateRangeParameters } from '../../../core/utils/view-date-parameters.util';
 import { CategoryService } from '../../../core/services/category.service';
 import { Widget, WidgetService } from '../../../core/services/widget.service';
+import type { ScenarioBuilderPreview, ScenarioBuilderResult } from '../widget-view/widget-view.component';
 import { CommonApiService, DatabaseViewListItem, PlantFilterDto } from '../../../core/services/common-api.service';
 import { MarketplaceService } from '../../../core/services/marketplace.service';
 import { ImportedDatasetService, ImportedDatasetListItem } from '../../../core/services/imported-dataset.service';
@@ -43,11 +75,14 @@ import {
   buildDaxOperationExpression,
   restoreDaxOperation,
   validateDaxMeasureDraft,
+  getActiveDaxMeasures,
+  evaluateTileDaxValue,
+  getSelectedDaxMeasure,
 } from '../../../core/utils/dax-evaluator.util';
 import type { DaxMeasureConfig, DaxDisplayPreference, DaxEvaluationScope, DaxModelConfig, DaxAstNode } from '../../../core/utils/dax-evaluator.util';
 import { DaxModelService, SavedDaxModelDto, DaxModelSaveRequest } from '../../../core/services/dax-model.service';
-import { CONDITIONAL_FILTER_OPERATORS, applyConditionalFilters, matchesConditionalFilter } from '../../../core/utils/conditional-filter.util';
-import { toReportFilters } from '../../../core/utils/report-filter.util';
+import { tableClusterPlantFilters } from '../../../core/utils/table-global-filter.util';
+import { CONDITIONAL_FILTER_OPERATORS, applyConditionalFilters, matchesConditionalFilter } from '../../../core/utils/conditional-filter.util';import { toReportFilters } from '../../../core/utils/report-filter.util';
 import { ParameterFilterRule, ParameterFilterAction, applyParameterFilters, getSavedParameterFilters, getRuleSourceColumns, getParameterRuleError, countJsonPathMatches, getTransformationSourceColumns, getParameterSelectionError } from '../../../core/utils/parameter-filter.util';
 import { appendLockedFilterTitle } from '../../../core/utils/locked-filter-title.util';
 import { getSuggestedChartTypeIds } from '../../../core/utils/chart-suggestions.util';
@@ -55,6 +90,14 @@ import { CHART_AUTO_COLORS, chartFallbackColor, getSeriesColorByName, usesPeriod
 import { AdvancedFilterComponent } from '../../../shared/components/advanced-filter/advanced-filter.component';
 import { ADVANCED_CHART_LABELS, AdvancedChartConfig, AdvancedChartType, applyAdvancedDefaultMapping, defaultAdvancedConfig, isAdvancedChart, multiRoleVisualRoles, normalizeAdvancedChartType, readAdvancedConfig, remapAdvancedColumns, validateAdvancedConfig } from '../../../core/utils/advanced-chart.util';
 import { buildKpiChartOptions, computeKpiValue } from '../../../core/utils/kpi-chart.util';
+import {
+  GlobalFilterSelection,
+  globalSelectionLabel,
+  globalSelectionPayload,
+  hasGlobalSelection,
+  matchesGlobalSelection,
+  isGlobalFilterOptionChecked, GlobalFilterClearState, toggleGlobalSelection,
+} from '../../../core/utils/global-filter-selection.util';
 
 export type { DaxMeasureConfig, DaxCalculatedColumnConfig, DaxDisplayPreference, DaxEvaluationScope, DaxModelConfig, DaxAstNode, DaxToken } from '../../../core/utils/dax-evaluator.util';
 
@@ -124,6 +167,7 @@ export interface SavedChartSetupConfig {
   xAxisTitle: string;
   yAxisTitle: string;
   showLegend: boolean;
+  legendPosition: LegendPosition;
   includeDataTable: boolean;
   showAxisTitle: boolean;
   limitCategory: LimitCategory;
@@ -204,6 +248,7 @@ interface ChartTabState {
   xAxisTitle: string;
   yAxisTitle: string;
   showLegend: boolean;
+  legendPosition: LegendPosition;
   includeDataTable: boolean;
   showAxisTitle: boolean;
   showDataLabels: boolean;
@@ -225,20 +270,26 @@ interface ChartTabState {
   tableHeaderColor: string;
   tableHeaderTextColor: string;
   tableRowTextColors: string[];
+  tableGrid?: TableGridOptions;
   comboLineColumns: string[];
   yAxis2Title: string;
+  metricColumns: string[];
   drillDownViewId: number | null;
   trendMode: TrendMode;
   daxModel: DaxModelConfig;
+  scenarioParametersEnabled?: boolean;
   gaugeMin: number;
   gaugeMax: number;
   bulletTargetColumn: string;
   bubbleSizeColumn: string;
+  scatterCategoryColumn?: string;
   heatmapYColumn: string;
   sankeyFromColumn: string;
   sankeyToColumn: string;
   sankeyWeightColumn: string;
   timelineDateColumn: string;
+  timelineEndColumn: string;
+  histogramBins: number | null;
   timelineLabelColumn: string;
   colorRules: ColorRule[];
   colorOverrides: Record<string, string>;
@@ -319,13 +370,77 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   zoomLevel = 100;
   panelCollapsed = false;
   openSections = new Set<number>([1]);
+  scenarioParametersEnabled = false;
+  scenarioBuilderPreview: ScenarioBuilderPreview | null = null;
+  scenarioPreviewResult: ScenarioBuilderResult | null = null;
+
+  get displayedPreviewOptions(): Highcharts.Options | null {
+    return this.scenarioParametersEnabled ? this.scenarioPreviewResult?.options ?? this.chartPreviewOptions : this.chartPreviewOptions;
+  }
+
+  get displayedPreviewData(): { categories: string[]; values: number[] } {
+    return this.scenarioParametersEnabled && this.scenarioPreviewResult ? this.scenarioPreviewResult : this.previewData;
+  }
+
+  get displayedPreviewSeries(): { name: string; data: number[] }[] {
+    return this.scenarioParametersEnabled && this.scenarioPreviewResult ? this.scenarioPreviewResult.series : this.previewMultiSeries;
+  }
+
+  toggleScenarioParameters(): void {
+    this.pushUndo();
+    this.scenarioParametersEnabled = !this.scenarioParametersEnabled;
+    this.scenarioPreviewResult = null;
+    this.refreshPreview();
+    this.persistEditorDraft();
+  }
+
+  onScenarioPreviewChange(result: ScenarioBuilderResult | null): void {
+    this.scenarioPreviewResult = result;
+    this.cdr.markForCheck();
+  }
+
+  private updateScenarioBuilderPreview(): void {
+    this.scenarioPreviewResult = null;
+    if (!this.scenarioParametersEnabled) {
+      this.scenarioBuilderPreview = null;
+      return;
+    }
+    const state = this.snapshotState();
+    this.scenarioBuilderPreview = {
+      key: `${this.activeTabId}:${this.dataSourceMode}:${this.selectedChartModelId}:${state.viewId}:${this.selectedChartType}`,
+      design: {
+        ...state, chartType: this.selectedChartType, scenarioParametersEnabled: true,
+        source: this.selectedChartModelId,
+        sourceType: this.dataSourceMode === 'view' ? 'View' : this.dataSourceMode === 'import' ? 'Import' : 'Table',
+        ...this.buildChartTypeExtras(this.selectedChartType),
+      },
+      rows: this.previewRows,
+      columns: this.yAxisColumns,
+      fromDate: this.fromDate,
+      toDate: this.toDate,
+      hierarchyFilters: this.globalHierarchyFilterPayload(),
+      filters: this.interactiveFilters.map(filter => ({
+        sourceTable: filter.sourceTable || this.selectedChartModelId,
+        sourceColumn: filter.sourceColumn,
+        controlType: filter.controlType,
+        value: this.previewFilterValues[filter.id] || '',
+        values: this.previewFilterMultiValues[filter.id] ?? [],
+        label: filter.label,
+      })).filter(filter => filter.sourceColumn && (filter.value || filter.values.length)),
+      reportFilters: toReportFilters(this.conditionalFilters.map(filter => ({
+        sourceColumn: filter.sourceColumn,
+        sourceTable: filter.sourceTable,
+        operator: filter.operator,
+        mode: filter.mode,
+        values: this.conditionalFilterValues(filter),
+      }))),
+    };
+  }
   private _prevSidebarState: boolean | undefined;
   private returnUrl = '/charts-tiles/wip-charts';
 
   isSectionOpen(n: number): boolean { return this.openSections.has(n); }
   toggleSection(n: number): void {
-    // Display & Ranking has no table-relevant options, so it stays collapsed for tables.
-    if (n === 3 && this.selectedChartType === 'table') return;
     if (this.openSections.has(n)) { this.openSections.delete(n); }
     else { this.openSections.add(n); }
   }
@@ -485,11 +600,13 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.refreshPreview();
   }
 
-  openPointColorPicker(category: string, seriesName: string, event: Event, anchor?: { left: number; right: number; top: number }): void {
+  openPointColorPicker(category: string, seriesName: string, event: Event, anchor?: { left: number; right: number; top: number }, currentColor?: unknown): void {
     event.preventDefault();
     event.stopPropagation();
     this.colorPickerKey = `${seriesName}:${category}`;
-    this.colorPickerValue = this.colorOverrides[this.colorPickerKey] ?? '#3B82F6';
+    this.colorPickerValue = this.colorOverrides[this.colorPickerKey]
+      ?? this.toColorInputValue(currentColor)
+      ?? '#3B82F6';
     const mouse = event as MouseEvent;
     const pickerWidth = 260;
     const pickerHeight = 56;
@@ -525,6 +642,23 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.colorPickerKey = '';
   }
 
+  /** `<input type="color">` only accepts `#rrggbb`; converts the rendered point color (hex, short
+   *  hex or rgb/rgba) so the picker opens on the bar's actual color. */
+  private toColorInputValue(color: unknown): string | undefined {
+    if (typeof color !== 'string') return undefined;
+    const value = color.trim();
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value);
+    if (hex) {
+      const digits = hex[1].length === 3 ? [...hex[1]].map(d => d + d).join('') : hex[1];
+      return `#${digits.toLowerCase()}`;
+    }
+    const rgb = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i.exec(value);
+    if (rgb) {
+      return '#' + rgb.slice(1, 4).map(n => Math.min(255, Number(n)).toString(16).padStart(2, '0')).join('');
+    }
+    return undefined;
+  }
+
   // ─── Saved Setup modal: accordion state for its preview panel (mirrors isSectionOpen/toggleSection) ──
   savedSetupOpenSections = new Set<number>([2]);
   isSavedSetupSectionOpen(n: number): boolean { return this.savedSetupOpenSections.has(n); }
@@ -544,13 +678,42 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     { key: 'plant', label: 'Plant', options: [] },
   ];
   readonly quickRangeOptions = ['Today', 'Till Last Tuesday', 'This Week', 'This Month', 'Last Month', 'This Quarter', 'This Year', 'After'];
-  filterValues: Record<string, string> = {
+  filterValues: Record<string, GlobalFilterSelection> = {
     country: 'All', sector: 'All', businessUnit: 'All', division: 'All', cluster: 'All', plant: 'All',
   };
   quickRange = '';
   fromDate = '';
   toDate = '';
-  openGlobalFilterName: string | null = null;
+  private globalFilterClearState?: GlobalFilterClearState;
+
+  get globalFilterClear(): GlobalFilterClearState {
+    return this.globalFilterClearState ??= new GlobalFilterClearState();
+  }
+  private openGlobalFilterNameValue: string | null = null;
+
+  get openGlobalFilterName(): string | null {
+    return this.openGlobalFilterNameValue;
+  }
+
+  set openGlobalFilterName(name: string | null) {
+    this.openGlobalFilterNameValue = name;
+    // Closing a dropdown left in the "Clear all" state reverts that filter to All.
+    const abandoned = this.globalFilterClear.release(name);
+    if (abandoned) this.revertClearedGlobalFilter(abandoned.key);
+  }
+
+  clearGlobalFilterSelection(key: unknown, event: Event): void {
+    event.stopPropagation();
+    this.globalFilterClear.clear(key, this.openGlobalFilterName);
+  }
+
+  isGlobalFilterCleared(key: unknown): boolean {
+    return this.globalFilterClear.isCleared(key);
+  }
+
+  private revertClearedGlobalFilter(key: unknown): void {
+    if (hasGlobalSelection(this.filterValues[String(key)])) this.selectGlobalFilterOption(String(key), 'All');
+  }
   private allPlants: PlantFilterDto[] = [];
   private readonly viewDateParameters = new Map<number, { fromDate: boolean; toDate: boolean }>();
   private readonly viewSqlCache = new Map<number, string>();
@@ -558,6 +721,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   toggleGlobalFilter(): void { this.showGlobalFilter = !this.showGlobalFilter; }
 
   clearAllFilters(): void {
+    this.advancedFilters = [];
+    this.advancedFilter?.clear();
     this.quickRange = '';
     this.resetGlobalFilterDateRange();
     this.openGlobalFilterName = null;
@@ -580,17 +745,33 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       this.reloadGlobalViewPreview();
       return;
     }
-    this.filterValues[name] = value || 'All';
+    if (this.isGlobalFilterLocked(this.filterFields.findIndex(field => field.key === name))) return;
+    this.filterValues[name] = value === 'All'
+      ? 'All'
+      : toggleGlobalSelection(this.filterValues[name] ?? 'All', value, this.filterFields.find(field => field.key === name)?.options, this.globalFilterClear.consume(name));
     const hierarchy = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
     const index = hierarchy.indexOf(name);
     for (let i = index + 1; i < hierarchy.length; i++) this.filterValues[hierarchy[i]] = 'All';
     this.rebuildGlobalFilterOptions();
     this.openGlobalFilterName = null;
     this.reloadGlobalViewPreview();
+    this.persistEditorDraft();
   }
 
   isGlobalFilterLocked(index: number): boolean {
     return !this.isAdmin && this.filterFields[index].options.length === 1;
+  }
+
+  globalSelectionLabel(selection: GlobalFilterSelection | null | undefined): string {
+    return globalSelectionLabel(selection);
+  }
+
+  hasSelectedGlobalFilter(name: string): boolean {
+    return hasGlobalSelection(this.filterValues[name]);
+  }
+
+  isGlobalFilterOptionSelected(name: string, option: string): boolean {
+    return isGlobalFilterOptionChecked(this.filterValues[name], option);
   }
 
   private loadGlobalFilters(): void {
@@ -615,22 +796,22 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   }
 
   private rebuildGlobalFilterOptions(): void {
-    const active = (value: string) => value && value !== 'All';
+    const active = (value: GlobalFilterSelection) => hasGlobalSelection(value);
     const selectors: ((plant: PlantFilterDto) => string)[] = [
       p => p.country, p => p.sector, p => p.businessUnit, p => p.division, p => p.cluster, p => p.plantDescription,
     ];
     const keys = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
     let filtered = this.allPlants;
     for (let i = 0; i < keys.length - 1; i++) {
-      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(plant => selectors[i](plant) === this.filterValues[keys[i]]);
+      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(plant => matchesGlobalSelection(selectors[i](plant), this.filterValues[keys[i]]));
       this.filterFields[i + 1].options = active(this.filterValues[keys[i]])
         ? this.distinctPlantValues(filtered, selectors[i + 1])
         : [];
     }
-    if (!active(this.filterValues['cluster']) && this.filterFields[4].options.length === 1) {
+    if (!active(this.filterValues['cluster']) && hasGlobalSelection(this.filterValues['division']) && this.filterFields[4].options.length === 1) {
       this.filterValues['cluster'] = this.filterFields[4].options[0];
     }
-    if (active(this.filterValues['cluster'])) filtered = filtered.filter(plant => plant.cluster === this.filterValues['cluster']);
+    if (active(this.filterValues['cluster'])) filtered = filtered.filter(plant => matchesGlobalSelection(plant.cluster, this.filterValues['cluster']));
     this.filterFields[5].options = this.distinctPlantValues(filtered, selectors[5]);
     if (!active(this.filterValues['plant']) && this.filterFields[5].options.length === 1) {
       this.filterValues['plant'] = this.filterFields[5].options[0];
@@ -638,7 +819,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   }
 
   private autoSelectGlobalFilters(): void {
-    const active = (value: string) => value && value !== 'All';
+    const active = (value: GlobalFilterSelection) => hasGlobalSelection(value);
     const selectors: ((plant: PlantFilterDto) => string)[] = [
       p => p.country, p => p.sector, p => p.businessUnit, p => p.division, p => p.cluster, p => p.plantDescription,
     ];
@@ -646,7 +827,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     if (this.filterFields[0].options.length === 1) this.filterValues['country'] = this.filterFields[0].options[0];
     let filtered = this.allPlants;
     for (let i = 0; i < keys.length - 1; i++) {
-      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(plant => selectors[i](plant) === this.filterValues[keys[i]]);
+      if (active(this.filterValues[keys[i]])) filtered = filtered.filter(plant => matchesGlobalSelection(selectors[i](plant), this.filterValues[keys[i]]));
       const options = this.distinctPlantValues(filtered, selectors[i + 1]);
       if (options.length === 1 && active(this.filterValues[keys[i]])) this.filterValues[keys[i + 1]] = options[0];
     }
@@ -739,8 +920,11 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   }
 
   private reloadGlobalViewPreview(): void {
+    const requestVersion = ++this.sourceLoadVersion;
     this.chartPreviewOptions = null;
     this.chartRenderVisible = false;
+    // Attached inline tiles re-aggregate with the global Cluster/Plant when it changes.
+    for (const tile of this.attachedTiles) this.loadTilePreview(tile);
     if (this.dataSourceMode === 'table' && this.selectedChartModelId) {
       this.chartRenderVisible = true;
       this.sourceLoading = true;
@@ -766,6 +950,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
     ).subscribe({
       next: res => {
+        if (requestVersion !== this.sourceLoadVersion) return;
         this.sourceLoading = false;
         this.rawLoadedColumns = res.columns ?? [];
         this.rawLoadedRows = res.rows ?? [];
@@ -775,7 +960,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
       error: () => {
+        if (requestVersion !== this.sourceLoadVersion) return;
         this.sourceLoading = false;
+        this.sourceError = 'Unable to reload the selected source with the selected filters.';
         this.refreshPreview();
         this.cdr.detectChanges();
       },
@@ -790,7 +977,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   }
 
   private injectGlobalFilterParams(sql: string): string {
-    const declarations: Record<string, string> = {
+    const declarations: Record<string, GlobalFilterSelection> = {
       country: this.filterValues['country'],
       sector: this.filterValues['sector'],
       businessUnit: this.filterValues['businessUnit'],
@@ -799,7 +986,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       plant: this.filterValues['plant'],
     };
     for (const [name, value] of Object.entries(declarations)) {
-      if (!value || value === 'All' || !/^[A-Za-z0-9\s\-_.,()]+$/.test(value)) continue;
+      if (!value || Array.isArray(value) || value === 'All' || !/^[A-Za-z0-9\s\-_.,()]+$/.test(value)) continue;
       const parameter = `@${name}`;
       const declaration = new RegExp(`DECLARE\\s+${parameter}\\s+(\\w+(?:\\s*\\([^)]*\\))?)(?:\\s*=[^;]+)?;`, 'i');
       if (declaration.test(sql)) {
@@ -927,63 +1114,104 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   helpVote: 'yes' | 'no' | null = null;
   helpArticles: HelpArticle[] = [
     {
-      id: 'deduplicate-rows',
-      question: 'How do I choose which duplicate rows to keep?',
+      id: 'data-source',
+      question: 'How do I choose a data source?',
       expanded: false,
       steps: [
-        'Choose Deduplicate Rows and select the source columns.',
-        'Rule Parameters starts at Select. Choose Keep First, Keep Last or Keep Unique Only.',
-        'An enabled rule does not run and cannot be saved until a strategy is selected.',
+        'In the Data Source section, choose Table, View, or Import.',
+        'Select a table or view from its searchable list. For Import, upload a CSV, XLSX, XLS, or JSON file, paste JSON, or choose a previously imported dataset.',
+        'The selected source provides the columns used for chart mapping, filters, and the live preview.',
       ],
     },
     {
-      id: 'change-data-type',
-      question: 'How do I choose a data type?',
-      expanded: false,
-      steps: [
-        'Choose Change Data Type in Data Transformation and select the source columns.',
-        'The Rule Parameters dropdown starts at Select. Choose Number, Text, Date or Boolean.',
-        'An enabled rule does not run and cannot be saved until a target data type is selected.',
-      ],
-    },
-    {
-      id: 'choose-chart-type',
+      id: 'chart-type',
       question: 'How do I choose a chart type?',
       expanded: false,
       steps: [
-        'Pick a chart model from the list on the right panel.',
-        'Select the chart type (bar, line, pie, donut, KPI, table, or trend).',
-        'The canvas updates with a live preview as you configure it.',
+        'Choose a source first, then select a chart type from the chart library on the right.',
+        'Available types and mapping controls depend on the selected chart; advanced visuals may show their own field-mapping panel.',
+        'Use the canvas to review the live preview as you configure the chart.',
       ],
     },
     {
-      id: 'add-data-fields',
-      question: 'How do I add data fields?',
+      id: 'map-fields',
+      question: 'How do I add data fields to a chart?',
       expanded: false,
       steps: [
-        'Choose a data source/model for the chart.',
-        'Map the axis, value, or aggregation fields you want to visualize.',
-        'The preview refreshes automatically as fields are mapped.',
+        'Open Data Mapping and assign source columns to the chart’s required roles, such as X-axis or category and Y-axis or value.',
+        'Choose an aggregation and value column where those controls are available. Some chart types provide multiple series or specialized mappings instead.',
+        'For table charts, choose the columns to display. The preview refreshes as the mapping changes.',
       ],
     },
     {
-      id: 'apply-filters',
-      question: 'How do I apply filters?',
+      id: 'display-ranking',
+      question: 'How do I customize the chart display or rank categories?',
       expanded: false,
       steps: [
-        'Open the interactive filters section for this chart.',
-        'Add a filter and pick its source column and control type.',
-        'Filters narrow down the data shown in the chart preview.',
+        'In Display & Ranking, toggle the available display options, such as the data table, axis titles, data labels, and legend. Some options depend on chart type.',
+        'Choose Show all, Top N, or Bottom N to control how many categories appear, then enter the number.',
+        'Use Rank By to select the value used for ranking; where available, group the remaining categories as Others.',
+      ],
+    },
+    {
+      id: 'data-transformations',
+      question: 'How do I transform or clean source data?',
+      expanded: false,
+      steps: [
+        'Open Data Transformation and choose Add Parameter Filter, then select an action and source column.',
+        'Available actions include changing a column’s type, renaming it, replacing nulls, deduplicating rows, splitting or merging columns, text or date operations, JSON extraction, and math operations.',
+        'For Change Data Type, choose Number, Text, Date, or Boolean. For Deduplicate Rows, select the columns and choose Keep First, Keep Last, or Keep Unique Only.',
+        'Complete the required rule parameters before saving; incomplete transformation rules are reported as validation errors.',
+      ],
+    },
+    {
+      id: 'interactive-filters',
+      question: 'How do I add interactive chart filters?',
+      expanded: false,
+      steps: [
+        'Use Show Filter at the top of the builder to show or hide the workspace filters, including hierarchy and date selections.',
+        'Open Interactive Filters and choose Add Filter. Set a control label and type, then choose the source table and column.',
+        'These controls let viewers filter the chart. Use the row actions to configure or remove a filter; the preview updates as filters are applied.',
+      ],
+    },
+    {
+      id: 'conditional-filters',
+      question: 'How do conditional filters work?',
+      expanded: false,
+      steps: [
+        'Open Conditional Filters and choose Add Filter.',
+        'Name the rule, choose a source column, condition, and condition value, then choose whether matching rows are included or excluded.',
+        'Conditional filters are applied to the chart data and preview; incomplete conditions are not applied as active rules.',
+      ],
+    },
+    {
+      id: 'attached-tiles-drilldown',
+      question: 'How do I attach KPI tiles or configure drill down?',
+      expanded: false,
+      steps: [
+        'Open Attached Tiles and choose Add Tile to place up to three KPI tiles above the chart. Search the available tiles and remove one with its × control.',
+        'Open Drill Down and select a view to use for chart click-through.',
+        'Both sections are optional; save the chart to keep these settings.',
+      ],
+    },
+    {
+      id: 'saved-setups-dax',
+      question: 'How do I reuse a setup or create a DAX measure?',
+      expanded: false,
+      steps: [
+        'Use the saved-setup controls to save the current configuration with a name, or browse and apply a saved setup. Applying one fills the chart configuration sections for review and editing.',
+        'Open DAX Model to create or select a measure and configure its expression and source columns.',
+        'Fix any DAX validation errors before saving; an invalid unsaved DAX draft cannot be saved.',
       ],
     },
     {
       id: 'save-chart',
-      question: 'How do I save the chart?',
+      question: 'How do I save, update, or leave the chart builder?',
       expanded: false,
       steps: [
-        'Click Save once the chart type and data look right.',
-        'Give the chart a name and pick a category.',
-        'Confirm to publish it to WIP Charts.',
+        'Enter a chart name and description, choose a category, select a source and chart type, and complete any required mappings or rule parameters.',
+        'Choose Save to create or update the chart and remain in the builder. Saving does not publish the chart.',
+        'Choose Save & Close to save and open the chart view. Choose Discard to leave without saving; confirm the discard if prompted.',
       ],
     },
   ];
@@ -991,7 +1219,19 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   get filteredHelpArticles(): HelpArticle[] {
     const term = this.helpSearchTerm.trim().toLowerCase();
     if (!term) return this.helpArticles;
-    return this.helpArticles.filter(a => a.question.toLowerCase().includes(term));
+    return this.helpArticles.filter(a =>
+      `${a.question} ${a.steps.join(' ')}`.toLowerCase().includes(term),
+    );
+  }
+
+  onHelpSearchChange(): void {
+    const firstMatch = this.filteredHelpArticles[0];
+    this.helpArticles.forEach(article => (article.expanded = article === firstMatch));
+  }
+
+  clearHelpSearch(): void {
+    this.helpSearchTerm = '';
+    this.helpArticles.forEach(article => (article.expanded = false));
   }
 
   chartModels: ChartModelOption[] = [
@@ -1002,6 +1242,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     { id: 'daily-plan',      label: 'Daily Plan',      icon: 'calendar', columns: 24, modelType: 'View',  iconBg: 'linear-gradient(135deg,#4ADE80,#16A34A)' },
   ];
   selectedChartModelId = '';
+  selectedViewId: number | null = null;
   showChartModelDropdown = false;
   chartModelSearch = '';
 
@@ -1028,7 +1269,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   }
 
   get selectedView(): DatabaseViewListItem | undefined {
-    return this.availableViews.find(v => v.viewName === this.selectedChartModelId);
+    return this.selectedViewId != null
+      ? this.availableViews.find(v => v.id === this.selectedViewId)
+      : this.availableViews.find(v => v.viewName === this.selectedChartModelId);
   }
 
   get filteredChartModels(): ChartModelOption[] {
@@ -1154,7 +1397,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
   get filteredXAxisOptions(): string[] {
     const t = this.xAxisSearch.trim().toLowerCase();
-    return t ? this.availableMappingColumns.filter(o => o.toLowerCase().includes(t)) : this.availableMappingColumns;
+    // A scatter X-axis is a continuous numeric scale, so only numeric columns are offered.
+    const columns = this.isScatterType ? this.availableMappingColumns.filter(o => this.isColumnNumeric(o)) : this.availableMappingColumns;
+    return t ? columns.filter(o => o.toLowerCase().includes(t)) : columns;
   }
   get filteredYAxisColumns(): string[] {
     const t = this.yAxisSearch.trim().toLowerCase();
@@ -1286,22 +1531,37 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   comboLineColumns: string[] = [];
   showComboLineDropdown = false;
   yAxis2Title = '';
+  // Bar/column only: extra Y columns the viewer can switch between via a "Switch Metrics" dropdown.
+  metricColumns: string[] = [];
+  showMetricDropdown = false;
+  metricSearch = '';
+  // Axis titles auto-default to the mapped column name(s) until the user edits them.
+  private lastAutoXTitle = '';
+  private lastAutoYTitle = '';
+  private lastAutoY2Title = '';
+  private xTitleUserEdited = false;
+  private yTitleUserEdited = false;
+  private y2TitleUserEdited = false;
   tableRowColors: string[] = [];
   tableHeaderColor = '';
   tableHeaderTextColor = '';
   tableRowTextColors: string[] = [];
-
+  tableGrid: TableGridOptions = defaultTableGridOptions();
   // Extra mapping fields for gauge/bullet/sankey/timeline/bubble/heatmap — none of these
   // reuse the plain xAxis/yAxis category+value shape, so each gets its own small field(s).
   gaugeMin = 0;
   gaugeMax = 100;
   bulletTargetColumn = '';
   bubbleSizeColumn = '';
+  scatterCategoryColumn = '';
   heatmapYColumn = '';
   sankeyFromColumn = '';
   sankeyToColumn = '';
   sankeyWeightColumn = '';
   timelineDateColumn = '';
+  timelineEndColumn = '';
+  /** Empty means an automatic bin count. */
+  histogramBins: number | null = null;
   timelineLabelColumn = '';
   advancedConfig: AdvancedChartConfig = defaultAdvancedConfig();
   advancedRows: Record<string, unknown>[] = [];
@@ -1316,6 +1576,16 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   /** Whether current chart type supports multiple Y series */
   get isMultiSeriesType(): boolean {
     return this.selectedChartType === 'multiline' || this.selectedChartType === 'area' || this.selectedChartType === 'stacked' || this.selectedChartType === 'table' || this.selectedChartType === 'combo' || this.selectedChartType === 'grouped';
+  }
+
+  /** Bar/column: the viewer can switch which single Y metric is shown (no multi-series rendering). */
+  get isMetricSwitchType(): boolean {
+    return this.selectedChartType === 'bar' || this.selectedChartType === 'column';
+  }
+
+  get filteredMetricColumns(): string[] {
+    const search = this.metricSearch.trim().toLowerCase();
+    return search ? this.availableMappingColumns.filter(column => column.toLowerCase().includes(search)) : this.availableMappingColumns;
   }
 
   /** Types whose series come from the Y-axis columns picker, so the Y-axis function dropdown is irrelevant. */
@@ -1335,6 +1605,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   /** Single value + min/max, no axes at all. */
   get isGaugeType(): boolean { return this.selectedChartType === 'gauge'; }
 
+  /** Funnel has no axes: its fields are a Stage dimension and a Value measure. */
+  get isFunnelChart(): boolean { return this.selectedChartType === 'funnel'; }
+
   /** The KPI chart's value from the previewed rows, or the enabled DAX measure. */
   get kpiPreview(): { text: string; label: string } {
     return computeKpiValue(this.previewRows, {
@@ -1347,12 +1620,18 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   get isBulletType(): boolean { return this.selectedChartType === 'bullet'; }
   /** Reuses X-axis/Y-axis, adds a required Size column. */
   get isBubbleType(): boolean { return this.selectedChartType === 'bubble'; }
+  /** One point per row at (numeric X, numeric Y), optionally coloured by a Category column. */
+  get isScatterType(): boolean { return this.selectedChartType === 'scatter'; }
   /** Reuses X-axis (row category) + Y-axis (value), adds a 2nd category (Y-category) column. */
   get isHeatmapType(): boolean { return this.selectedChartType === 'heatmap'; }
   /** From/To/Weight relationship — no xAxis/yAxis at all. */
   get isSankeyType(): boolean { return this.selectedChartType === 'sankey'; }
   /** Date/Label columns — no xAxis/yAxis at all. */
   get isTimelineType(): boolean { return this.selectedChartType === 'timeline'; }
+  get isHistogramType(): boolean { return this.selectedChartType === 'histogram'; }
+  /** A tree has no axes, so the axis-title inputs do not apply. */
+  get isDecompositionType(): boolean { return this.selectedChartType === 'decompositiontree'; }
+  get isPivotType(): boolean { return this.selectedChartType === 'pivottable'; }
   /** Types that hide the normal X-axis/Y-axis row entirely (they have their own field set). */
   get hasCustomMapping(): boolean { return this.isGaugeType || this.isSankeyType || this.isTimelineType; }
 
@@ -1367,10 +1646,15 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     return others.includes(col);
   }
 
-  /** Blocks picking the same column for both Timeline fields (Date/Label). */
-  isTimelineFieldConflict(field: 'date' | 'label', col: string): boolean {
+  /** Blocks picking the same column for two Timeline fields (Start/End/Task). */
+  isTimelineFieldConflict(field: 'date' | 'end' | 'label', col: string): boolean {
     if (!col) return false;
-    return field === 'date' ? col === this.timelineLabelColumn : col === this.timelineDateColumn;
+    const others = {
+      date: [this.timelineEndColumn, this.timelineLabelColumn],
+      end: [this.timelineDateColumn, this.timelineLabelColumn],
+      label: [this.timelineDateColumn, this.timelineEndColumn],
+    }[field];
+    return others.includes(col);
   }
 
   /** Bullet/Bubble reuse X-axis + Y-axis, so their extra column (Target/Size) must not repeat either one. */
@@ -1507,6 +1791,11 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     return this.availableMappingColumns.find(c => this.getColumnIconType(c) === 'date') ?? this.availableMappingColumns[0] ?? '';
   }
 
+  /** Next date-like column not already used, or '' so the user picks it. */
+  private defaultOtherDateColumn(exclude: string[]): string {
+    return this.availableMappingColumns.find(c => !exclude.includes(c) && this.getColumnIconType(c) === 'date') ?? '';
+  }
+
   /** Fill only currently-empty mapping fields so a preview renders immediately after a chart type is picked. */
   private applyDefaultMapping(): void {
     if (!this.availableMappingColumns.length) return;
@@ -1516,7 +1805,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       return;
     }
     const cat = this.defaultCategoryColumn();
-    if (this.isGaugeType) {
+    if (this.isGaugeType || this.isHistogramType) {
       if (!this.yAggColumn) this.yAggColumn = this.defaultNumericColumn();
       return;
     }
@@ -1528,7 +1817,10 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     }
     if (this.isTimelineType) {
       if (!this.timelineDateColumn) this.timelineDateColumn = this.defaultDateColumn();
-      if (!this.timelineLabelColumn) this.timelineLabelColumn = this.defaultOtherColumn([this.timelineDateColumn]);
+      if (!this.timelineEndColumn) this.timelineEndColumn = this.defaultOtherDateColumn([this.timelineDateColumn]);
+      if (!this.timelineLabelColumn) {
+        this.timelineLabelColumn = this.defaultOtherColumn([this.timelineDateColumn, this.timelineEndColumn]);
+      }
       return;
     }
     if (!this.xAxis) this.xAxis = cat;
@@ -1539,6 +1831,11 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       }
       return;
     }
+    if (this.isScatterType) {
+      if (!this.isColumnNumeric(this.xAxis)) this.xAxis = this.defaultNumericColumn([this.yAggColumn]);
+      if (!this.yAggColumn) this.yAggColumn = this.defaultNumericColumn([this.xAxis]);
+      return;
+    }
     if (this.isBubbleType) {
       if (!this.yAggColumn) this.yAggColumn = this.defaultNumericColumn([this.xAxis]);
       if (!this.bubbleSizeColumn) this.bubbleSizeColumn = this.defaultNumericColumn([this.xAxis, this.yAggColumn]);
@@ -1546,7 +1843,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     }
     if (this.isHeatmapType) {
       if (!this.heatmapYColumn) this.heatmapYColumn = this.defaultOtherColumn([this.xAxis]);
-      if (!this.yAxis && !this.yAggColumn) this.yAxis = 'Count (F)';
+      if (!this.yAggColumn) this.yAggColumn = this.defaultNumericColumn([this.xAxis, this.heatmapYColumn]);
+      if (!this.yAxis) this.yAxis = this.yAggColumn ? 'Sum (F)' : 'Count (F)';
       return;
     }
     // Single-series charts with an operation: Count of rows per category needs no value column.
@@ -1558,13 +1856,31 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
    * and Sum/Average/Min/Max do arithmetic on them. Only Count / Count Distinct accept text.
    */
   get valueNeedsNumeric(): boolean {
-    return !this.yAxis || this.selectedFunctionRequiresNumeric;
+    return this.isScatterType || !this.yAxis || this.selectedFunctionRequiresNumeric;
+  }
+
+  /** Why a column cannot be the Value, shown next to it in the picker; empty when it can be picked. */
+  valueColumnBlockReason(col: string): string {
+    if (this.valueColumnUsable(col)) return '';
+    if (this.isXAxisConflict(col)) return this.isHeatmapType ? 'X dimension' : 'X-axis';
+    if (col === this.heatmapYColumn) return 'Y dimension';
+    if (col === this.bulletTargetColumn) return 'Target';
+    if (col === this.bubbleSizeColumn) return 'Size';
+    if (this.isScatterType && col === this.scatterCategoryColumn) return 'Category';
+    return 'text';
+  }
+
+  valueColumnTitle(col: string): string {
+    const reason = this.valueColumnBlockReason(col);
+    if (!reason) return col;
+    return reason === 'text' ? `${col} holds text — set Operation to Count to use it` : `${col} is already used as the ${reason}`;
   }
 
   /** Text columns are offered but not selectable as Value unless the operation is a count. */
   valueColumnUsable(col: string): boolean {
     if (this.isXAxisConflict(col)) return false;
     if (col && (col === this.heatmapYColumn || col === this.bulletTargetColumn || col === this.bubbleSizeColumn)) return false;
+    if (col && this.isScatterType && col === this.scatterCategoryColumn) return false;
     return !this.valueNeedsNumeric || this.isColumnNumeric(col);
   }
 
@@ -1599,7 +1915,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     if (this.isMultiSeriesType && this.selectedChartType !== 'table') {
       return this.multiYColumns.includes(col) || this.comboLineColumns.includes(col);
     }
-    return col === this.yAggColumn || col === this.heatmapYColumn || col === this.bulletTargetColumn || col === this.bubbleSizeColumn;
+    return col === this.yAggColumn || col === this.heatmapYColumn || col === this.bulletTargetColumn || col === this.bubbleSizeColumn
+      || (this.isScatterType && col === this.scatterCategoryColumn);
   }
 
   /** Numeric columns of the source, for pickers that plot values directly. */
@@ -1654,8 +1971,10 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     heatmap:   'assets/images/chart-types/heatmap.svg', // dedicated icon, no collision with any other type
   };
 
-  // Legend is always enabled; the Show Legend toggle was removed from the UI.
   showLegend = true;
+  legendPosition: LegendPosition = DEFAULT_LEGEND_POSITION;
+  readonly legendPositionOptions = LEGEND_POSITION_OPTIONS;
+  readonly legendLayoutClass = legendLayoutClass;
   includeDataTable = false;
   showAxisTitle = false;
   /** Optional value labels on the chart. Defaults on so legacy charts (no flag saved) keep showing labels. */
@@ -1797,6 +2116,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         xAxisTitle: cfg['xAxisTitle'] ?? '',
         yAxisTitle: cfg['yAxisTitle'] ?? '',
         showLegend: cfg['showLegend'] ?? true,
+        legendPosition: readLegendPosition(cfg),
         includeDataTable: !!cfg['includeDataTable'],
         showAxisTitle: !!cfg['showAxisTitle'],
         limitCategory: (cfg['limitCategory'] ?? 'top') as LimitCategory,
@@ -1922,6 +2242,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       this.xAxisTitle = c.xAxisTitle;
       this.yAxisTitle = c.yAxisTitle;
       this.showLegend = c.showLegend ?? true;
+      this.legendPosition = readLegendPosition(c);
       this.includeDataTable = c.includeDataTable;
       this.showAxisTitle = c.showAxisTitle;
       this.limitCategory = c.limitCategory;
@@ -1953,27 +2274,33 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.multiYColumns = d['multiYColumns'] ?? [];
     this.comboLineColumns = d['comboLineColumns'] ?? [];
     this.yAxis2Title = d['yAxis2Title'] ?? '';
+    this.metricColumns = d['metricColumns'] ?? [];
     this.gaugeMin = d['gaugeMin'] ?? 0;
     this.gaugeMax = d['gaugeMax'] ?? 100;
     this.bulletTargetColumn = d['bulletTargetColumn'] ?? '';
     this.bubbleSizeColumn = d['bubbleSizeColumn'] ?? '';
+    this.scatterCategoryColumn = d['scatterCategoryColumn'] ?? '';
     this.heatmapYColumn = d['heatmapYColumn'] ?? '';
     this.sankeyFromColumn = d['sankeyFromColumn'] ?? '';
     this.sankeyToColumn = d['sankeyToColumn'] ?? '';
     this.sankeyWeightColumn = d['sankeyWeightColumn'] ?? '';
     this.timelineDateColumn = d['timelineDateColumn'] ?? '';
+    this.timelineEndColumn = d['timelineEndColumn'] ?? '';
+    this.histogramBins = d['histogramBins'] ?? null;
     this.timelineLabelColumn = d['timelineLabelColumn'] ?? '';
     this.advancedConfig = readAdvancedConfig(d['advancedConfig']);
     this.tableRowColors = d['tableRowColors'] ?? [];
     this.tableHeaderColor = d['tableHeaderColor'] ?? '';
     this.tableHeaderTextColor = d['tableHeaderTextColor'] ?? '';
     this.tableRowTextColors = d['tableRowTextColors'] ?? [];
+    this.tableGrid = cloneTableGridOptions(d['tableGrid']);
     this.colorRules = (d['colorRules'] ?? []).map((rule: ColorRule) => ({ ...rule }));
     this.nextColorRuleId = this.colorRules.reduce((max, rule) => Math.max(max, rule.id + 1), 1);
     this.colorOverrides = { ...(d['colorOverrides'] ?? {}) };
 
     // Section 3 — Display & Ranking
     this.showLegend = d['showLegend'] ?? true;
+    this.legendPosition = readLegendPosition(d);
     this.includeDataTable = d['includeDataTable'] ?? false;
     this.showAxisTitle = d['showAxisTitle'] ?? false;
     this.showDataLabels = d['showDataLabels'] ?? true;
@@ -2005,6 +2332,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
     // Section 9 — DAX Model
     this.daxModel = this.cloneDaxModel(d['daxModel'] as DaxModelConfig | undefined);
+    this.scenarioParametersEnabled = d['scenarioParametersEnabled'] === true;
     this.syncDaxSelectionFromModel();
     this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
     this.daxExpressionError = '';
@@ -2084,7 +2412,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     const sourceType = this.dataSourceMode === 'view' ? 'View'
       : this.dataSourceMode === 'import' ? 'Import'
       : (this.selectedChartModel?.modelType ?? 'Table');
-    const viewId = this.dataSourceMode === 'view' ? (this.selectedView?.id ?? 0)
+    const viewId = this.dataSourceMode === 'view' ? (this.selectedViewId ?? this.selectedView?.id ?? 0)
       : this.dataSourceMode === 'import' ? (this.selectedImportDataset?.id ?? 0)
       : 0;
     // Reuse the chart's design serializer so the template carries every setup section
@@ -2685,6 +3013,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   private tablePreviewRowsCache: {
     values: unknown[];
     index: number;
+    /** The source record behind this row, used by drill to detail. */
+    source?: Record<string, unknown>;
     summary?: boolean;
     summaryMeasureId?: string;
     summaryReferencedIndexes?: number[];
@@ -2692,42 +3022,86 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     summaryTooltip?: string;
   }[] = [];
   private hoveredDaxSummaryMeasureId: string | null = null;
+  private tablePreviewStats: TableColumnStat[] = [];
+  private tablePreviewHeaderNames: string[] = [];
+  private tableRowRecords = new WeakMap<object, Record<string, unknown>>();
+  private tablePreviewGridRowsSource: unknown = null;
+  private tablePreviewGridRowsCache: typeof this.tablePreviewRowsCache = [];
 
-  get tablePreviewColumnDefs(): ColDef[] {
+  /** Column headers of the Table preview, in grid order (also the keys of the table grid options). */
+  get tablePreviewHeaders(): string[] {
     const extraColumns = this.tableExtraColumns;
-    const headers = [
+    return [
       this.xAxisTitle || this.xAxis || 'Parameter',
       ...(extraColumns.length ? extraColumns : [this.yAxisTitle || this.yAxis || 'Value']),
       ...this.daxRowWiseMeasures.map(measure => measure.name?.trim() || 'New Measure'),
     ];
+  }
+
+  get tablePreviewColumnDefs(): ColDef[] {
+    // Reads the rows first: the numeric/max column stats below are derived from them.
+    const previewRows = this.tablePreviewRowData;
+    const extraColumns = this.tableExtraColumns;
+    const headers = this.tablePreviewHeaders;
+    if (previewRows !== this.tablePreviewStatsSource || headers.length !== this.tablePreviewStats.length) {
+      this.tablePreviewStatsSource = previewRows;
+      this.tablePreviewStats = computeTableColumnStats(previewRows, headers.length);
+    }
+    const grid = this.tableGrid;
     const key = JSON.stringify([headers, this.xAxis, extraColumns, this.yAxis,
-      this.tableHeaderColor, this.tableHeaderTextColor]);
+      this.tableHeaderColor, this.tableHeaderTextColor, grid, this.tablePreviewStats]);
     if (key === this.tablePreviewColumnsKey) return this.tablePreviewColumnsCache;
     this.tablePreviewColumnsKey = key;
-    this.tablePreviewColumnsCache = headers.map((headerName, index) => ({
-      colId: `preview-${index}`,
-      headerName,
-      headerTooltip: headerName,
-      valueGetter: params => params.data?.values[index],
-      valueFormatter: params => DateUtil.formatCellValue(params.value),
-      cellStyle: params => {
-        const isRelatedColumn = this.isDaxHighlightedColumn(index);
-        return isRelatedColumn ? {
-          backgroundColor: '#EAF1FF',
-          color: '#21409A',
-          fontWeight: '600',
-        } : null;
-      },
-      tooltip: params => {
-        const data = params.data as typeof this.tablePreviewRowsCache[number] | undefined;
-        return data?.summaryResultIndex === index ? data.summaryTooltip : undefined;
-      },
-      headerStyle: {
-        background: this.tableHeaderColor || 'linear-gradient(180deg, #2948A3 0%, #3B58B6 100%)',
-        color: this.tableHeaderTextColor || '#FFFFFF',
-      },
-    }));
+    this.tablePreviewHeaderNames = headers;
+    this.tableRowRecords = new WeakMap();
+    this.tableActiveCfRules = grid.conditionalRules.filter(isTableCfRuleComplete);
+    this.tablePreviewColumnsCache = headers.map((headerName, index) => {
+      const stat = this.tablePreviewStats[index];
+      const def: ColDef = {
+        colId: `preview-${index}`,
+        headerName,
+        headerTooltip: headerName,
+        valueGetter: params => params.data?.values[index],
+        valueFormatter: params => DateUtil.formatCellValue(params.value),
+        cellStyle: params => this.tablePreviewCellStyle(params, headerName, index),
+        tooltip: params => {
+          const data = params.data as typeof this.tablePreviewRowsCache[number] | undefined;
+          if (data?.summaryResultIndex === index) return data.summaryTooltip;
+          return params.valueFormatted ?? undefined;
+        },
+        headerStyle: {
+          background: this.tableHeaderColor || 'linear-gradient(180deg, #2948A3 0%, #3B58B6 100%)',
+          color: this.tableHeaderTextColor || '#FFFFFF',
+        },
+      };
+      applyTableGridColumnOptions(def, headerName, stat, grid);
+      return def;
+    });
     return this.tablePreviewColumnsCache;
+  }
+
+  private tablePreviewCellStyle(params: CellClassParams, header: string, index: number): Record<string, string> | null {
+    const style: Record<string, string> = this.isDaxHighlightedColumn(index)
+      ? { backgroundColor: '#EAF1FF', color: '#21409A', fontWeight: '600' }
+      : {};
+    const data = params.data as typeof this.tablePreviewRowsCache[number] | undefined;
+    if (data && !data.summary && this.tableActiveCfRules.length) {
+      const format = evaluateConditionalRules(this.tableActiveCfRules, header, this.tableRowRecord(data));
+      if (format.backgroundColor) style['backgroundColor'] = format.backgroundColor;
+      if (format.textColor) style['color'] = format.textColor;
+      if (format.bold) style['fontWeight'] = '700';
+    }
+    return Object.keys(style).length ? style : null;
+  }
+
+  /** A row keyed by column header, as the conditional-format rules expect. */
+  private tableRowRecord(data: { values: unknown[] }): Record<string, unknown> {
+    let record = this.tableRowRecords.get(data);
+    if (!record) {
+      record = Object.fromEntries(this.tablePreviewHeaderNames.map((header, index) => [header, data.values[index]]));
+      this.tableRowRecords.set(data, record);
+    }
+    return record;
   }
 
   get tablePreviewRowData(): typeof this.tablePreviewRowsCache {
@@ -2773,6 +3147,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.tablePreviewRowsCache = [
       ...rows.map((row, index) => ({
         index,
+        source: row,
         values: [row[this.xAxis], ...valueColumns.map(column => row[column] ?? '—'),
           ...measures.map(measure => this.daxMeasureRowValue(measure, row))],
       })),
@@ -2855,6 +3230,231 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     const category = String(values[0] ?? '');
     const value = Number(values[1]);
     return this.previewCategoryColorFor(category) ?? this.previewColorFor(category, Number.isFinite(value) ? value : NaN);
+  }
+
+  // ─── Table grid options: pinning, grouping, subtotals, data bars, conditional formats, long text, drill ───
+  readonly tableAggFuncs = REPORT_AGG_FUNCS;
+  readonly tableCfOperators = TABLE_CF_OPERATORS;
+  tableOptionDropdown: 'pin' | 'group' | 'bars' | null = null;
+  tableDrill: { subtitle: string; columns: ColDef[]; rows: Record<string, unknown>[] } | null = null;
+  readonly tableDrillDefaultColDef: ColDef = { sortable: true, resizable: true, filter: true, minWidth: 140 };
+  private tableGridApi: GridApi | null = null;
+  private nextTableCfId = 1;
+  private tablePreviewStatsSource: unknown = null;
+  private tableActiveCfRules: TableGridOptions['conditionalRules'] = [];
+  private tablePreviewPinnedCache: typeof this.tablePreviewRowsCache = [];
+  private readonly noTableRows: typeof this.tablePreviewRowsCache = [];
+  private tableAutoGroupKey = '';
+  private tableAutoGroupCache: ColDef = {};
+  private readonly tableWrapColDef: ColDef = { ...this.importGridDefaultColDef, wrapText: true, autoHeight: true };
+
+  get tableGridDefaultColDef(): ColDef {
+    return this.tableGrid.wrapText ? this.tableWrapColDef : this.importGridDefaultColDef;
+  }
+
+  get tableAutoGroupColumnDef(): ColDef {
+    // A grouped column is hidden, so pinning it means pinning the group column that shows it.
+    const pinned = this.tableGrid.groupBy.some(header => this.tableGrid.pinnedColumns.includes(header));
+    const key = `${this.tableHeaderColor}|${this.tableHeaderTextColor}|${pinned}`;
+    if (key !== this.tableAutoGroupKey) {
+      this.tableAutoGroupKey = key;
+      this.tableAutoGroupCache = {
+        minWidth: 180,
+        pinned: pinned ? 'left' : null,
+        headerStyle: {
+          background: this.tableHeaderColor || 'linear-gradient(180deg, #2948A3 0%, #3B58B6 100%)',
+          color: this.tableHeaderTextColor || '#FFFFFF',
+        },
+      };
+    }
+    return this.tableAutoGroupCache;
+  }
+
+  /** Rows of the grid: while grouping, DAX summary rows leave the groups and become pinned bottom rows. */
+  get tablePreviewGridRows(): typeof this.tablePreviewRowsCache {
+    const rows = this.tablePreviewRowData;
+    if (!this.tableGrid.groupBy.length) return rows;
+    this.syncTablePreviewGroupedRows(rows);
+    return this.tablePreviewGridRowsCache;
+  }
+
+  get tablePreviewPinnedRows(): typeof this.tablePreviewRowsCache {
+    if (!this.tableGrid.groupBy.length) return this.noTableRows;
+    this.syncTablePreviewGroupedRows(this.tablePreviewRowData);
+    return this.tablePreviewPinnedCache;
+  }
+
+  private syncTablePreviewGroupedRows(rows: typeof this.tablePreviewRowsCache): void {
+    if (rows === this.tablePreviewGridRowsSource) return;
+    this.tablePreviewGridRowsSource = rows;
+    this.tablePreviewGridRowsCache = rows.filter(row => !row.summary);
+    this.tablePreviewPinnedCache = rows.filter(row => row.summary);
+  }
+
+  /** Headers offered by each Table Options picker (data bars only make sense on numeric columns). */
+  tableOptionHeaders(kind: 'pin' | 'group' | 'bars'): string[] {
+    const headers = this.tablePreviewHeaders;
+    if (kind !== 'bars') return headers;
+    return headers.filter((_, index) => this.tablePreviewStats[index]?.numeric);
+  }
+
+  private tableOptionList(kind: 'pin' | 'group' | 'bars'): string[] {
+    return kind === 'pin' ? this.tableGrid.pinnedColumns
+      : kind === 'group' ? this.tableGrid.groupBy
+      : this.tableGrid.dataBarColumns;
+  }
+
+  isTableColumnSelected(kind: 'pin' | 'group' | 'bars', header: string): boolean {
+    return this.tableOptionList(kind).includes(header);
+  }
+
+  tableOptionLabel(kind: 'pin' | 'group' | 'bars', empty: string): string {
+    const count = this.tableOptionList(kind).length;
+    return count ? `${count} selected` : empty;
+  }
+
+  toggleTableOptionDropdown(kind: 'pin' | 'group' | 'bars', event: Event): void {
+    event.stopPropagation();
+    const willOpen = this.tableOptionDropdown !== kind;
+    this.closeAllDropdowns();
+    this.tableOptionDropdown = willOpen ? kind : null;
+  }
+
+  toggleTableColumn(kind: 'pin' | 'group' | 'bars', header: string): void {
+    this.pushUndo();
+    const list = this.tableOptionList(kind);
+    const next = list.includes(header) ? list.filter(item => item !== header) : [...list, header];
+    if (kind === 'pin') this.tableGrid.pinnedColumns = next;
+    else if (kind === 'group') this.tableGrid.groupBy = next;
+    else this.tableGrid.dataBarColumns = next;
+    this.onTableGridChange();
+  }
+
+  onTableGridChange(): void {
+    this.cdr.markForCheck();
+    this.persistEditorDraft();
+  }
+
+  setTableGridFlag(flag: 'groupSubtotals' | 'grandTotal' | 'wrapText', value: boolean): void {
+    this.pushUndo();
+    this.tableGrid[flag] = value;
+    this.onTableGridChange();
+  }
+
+  setTableDataBarColor(color: string): void {
+    this.pushUndo();
+    this.tableGrid.dataBarColor = color;
+    this.onTableGridChange();
+  }
+
+  trackTableCfRule(_: number, rule: { id: string }): string {
+    return rule.id;
+  }
+
+  setTableGroupExpanded(expanded: boolean): void {
+    this.pushUndo();
+    this.tableGrid.groupExpanded = expanded;
+    if (expanded) this.tableGridApi?.expandAll();
+    else this.tableGridApi?.collapseAll();
+    this.onTableGridChange();
+  }
+
+  expandTableGroups(): void { this.tableGridApi?.expandAll(); }
+  collapseTableGroups(): void { this.tableGridApi?.collapseAll(); }
+
+  addTableCfRule(): void {
+    this.pushUndo();
+    let id: string;
+    do { id = `table-cf-${this.nextTableCfId++}`; } while (this.tableGrid.conditionalRules.some(rule => rule.id === id));
+    this.tableGrid.conditionalRules = [...this.tableGrid.conditionalRules, {
+      id,
+      field: this.tablePreviewHeaders[0] ?? '',
+      operator: 'gt',
+      value: '',
+      backgroundColor: '#FEE2E2',
+      textColor: '#9C0006',
+      scope: 'column',
+    }];
+    this.onTableGridChange();
+  }
+
+  removeTableCfRule(id: string): void {
+    this.pushUndo();
+    this.tableGrid.conditionalRules = this.tableGrid.conditionalRules.filter(rule => rule.id !== id);
+    this.onTableGridChange();
+  }
+
+  /** The grid reads rules from a copy, so edits made in place must produce a new list to be re-applied. */
+  onTableCfRuleChange(): void {
+    this.tableGrid.conditionalRules = this.tableGrid.conditionalRules.map(rule => ({ ...rule }));
+    this.onTableGridChange();
+  }
+
+  tableCfNeedsValue(operator: CfOperator): boolean {
+    return this.tableCfOperators.find(option => option.id === operator)?.needsValue ?? false;
+  }
+
+  tableCfNeedsSecondValue(operator: CfOperator): boolean {
+    return this.tableCfOperators.find(option => option.id === operator)?.needsSecondValue ?? false;
+  }
+
+  onTableGridReady(event: GridReadyEvent): void {
+    this.tableGridApi = event.api;
+  }
+
+  /** Keeps the saved pin list in step with pins made from the grid's column menu. */
+  onTableColumnPinned(event: ColumnPinnedEvent): void {
+    const pinned = event.api.getColumnState()
+      .filter(state => state.pinned === 'left')
+      .map(state => this.tablePreviewHeaderNames[Number(state.colId.replace(/^(ag-Grid-AutoColumn-)?preview-/, ''))])
+      .filter((header): header is string => !!header);
+    const current = this.tableGrid.pinnedColumns;
+    if (pinned.length === current.length && pinned.every(header => current.includes(header))) return;
+    this.tableGrid.pinnedColumns = pinned;
+    this.onTableGridChange();
+  }
+
+  readonly tableContextMenuItems = (params: GetContextMenuItemsParams): (DefaultMenuItem | MenuItemDef)[] => {
+    const items: (DefaultMenuItem | MenuItemDef)[] = [];
+    const node = params.node;
+    if (node && !node.rowPinned && this.tableDrillRecords(node).length) {
+      items.push({ name: 'Drill to detail', action: () => this.openTableDrill(node, params.column) }, 'separator');
+    }
+    items.push('copy', 'copyWithHeaders');
+    return items;
+  };
+
+  onTablePreviewCellDoubleClicked(event: CellDoubleClickedEvent): void {
+    if (event.node && !event.node.rowPinned) this.openTableDrill(event.node, event.column);
+  }
+
+  private tableDrillRecords(node: IRowNode): Record<string, unknown>[] {
+    return drillLeafData<typeof this.tablePreviewRowsCache[number]>(node)
+      .filter(data => data.source && !data.summary)
+      .map(data => data.source as Record<string, unknown>);
+  }
+
+  /** Opens the source records behind a cell (or, on a group row, behind every row in the group). */
+  openTableDrill(node: IRowNode, column: Column | null): void {
+    const records = this.tableDrillRecords(node);
+    if (!records.length) return;
+    const columns = buildDrillColumns(records);
+    const header = this.tablePreviewHeaderNames[Number((column?.getColId() ?? '').replace('preview-', ''))];
+    const data = node.data as typeof this.tablePreviewRowsCache[number] | undefined;
+    const target = node.group
+      ? `${node.rowGroupColumn?.getColDef().headerName ?? 'Group'}: ${node.key ?? ''}`
+      : header && data ? `${header}: ${DateUtil.formatCellValue(data.values[this.tablePreviewHeaderNames.indexOf(header)])}` : '';
+    this.tableDrill = {
+      subtitle: `${target}${target ? ' \u00b7 ' : ''}${records.length} ${records.length === 1 ? 'record' : 'records'}`,
+      columns,
+      rows: records,
+    };
+    this.cdr.markForCheck();
+  }
+
+  closeTableDrill(): void {
+    this.tableDrill = null;
+    this.cdr.markForCheck();
   }
 
   parameterFilters: ParameterFilterRule[] = [];
@@ -3246,7 +3846,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
   /** Seeds the live preview selections from any locked interactive filter's frozen value so the canvas reflects it. */
   private syncInteractiveFilterSelections(): void {
-    for (const filter of this.interactiveFilters) {
+    for (const filter of this.interactiveFilters ?? []) {
       // A saved chart's filters keep their original ids; without this, a newly added filter
       // could reuse an id already in use by a loaded one (both default-start at 1), corrupting
       // the id-keyed preview/dropdown state shared between them.
@@ -3447,7 +4047,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       this.widgetService.getFilteredChartData({
         chartSource,
         chartSourceType: this.dataSourceMode === 'view' ? 'View' : (this.selectedChartModel?.modelType ?? 'Table'),
-        viewId: this.dataSourceMode === 'view' ? (this.selectedView?.id ?? null) : null,
+        viewId: this.dataSourceMode === 'view' ? (this.selectedViewId ?? this.selectedView?.id ?? null) : null,
         fromDate: this.fromDate || undefined,
         toDate: this.toDate || undefined,
         mode: this.isTrendChart ? this.trendMode : undefined,
@@ -3474,7 +4074,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
           value: selection.values.join(','),
           values: [...selection.values],
           label: selection.filter.label,
-        })), ...(this.dataSourceMode === 'view' ? this.globalHierarchyFilterPayload() : [])],
+        })), ...(this.dataSourceMode !== 'import' ? this.globalHierarchyFilterPayload() : [])],
       }).pipe(takeUntil(this.destroy$)).subscribe({
         next: (res) => {
           if (requestVersion !== this.previewFilterVersion || sourceVersion !== this.sourceLoadVersion || chartSource !== this.selectedChartModelId) return;
@@ -3604,30 +4204,66 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   }
 
   // Preview inline tiles in the builder canvas
-  previewInlineTiles: { id: number; label: string; value: string; color: string; icon: string; breakdown: { label: string; value: string; color: string }[] }[] = [];
+  previewInlineTiles: { id: number; label: string; value: string; color: string; icon: string; tileLayout?: TileLayout; showIcon?: boolean; valueBold?: boolean; valueItalic?: boolean; valueColor?: string; breakdown: { label: string; value: string; color: string }[] }[] = [];
+
+  /** Live breakdown values for an attached tile's preview, mirroring the tile's main value: the
+   *  chart's active local (interactive) + locked filters flow to the breakdown; global hierarchy
+   *  applies to View sources only (Table would 404 FK-joining country/sector). */
+  private hydrateTilePreviewBreakdown(target: { value: string }[], defs: { sourceName?: string; sourceType?: string; column?: string }[]): void {
+    const locked = this.lockedInteractiveFilterPayload().filter(f => f.value);
+    const activeLocal = this.interactiveFilters.filter(f => f.sourceColumn && !f.locked)
+      .map(f => ({ sourceTable: f.sourceTable, sourceColumn: f.sourceColumn, controlType: f.controlType, label: f.label || f.sourceColumn, value: this.previewFilterValues[f.id] ?? '' }))
+      .filter(f => f.value && f.controlType !== 'MultiSelect');
+    defs.forEach((d, i) => {
+      if (!d?.sourceName || !d?.column) return;
+      const isView = (d.sourceType ?? 'Table').toLowerCase() === 'view';
+      const locals = [...locked, ...activeLocal].map(f => ({
+        sourceTable: f.sourceTable || d.sourceName!,
+        sourceColumn: f.sourceColumn, controlType: f.controlType, value: f.value, label: f.label ?? f.sourceColumn,
+      }));
+      const globals = isView ? this.globalHierarchyFilterPayload(true).filter(g => g.advancedHierarchy || !locals.some(l =>
+        l.sourceColumn.toLowerCase() === g.sourceColumn.toLowerCase() || (l.label ?? '').toLowerCase() === (g.label ?? '').toLowerCase()))
+        : tableClusterPlantFilters(this.filterValues['cluster'], this.filterValues['plant']);
+      this.commonApi.getBreakdownValueFiltered({
+        sourceName: d.sourceName, sourceType: d.sourceType ?? 'Table', column: d.column,
+        filters: [...locals, ...globals],
+        fromDate: this.fromDate || undefined, toDate: this.toDate || undefined,
+      }).pipe(takeUntil(this.destroy$))
+        .subscribe(v => { if (target[i]) { target[i].value = String(Math.round(v * 100) / 100); this.cdr.markForCheck(); } });
+    });
+  }
 
   private loadTilePreview(tile: Widget): void {
     let d: Record<string, unknown> = {};
     try { d = JSON.parse(tile.designJson ?? '{}'); } catch { return; }
     const aggregation = (d['aggregation'] as string) ?? 'count';
     const valueField = (d['valueField'] as string) ?? '';
+    const daxModel = d['daxModel'] as DaxModelConfig | undefined;
     const source = tile.source;
     const sourceType = tile.sourceType ?? 'Table';
+    const daxTable = !!daxModel?.enabled && sourceType.toLowerCase() === 'table';
     const color = (d['tileColor'] as string) ?? 'blue';
     const icon = (d['tileIcon'] as string) ?? 'well';
+    const showIcon = d['showTileIcon'] !== false;
+    const tileLayout = resolveTileLayout(d['tileLayout']);
+    const valueBold = d['valueBold'] === true;
+    const valueItalic = d['valueItalic'] === true;
+    const valueColor = (d['valueColor'] as string) || '';
     const label = (d['label'] as string) || tile.name;
     const prefix = (d['prefix'] as string) ?? '';
     const suffix = (d['suffix'] as string) ?? '';
     const places = (d['decimalPlaces'] as number) ?? 0;
     const shorten = (d['shortenBigNumbers'] as boolean) ?? false;
-    const breakdown = ((d['breakdownRows'] as { label: string; value: string; color: string }[]) ?? [])
-      .filter(r => r && (r.label || r.value))
-      .map(r => ({ label: r.label ?? '', value: r.value ?? '', color: r.color ?? 'blue' }));
+    const breakdownDefs = ((d['breakdownRows'] as { label?: string; value?: string; color?: string; sourceName?: string; sourceType?: string; column?: string }[]) ?? [])
+      .filter(r => r && (r.label || r.value));
+    const breakdown = breakdownDefs.map(r => ({ label: r.label ?? '', value: r.value ?? '', color: r.color ?? 'blue' }));
+    this.hydrateTilePreviewBreakdown(breakdown, breakdownDefs);
 
     const viewId = tile.sourceId ?? (d['viewId'] as number | undefined);
     const isViewTile = sourceType === 'View' && (viewId ?? 0) > 0;
-    // Mirror the chart's own local (and global) filters on attached view tiles so they filter with the chart.
-    const previewLocal = isViewTile
+    const isTableTile = sourceType === 'Table';
+    // Mirror the chart's own local (and global) filters on attached view/table tiles so they filter with the chart.
+    const previewLocal = (isViewTile || isTableTile)
       ? this.interactiveFilters.filter(f => f.sourceColumn && !f.locked).map(f => ({
           sourceTable: f.sourceTable || source,
           sourceColumn: f.sourceColumn,
@@ -3637,11 +4273,22 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
           values: this.previewFilterMultiValues[f.id] ?? [],
         })).filter(f => f.value || f.values.length)
       : [];
-    const tileFilters = isViewTile
-      ? [...this.lockedInteractiveFilterPayload(), ...previewLocal,
-         ...this.globalHierarchyFilterPayload().filter(g => !previewLocal.some(l =>
-           l.sourceColumn.toLowerCase() === g.sourceColumn.toLowerCase() || l.label.toLowerCase() === (g.label ?? '').toLowerCase()))]
-      : [];
+    const normalizeFilterName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^plant$/, 'plantdescription');
+    const globalFilters = sourceType === 'Import' ? [] : this.globalHierarchyFilterPayload(isViewTile);
+    const dedupGlobals = globalFilters.filter(global => global.advancedHierarchy || !previewLocal.some(local =>
+      [local.sourceColumn, local.label].some(localName =>
+        [global.sourceColumn, global.label ?? ''].some(globalName =>
+          normalizeFilterName(localName) === normalizeFilterName(globalName)))));
+    // Non-DAX Table tiles also filter Cluster/Plant via FK (handles code columns dev's name-match can't resolve).
+    const inlineTableGlobals = isTableTile && !(d['daxModel'] as DaxModelConfig)?.enabled
+      ? tableClusterPlantFilters(this.filterValues['cluster'], this.filterValues['plant']) : [];
+    const tileFilters = [
+      ...(isViewTile ? [...this.lockedInteractiveFilterPayload(), ...previewLocal] : []),
+      ...dedupGlobals,
+      ...inlineTableGlobals,
+    ];
+    // Non-DAX Table tile with an active global Cluster/Plant → aggregate server-side (value in rows[0].Value).
+    const aggregateTile = !daxModel?.enabled && inlineTableGlobals.length > 0;
     const data$ = this.widgetService.getFilteredChartData({
       chartSource: source,
       chartSourceType: sourceType,
@@ -3649,13 +4296,26 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       filters: tileFilters,
       fromDate: this.fromDate || undefined,
       toDate: this.toDate || undefined,
+      ...(daxTable ? { aggregation, daxModel } : aggregateTile ? { aggregation, valueField: valueField || undefined } : {}),
     });
+
+    const pushTile = (value: string) => {
+      this.previewInlineTiles = this.previewInlineTiles.filter(t => t.id !== tile.id);
+      this.previewInlineTiles.push({ id: tile.id, label, value, color, icon, tileLayout, showIcon, valueBold, valueItalic, valueColor, breakdown });
+      this.cdr.detectChanges();
+    };
 
     data$.subscribe({
       next: (res) => {
         const rows = res.rows ?? [];
         let val: number;
-        if (aggregation === 'count') {
+        if (daxModel?.enabled) {
+          // A Table tile is calculated in SQL over the whole source; a View tile over the rows it returns.
+          try { val = daxTable ? Number(rows[0]?.['Value'] ?? 0) : evaluateTileDaxValue(rows, daxModel, res.columns) ?? 0; }
+          catch { val = NaN; }
+        } else if (aggregateTile) {
+          val = Number(rows[0]?.['Value'] ?? 0) || 0;
+        } else if (aggregation === 'count') {
           val = valueField ? rows.filter(r => { const v = r[valueField]; return v !== null && v !== undefined && v !== ''; }).length : rows.length;
         } else if (!valueField) {
           val = rows.length;
@@ -3670,15 +4330,14 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
           else val = rows.length;
         }
         let formatted: string;
-        if (shorten && val >= 1_000_000) formatted = (val / 1_000_000).toFixed(1) + 'M';
+        if (daxModel?.enabled) formatted = Number.isFinite(val) ? formatDaxValue(val, getSelectedDaxMeasure(daxModel)) : 'DAX error';
+        else if (shorten && val >= 1_000_000) formatted = (val / 1_000_000).toFixed(1) + 'M';
         else if (shorten && val >= 1000) formatted = (val / 1000).toFixed(1) + 'K';
         else formatted = val.toFixed(places);
 
-        this.previewInlineTiles = this.previewInlineTiles.filter(t => t.id !== tile.id);
-        this.previewInlineTiles.push({ id: tile.id, label, value: prefix + formatted + suffix, color, icon, breakdown });
-        this.cdr.detectChanges();
+        pushTile(daxModel?.enabled && !Number.isFinite(val) ? formatted : prefix + formatted + suffix);
       },
-      error: () => {},
+      error: () => { if (daxModel?.enabled) pushTile('DAX error'); },
     });
   }
 
@@ -3704,7 +4363,11 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
   onPreviewChartInstance(chart: Highcharts.Chart): void {
     let hasColorUpdates = false;
-    for (const series of chart.series) {
+    // Histogram bins already carry their colours from the shared builder, matching the saved chart.
+    // Scatter series carry their own category colours, and recolouring every point is slow.
+    // A heatmap cell takes its colour from the colour axis, so equal values must keep equal colours.
+    const seriesToColor = this.isHistogramType || this.isScatterType || this.isHeatmapType ? [] : chart.series;
+    for (const series of seriesToColor) {
       for (const point of series.points) {
         // Pie/donut/funnel points carry a numeric category (their index) and the label in
         // name; looking the rules up by "0"/"1" matched nothing and painted the fallback
@@ -3725,11 +4388,12 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     if (hasColorUpdates) chart.redraw();
 
     this.previewLegendItems = [];
-    if (!this.usesCustomPreviewLegend) return;
+    if (!this.usesCustomPreviewLegend && !this.isHistogramType) return;
     const series = chart.series;
-    const isMultiSeries = this.xAxis.trim().toLowerCase() === 'period' || series.length > 1 ||
+    const isMultiSeries = !this.isHistogramType && ((!['pie', 'donut', 'funnel', 'treemap'].includes(this.selectedChartType ?? '')
+      && this.xAxis.trim().toLowerCase() === 'period') || series.length > 1 ||
       (this.isMultiSeriesType && this.multiYColumns.length > 0) ||
-      this.selectedChartType === 'combo';
+      this.selectedChartType === 'combo');
     this.previewLegendItems = isMultiSeries
       ? series.map(seriesItem => ({
           label: seriesItem.name,
@@ -3799,7 +4463,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
   /** Country/Sector/Business Unit/Division/Cluster/Plant. A column the source lacks is ignored. */
   private matchesGlobalDimensions(row: Record<string, unknown>): boolean {
-    const values: Record<string, string> = {
+    const values: Record<string, GlobalFilterSelection> = {
       country: this.filterValues['country'],
       sector: this.filterValues['sector'],
       businessUnit: this.filterValues['businessUnit'],
@@ -3810,7 +4474,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     for (const [key, selected] of Object.entries(values)) {
       const actual = this.findRowValue(row, key);
       if (actual == null) continue;
-      if (selected && selected !== 'All' && String(actual).toLowerCase() !== selected.toLowerCase()) return false;
+      if (hasGlobalSelection(selected) && !matchesGlobalSelection(String(actual), selected)) return false;
     }
     return true;
   }
@@ -3821,6 +4485,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
    * predicate that produced it — a separate copy would eventually disagree with reality.
    */
   private matchesGlobalDateRange(row: Record<string, unknown>): boolean {
+    if (this.dataSourceMode === 'view') return true;
     if (!this.fromDate && !this.toDate) return true;
     const dateValue = this.findRowDate(row);
     if (!dateValue) return true;
@@ -4313,6 +4978,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     const isList = (item: unknown, valid: (entry: unknown) => boolean): item is unknown[] =>
       Array.isArray(item) && item.every(valid);
     const isStringMap = (item: unknown) => isRecord(item) && Object.values(item).every(isString);
+    const isGlobalSelectionMap = (item: unknown) => isRecord(item) && Object.values(item).every(
+      entry => isString(entry) || isList(entry, isString),
+    );
     const isFilter = (item: unknown) => isRecord(item) && isNumber(item['id'])
       && isString(item['sourceTable']) && isString(item['sourceColumn'])
       && (item['values'] == null || isList(item['values'], isString))
@@ -4321,7 +4989,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       if (!isRecord(item)) return false;
       const strings = ['chartTitle', 'chartDescription', 'selectedChartModelId', 'xAxis', 'yAxis',
         'yAggColumn', 'xAxisTitle', 'yAxisTitle', 'category'];
-      const stringLists = ['multiYColumns', 'tableRowColors', 'tableRowTextColors', 'comboLineColumns'];
+      const stringLists = ['multiYColumns', 'tableRowColors', 'tableRowTextColors', 'comboLineColumns', 'metricColumns'];
       return strings.every(key => isString(item[key]))
         && ['table', 'view', 'import'].includes(String(item['dataSourceMode']))
         && (item['selectedChartType'] === null || isString(item['selectedChartType']))
@@ -4348,7 +5016,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       || !isEntries(value['savedChartIds'], isNumber)
       || (value['chartTypeStates'] != null && !isEntries(value['chartTypeStates'], isState))
       || !isNumber(value['nextTabIndex']) || !isNumber(value['nextFilterId'])
-      || !isList(value['openSections'], isNumber) || !isStringMap(value['filterValues'])
+      || !isList(value['openSections'], isNumber) || !isGlobalSelectionMap(value['filterValues'])
       || !['fromDate', 'toDate', 'quickRange'].every(key => isString(value[key]))
       || (value['importedChartModels'] != null && !isList(value['importedChartModels'], item =>
         isRecord(item) && isString(item['id']) && isString(item['label'])))
@@ -4485,11 +5153,16 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
   // Help modal
   openHelpModal(): void {
+    this.helpSearchTerm = '';
+    this.helpVote = null;
+    this.helpArticles.forEach(article => (article.expanded = false));
     this.showHelpModal = true;
   }
 
   closeHelpModal(): void {
     this.showHelpModal = false;
+    this.helpSearchTerm = '';
+    this.helpVote = null;
   }
 
   toggleHelpArticle(article: HelpArticle): void {
@@ -4582,13 +5255,20 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /** Names the heatmap field still missing, so the empty canvas says what to pick. */
+  get missingMappingHint(): string {
+    if (this.isHeatmapType && this.xAxis && !this.heatmapYColumn) return 'Select a Y dimension to draw the heatmap. Clear Intensity / Value if no other column is free.';
+    return '';
+  }
+
   get canGeneratePreview(): boolean {
     if (this.dataSourceMode === 'import' && !this.selectedChartModelId) return false;
     if (!this.selectedChartType) return false;
     if (this.isAdvancedType) return !!this.selectedChartModelId;
     // Types with their own field set instead of xAxis/yAxis — checked before the xAxis gate below.
-    if (this.isGaugeType) return !!this.yAggColumn;
+    if (this.isGaugeType || this.isHistogramType) return !!this.yAggColumn;
     if (this.isSankeyType) return !!this.sankeyFromColumn && !!this.sankeyToColumn && !!this.sankeyWeightColumn;
+    // End Date is optional: without it the timeline shows milestones, with it duration bars.
     if (this.isTimelineType) return !!this.timelineDateColumn && !!this.timelineLabelColumn;
     if (!this.xAxis) return false;
     // Table renders from xAxis + selected Table Columns, not the Y-axis operation/column.
@@ -4598,6 +5278,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       return this.multiYColumns.length > 0 || this.comboLineColumns.length > 0;
     // Series-managed charts (grouped/stacked/multiline/combo) render from the Y-axis columns picker.
     if (this.isSeriesManagedType) return this.multiYColumns.length > 0;
+    if (this.isScatterType) return !!this.yAggColumn;
     if (this.isBubbleType) return (!!this.yAxis || !!this.yAggColumn) && !!this.bubbleSizeColumn;
     if (this.isHeatmapType) return (!!this.yAxis || !!this.yAggColumn) && !!this.heatmapYColumn;
     return !!this.yAxis || !!this.yAggColumn;
@@ -4643,20 +5324,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.showChartModelDropdown = false;
     this.chartModelSearch = '';
     // A different source has different columns, so drop the old column mapping.
-    if (sourceChanged) {
-      this.advancedConfig = defaultAdvancedConfig();
-      this.advancedRows = [];
-      this.multiYColumns = [];
-      this.comboLineColumns = [];
-      this.yAggColumn = '';
-      // Clear the previous source's data so the preview doesn't flash stale rows while the new one loads.
-      this.rawLoadedColumns = []; this.rawLoadedRows = [];
-      this.xAxisOptions = []; this.yAxisColumns = []; this.tableRows = [];
-      this.xAxis = ''; this.yAxis = 'Count (F)';
-      this.chartPreviewOptions = null;
-    }
-    // On a new chart, default to the Table chart type once a source is chosen.
-    if (!this.editId) {
+    if (sourceChanged) this.resetSourceDependentConfig();
+    // Default to the Table chart type on a new chart or whenever the source changes.
+    if (!this.editId || sourceChanged) {
       this.selectedChartType = 'table';
       this.selectedLibraryId = (this.chartTypes as { id: ChartTypeId; widgetLibraryId?: number }[]).find(t => t.id === 'table')?.widgetLibraryId ?? null;
     }
@@ -4665,6 +5335,20 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.interactiveFilters = this.interactiveFilters.map(f => ({ ...f, sourceTable: model.id, sourceColumn: '' }));
     this.conditionalFilters = this.conditionalFilters.map(f => ({ ...f, sourceTable: model.id, sourceColumn: '' }));
     this.cdr.markForCheck();
+  }
+
+  /** A new data source invalidates all column-based config; only chart identity, Attached Tiles and Drill Down survive. */
+  private resetSourceDependentConfig(): void {
+    const { chartTitle, chartDescription, category, selectedCategoryId,
+      selectedChartModelId, selectedViewId, dataSourceMode, attachedTileIds, previewInlineTiles,
+      drillDownViewId, drillDownViewName, sourceLoadVersion } = this;
+    this.resetChartState();
+    Object.assign(this, { chartTitle, chartDescription, category, selectedCategoryId,
+      selectedChartModelId, selectedViewId, dataSourceMode, attachedTileIds, previewInlineTiles,
+      drillDownViewId, drillDownViewName, sourceLoadVersion });
+    for (const key of this.chartTypeStates.keys()) {
+      if (key.startsWith(`${this.activeTabId}:`)) this.chartTypeStates.delete(key);
+    }
   }
 
   private sourceModeStates = new Map<string, ChartTabState>();
@@ -4697,10 +5381,11 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     }
     // Reset selection
     this.selectedChartModelId = '';
+    this.selectedViewId = null;
     this.rawLoadedColumns = []; this.rawLoadedRows = [];
     this.xAxisOptions = []; this.yAxisColumns = []; this.tableRows = [];
     this.xAxis = ''; this.yAxis = 'Count (F)'; this.yAggColumn = '';
-    this.multiYColumns = []; this.comboLineColumns = [];
+    this.multiYColumns = []; this.comboLineColumns = []; this.metricColumns = [];
     this.chartPreviewOptions = null;
     this.cdr.markForCheck();
   }
@@ -4878,7 +5563,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.pushUndo();
     const requestVersion = ++this.sourceLoadVersion;
     this.sourceError = '';
-    const sourceChanged = this.selectedChartModelId !== view.viewName;
+    const sourceChanged = this.selectedView?.id !== view.id;
+    this.selectedViewId = view.id;
     this.selectedChartModelId = view.viewName;
     this.clearMissingSourceError();
     this.chartTypeFilterMode = 'suggested';
@@ -4886,18 +5572,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.showChartModelDropdown = false;
     this.viewSearch = '';
     // A different view has different columns, so drop the old column mapping.
-    if (sourceChanged) {
-      this.multiYColumns = [];
-      this.comboLineColumns = [];
-      this.yAggColumn = '';
-      // Clear the previous view's data so the preview doesn't flash stale rows while the new view loads.
-      this.rawLoadedColumns = []; this.rawLoadedRows = [];
-      this.xAxisOptions = []; this.yAxisColumns = []; this.tableRows = [];
-      this.xAxis = ''; this.yAxis = 'Count (F)';
-      this.chartPreviewOptions = null;
-    }
-    // On a new chart, default to the Table chart type once a source is chosen.
-    if (!this.editId) {
+    if (sourceChanged) this.resetSourceDependentConfig();
+    // Default to the Table chart type on a new chart or whenever the source changes.
+    if (!this.editId || sourceChanged) {
       this.selectedChartType = 'table';
       this.selectedLibraryId = (this.chartTypes as { id: ChartTypeId; widgetLibraryId?: number }[]).find(t => t.id === 'table')?.widgetLibraryId ?? null;
     }
@@ -4946,6 +5623,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.showYAggDropdown = false;
     this.showMultiYDropdown = false;
     this.showComboLineDropdown = false;
+    this.showMetricDropdown = false;
     this.mappingDropdownOpen = null;
   }
 
@@ -4992,11 +5670,13 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     switch (key) {
       case 'bulletTarget': return this.bulletTargetColumn;
       case 'bubbleSize': return this.bubbleSizeColumn;
+      case 'scatterCategory': return this.scatterCategoryColumn;
       case 'heatmapY': return this.heatmapYColumn;
       case 'sankeyFrom': return this.sankeyFromColumn;
       case 'sankeyTo': return this.sankeyToColumn;
       case 'sankeyWeight': return this.sankeyWeightColumn;
       case 'timelineDate': return this.timelineDateColumn;
+      case 'timelineEnd': return this.timelineEndColumn;
       case 'timelineLabel': return this.timelineLabelColumn;
       default: return '';
     }
@@ -5006,11 +5686,13 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     switch (key) {
       case 'bulletTarget': this.bulletTargetColumn = value; break;
       case 'bubbleSize': this.bubbleSizeColumn = value; break;
+      case 'scatterCategory': this.scatterCategoryColumn = value; break;
       case 'heatmapY': this.heatmapYColumn = value; break;
       case 'sankeyFrom': this.sankeyFromColumn = value; break;
       case 'sankeyTo': this.sankeyToColumn = value; break;
       case 'sankeyWeight': this.sankeyWeightColumn = value; break;
       case 'timelineDate': this.timelineDateColumn = value; break;
+      case 'timelineEnd': this.timelineEndColumn = value; break;
       case 'timelineLabel': this.timelineLabelColumn = value; break;
     }
     this.mappingDropdownOpen = null;
@@ -5033,6 +5715,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.showDaxDenominatorDropdown = false;
     this.showMultiYDropdown = false;
     this.showComboLineDropdown = false;
+    this.tableOptionDropdown = null;
     this.showTileDropdown = false;
     this.openMultiFilterId = null;
     this.openParamColDropdownId = null;
@@ -5044,12 +5727,17 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   toggleDaxColumnDropdown(event: Event): void {
     event.stopPropagation();
     this.showDaxColumnDropdown = !this.showDaxColumnDropdown;
+    if (this.showDaxColumnDropdown) {
+      this.showDaxOperationDropdown = false;
+      this.daxOperationSearch = '';
+    }
   }
 
   toggleDaxOperationDropdown(event: Event): void {
     event.stopPropagation();
     this.showDaxOperationDropdown = !this.showDaxOperationDropdown;
     if (!this.showDaxOperationDropdown) this.daxOperationSearch = '';
+    else this.showDaxColumnDropdown = false;
   }
 
   selectDaxOperation(fn: string): void {
@@ -5111,6 +5799,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       this.multiYColumns = [...previousType.multiYColumns];
       this.comboLineColumns = [...previousType.comboLineColumns];
       this.yAxis2Title = previousType.yAxis2Title;
+      this.metricColumns = [...previousType.metricColumns];
     } else if (this.selectedChartType === 'table') {
       // Table shows every column, so pre-select them all as series.
       if (this.yAxisColumns.length) this.multiYColumns = [...this.yAxisColumns];
@@ -5142,6 +5831,13 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     }
 
     this.removeDeselectedColumnMappings();
+    // Scatter plots numbers on both axes, so a text X-axis or Value carried from another chart type is replaced.
+    if (this.isScatterType) {
+      if (this.xAxis && !this.isColumnNumeric(this.xAxis)) this.xAxis = '';
+      if (this.yAggColumn && !this.isColumnNumeric(this.yAggColumn)) this.yAggColumn = '';
+      if (!this.xAxis) this.xAxis = this.defaultNumericColumn([this.yAggColumn]);
+      if (!this.yAggColumn) this.yAggColumn = this.defaultNumericColumn([this.xAxis]);
+    }
     // In single-series mode the "Operation" field must hold an aggregation function — never a stale
     // column name carried over from a prior series-managed config (which hides the Operation row).
     if (this.selectedChartType && !this.isSeriesManagedType && this.yAxis
@@ -5164,14 +5860,17 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.yAggColumn = retain(this.yAggColumn);
     this.bulletTargetColumn = retain(this.bulletTargetColumn);
     this.bubbleSizeColumn = retain(this.bubbleSizeColumn);
+    this.scatterCategoryColumn = retain(this.scatterCategoryColumn);
     this.heatmapYColumn = retain(this.heatmapYColumn);
     this.sankeyFromColumn = retain(this.sankeyFromColumn);
     this.sankeyToColumn = retain(this.sankeyToColumn);
     this.sankeyWeightColumn = retain(this.sankeyWeightColumn);
     this.timelineDateColumn = retain(this.timelineDateColumn);
+    this.timelineEndColumn = retain(this.timelineEndColumn);
     this.timelineLabelColumn = retain(this.timelineLabelColumn);
     this.multiYColumns = this.multiYColumns.filter(column => allowed.has(column));
     this.comboLineColumns = this.comboLineColumns.filter(column => allowed.has(column));
+    this.metricColumns = this.metricColumns.filter(column => allowed.has(column));
     this.selectedDaxColumns = this.selectedDaxColumns.filter(column => allowed.has(column));
   }
 
@@ -5196,6 +5895,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     if (!this.selectedLibraryId) { this.saveError.set('Please select a chart type first.'); return; }
     if (!this.chartDescription.trim()) { this.descriptionValidationError.set('Please enter a description.'); return; }
     this.descriptionValidationError.set('');
+    if (this.isHeatmapType && !this.heatmapYColumn) { this.saveError.set('Select a Y dimension before saving the heatmap.'); return; }
     const selectionError = getParameterSelectionError(this.parameterFilters);
     if (selectionError) {
       this.openSections.add(4);
@@ -5211,7 +5911,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       libraryId: this.selectedLibraryId,
       source: this.selectedChartModelId,
       sourceType: this.dataSourceMode === 'view' ? 'View' : (this.selectedChartModel?.modelType ?? 'Table'),
-      sourceId: this.dataSourceMode === 'view' ? (this.selectedView?.id ?? null)
+      sourceId: this.dataSourceMode === 'view' ? (this.selectedViewId ?? this.selectedView?.id ?? null)
               : this.dataSourceMode === 'import' ? (this.selectedImportDataset?.id ?? null)
               : null,
       designJson: this.buildDesignJson(),
@@ -5294,6 +5994,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       xAxisTitle: this.xAxisTitle,
       yAxisTitle: this.yAxisTitle,
       showLegend: this.showLegend,
+      legendPosition: this.legendPosition,
       includeDataTable: this.includeDataTable,
       showAxisTitle: this.showAxisTitle,
       showDataLabels: this.showDataLabels,
@@ -5310,7 +6011,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       attachedTileIds: [...this.attachedTileIds],
       selectedCategoryId: this.selectedCategoryId,
       category: this.category,
-      viewId: this.dataSourceMode === 'view' ? (this.selectedView?.id ?? null)
+      viewId: this.dataSourceMode === 'view' ? (this.selectedViewId ?? this.selectedView?.id ?? null)
             : this.dataSourceMode === 'import' ? (this.selectedImportDataset?.id ?? null)
             : null,
       tableRowColors: [...this.tableRowColors],
@@ -5319,24 +6020,30 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       tableRowTextColors: [...this.tableRowTextColors],
       comboLineColumns: [...this.comboLineColumns],
       yAxis2Title: this.yAxis2Title,
+      metricColumns: [...this.metricColumns],
       drillDownViewId: this.drillDownViewId,
       trendMode: this.trendMode,
       daxModel: this.cloneDaxModel(this.daxModel),
+      scenarioParametersEnabled: this.scenarioParametersEnabled,
       gaugeMin: this.gaugeMin,
       gaugeMax: this.gaugeMax,
+      histogramBins: this.histogramBins,
       bulletTargetColumn: this.bulletTargetColumn,
       bubbleSizeColumn: this.bubbleSizeColumn,
+      scatterCategoryColumn: this.scatterCategoryColumn,
       heatmapYColumn: this.heatmapYColumn,
       sankeyFromColumn: this.sankeyFromColumn,
       sankeyToColumn: this.sankeyToColumn,
       sankeyWeightColumn: this.sankeyWeightColumn,
       timelineDateColumn: this.timelineDateColumn,
+      timelineEndColumn: this.timelineEndColumn,
       timelineLabelColumn: this.timelineLabelColumn,
       colorRules: this.colorRules.map(rule => ({ ...rule })),
       colorOverrides: { ...this.colorOverrides },
       advancedConfig: structuredClone(this.advancedConfig),
       previewFilterValues: { ...this.previewFilterValues },
       previewFilterMultiValues: structuredClone(this.previewFilterMultiValues),
+      tableGrid: cloneTableGridOptions(this.tableGrid),
     });
   }
 
@@ -5355,12 +6062,14 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.selectedLibraryId = s.selectedLibraryId;
     this.selectedChartModelId = s.selectedChartModelId;
     this.dataSourceMode = s.dataSourceMode;
+    this.selectedViewId = s.dataSourceMode === 'view' ? (s.viewId ?? null) : null;
     this.xAxis = s.xAxis;
     this.yAxis = s.yAxis;
     this.yAggColumn = s.yAggColumn;
     this.xAxisTitle = s.xAxisTitle;
     this.yAxisTitle = s.yAxisTitle;
     this.showLegend = s.showLegend;
+    this.legendPosition = s.legendPosition ?? DEFAULT_LEGEND_POSITION;
     this.includeDataTable = s.includeDataTable;
     this.showAxisTitle = s.showAxisTitle;
     this.axisTitleAutoApplied = false;
@@ -5406,25 +6115,31 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.tableHeaderColor = s.tableHeaderColor ?? '';
     this.tableHeaderTextColor = s.tableHeaderTextColor ?? '';
     this.tableRowTextColors = s.tableRowTextColors ? [...s.tableRowTextColors] : [];
+    this.tableGrid = cloneTableGridOptions(s.tableGrid);
     this.comboLineColumns = s.comboLineColumns ? [...s.comboLineColumns] : [];
     this.yAxis2Title = s.yAxis2Title ?? '';
+    this.metricColumns = s.metricColumns ? [...s.metricColumns] : [];
     this.drillDownViewId = s.drillDownViewId ?? null;
     this.trendMode = s.trendMode ?? 'monthly';
     this.gaugeMin = s.gaugeMin ?? 0;
     this.gaugeMax = s.gaugeMax ?? 100;
     this.bulletTargetColumn = s.bulletTargetColumn ?? '';
     this.bubbleSizeColumn = s.bubbleSizeColumn ?? '';
+    this.scatterCategoryColumn = s.scatterCategoryColumn ?? '';
     this.heatmapYColumn = s.heatmapYColumn ?? '';
     this.sankeyFromColumn = s.sankeyFromColumn ?? '';
     this.sankeyToColumn = s.sankeyToColumn ?? '';
     this.sankeyWeightColumn = s.sankeyWeightColumn ?? '';
     this.timelineDateColumn = s.timelineDateColumn ?? '';
+    this.timelineEndColumn = s.timelineEndColumn ?? '';
+    this.histogramBins = s.histogramBins ?? null;
     this.timelineLabelColumn = s.timelineLabelColumn ?? '';
     this.colorRules = (s.colorRules ?? []).map(rule => ({ ...rule }));
     this.nextColorRuleId = this.colorRules.reduce((max, rule) => Math.max(max, rule.id + 1), 1);
     this.colorOverrides = { ...(s.colorOverrides ?? {}) };
     this.advancedConfig = readAdvancedConfig(s.advancedConfig);
     this.daxModel = this.cloneDaxModel(s.daxModel);
+    this.scenarioParametersEnabled = s.scenarioParametersEnabled === true;
     this.syncDaxSelectionFromModel();
     this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
     this.daxExpressionError = '';
@@ -5432,7 +6147,6 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       const match = this.drillDownViews.find(v => v.id === this.drillDownViewId);
       this.drillDownViewName = match?.viewName ?? '';
     } else { this.drillDownViewName = ''; }
-    // viewId is restored via selectedView lookup after view list loads
     // Reload data for the restored source
     const src = this.chartModels.find(m => m.id === this.selectedChartModelId)
              ?? this.importedChartModels.find(m => m.id === this.selectedChartModelId);
@@ -5468,6 +6182,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.selectedChartType = null;
     this.selectedLibraryId = null;
     this.selectedChartModelId = '';
+    this.selectedViewId = null;
     this.dataSourceMode = 'table';
     this.xAxis = '';
     this.yAxis = 'Count (F)';
@@ -5475,6 +6190,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.xAxisTitle = '';
     this.yAxisTitle = '';
     this.showLegend = true;
+    this.legendPosition = DEFAULT_LEGEND_POSITION;
     this.includeDataTable = false;
     this.showAxisTitle = false;
     this.axisTitleAutoApplied = false;
@@ -5502,18 +6218,29 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.tableHeaderColor = '';
     this.tableHeaderTextColor = '';
     this.tableRowTextColors = [];
+    this.tableGrid = defaultTableGridOptions();
     this.comboLineColumns = [];
     this.yAxis2Title = '';
+    this.metricColumns = [];
+    this.lastAutoXTitle = '';
+    this.lastAutoYTitle = '';
+    this.lastAutoY2Title = '';
+    this.xTitleUserEdited = false;
+    this.yTitleUserEdited = false;
+    this.y2TitleUserEdited = false;
     this.trendMode = 'monthly';
     this.gaugeMin = 0;
     this.gaugeMax = 100;
     this.bulletTargetColumn = '';
     this.bubbleSizeColumn = '';
+    this.scatterCategoryColumn = '';
     this.heatmapYColumn = '';
     this.sankeyFromColumn = '';
     this.sankeyToColumn = '';
     this.sankeyWeightColumn = '';
     this.timelineDateColumn = '';
+    this.timelineEndColumn = '';
+    this.histogramBins = null;
     this.timelineLabelColumn = '';
     this.colorRules = [];
     this.nextColorRuleId = 1;
@@ -5521,6 +6248,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.advancedConfig = defaultAdvancedConfig();
     this.advancedRows = [];
     this.daxModel = this.createDefaultDaxModel();
+    this.scenarioParametersEnabled = false;
+    this.scenarioBuilderPreview = null;
+    this.scenarioPreviewResult = null;
     this.syncDaxSelectionFromModel();
     this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
     this.daxExpressionError = '';
@@ -5550,6 +6280,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       xAxisTitle: this.xAxisTitle,
       yAxisTitle: this.yAxisTitle,
       showLegend: this.showLegend,
+      legendPosition: this.legendPosition,
       includeDataTable: this.includeDataTable,
       showAxisTitle: this.showAxisTitle,
       showDataLabels: this.showDataLabels,
@@ -5566,7 +6297,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       attachedTileIds: [...this.attachedTileIds],
       selectedCategoryId: this.selectedCategoryId,
       category: this.category,
-      viewId: this.dataSourceMode === 'view' ? (this.selectedView?.id ?? null)
+      viewId: this.dataSourceMode === 'view' ? (this.selectedViewId ?? this.selectedView?.id ?? null)
             : this.dataSourceMode === 'import' ? (this.selectedImportDataset?.id ?? null)
             : null,
       tableRowColors: [...this.tableRowColors],
@@ -5575,30 +6306,37 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       tableRowTextColors: [...this.tableRowTextColors],
       comboLineColumns: [...this.comboLineColumns],
       yAxis2Title: this.yAxis2Title,
+      metricColumns: [...this.metricColumns],
       drillDownViewId: this.drillDownViewId,
       trendMode: this.trendMode,
       gaugeMin: this.gaugeMin,
       gaugeMax: this.gaugeMax,
+      histogramBins: this.histogramBins,
       bulletTargetColumn: this.bulletTargetColumn,
       bubbleSizeColumn: this.bubbleSizeColumn,
+      scatterCategoryColumn: this.scatterCategoryColumn,
       heatmapYColumn: this.heatmapYColumn,
       sankeyFromColumn: this.sankeyFromColumn,
       sankeyToColumn: this.sankeyToColumn,
       sankeyWeightColumn: this.sankeyWeightColumn,
       timelineDateColumn: this.timelineDateColumn,
+      timelineEndColumn: this.timelineEndColumn,
       timelineLabelColumn: this.timelineLabelColumn,
       colorRules: this.colorRules.map(rule => ({ ...rule })),
       colorOverrides: { ...this.colorOverrides },
       advancedConfig: structuredClone(this.advancedConfig),
       daxModel: this.cloneDaxModel(this.daxModel),
+      scenarioParametersEnabled: this.scenarioParametersEnabled,
       previewFilterValues: { ...this.previewFilterValues },
       previewFilterMultiValues: structuredClone(this.previewFilterMultiValues),
+      tableGrid: cloneTableGridOptions(this.tableGrid),
     };
   }
 
   private applyState(s: ChartTabState): void {
     this.advancedConfig = readAdvancedConfig(s.advancedConfig);
-    if (this.selectedChartModelId !== s.selectedChartModelId || this.dataSourceMode !== s.dataSourceMode) {
+    if (this.selectedChartModelId !== s.selectedChartModelId || this.dataSourceMode !== s.dataSourceMode
+      || (s.dataSourceMode === 'view' && this.selectedViewId !== s.viewId)) {
       this.restoreChartState(s);
       this.cdr.markForCheck();
       return;
@@ -5608,12 +6346,14 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.selectedLibraryId = s.selectedLibraryId;
     this.selectedChartModelId = s.selectedChartModelId;
     this.dataSourceMode = s.dataSourceMode;
+    this.selectedViewId = s.dataSourceMode === 'view' ? (s.viewId ?? null) : null;
     this.xAxis = s.xAxis;
     this.yAxis = s.yAxis;
     this.yAggColumn = s.yAggColumn;
     this.xAxisTitle = s.xAxisTitle;
     this.yAxisTitle = s.yAxisTitle;
     this.showLegend = s.showLegend;
+    this.legendPosition = s.legendPosition ?? DEFAULT_LEGEND_POSITION;
     this.includeDataTable = s.includeDataTable;
     this.showAxisTitle = s.showAxisTitle;
     this.axisTitleAutoApplied = false;
@@ -5659,13 +6399,16 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.tableHeaderColor = s.tableHeaderColor ?? '';
     this.tableHeaderTextColor = s.tableHeaderTextColor ?? '';
     this.tableRowTextColors = s.tableRowTextColors ? [...s.tableRowTextColors] : [];
+    this.tableGrid = cloneTableGridOptions(s.tableGrid);
     this.colorRules = (s.colorRules ?? []).map(rule => ({ ...rule }));
     this.nextColorRuleId = this.colorRules.reduce((max, rule) => Math.max(max, rule.id + 1), 1);
     this.colorOverrides = { ...(s.colorOverrides ?? {}) };
     this.comboLineColumns = s.comboLineColumns ? [...s.comboLineColumns] : [];
     this.yAxis2Title = s.yAxis2Title ?? '';
+    this.metricColumns = s.metricColumns ? [...s.metricColumns] : [];
     this.trendMode = s.trendMode ?? 'monthly';
     this.daxModel = this.cloneDaxModel(s.daxModel);
+    this.scenarioParametersEnabled = s.scenarioParametersEnabled === true;
     this.syncDaxSelectionFromModel();
     this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
     this.daxExpressionError = '';
@@ -5751,6 +6494,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
   confirmClearAll(): void {
     this.pushUndo();
+    const { chartTitle, chartDescription } = this;
     for (const key of this.sourceModeStates.keys()) {
       if (key.startsWith(`${this.activeTabId}:`)) this.sourceModeStates.delete(key);
     }
@@ -5758,6 +6502,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       if (key.startsWith(`${this.activeTabId}:`)) this.chartTypeStates.delete(key);
     }
     this.resetChartState();
+    this.chartTitle = chartTitle;
+    this.chartDescription = chartDescription;
     this.resetGlobalFiltersToDefaults();
     this.quickRange = '';
     this.resetGlobalFilterDateRange();
@@ -5772,7 +6518,10 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   }
 
   /** Giving an axis title implies the user wants it shown, so auto-enable the toggle the first time. */
-  onAxisTitleChange(): void {
+  onAxisTitleChange(axis?: 'x' | 'y' | 'y2'): void {
+    if (axis === 'x') this.xTitleUserEdited = true;
+    else if (axis === 'y') this.yTitleUserEdited = true;
+    else if (axis === 'y2') this.y2TitleUserEdited = true;
     const hasTitle = !!(this.xAxisTitle.trim() || this.yAxisTitle.trim());
     if (!hasTitle) this.axisTitleAutoApplied = false;
     else if (!this.showAxisTitle && !this.axisTitleAutoApplied) {
@@ -5780,6 +6529,56 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       this.axisTitleAutoApplied = true;
     }
     this.refreshPreview();
+  }
+
+  /** Join mapped column names into a single axis-title label. */
+  private joinAxisNames(names: string[]): string {
+    return names.filter(n => !!n && !!n.trim()).join(' / ');
+  }
+
+  /** Auto-populate axis title boxes from the mapped column names until the user edits them.
+   *  Keeps mirroring the mapped columns while the box is empty or still holds the last auto value. */
+  private applyAutoAxisTitles(): void {
+    const ct = this.selectedChartType;
+    if (!ct || ct === 'pie' || ct === 'donut' || ct === 'funnel' || ct === 'treemap' || ct === 'table') return;
+
+    let filled = false;
+
+    if (!this.xTitleUserEdited && this.xAxis &&
+        (this.xAxisTitle === '' || this.xAxisTitle === this.lastAutoXTitle)) {
+      this.xAxisTitle = this.xAxis;
+      this.lastAutoXTitle = this.xAxis;
+      filled = true;
+    }
+
+    if (!this.yTitleUserEdited) {
+      const leftCols = this.isHeatmapType
+        ? (this.heatmapYColumn ? [this.heatmapYColumn] : [])
+        : (this.isMultiSeriesType && this.multiYColumns.length)
+          ? this.multiYColumns.filter(c => !this.comboLineColumns.includes(c))
+          : (this.yAxis ? [this.yAxis] : []);
+      const yDefault = this.joinAxisNames(leftCols);
+      if (yDefault && (this.yAxisTitle === '' || this.yAxisTitle === this.lastAutoYTitle)) {
+        this.yAxisTitle = yDefault;
+        this.lastAutoYTitle = yDefault;
+        filled = true;
+      }
+    }
+
+    if (!this.y2TitleUserEdited) {
+      const y2Default = this.joinAxisNames(this.comboLineColumns);
+      if (y2Default && (this.yAxis2Title === '' || this.yAxis2Title === this.lastAutoY2Title)) {
+        this.yAxis2Title = y2Default;
+        this.lastAutoY2Title = y2Default;
+        filled = true;
+      }
+    }
+
+    // Auto-filled titles are useless if the axis-title toggle is off, so turn it on once.
+    if (filled && !this.showAxisTitle && !this.axisTitleAutoApplied) {
+      this.showAxisTitle = true;
+      this.axisTitleAutoApplied = true;
+    }
   }
 
   /** A manual toggle is an explicit choice; don't fight it by auto-enabling on further typing. */
@@ -5802,6 +6601,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   }
 
   refreshPreview(): void {
+    this.updateScenarioBuilderPreview();
     this.previewLegendItems = [];
     if (this.isAdvancedType) {
       this.chartPreviewOptions = null;
@@ -5816,9 +6616,13 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
     const ct = this.selectedChartType;
 
+    this.applyAutoAxisTitles();
+
     const isStacked = ct === 'stacked';
     const isCombo      = ct === 'combo';
     const isMultiDualY = ct === 'multiline' && this.comboLineColumns.length > 0;
+    // Grouped bars with a secondary (right) Y-axis: right-axis columns render as grouped bars too.
+    const isGroupedDualY = ct === 'grouped' && this.comboLineColumns.length > 0;
     const isHistogram  = ct === 'histogram';
     const HC_TYPE_MAP: Partial<Record<string, Highcharts.SeriesOptionsType['type']>> =
       { bar: 'column', donut: 'pie', trend: 'areaspline', multiline: 'line', area: 'area', spline: 'spline', column: 'bar', stacked: 'column', combo: 'column', grouped: 'column' };
@@ -5848,6 +6652,16 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (isGroupedDualY) {
+      this.chartPreviewOptions = this.buildGroupedDualYPreviewOptions();
+      this.syncInlineDataTable(this.chartPreviewOptions);
+      this.chartRenderVisible = false;
+      this.cdr.detectChanges();
+      this.chartRenderVisible = true;
+      this.cdr.detectChanges();
+      return;
+    }
+
     if (isHistogram) {
       this.chartPreviewOptions = this.buildHistogramPreviewOptions();
       this.chartRenderVisible = false;
@@ -5868,6 +6682,15 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
 
     if (this.isBulletType) {
       this.chartPreviewOptions = this.buildBulletPreviewOptions();
+      this.chartRenderVisible = false;
+      this.cdr.detectChanges();
+      this.chartRenderVisible = true;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    if (this.isScatterType) {
+      this.chartPreviewOptions = this.buildScatterPreviewOptions();
       this.chartRenderVisible = false;
       this.cdr.detectChanges();
       this.chartRenderVisible = true;
@@ -6001,7 +6824,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
                   const anchor = pointBounds
                     ? { left: pointBounds.left, right: pointBounds.right, top: pointBounds.top }
                     : undefined;
-                  thisBuilder.openPointColorPicker(String(point.name ?? point.category ?? ''), String(chartSeries.name ?? ''), event, anchor);
+                  thisBuilder.openPointColorPicker(String(point.name ?? point.category ?? ''), String(chartSeries.name ?? ''), event, anchor,
+                    point.color ?? point.graphic?.element.getAttribute('fill'));
                   return;
                 }
               }
@@ -6014,7 +6838,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       title: { text: undefined },
       subtitle: { text: undefined },
       credits: { enabled: false },
-      legend: { enabled: this.showLegend && !this.usesCustomPreviewLegend, squareSymbol: false, symbolRadius: 6 },
+      legend: { enabled: this.showLegend && !this.usesCustomPreviewLegend, ...highchartsLegendPosition(this.legendPosition), squareSymbol: false, symbolRadius: 6 },
       tooltip: isTreemap
         ? { headerFormat: '<span style="font-size: 0.8em">{point.name}</span><br/>', pointFormat: '<b>{point.value}</b>' }
         : { pointFormat: '<b>{point.y}</b>' },
@@ -6031,7 +6855,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         pie: { innerSize: this.selectedChartType === 'donut' ? '60%' : '0%', borderWidth: 2, borderColor: '#fff', showInLegend: this.showLegend,
           dataLabels: { enabled: this.showDataLabels, distance: -28, format: '{point.y}', style: { color: '#fff', fontWeight: '700', fontSize: '12px', textOutline: 'none' } } },
         column: { borderRadius: isStacked ? 0 : 4, borderWidth: 0, colorByPoint: false, stacking: isStacked ? 'normal' as any : undefined,
-          dataLabels: { enabled: this.showDataLabels, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } } },
+          dataLabels: { enabled: this.showDataLabels, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600', ...(isStacked ? { color: '#fff' } : {}) } } },
         bar: { borderRadius: 4, borderWidth: 0, colorByPoint: false,
           dataLabels: { enabled: this.showDataLabels, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } } },
         areaspline: { color: chartFallbackColor(`${this.getPreviewSeriesName()}:`, 0), fillOpacity: 0.15,
@@ -6178,7 +7002,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         type: chartType as any,
         name,
         showInLegend: this.showLegend,
-        data: categories.map((category, i) => ({ name: category, y: values[i] ?? 0, color: this.previewPointColor(category, values[i] ?? 0, i) })),
+        data: categories.map((category, i) => ({ name: category, y: values[i] ?? 0, color: this.previewPointColor(category, values[i] ?? 0, i),
+          ...(values[i] === 0 ? { dataLabels: { enabled: false } } : {}) })),
       } as Highcharts.SeriesOptionsType;
     }
     if (isTreemap) {
@@ -6289,12 +7114,43 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       legend: { enabled: false },
       xAxis: { categories: cats, lineColor: '#E7ECF3' },
       yAxis: [
-        { title: { text: this.yAxisTitle || undefined }, gridLineColor: '#F1F3F6' },
-        { title: { text: this.yAxis2Title || undefined }, opposite: true, gridLineWidth: 0 },
+        { title: { text: this.showAxisTitle ? (this.yAxisTitle || undefined) : undefined }, gridLineColor: '#F1F3F6' },
+        { title: { text: this.showAxisTitle ? (this.yAxis2Title || undefined) : undefined }, opposite: true, gridLineWidth: 0 },
       ],
       tooltip: { shared: true },
       plotOptions: { line: { marker: { radius: 4 }, dataLabels: { enabled: this.showDataLabels, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } } } },
       series,
+    };
+  }
+
+  private buildGroupedDualYPreviewOptions(): Highcharts.Options {
+    const cats = [...new Set(this.previewRows.map(r => safeString(r[this.xAxis])))];
+    const rowByKey = new Map(this.previewRows.map(r => [safeString(r[this.xAxis]), r]));
+    const extraY   = this.yAxisExtraColumn;
+    const leftCols  = [...(extraY ? [extraY] : []), ...this.multiYColumns.filter(c => !this.comboLineColumns.includes(c))];
+    const rightCols = this.comboLineColumns;
+
+    const mkSeries = (cols: string[], axis: 0 | 1, offset: number): Highcharts.SeriesOptionsType[] =>
+      cols.map((col, i) => ({
+        type: 'column' as const,
+        name: col,
+        yAxis: axis,
+        data: cats.map(cat => { const r = rowByKey.get(cat); return r ? Number(r[col]) || 0 : 0; }),
+        color: getSeriesColorByName(col, offset + i),
+      }));
+
+    return {
+      chart: { type: 'column', backgroundColor: 'transparent', height: 320 },
+      title: { text: undefined }, credits: { enabled: false },
+      legend: { enabled: false },
+      xAxis: { categories: cats, lineColor: '#E7ECF3' },
+      yAxis: [
+        { title: { text: this.showAxisTitle ? (this.yAxisTitle || undefined) : undefined }, gridLineColor: '#F1F3F6' },
+        { title: { text: this.showAxisTitle ? (this.yAxis2Title || undefined) : undefined }, opposite: true, gridLineWidth: 0 },
+      ],
+      tooltip: { shared: true },
+      plotOptions: { column: { borderWidth: 0, borderRadius: 3, dataLabels: { enabled: this.showDataLabels, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } } } },
+      series: [...mkSeries(leftCols, 0, 0), ...mkSeries(rightCols, 1, leftCols.length)],
     };
   }
 
@@ -6330,8 +7186,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       legend: { enabled: false },
       xAxis: { categories: cats, lineColor: '#E7ECF3' },
       yAxis: [
-        { title: { text: this.yAxisTitle || undefined }, gridLineColor: '#F1F3F6' },
-        { title: { text: this.yAxis2Title || undefined }, opposite: true, gridLineWidth: 0 },
+        { title: { text: this.showAxisTitle ? (this.yAxisTitle || undefined) : undefined }, gridLineColor: '#F1F3F6' },
+        { title: { text: this.showAxisTitle ? (this.yAxis2Title || undefined) : undefined }, opposite: true, gridLineWidth: 0 },
       ],
       tooltip: { shared: true },
       plotOptions: {
@@ -6345,28 +7201,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   /** Histogram bins raw numeric values itself — needs a hidden "raw data" series the histogram series references via baseSeries. */
   private buildHistogramPreviewOptions(): Highcharts.Options {
     const col = this.yAggColumn || this.yAxis;
-    const rawValues = this.previewRows
-      .map(r => Number(r[col]))
-      .filter(v => !Number.isNaN(v));
-
-    return {
-      chart: { backgroundColor: 'transparent', height: 320 },
-      title: { text: undefined },
-      credits: { enabled: false },
-      legend: { enabled: this.showLegend },
-      xAxis: [
-        { title: { text: this.xAxisTitle || undefined }, alignTicks: false },
-        { title: { text: 'Histogram' }, alignTicks: false, opposite: true },
-      ],
-      yAxis: [
-        { title: { text: this.yAxisTitle || undefined } },
-        { title: { text: 'Frequency' }, opposite: true },
-      ],
-      series: [
-        { name: col || 'Raw data', type: 'scatter' as const, data: rawValues, visible: false, id: 'histogram-raw-data' },
-        { name: col || 'Histogram', type: 'histogram' as any, xAxis: 1, yAxis: 1, baseSeries: 'histogram-raw-data', zIndex: -1, color: chartFallbackColor(`${col || 'Histogram'}:`, 0) },
-      ],
-    };
+    return buildHistogramOptions(this.previewRows, col, this.histogramBins, 320, CHART_AUTO_COLORS);
   }
 
   /** Single aggregated number, no axes — solid-gauge needs a min/max range. */
@@ -6428,6 +7263,19 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     };
   }
 
+  /** One point per row at (X, Y); the optional Category column splits the points into coloured series. */
+  private buildScatterPreviewOptions(): Highcharts.Options {
+    const yColumn = this.yAggColumn || this.yAxis;
+    return buildScatterOptions({
+      rows: this.previewRows, xColumn: this.xAxis, yColumn, categoryColumn: this.scatterCategoryColumn || undefined,
+      xTitle: this.showAxisTitle ? (this.xAxisTitle || this.xAxis) : undefined,
+      yTitle: this.showAxisTitle ? (this.yAxisTitle || yColumn) : undefined,
+      height: 320, showLegend: this.showLegend,
+      colorFor: category => this.colorOverrides[`${yColumn}:${category}`]
+        ?? (category ? this.previewCategoryColorFor(category, category) : undefined),
+    });
+  }
+
   /** Reuses X-axis category + Y-axis value (aggregated), adds a required Size column (aggregated) per category. */
   private buildBubblePreviewOptions(): Highcharts.Options {
     const measureCol = this.yAggColumn || this.yAxis;
@@ -6450,39 +7298,19 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       credits: { enabled: false },
       xAxis: { categories, title: { text: this.xAxisTitle || undefined } },
       yAxis: { title: { text: this.yAxisTitle || undefined } },
-      legend: { enabled: this.showLegend },
+      legend: { enabled: this.showLegend, ...highchartsLegendPosition(this.legendPosition) },
       plotOptions: { bubble: { minSize: 8, maxSize: 50 } },
       series: [{ type: 'bubble' as const, name: measureCol || 'Value', data }],
     };
   }
 
-  /** Grid of X-axis category × Y-category, colored by aggregated Y-axis value. */
+  /** X dimension x Y dimension grid, coloured by the aggregated Intensity / Value. */
   private buildHeatmapPreviewOptions(): Highcharts.Options {
-    const valueCol = this.yAggColumn || this.yAxis;
-    const xCats = [...new Set(this.previewRows.map(r => safeString(r[this.xAxis])))];
-    const yCats = [...new Set(this.previewRows.map(r => safeString(r[this.heatmapYColumn])))];
-    const cellMap = new Map<string, number>();
-    for (const row of this.previewRows) {
-      const xi = xCats.indexOf(safeString(row[this.xAxis]));
-      const yi = yCats.indexOf(safeString(row[this.heatmapYColumn]));
-      if (xi < 0 || yi < 0) continue;
-      const key = `${xi}-${yi}`;
-      cellMap.set(key, (cellMap.get(key) ?? 0) + (Number(row[valueCol]) || 0));
-    }
-    const data = [...cellMap.entries()].map(([key, v]) => {
-      const [xi, yi] = key.split('-').map(Number);
-      return [xi, yi, v] as [number, number, number];
+    const measure = resolveHeatmapMeasure(this.yAggColumn, this.yAxis);
+    return buildHeatmapOptions({
+      rows: this.previewRows, xColumn: this.xAxis, yColumn: this.heatmapYColumn, ...measure,
+      xTitle: this.xAxisTitle || undefined, yTitle: this.yAxisTitle || undefined, height: 320, showLegend: this.showLegend,
     });
-    return {
-      chart: { type: 'heatmap', backgroundColor: 'transparent', height: 320 },
-      title: { text: undefined },
-      credits: { enabled: false },
-      xAxis: { categories: xCats, title: { text: this.xAxisTitle || undefined } },
-      yAxis: { categories: yCats, title: { text: undefined }, reversed: true },
-      colorAxis: { minColor: '#EAF2FF', maxColor: '#2563EB' } as any,
-      legend: { enabled: this.showLegend, align: 'right' as const, layout: 'vertical' as const },
-      series: [{ type: 'heatmap' as const, name: valueCol || 'Value', data, dataLabels: { enabled: true } }],
-    };
   }
 
   /** From/To/Weight relationship — no xAxis/yAxis at all. */
@@ -6499,11 +7327,15 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       const [f, t] = key.split('\u2192');
       return [f, t, weight] as [string, string, number];
     });
-    const nodeCount = new Set(data.flatMap(([fromNode, toNode]) => [fromNode, toNode])).size;
+    // Nodes stack per column, so only the tallest column needs vertical room.
+    const columnSize = Math.max(new Set(data.map(([f]) => f)).size, new Set(data.map(([, t]) => t)).size);
+    const minHeight = columnSize * 24 + 40;
+    const scroll = minHeight > 320;
     return {
       chart: {
         type: 'sankey', backgroundColor: 'transparent', height: 320,
-        scrollablePlotArea: { minHeight: Math.max(320, nodeCount * 24 + 40) },
+        // Keeps right-column labels clear of the scrollbar.
+        ...(scroll ? { spacingRight: 24, scrollablePlotArea: { minHeight } } : {}),
       },
       title: { text: undefined },
       credits: { enabled: false },
@@ -6511,19 +7343,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     };
   }
 
-  /** Date + Label columns — no xAxis/yAxis at all. */
   private buildTimelinePreviewOptions(): Highcharts.Options {
-    const dateCol = this.timelineDateColumn, labelCol = this.timelineLabelColumn;
-    const data = this.previewRows.map(r => ({ name: safeString(r[labelCol]), label: safeString(r[dateCol]) }));
-    return {
-      chart: { type: 'timeline' as any, backgroundColor: 'transparent', height: 320 },
-      title: { text: undefined },
-      credits: { enabled: false },
-      xAxis: { visible: false },
-      yAxis: { visible: false },
-      legend: { enabled: false },
-      series: [{ type: 'timeline' as any, name: labelCol || 'Timeline', data }],
-    };
+    return buildTimelineOptions(this.previewRows,
+      { start: this.timelineDateColumn, end: this.timelineEndColumn, task: this.timelineLabelColumn }, 320);
   }
 
   private aggregateValue(g: { count: number; colCount: number; set: Set<string>; nums: number[] }, hasCol: boolean): number {
@@ -6579,22 +7401,8 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       return { categories: GROUP_LABELS, values: GROUP_VALUES };
     }
     if (!this.previewRows.length) return { categories: [], values: [] };
-    const fn = this.yAxisFunctions.find(f => f.value === this.yAxis);
-    // No operation chosen: plot the Y column's value per X (no aggregation); nothing if no column.
-    if (!fn) {
-      if (!this.yAggColumn) return { categories: [], values: [] };
-      const rawGrouped = this.groupRows(this.yAggColumn);
-      const rcats: string[] = [], rvals: number[] = [];
-      for (const [k, g] of rawGrouped) { rcats.push(k); rvals.push(g.nums.length ? g.nums[0] : 0); }
-      return this.applyLimit(rcats.slice(0, 100), rvals.slice(0, 100));
-    }
-    const aggCol = this.yAggColumn;
-    if (fn.requiresColumn && !aggCol) return { categories: [], values: [] };
-
-    const grouped = this.groupRows(aggCol);
-    const cats: string[] = [], vals: number[] = [];
-    for (const [k, g] of grouped) { cats.push(k); vals.push(this.aggregateValue(g, !!aggCol)); }
-    return this.applyLimit(cats.slice(0, 100), vals.slice(0, 100));
+    const { categories, values } = aggregateChartRows(this.previewRows, this.xAxis, this.yAxis, this.yAggColumn);
+    return this.applyLimit(categories, values);
   }
 
   private computeDaxChartData(): { categories: string[]; values: number[] } {
@@ -6681,7 +7489,18 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     return ast;
   }
 
+  showDiscardConfirm = false;
+
   discard(): void {
+    this.showDiscardConfirm = true;
+  }
+
+  cancelDiscard(): void {
+    this.showDiscardConfirm = false;
+  }
+
+  confirmDiscard(): void {
+    this.showDiscardConfirm = false;
     this.discardDraftOnExit = true;
     this.clearEditorDraft();
     this.router.navigateByUrl(this.returnUrl);
@@ -6760,7 +7579,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     const colorAssignments = this.buildColorAssignments();
     return JSON.stringify({
       chartType: this.selectedChartType, xAxis: this.xAxis, yAxis: this.yAxis, yAggColumn: this.yAggColumn,
-      xAxisTitle: this.xAxisTitle, yAxisTitle: this.yAxisTitle, showLegend: this.showLegend,
+      xAxisTitle: this.xAxisTitle, yAxisTitle: this.yAxisTitle, showLegend: this.showLegend, legendPosition: this.legendPosition,
       includeDataTable: this.includeDataTable, showAxisTitle: this.showAxisTitle, showDataLabels: this.showDataLabels, showStackTotal: this.showStackTotal, limitCategory: this.limitCategory,
       topN: this.topN, bottomN: this.bottomN, groupRestAsOthers: this.groupRestAsOthers, sortOrder: this.sortOrder,
       source: this.selectedChartModelId,
@@ -6769,7 +7588,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       fromDate: this.dataSourceMode === 'import' ? this.fromDate : undefined,
       toDate: this.dataSourceMode === 'import' ? this.toDate : undefined,
       quickRange: this.dataSourceMode === 'import' ? this.quickRange : undefined,
-      viewId: this.dataSourceMode === 'view' ? this.selectedView?.id
+      viewId: this.dataSourceMode === 'view' ? (this.selectedViewId ?? this.selectedView?.id)
             : this.dataSourceMode === 'import' ? this.selectedImportDataset?.id
             : undefined,
       interactiveFilters: this.interactiveFilters,
@@ -6786,6 +7605,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       colorOverrides: Object.keys(this.colorOverrides).length > 0 ? this.colorOverrides : undefined,
       colorAssignments: Object.keys(colorAssignments).length > 0 ? colorAssignments : undefined,
       daxModel: hasDax ? this.cloneDaxModel(this.daxModel) : undefined,
+      scenarioParametersEnabled: this.scenarioParametersEnabled,
     });
   }
 
@@ -6820,13 +7640,18 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         tableHeaderColor: this.tableHeaderColor || undefined,
         tableHeaderTextColor: this.tableHeaderTextColor || undefined,
         tableRowTextColors: this.tableRowTextColors.length > 0 ? this.tableRowTextColors : undefined,
+        tableGrid: hasTableGridOptions(this.tableGrid) ? cloneTableGridOptions(this.tableGrid) : undefined,
       };
     }
-    if (ct === 'combo' || ct === 'multiline') {
+    if (ct === 'combo' || ct === 'multiline' || ct === 'grouped') {
       return {
         comboLineColumns: this.comboLineColumns.length > 0 ? this.comboLineColumns : undefined,
         yAxis2Title: this.yAxis2Title || undefined,
       };
+    }
+    if (ct === 'bar' || ct === 'column') {
+      // >1 switchable metric enables the viewer-side "Switch Metrics" dropdown; otherwise unchanged.
+      return { metricColumns: this.metricColumns.length > 1 ? this.metricColumns : undefined };
     }
     if (ct === 'gauge') {
       return { gaugeMin: this.gaugeMin, gaugeMax: this.gaugeMax };
@@ -6836,6 +7661,9 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     }
     if (ct === 'bubble') {
       return { bubbleSizeColumn: this.bubbleSizeColumn || undefined };
+    }
+    if (ct === 'scatter') {
+      return { scatterCategoryColumn: this.scatterCategoryColumn || undefined };
     }
     if (ct === 'heatmap') {
       return { heatmapYColumn: this.heatmapYColumn || undefined };
@@ -6847,9 +7675,13 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         sankeyWeightColumn: this.sankeyWeightColumn || undefined,
       };
     }
+    if (ct === 'histogram') {
+      return { histogramBins: this.histogramBins || undefined };
+    }
     if (ct === 'timeline') {
       return {
         timelineDateColumn: this.timelineDateColumn || undefined,
+        timelineEndColumn: this.timelineEndColumn || undefined,
         timelineLabelColumn: this.timelineLabelColumn || undefined,
       };
     }
@@ -6872,6 +7704,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     }
     if (!this.chartDescription.trim()) { this.descriptionValidationError.set('Please enter a description.'); return; }
     this.descriptionValidationError.set('');
+    if (this.isHeatmapType && !this.heatmapYColumn) { this.saveError.set('Select a Y dimension before saving the heatmap.'); return; }
     const selectionError = getParameterSelectionError(this.parameterFilters);
     if (selectionError) {
       this.openSections.add(4);
@@ -6925,7 +7758,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       const designJson = JSON.stringify({
         chartType: state.selectedChartType, xAxis: state.xAxis, yAxis: state.yAxis, yAggColumn: state.yAggColumn,
         advancedConfig: isAdvancedChart(state.selectedChartType) ? state.advancedConfig : undefined,
-        xAxisTitle: state.xAxisTitle, yAxisTitle: state.yAxisTitle, showLegend: state.showLegend,
+        xAxisTitle: state.xAxisTitle, yAxisTitle: state.yAxisTitle, showLegend: state.showLegend, legendPosition: state.legendPosition,
         includeDataTable: state.includeDataTable, showAxisTitle: state.showAxisTitle, showDataLabels: state.showDataLabels, showStackTotal: state.showStackTotal, limitCategory: state.limitCategory,
         topN: state.topN, bottomN: state.bottomN, groupRestAsOthers: state.groupRestAsOthers, sortOrder: state.sortOrder,
         source: state.selectedChartModelId,
@@ -6947,13 +7780,19 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         tableHeaderColor: state.selectedChartType === 'table' && state.tableHeaderColor ? state.tableHeaderColor : undefined,
         tableHeaderTextColor: state.selectedChartType === 'table' && state.tableHeaderTextColor ? state.tableHeaderTextColor : undefined,
         tableRowTextColors: state.selectedChartType === 'table' && state.tableRowTextColors && state.tableRowTextColors.length > 0 ? state.tableRowTextColors : undefined,
-        comboLineColumns: (state.selectedChartType === 'combo' || state.selectedChartType === 'multiline') && state.comboLineColumns && state.comboLineColumns.length > 0 ? state.comboLineColumns : undefined,
-        yAxis2Title: (state.selectedChartType === 'combo' || state.selectedChartType === 'multiline') && state.yAxis2Title ? state.yAxis2Title : undefined,
+        tableGrid: state.selectedChartType === 'table' && hasTableGridOptions(state.tableGrid) ? state.tableGrid : undefined,
+        comboLineColumns: (state.selectedChartType === 'combo' || state.selectedChartType === 'multiline' || state.selectedChartType === 'grouped') && state.comboLineColumns && state.comboLineColumns.length > 0 ? state.comboLineColumns : undefined,
+        yAxis2Title: (state.selectedChartType === 'combo' || state.selectedChartType === 'multiline' || state.selectedChartType === 'grouped') && state.yAxis2Title ? state.yAxis2Title : undefined,
+        metricColumns: (state.selectedChartType === 'bar' || state.selectedChartType === 'column') && state.metricColumns && state.metricColumns.length > 1 ? state.metricColumns : undefined,
         bulletTargetColumn: state.selectedChartType === 'bullet' ? state.bulletTargetColumn : undefined,
+        scatterCategoryColumn: state.selectedChartType === 'scatter' ? state.scatterCategoryColumn || undefined : undefined,
+        heatmapYColumn: state.selectedChartType === 'heatmap' ? state.heatmapYColumn || undefined : undefined,
         sankeyFromColumn: state.selectedChartType === 'sankey' ? state.sankeyFromColumn : undefined,
         sankeyToColumn: state.selectedChartType === 'sankey' ? state.sankeyToColumn : undefined,
         sankeyWeightColumn: state.selectedChartType === 'sankey' ? state.sankeyWeightColumn : undefined,
         timelineDateColumn: state.selectedChartType === 'timeline' ? state.timelineDateColumn : undefined,
+        timelineEndColumn: state.selectedChartType === 'timeline' ? state.timelineEndColumn : undefined,
+        histogramBins: state.selectedChartType === 'histogram' ? state.histogramBins || undefined : undefined,
         timelineLabelColumn: state.selectedChartType === 'timeline' ? state.timelineLabelColumn : undefined,
         attachedTileIds: state.attachedTileIds.length > 0 ? state.attachedTileIds : undefined,
         drillDownViewId: state.drillDownViewId ?? undefined,
@@ -6962,6 +7801,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         colorOverrides: Object.keys(state.colorOverrides).length > 0 ? state.colorOverrides : undefined,
         colorAssignments: Object.keys(colorAssignments).length > 0 ? colorAssignments : undefined,
         daxModel: hasDax ? this.cloneDaxModel(state.daxModel) : undefined,
+        scenarioParametersEnabled: state.scenarioParametersEnabled === true,
       });
 
       const sourceModel = this.chartModels.find(m => m.id === state.selectedChartModelId)
@@ -7031,12 +7871,49 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
   saveAsDraft(): void { this.saveChart(false); }
   addChart():    void { this.saveChart(false); }
 
-  // View-only: matched server-side to DECLARE @placeholders; Table sources would interpolate these as real columns.
-  private globalHierarchyFilterPayload(): { sourceTable: string; sourceColumn: string; controlType: string; value: string; label?: string }[] {
-    return ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant']
-      .map(key => ({ key, value: this.filterValues[key] }))
-      .filter(f => f.value && f.value !== 'All')
-      .map(f => ({ sourceTable: f.key, sourceColumn: f.key, controlType: 'Dropdown', value: f.value, label: f.key }));
+  // Views use placeholders; WidgetService scopes table hierarchy filters to existing source columns.
+  private advancedFilters: ReturnType<typeof advancedHierarchyFilters> = [];
+
+  applyAdvancedFilter(value: AdvancedFilterValue): void {
+    this.syncInteractiveFiltersWithAdvancedSelection(value.hierarchy);
+    this.advancedFilters = advancedHierarchyFilters(value.hierarchy);
+    this.reloadGlobalViewPreview();
+  }
+
+  private syncInteractiveFiltersWithAdvancedSelection(hierarchy: Record<string, string[]>): void {
+    const normalize = (column: string) => column.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const selections = Object.entries(hierarchy).map(([field, values]) => ({
+      columns: advancedHierarchySourceColumns(field).map(normalize),
+      values: [...new Set((values ?? []).map(value => value.trim()).filter(Boolean))],
+    })).filter(selection => selection.columns.length > 0);
+
+    for (const filter of this.interactiveFilters ?? []) {
+      if (filter.locked || !filter.sourceColumn) continue;
+      const selection = selections.find(item => item.columns.includes(normalize(filter.sourceColumn)));
+      if (!selection) continue;
+
+      if (filter.controlType === 'MultiSelect') {
+        this.previewFilterMultiValues[filter.id] = [...selection.values];
+      } else if (filter.controlType === 'Dropdown') {
+        this.previewFilterValues[filter.id] = selection.values.length === 1 ? selection.values[0] : '';
+      }
+    }
+  }
+
+  private globalHierarchyFilterPayload(isView = this.dataSourceMode === 'view'): ReturnType<typeof advancedHierarchyFilters> {
+    const columns: Record<string, string> = {
+      country: 'country', sector: 'sector', businessUnit: 'business_unit', division: 'division',
+      cluster: 'cluster', plant: 'plant_description',
+    };
+    return [...Object.entries(columns)
+      .filter(([key]) => hasGlobalSelection(this.filterValues[key]))
+      .map(([key, column]) => ({
+        globalHierarchy: true,
+        sourceTable: column,
+        sourceColumn: column,
+        ...globalSelectionPayload(this.filterValues[key]),
+        label: column,
+      })), ...(isView ? this.advancedFilters ?? [] : [])];
   }
 
   private lockedInteractiveFilterPayload(): { sourceTable: string; sourceColumn: string; controlType: string; value: string; values?: string[]; label?: string }[] {
@@ -7066,8 +7943,12 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
       : this.widgetService.getFilteredChartData({
           chartSource: source.name,
           chartSourceType: source.sourceType,
-          viewId: this.dataSourceMode === 'view' ? (this.selectedView?.id ?? null) : null,
-          filters: [...this.lockedInteractiveFilterPayload(), ...(this.dataSourceMode === 'view' ? this.globalHierarchyFilterPayload() : [])],
+          viewId: this.dataSourceMode === 'view' ? (this.selectedViewId ?? this.selectedView?.id ?? null) : null,
+          // Dev's global hierarchy (all non-import) + our FK Cluster/Plant for non-view, non-DAX tables.
+          filters: [...this.lockedInteractiveFilterPayload(),
+            ...(this.dataSourceMode !== 'import' ? this.globalHierarchyFilterPayload() : []),
+            ...(this.dataSourceMode !== 'view' && !this.daxEnabled
+              ? tableClusterPlantFilters(this.filterValues['cluster'], this.filterValues['plant']) : [])],
           fromDate: this.fromDate || undefined,
           toDate: this.toDate || undefined,
           mode: this.isTrendChart ? this.trendMode : undefined,
@@ -7135,7 +8016,7 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
           }
           this.selectedChartType = d.chartType ?? null; this.xAxis = d.xAxis ?? ''; this.yAxis = d.yAxis ?? 'Count (F)';
           this.yAggColumn = d.yAggColumn ?? ''; this.xAxisTitle = d.xAxisTitle ?? ''; this.yAxisTitle = d.yAxisTitle ?? '';
-          this.showLegend = d.showLegend ?? true; this.includeDataTable = d.includeDataTable ?? false;
+          this.showLegend = d.showLegend ?? true; this.legendPosition = readLegendPosition(d); this.includeDataTable = d.includeDataTable ?? false;
           this.showAxisTitle = d.showAxisTitle ?? false; this.showDataLabels = d.showDataLabels ?? true; this.showStackTotal = d.showStackTotal ?? true; this.limitCategory = d.limitCategory ?? 'top';
           this.axisTitleAutoApplied = false;
           this.topN = d.topN ?? 100; this.bottomN = d.bottomN ?? 0; this.groupRestAsOthers = d.groupRestAsOthers ?? false;
@@ -7161,23 +8042,29 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
           this.tableHeaderColor = d.tableHeaderColor ?? '';
           this.tableHeaderTextColor = d.tableHeaderTextColor ?? '';
           this.tableRowTextColors = d.tableRowTextColors ?? [];
+          this.tableGrid = cloneTableGridOptions(d.tableGrid);
           this.colorRules = (d.colorRules ?? []).map((rule: ColorRule) => ({ ...rule }));
           this.nextColorRuleId = this.colorRules.reduce((max, rule) => Math.max(max, rule.id + 1), 1);
           this.comboLineColumns = d.comboLineColumns ?? [];
           this.yAxis2Title = d.yAxis2Title ?? '';
+          this.metricColumns = d.metricColumns ?? [];
           this.gaugeMin = d.gaugeMin ?? 0;
           this.gaugeMax = d.gaugeMax ?? 100;
           this.bulletTargetColumn = d.bulletTargetColumn ?? '';
           this.bubbleSizeColumn = d.bubbleSizeColumn ?? '';
+          this.scatterCategoryColumn = d.scatterCategoryColumn ?? '';
           this.heatmapYColumn = d.heatmapYColumn ?? '';
           this.sankeyFromColumn = d.sankeyFromColumn ?? '';
           this.sankeyToColumn = d.sankeyToColumn ?? '';
           this.sankeyWeightColumn = d.sankeyWeightColumn ?? '';
           this.timelineDateColumn = d.timelineDateColumn ?? '';
+          this.timelineEndColumn = d.timelineEndColumn ?? '';
+          this.histogramBins = d.histogramBins ?? null;
           this.timelineLabelColumn = d.timelineLabelColumn ?? '';
           this.advancedConfig = readAdvancedConfig(d.advancedConfig);
           this.trendMode = d.trendMode ?? 'monthly';
           this.daxModel = this.cloneDaxModel(d.daxModel as DaxModelConfig | undefined);
+          this.scenarioParametersEnabled = d.scenarioParametersEnabled === true;
           this.syncDaxSelectionFromModel();
           this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
           this.daxExpressionError = '';
@@ -7216,10 +8103,11 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
           const viewId = this.dataSourceMode === 'view' && configuredViewId > 0
             ? configuredViewId
             : widgetViewId > 0 ? widgetViewId : configuredViewId > 0 ? configuredViewId : undefined;
-          if (source) {
+          this.selectedViewId = this.dataSourceMode === 'view' ? (viewId ?? null) : null;
+          if (source || (this.dataSourceMode === 'view' && viewId)) {
             this.selectedChartModelId = source;
             if (sourceType.toLowerCase() === 'import') this.loadImportedDatasets();
-            if (this.dataSourceMode === 'view' && viewId) {
+            if (this.dataSourceMode === 'view') {
               this.sourceLoading = true;
               this.sourceError = '';
               const onViewLookupError = () => {
@@ -7227,32 +8115,41 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
                 this.sourceError = 'Unable to load the selected source. Check the source, filters, and connection.';
                 this.cdr.markForCheck();
               };
+              const restoreView = (view: DatabaseViewListItem) => {
+                this.selectedViewId = view.id;
+                this.selectedChartModelId = view.viewName;
+                this.hydrateViewSourcePreview(view.viewName, view.id, d);
+              };
               // Load the pickable 'view'-type list for the source-switcher UI.
               this.commonApi.getDatabaseViews('view').subscribe({
                 next: (views) => {
                   this.availableViews = views;
-                  const matchedView = views.find(v => v.id === viewId) ?? views.find(v => v.viewName === source);
+                  // Name matching is only for legacy charts saved without a view ID.
+                  const matchedView = viewId
+                    ? views.find(v => v.id === viewId)
+                    : views.find(v => v.viewName === source);
                   if (matchedView) {
-                    this.hydrateViewSourcePreview(source, matchedView.id, d);
-                  } else {
+                    restoreView(matchedView);
+                  } else if (viewId) {
                     // Not in the 'view'-type list — the chart's source may be a CTE/component
                     // view, so resolve it directly by ID (mirrors the chart view page's lookup)
                     // instead of leaving the preview empty.
                     this.commonApi.getDatabaseViewById(viewId).subscribe({
                       next: (view) => {
-                        this.availableViews = [...this.availableViews, view as unknown as DatabaseViewListItem];
-                        this.hydrateViewSourcePreview(source, view.id, d);
+                        this.availableViews = [...this.availableViews, view];
+                        restoreView(view);
                       },
                       error: onViewLookupError,
                     });
-                  }
+                  } else { onViewLookupError(); }
                   this.cdr.markForCheck();
                 },
                 error: () => {
+                  if (!viewId) { onViewLookupError(); return; }
                   this.commonApi.getDatabaseViewById(viewId).subscribe({
                     next: (view) => {
-                      this.availableViews = [view as unknown as DatabaseViewListItem];
-                      this.hydrateViewSourcePreview(source, view.id, d);
+                      this.availableViews = [view];
+                      restoreView(view);
                     },
                     error: onViewLookupError,
                   });
@@ -7305,6 +8202,16 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.daxMeasureDraft = { ...(this.selectedDaxMeasure ?? this.daxModel.measures[0]) };
     this.daxExpressionError = '';
     this.refreshPreview();
+    this.cdr.markForCheck();
+  }
+
+  get daxSelectableMeasureCount(): number {
+    return getActiveDaxMeasures({ daxModel: this.daxModel }).length;
+  }
+
+  toggleDaxMetricSelector(): void {
+    this.pushUndo();
+    this.daxModel = { ...this.daxModel, allowMetricSelector: !this.daxModel.allowMetricSelector };
     this.cdr.markForCheck();
   }
 
@@ -7782,6 +8689,35 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
     this.multiYColumns = this.multiYColumns.filter(c => c !== col);
     this.syncTableXAxis();
     this.refreshPreview();
+    this.cdr.markForCheck();
+  }
+
+  /** Bar/column metric-switch picker: toggle a switchable Y column; the first one is the default shown. */
+  toggleMetricColumn(col: string): void {
+    if (this.isXAxisConflict(col) && !this.metricColumns.includes(col)) return;
+    this.pushUndo();
+    const idx = this.metricColumns.indexOf(col);
+    if (idx >= 0) this.metricColumns.splice(idx, 1);
+    else this.metricColumns.push(col);
+    // Keep the single-value paths (preview + default render) on the first chosen metric.
+    if (this.metricColumns.length) this.yAggColumn = this.metricColumns[0];
+    this.refreshPreview();
+    this.cdr.markForCheck();
+  }
+
+  removeMetricColumn(col: string): void {
+    this.metricColumns = this.metricColumns.filter(c => c !== col);
+    if (this.metricColumns.length) this.yAggColumn = this.metricColumns[0];
+    this.refreshPreview();
+    this.cdr.markForCheck();
+  }
+
+  toggleMetricDropdown(): void {
+    const next = !this.showMetricDropdown;
+    this.closeDataMappingDropdowns();
+    this.showChartModelDropdown = false;
+    this.metricSearch = '';
+    this.showMetricDropdown = next;
     this.cdr.markForCheck();
   }
 

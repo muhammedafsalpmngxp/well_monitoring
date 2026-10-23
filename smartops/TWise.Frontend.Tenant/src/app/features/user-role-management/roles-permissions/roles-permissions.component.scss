@@ -2,6 +2,10 @@
   text-transform: capitalize;
 }
 
+.save-permissions-dialog {
+  text-transform: none;
+}
+
 .roles-permissions-page-icon {
   display: flex;
   align-items: center;
@@ -345,7 +349,7 @@
 
   height: calc(100dvh / var(--app-zoom-factor, 1) - 186px);
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -356,7 +360,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -417,7 +421,7 @@ height: calc(100dvh / var(--app-zoom-factor, 1) - 314px);
     overflow-y: auto;
     margin: 0 -16px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
@@ -428,7 +432,7 @@ height: calc(100dvh / var(--app-zoom-factor, 1) - 314px);
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -755,7 +759,7 @@ height: calc(100dvh / var(--app-zoom-factor, 1) - 314px);
   height: calc(100dvh / var(--app-zoom-factor, 1) - 372px);
   min-height: 300px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -766,7 +770,7 @@ height: calc(100dvh / var(--app-zoom-factor, 1) - 314px);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -864,6 +868,143 @@ height: calc(100dvh / var(--app-zoom-factor, 1) - 314px);
   }
 }
 
+.delete-role-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
+}
+
+.delete-role-confirm-modal {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 24px 24px;
+  background: var(--color-bg-card, #fff);
+  border-radius: 8px;
+  border: 1px solid #E9EEF5;
+
+  &__close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app, #f9fafb);
+    }
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    margin-bottom: 14px;
+    border-radius: 50%;
+    color: #EF5350;
+    // Soft red halo behind the trash icon, matching the dashboard/report delete popups.
+    background: #FEE4E2;
+    box-shadow: 0 0 0 14px #FEF3F2, 0 0 30px 26px #FEF3F2;
+  }
+
+  &__title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary, #101828);
+  }
+
+  &__body {
+    margin: 0 0 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-text-muted, #667085);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: end;
+    gap: 10px;
+    width: 100%;
+  }
+
+  &__cancel {
+    padding: 10px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #DCE3ED;
+    background: #FFF;
+    color: var(--color-text-primary, #344054);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app, #f9fafb);
+    }
+  }
+
+  &__confirm {
+    padding: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: #EF5350;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #B91C1C;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .delete-role-confirm-modal {
+    padding: 52px 20px 20px;
+
+    &__body {
+      font-size: 16px;
+    }
+
+    &__actions {
+      justify-content: center;
+      gap: 10px;
+    }
+
+    &__cancel,
+    &__confirm {
+      min-height: 48px;
+      padding: 0 12px;
+      font-size: 16px;
+    }
+  }
+}
+
 // ─── Responsive breakpoints ────────────────────────────────────────────────
 
 
@@ -944,7 +1085,7 @@ height: calc(100dvh / var(--app-zoom-factor, 1) - 314px);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       height: 3px;
@@ -955,7 +1096,7 @@ height: calc(100dvh / var(--app-zoom-factor, 1) - 314px);
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }

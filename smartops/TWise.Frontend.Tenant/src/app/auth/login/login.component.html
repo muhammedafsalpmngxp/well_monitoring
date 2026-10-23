@@ -41,7 +41,7 @@
 
   <div *ngIf="errorMessage()" class="lg-error-msg">{{ errorMessage() }}</div>
 
-  <button type="submit" class="lg-btn" [disabled]="isLoading()">
+  <button type="submit" class="lg-btn" [disabled]="isLoading() || isNavigating()">
     <span *ngIf="isLoading()" style="display:inline-flex;align-items:center;gap:8px;">
       <svg style="animation:spin 1s linear infinite;width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
       Signing in...

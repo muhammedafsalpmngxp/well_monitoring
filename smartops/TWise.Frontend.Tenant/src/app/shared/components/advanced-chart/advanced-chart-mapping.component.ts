@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, HostListener, Input, Output, TemplateRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdvancedChartConfig, advancedFieldRoles, defaultAdvancedConfig, getAdvancedCustomRenderers, isAdvancedChart, multiRoleVisualRoles } from '../../../core/utils/advanced-chart.util';
+import { AdvancedChartConfig, DECOMPOSITION_AGGREGATIONS, advancedFieldRoles, defaultAdvancedConfig, getAdvancedCustomRenderers, isAdvancedChart, multiRoleVisualRoles, usesMeasureBands } from '../../../core/utils/advanced-chart.util';
 import { WELL_MAP_BACKGROUNDS, WELL_MAP_COORDINATES, WellMapConfig } from '../../../core/utils/well-map.util';
 
 import { FieldLabelDirective } from '../../directives/field-label.directive';
@@ -44,10 +44,10 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
         </div>
         <small *ngIf="textOnly(role, config.fields[role] || '')" class="hint">Text column — choose a numeric column, or set Aggregation to Count.</small>
       </label>
-      <fieldset *ngIf="needsDimensions"><legend>{{ type === 'keyinfluencers' ? 'Explain By' : (multiRoleLabel('dimension') || 'Row Dimensions (in order)') }}</legend>
-        <label class="check" *ngFor="let column of columns"><input type="checkbox" [checked]="config.dimensions.includes(column)" (change)="toggle('dimensions', column)" [disabled]="disabled" />{{ column }}<span *ngIf="config.dimensions.includes(column)">{{ config.dimensions.indexOf(column) + 1 }}</span></label>
+      <fieldset *ngIf="needsDimensions"><legend>{{ multiRoleLabel('dimension') || dimensionsLabel }}</legend>
+        <label class="check" *ngFor="let column of columns"><input type="checkbox" [checked]="config.dimensions.includes(column)" (change)="toggle('dimensions', column)" [disabled]="disabled || isTargetMetric(column)" [title]="isTargetMetric(column) ? column + ' is the Target metric' : ''" />{{ column }}<small *ngIf="isTargetMetric(column)"> (metric)</small><span *ngIf="config.dimensions.includes(column)">{{ config.dimensions.indexOf(column) + 1 }}</span></label>
       </fieldset>
-      <fieldset *ngIf="needsMeasures"><legend>{{ multiRoleLabel('measure') || 'Measures' }}</legend>
+      <fieldset *ngIf="needsMeasures"><legend>{{ multiRoleLabel('measure') || (type === 'pivottable' ? 'Values' : 'Measures') }}</legend>
         <label class="check" *ngFor="let column of columns"><input type="checkbox" [checked]="config.measures.includes(column)" (change)="toggle('measures', column)" [disabled]="disabled" />{{ column }}</label>
       </fieldset>
       <label *ngIf="hasAggregation">Aggregation
@@ -60,7 +60,7 @@ import { FieldLabelDirective } from '../../directives/field-label.directive';
           </button>
           <div class="dd__panel" *ngIf="openDropdown === 'aggregation'">
             <div class="dd__list">
-              <button type="button" class="dd__item" *ngFor="let opt of aggregationOptions" [class.active]="config.aggregation === opt.value"
+              <button type="button" class="dd__item" *ngFor="let opt of aggregationChoices" [class.active]="config.aggregation === opt.value"
                 (click)="selectAggregation(opt.value)">{{ opt.label }}</button>
             </div>
           </div>
@@ -236,7 +236,7 @@ export class AdvancedChartMappingComponent {
     { value: 'sum', label: 'Sum' }, { value: 'avg', label: 'Average' }, { value: 'count', label: 'Count' },
     { value: 'min', label: 'Minimum' }, { value: 'max', label: 'Maximum' },
   ];
-  readonly labels: Record<string, string> = { q1: 'First Quartile (Q1)', q3: 'Third Quartile (Q3)', region: 'Country ISO Code', destinationLatitude: 'Destination Latitude', destinationLongitude: 'Destination Longitude', column: 'Pivot Column', value: 'Value / Target' };
+  readonly labels: Record<string, string> = { q1: 'First Quartile (Q1)', q3: 'Third Quartile (Q3)', region: 'Country ISO Code', destinationLatitude: 'Destination Latitude', destinationLongitude: 'Destination Longitude', column: 'Columns', value: 'Value / Target' };
   /** Only one of this component's custom dropdowns (role columns / aggregation / map fields / renderer) is open at a time. */
   openDropdown: string | null = null;
   columnSearch = '';
@@ -261,9 +261,20 @@ export class AdvancedChartMappingComponent {
   rendererLabel(value: string): string {
     return this.renderers.find(renderer => renderer.id === value)?.label ?? 'Select';
   }
+  /** A decomposition tree must reconcile child to parent, so it only offers additive aggregations. */
+  get aggregationChoices(): { value: AdvancedChartConfig['aggregation']; label: string }[] {
+    return this.type === 'decompositiontree'
+      ? this.aggregationOptions.filter(option => DECOMPOSITION_AGGREGATIONS.includes(option.value))
+      : this.aggregationOptions;
+  }
   roleLabel(role: string): string {
     const visualRole = this.visualRoles.find(entry => entry.key === role);
     if (visualRole) return visualRole.required ? visualRole.label : `${visualRole.label} (optional)`;
+    if (this.type === 'decompositiontree' && role === 'value') return 'Target metric';
+    if (this.type === 'stackedarea100') {
+      const stackedArea: Record<string, string> = { category: 'X-axis', series: 'Series', value: 'Value' };
+      if (stackedArea[role]) return stackedArea[role];
+    }
     if (this.type === 'wellmap') {
       const wellMap: Record<string, string> = { category: 'Marker Label (e.g. Well)', x: 'X — Easting / Longitude', y: 'Y — Northing / Latitude' };
       if (wellMap[role]) return wellMap[role];
@@ -272,6 +283,11 @@ export class AdvancedChartMappingComponent {
   }
   /** Marker size needs numbers. */
   get sizeColumns(): string[] { return this.numericColumns ?? this.columns; }
+  get dimensionsLabel(): string {
+    if (this.type === 'keyinfluencers') return 'Explain By';
+    if (this.type === 'decompositiontree') return 'Breakdown dimensions';
+    return this.type === 'pivottable' ? 'Rows' : 'Row Dimensions (in order)';
+  }
   get roles(): string[] { return isAdvancedChart(this.type) ? advancedFieldRoles(this.type, this.config) : []; }
   /** Roles of the selected custom visual when it needs more than one category and one value. */
   get visualRoles() { return multiRoleVisualRoles(this.type, this.config); }
@@ -280,7 +296,7 @@ export class AdvancedChartMappingComponent {
     return this.visualRoles.find(role => role.allowMultiple && (role.type === 'measure') === (type === 'measure'))?.label ?? '';
   }
   get needsDimensions(): boolean { return ['pivottable', 'matrix', 'decompositiontree', 'keyinfluencers'].includes(this.type ?? '') || !!this.multiRoleLabel('dimension'); }
-  get needsMeasures(): boolean { return ['pivottable', 'matrix', 'stackedarea100'].includes(this.type ?? '') || !!this.multiRoleLabel('measure'); }
+  get needsMeasures(): boolean { return ['pivottable', 'matrix'].includes(this.type ?? '') || usesMeasureBands(this.type, this.config) || !!this.multiRoleLabel('measure'); }
   get hasAggregation(): boolean { return ['pivottable', 'matrix', 'stackedarea100', 'decompositiontree', 'filledmap', 'geochart', 'combomap', 'customvisual'].includes(this.type ?? ''); }
   /** The Value role needs numbers unless the aggregation counts rows. */
   textOnly(role: string, column: string): boolean {
@@ -293,7 +309,13 @@ export class AdvancedChartMappingComponent {
     if (!column) return false;
     return this.roles.some(otherRole => otherRole !== role && this.config.fields[otherRole] === column);
   }
-  setField(role: string, value: string): void { this.change({ fields: { ...this.config.fields, [role]: value } }); }
+  setField(role: string, value: string): void {
+    // A decomposition's Target metric is what gets split, so it cannot also be a breakdown level.
+    const dimensions = this.type === 'decompositiontree' && role === 'value' ? this.config.dimensions.filter(column => column !== value) : this.config.dimensions;
+    this.change({ fields: { ...this.config.fields, [role]: value }, dimensions });
+  }
+  /** The Target metric of a decomposition tree, which must stay out of the breakdown dimensions. */
+  isTargetMetric(column: string): boolean { return this.type === 'decompositiontree' && !!column && this.config.fields['value'] === column; }
   selectRoleColumn(role: string, column: string): void { this.setField(role, column); this.openDropdown = null; }
   selectAggregation(value: AdvancedChartConfig['aggregation']): void { this.change({ aggregation: value }); this.openDropdown = null; }
   selectCoordinateSystem(value: string): void { this.changeMap({ coordinates: value as WellMapConfig['coordinates'] }); this.openDropdown = null; }

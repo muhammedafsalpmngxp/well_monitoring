@@ -104,6 +104,19 @@ public sealed class TileDaxSqlCompiler
             or "STDEV.S" or "STDEV.P" or "VAR.S" or "VAR.P" or "PERCENTILE.INC")
             return Aggregate(name, args, row, depth);
 
+        // A tile reads the whole source, so TOTAL and Column-scope RUNNINGSUM are the full-table sum.
+        if (name is "TOTAL")
+        {
+            Require(args, 1, 1);
+            return Aggregate("SUM", args, false, depth);
+        }
+        if (name is "RUNNINGSUM")
+        {
+            Require(args, 1, 2);
+            if (row) throw new ArgumentException("RUNNINGSUM in a tile needs Calculate By set to Column.");
+            return Aggregate("SUM", args[..1], false, depth);
+        }
+
         var arity = name switch
         {
             "BLANK" or "TRUE" or "FALSE" or "TODAY" or "NOW" => (0, 0),

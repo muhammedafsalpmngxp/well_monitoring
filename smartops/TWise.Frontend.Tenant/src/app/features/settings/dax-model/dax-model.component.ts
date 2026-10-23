@@ -127,7 +127,7 @@ export class DaxModelComponent implements OnInit {
     // Checkbox, S.No and DAX Model stay frozen on the left while the other columns scroll (like Excel's Freeze Panes).
     { headerName: 'DAX Model', field: 'name', minWidth: 300, pinned: 'left', lockPinned: true },
     { headerName: 'Source Type', field: 'sourceType', cellRenderer: DaxSourceTypeCellRendererComponent, minWidth: 200 },
-    { headerName: 'Data Source', field: 'dataSource', minWidth: 320, tooltipField: 'dataSource' },
+    { headerName: 'Data Source', field: 'dataSource', minWidth: 320, tooltip: p => p.data?.dataSource },
     { headerName: 'Calculated By', field: 'calculatedBy', minWidth: 200 },
     { headerName: 'Operation', field: 'operation', minWidth: 150 },
     // columns is an array: without a formatter AG Grid infers an 'object' type and warns (#48).

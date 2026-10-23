@@ -5,11 +5,20 @@ import { LayoutStateService } from '../../../core/services/layout-state.service'
 import { CrewCalendarService } from '../../../core/services/crew-calendar.service';
 import { CrewCalendarData, CalendarGroup, CalendarActivity, CalendarFilters, CrewBooking, CrewProjectMapping, CrewActualWork, UnassignedCrewGroup, AssignableActivity, CrewUtilizationReport, CrewUtilizationStatus } from '../../../core/models/crew-calendar.model';
 import { CommonApiService, PlantFilterDto } from '../../../core/services/common-api.service';
+import {
+  GlobalFilterSelection,
+  globalSelectionLabel,
+  globalSelectionValues,
+  hasGlobalSelection,
+  matchesGlobalSelection,
+  GlobalFilterClearState, toggleGlobalSelection,
+} from '../../../core/utils/global-filter-selection.util';
 import { AuthService } from '../../../core/services/auth.service';
+import { PermissionService } from '../../../core/services/permission.service';
 import { from, of, Subject } from 'rxjs';
 import { catchError, concatMap, map, takeUntil, toArray } from 'rxjs/operators';
-import { bookedDaysInWindow, buildCrewCalendarPlan, uncoveredBookings } from './crew-calendar-planning';
-import { actualDaysInWindow, buildCrewUtilizationReport, crewUtilizationStatus } from './crew-utilization';
+import { activityClusterKey, bookedDaysInWindow, buildCrewCalendarPlan, crewClusterNames, uncoveredBookings } from './crew-calendar-planning';
+import { actualDaysInWindow, buildCrewUtilizationReport, crewUtilizationStatus, plannedDaysInWindow } from './crew-utilization';
 import { CrewReportIconDirective, CrewUtilizationReportComponent } from './crew-utilization-report.component';
 
 import { A11yDialogDirective } from '../../../shared/directives/a11y-dialog.directive';
@@ -110,6 +119,20 @@ export interface CrewCluster {
   groups: CrewGroup[];
 }
 
+/** The crew rows of one group that are rendered, plus the height of the rows skipped above and below them. */
+export interface CrewWindow {
+  start: number;
+  before: number;
+  after: number;
+  crews: WellRow[];
+}
+
+interface CrewGroupLayout {
+  top: number;
+  crews: WellRow[];
+  ends: number[];
+}
+
 export interface WeekHeader {
   label: string;
   days: { dayOfWeek: string; date: number; isToday?: boolean }[];
@@ -129,6 +152,17 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   @ViewChild('assignmentMenuElement') assignmentMenuElement?: ElementRef<HTMLElement>;
   @ViewChild('assignmentDeleteDialog', { read: ElementRef }) assignmentDeleteDialog?: ElementRef<HTMLElement>;
   @ViewChild('utilizationReportButton') utilizationReportButton?: ElementRef<HTMLButtonElement>;
+  // A template (input) binding runs change detection over every rendered crew row on each keystroke, which takes
+  // over a second with all groups expanded. A native listener keeps typing out of change detection; only the
+  // debounced search update in onSearchInput re-renders.
+  @ViewChild('crewSearchInput') set crewSearchInput(ref: ElementRef<HTMLInputElement> | undefined) {
+    if (ref?.nativeElement === this.crewSearchElement) return;
+    this.crewSearchElement?.removeEventListener('input', this.crewSearchListener);
+    this.crewSearchElement = ref?.nativeElement;
+    this.crewSearchElement?.addEventListener('input', this.crewSearchListener);
+  }
+  private crewSearchElement?: HTMLInputElement;
+  private readonly crewSearchListener = (event: Event) => this.onSearchInput((event.target as HTMLInputElement).value);
   utilizationReport: CrewUtilizationReport | null = null;
   utilizationPlannedReport: CrewUtilizationReport | null = null;
   utilizationActualReport: CrewUtilizationReport | null = null;
@@ -193,12 +227,25 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   scheduleFilter: ScheduleFilter = 'planned';
   timeUnit: TimeUnit = 'month';
   searchTerm = '';
+  /** Text in the search box; it is applied to searchTerm once typing pauses. */
+  searchInput = '';
+  private searchTimer?: ReturnType<typeof setTimeout>;
+  private static readonly SEARCH_DEBOUNCE_MS = 300;
   private readonly hierarchyExpansion = new Map<string, boolean>();
   private readonly rosterProjectsByCrew = new Map<string, CrewProjectMapping[]>();
   private clustersExpandedByDefault = false;
   private clusterRowsSource: CrewGroup[] | null = null;
   private clusterRowsFilterKey = '';
   private clusterRows: CrewCluster[] = [];
+  // Crew row virtualisation: heights must match .ab-row/.ab-bar-row ($row-h) and the clustered cluster rows.
+  private static readonly CLUSTER_ROW_HEIGHT = 40;
+  private static readonly ROW_HEIGHT = 56;
+  private static readonly CREW_OVERSCAN_PX = 1200;
+  private static readonly CREW_WINDOW_STEP_PX = 400;
+  private crewLayoutSource: CrewCluster[] | null = null;
+  private crewLayout = new Map<CrewGroup, CrewGroupLayout>();
+  private crewWindowKey = '';
+  private crewWindows = new Map<CrewGroup, CrewWindow>();
   showFilterPanel = false;
   showRowFilter = false;
   rowFilterSelected: Set<string> = new Set();
@@ -232,13 +279,42 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   groupBy: 'crew-group' | 'well' = 'crew-group';
 
   // Filter bar state
-  openFilterName: string | null = null;
-  filterCountry      = '';
-  filterSector       = '';
-  filterBusinessUnit = '';
-  filterDivision     = '';
-  filterCluster      = '';
-  filterPlant        = '';
+  private globalFilterClearState?: GlobalFilterClearState;
+
+  get globalFilterClear(): GlobalFilterClearState {
+    return this.globalFilterClearState ??= new GlobalFilterClearState();
+  }
+  private openFilterNameValue: string | null = null;
+
+  get openFilterName(): string | null {
+    return this.openFilterNameValue;
+  }
+
+  set openFilterName(name: string | null) {
+    this.openFilterNameValue = name;
+    // Closing a dropdown left in the "Clear all" state reverts that filter to All.
+    const abandoned = this.globalFilterClear.release(name);
+    if (abandoned) this.revertClearedGlobalFilter(abandoned.key);
+  }
+
+  clearGlobalFilterSelection(key: unknown, event: Event): void {
+    event.stopPropagation();
+    this.globalFilterClear.clear(key, this.openFilterName);
+  }
+
+  isGlobalFilterCleared(key: unknown): boolean {
+    return this.globalFilterClear.isCleared(key);
+  }
+
+  private revertClearedGlobalFilter(key: unknown): void {
+    if (hasGlobalSelection(this.filterSelection(String(key)))) this.selectFilterOption(String(key), 'All');
+  }
+  filterCountry: GlobalFilterSelection = 'All';
+  filterSector: GlobalFilterSelection = 'All';
+  filterBusinessUnit: GlobalFilterSelection = 'All';
+  filterDivision: GlobalFilterSelection = 'All';
+  filterCluster: GlobalFilterSelection = 'All';
+  filterPlant: GlobalFilterSelection = 'All';
   filterFrom         = '';
   filterTo           = '';
   filterQuickRange   = '';
@@ -260,43 +336,85 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
     this.openFilterName = this.openFilterName === name ? null : name;
   }
 
-  selectFilterOption(field: string, value: string): void {
+  filterLabel(selection: GlobalFilterSelection): string {
+    return globalSelectionLabel(selection);
+  }
+
+  hasGlobalSelection(selection: GlobalFilterSelection): boolean {
+    return hasGlobalSelection(selection);
+  }
+
+  isFilterOptionSelected(selection: GlobalFilterSelection, value: string): boolean {
+    return matchesGlobalSelection(value, selection);
+  }
+
+  private globalFilterOptions(field: string): string[] {
     switch (field) {
-      case 'country':      this.filterCountry = value; this.filterSector = ''; this.filterBusinessUnit = ''; this.filterDivision = ''; this.filterCluster = ''; this.filterPlant = ''; break;
-      case 'sector':       this.filterSector = value; this.filterBusinessUnit = ''; this.filterDivision = ''; this.filterCluster = ''; this.filterPlant = ''; break;
-      case 'businessUnit': this.filterBusinessUnit = value; this.filterDivision = ''; this.filterCluster = ''; this.filterPlant = ''; break;
-      case 'division':     this.filterDivision = value; this.filterCluster = ''; this.filterPlant = ''; break;
-      case 'cluster':      this.filterCluster = value; this.filterPlant = ''; break;
-      case 'plant':        this.filterPlant = value; break;
-      case 'quickRange': {
-        this.filterQuickRange = value;
-        const range = this.resolveQuickRange(value);
-        if (range) {
-          this.filterFrom = range.from;
-          this.filterTo = range.to;
-        }
-        break;
-      }
+      case 'country': return this.filterCountryOptions;
+      case 'sector': return this.filterSectorOptions;
+      case 'businessUnit': return this.filterBusinessUnitOptions;
+      case 'division': return this.filterDivisionOptions;
+      case 'cluster': return this.filterClusterOptions;
+      case 'plant': return this.filterPlantOptions;
+      default: return [];
     }
-    this.rebuildCascadingOptions();
+  }
+
+  selectFilterOption(field: string, value: string): void {
+    if (field === 'quickRange') {
+      this.filterQuickRange = value;
+      const range = this.resolveQuickRange(value);
+      if (range) {
+        this.filterFrom = range.from;
+        this.filterTo = range.to;
+      }
+      this.openFilterName = null;
+      return;
+    }
+    const current = this.filterSelection(field);
+    const next = value === 'All' ? 'All' : toggleGlobalSelection(current, value, this.globalFilterOptions(field), this.globalFilterClear.consume(field));
+    switch (field) {
+      case 'country':      this.filterCountry = next; this.filterSector = 'All'; this.filterBusinessUnit = 'All'; this.filterDivision = 'All'; this.filterCluster = 'All'; this.filterPlant = 'All'; break;
+      case 'sector':       this.filterSector = next; this.filterBusinessUnit = 'All'; this.filterDivision = 'All'; this.filterCluster = 'All'; this.filterPlant = 'All'; break;
+      case 'businessUnit': this.filterBusinessUnit = next; this.filterDivision = 'All'; this.filterCluster = 'All'; this.filterPlant = 'All'; break;
+      case 'division':     this.filterDivision = next; this.filterCluster = 'All'; this.filterPlant = 'All'; break;
+      case 'cluster':      this.filterCluster = next; this.filterPlant = 'All'; break;
+      case 'plant':        this.filterPlant = next; break;
+    }
+    this.rebuildCascadingOptions(
+      field === 'cluster' && !hasGlobalSelection(next),
+      (field === 'cluster' || field === 'plant') && !hasGlobalSelection(next),
+    );
     this.openFilterName = null;
   }
 
-  private rebuildCascadingOptions(): void {
+  private filterSelection(field: string): GlobalFilterSelection {
+    switch (field) {
+      case 'country': return this.filterCountry;
+      case 'sector': return this.filterSector;
+      case 'businessUnit': return this.filterBusinessUnit;
+      case 'division': return this.filterDivision;
+      case 'cluster': return this.filterCluster;
+      case 'plant': return this.filterPlant;
+      default: return 'All';
+    }
+  }
+
+  private rebuildCascadingOptions(suppressAutoCluster = false, suppressAutoPlant = false): void {
     let filtered = this.allPlants;
-    if (this.filterCountry) filtered = filtered.filter(p => p.country === this.filterCountry);
-    this.filterSectorOptions = this.filterCountry ? this.distinctValues(filtered, p => p.sector) : [];
-    if (this.filterSector) filtered = filtered.filter(p => p.sector === this.filterSector);
-    this.filterBusinessUnitOptions = this.filterSector ? this.distinctValues(filtered, p => p.businessUnit) : [];
-    if (this.filterBusinessUnit) filtered = filtered.filter(p => p.businessUnit === this.filterBusinessUnit);
-    this.filterDivisionOptions = this.filterBusinessUnit ? this.distinctValues(filtered, p => p.division) : [];
-    if (this.filterDivision) filtered = filtered.filter(p => p.division === this.filterDivision);
-    this.filterClusterOptions = this.filterDivision ? this.distinctValues(filtered, p => p.cluster) : [];
+    if (hasGlobalSelection(this.filterCountry)) filtered = filtered.filter(p => matchesGlobalSelection(p.country, this.filterCountry));
+    this.filterSectorOptions = hasGlobalSelection(this.filterCountry) ? this.distinctValues(filtered, p => p.sector) : [];
+    if (hasGlobalSelection(this.filterSector)) filtered = filtered.filter(p => matchesGlobalSelection(p.sector, this.filterSector));
+    this.filterBusinessUnitOptions = hasGlobalSelection(this.filterSector) ? this.distinctValues(filtered, p => p.businessUnit) : [];
+    if (hasGlobalSelection(this.filterBusinessUnit)) filtered = filtered.filter(p => matchesGlobalSelection(p.businessUnit, this.filterBusinessUnit));
+    this.filterDivisionOptions = hasGlobalSelection(this.filterBusinessUnit) ? this.distinctValues(filtered, p => p.division) : [];
+    if (hasGlobalSelection(this.filterDivision)) filtered = filtered.filter(p => matchesGlobalSelection(p.division, this.filterDivision));
+    this.filterClusterOptions = hasGlobalSelection(this.filterDivision) ? this.distinctValues(filtered, p => p.cluster) : [];
     // Narrowing down to a single cluster/plant should auto-select it instead of leaving it blank.
-    if (!this.filterCluster && this.filterClusterOptions.length === 1) this.filterCluster = this.filterClusterOptions[0];
-    if (this.filterCluster) filtered = filtered.filter(p => p.cluster === this.filterCluster);
+    if (!suppressAutoCluster && !hasGlobalSelection(this.filterCluster) && this.filterClusterOptions.length === 1) this.filterCluster = this.filterClusterOptions[0];
+    if (hasGlobalSelection(this.filterCluster)) filtered = filtered.filter(p => matchesGlobalSelection(p.cluster, this.filterCluster));
     this.filterPlantOptions = this.distinctValues(filtered, p => p.plantDescription);
-    if (!this.filterPlant && this.filterPlantOptions.length === 1) this.filterPlant = this.filterPlantOptions[0];
+    if (!suppressAutoPlant && !hasGlobalSelection(this.filterPlant) && this.filterPlantOptions.length === 1) this.filterPlant = this.filterPlantOptions[0];
   }
 
   private distinctValues(plants: PlantFilterDto[], selector: (p: PlantFilterDto) => string): string[] {
@@ -318,10 +436,22 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
     };
     if (!range.from || !range.to || range.to < range.from) return;
     this.setCalendarDateRange(range.from, range.to);
-    const matchingPlants = this.allPlants.filter(plant => plant.plantDescription === this.filterPlant &&
-      (!this.filterCluster || plant.cluster === this.filterCluster));
-    const site = matchingPlants.length === 1 ? String(matchingPlants[0].plantCode) : this.filterPlant || undefined;
-    this.calendarScope = { cluster: this.filterCluster || undefined, site };
+    const matchingPlants = this.allPlants.filter(plant =>
+      matchesGlobalSelection(plant.country, this.filterCountry) &&
+      matchesGlobalSelection(plant.sector, this.filterSector) &&
+      matchesGlobalSelection(plant.businessUnit, this.filterBusinessUnit) &&
+      matchesGlobalSelection(plant.division, this.filterDivision) &&
+      matchesGlobalSelection(plant.cluster, this.filterCluster) &&
+      matchesGlobalSelection(plant.plantDescription, this.filterPlant));
+    const selectedPlants = matchingPlants.filter(plant => matchesGlobalSelection(plant.plantDescription, this.filterPlant));
+    const site = hasGlobalSelection(this.filterPlant) && selectedPlants.length === 1
+      ? String(selectedPlants[0].plantCode)
+      : undefined;
+    const selectedClusters = globalSelectionValues(this.filterCluster);
+    this.calendarScope = {
+      cluster: selectedClusters.length === 1 ? selectedClusters[0] : undefined,
+      site,
+    };
     this.loadCalendarData({
       ...this.calendarScope,
       from: range.from,
@@ -331,12 +461,12 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   }
 
   resetDashboardFilters(): void {
-    this.filterCountry = '';
-    this.filterSector = '';
-    this.filterBusinessUnit = '';
-    this.filterDivision = '';
-    this.filterCluster = '';
-    this.filterPlant = '';
+    this.filterCountry = 'All';
+    this.filterSector = 'All';
+    this.filterBusinessUnit = 'All';
+    this.filterDivision = 'All';
+    this.filterCluster = 'All';
+    this.filterPlant = 'All';
     this.filterQuickRange = '';
     const now = new Date();
     this.setCalendarDateRange(
@@ -444,9 +574,12 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
     private readonly commonApi: CommonApiService,
     private readonly calendarService: CrewCalendarService,
     private readonly authService: AuthService,
+    private readonly permissionService?: PermissionService,
   ) {}
 
   get isAdmin(): boolean { return this.authService.isAdmin(); }
+  get canAssignCrew(): boolean { return !!this.permissionService?.canCreate('dashboard.crew-calendar'); }
+  get canDeleteAssignment(): boolean { return !!this.permissionService?.canModify('dashboard.crew-calendar'); }
 
   ngOnInit(): void {
     //this._prevSidebarState = this.layoutState.isCollapsed;
@@ -470,21 +603,26 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   }
 
   private autoSelectSingle(): void {
-    const active = (v: string) => v && v !== 'All';
+    const active = (selection: GlobalFilterSelection) => hasGlobalSelection(selection);
     if (this.filterCountryOptions.length === 1) this.filterCountry = this.filterCountryOptions[0];
     let filtered = this.allPlants;
-    if (active(this.filterCountry)) filtered = filtered.filter(p => p.country === this.filterCountry);
+    const countrySelection = this.filterCountry;
+    if (active(countrySelection)) filtered = filtered.filter(p => matchesGlobalSelection(p.country, countrySelection));
     const sectors = this.distinctValues(filtered, p => p.sector);
     if (sectors.length === 1) this.filterSector = sectors[0];
-    if (active(this.filterSector)) filtered = filtered.filter(p => p.sector === this.filterSector);
+    const sectorSelection = this.filterSector;
+    if (active(sectorSelection)) filtered = filtered.filter(p => matchesGlobalSelection(p.sector, sectorSelection));
     const bus = this.distinctValues(filtered, p => p.businessUnit);
     if (bus.length === 1) this.filterBusinessUnit = bus[0];
-    if (active(this.filterBusinessUnit)) filtered = filtered.filter(p => p.businessUnit === this.filterBusinessUnit);
+    const businessUnitSelection = this.filterBusinessUnit;
+    if (active(businessUnitSelection)) filtered = filtered.filter(p => matchesGlobalSelection(p.businessUnit, businessUnitSelection));
     const divs = this.distinctValues(filtered, p => p.division);
     if (divs.length === 1) this.filterDivision = divs[0];
   }
 
   ngOnDestroy(): void {
+    clearTimeout(this.searchTimer);
+    this.crewSearchInput = undefined;
     this.keepTooltipOpen();
     //this._prevSidebarState ? this.layoutState.collapse() : this.layoutState.expand();
     this.destroy$.next();
@@ -556,11 +694,12 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
     }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
       if (requestId !== this.calendarRequestId) return;
-        if (data && data.groups && data.groups.length > 0) {
-          this.applyCalendarData(data);
+        const filteredData = this.filterCalendarDataByGlobalSelection(data);
+        if (filteredData && filteredData.groups && filteredData.groups.length > 0) {
+          this.applyCalendarData(filteredData);
         } else {
           // Genuine empty result — clear the board and show an empty state, never mock.
-          this.applyCalendarData({ ...data, groups: [] } as CrewCalendarData);
+          this.applyCalendarData({ ...filteredData, groups: [] } as CrewCalendarData);
         }
         this.loading = false;
         if (this.utilizationReport) this.openUtilizationReport(true);
@@ -587,7 +726,7 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   openAssignmentMenu(event: Event, bar: GanttBar): void {
     this.closeAssignmentMenu();
     const activity = bar.activities?.[0];
-    if (this.loading || this.assignmentDeletion || bar.summary || bar.reserved || bar.proposed ||
+    if (!this.canDeleteAssignment || this.loading || this.assignmentDeletion || bar.summary || bar.reserved || bar.proposed ||
         bar.source !== 'assignment' || bar.activities?.length !== 1 || activity?.source !== 'assignment' ||
         activity.proposed || typeof activity.assignmentId !== 'number' ||
         !Number.isSafeInteger(activity.assignmentId) || activity.assignmentId <= 0) return;
@@ -758,6 +897,7 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   }
 
   openAssign(crewGroupCode: string, crewGroupName: string | null, crewUid: string, crewTypeCode: string | null): void {
+    if (!this.canAssignCrew) return;
     this.assignError = null;
     this.assignPanel = {
       crewGroupCode,
@@ -1118,6 +1258,53 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
     return !!this.calendarData?.roster && !this.showUnassigned;
   }
 
+  private filterCalendarDataByGlobalSelection(data: CrewCalendarData): CrewCalendarData {
+    const selections: GlobalFilterSelection[] = [
+      this.filterCountry, this.filterSector, this.filterBusinessUnit,
+      this.filterDivision, this.filterCluster, this.filterPlant,
+    ];
+    if (!selections.some(hasGlobalSelection)) return data;
+    const hasMultipleSelections = selections.some(selection =>
+      Array.isArray(selection) && globalSelectionValues(selection).length > 1);
+    if ((this.calendarScope.cluster || this.calendarScope.site) && !hasMultipleSelections) return data;
+
+    const selectedPlants = this.allPlants.filter(plant =>
+      matchesGlobalSelection(plant.country, this.filterCountry) &&
+      matchesGlobalSelection(plant.sector, this.filterSector) &&
+      matchesGlobalSelection(plant.businessUnit, this.filterBusinessUnit) &&
+      matchesGlobalSelection(plant.division, this.filterDivision) &&
+      matchesGlobalSelection(plant.cluster, this.filterCluster) &&
+      matchesGlobalSelection(plant.plantDescription, this.filterPlant));
+    if (this.allPlants.length > 0 && selectedPlants.length === this.allPlants.length) return data;
+    const plantIds = new Set(selectedPlants.map(plant => String(plant.plantCode)));
+    const filterActivities = (activities: CalendarActivity[]): CalendarActivity[] =>
+      activities.filter(activity => activity.plantCode != null && plantIds.has(String(activity.plantCode)));
+    const filterGroups = (groups: CalendarGroup[] | undefined): CalendarGroup[] | undefined =>
+      groups?.map(group => ({
+        ...group,
+        crews: group.crews.map(crew => ({ ...crew, activities: filterActivities(crew.activities) }))
+          .filter(crew => crew.activities.length > 0),
+      })).filter(group => group.crews.length > 0);
+    const groups = filterGroups(data.groups) ?? [];
+    const actualGroups = filterGroups(data.actualGroups);
+    const retainedPlan = filterGroups(data.retainedPlan);
+    const totalCrews = groups.reduce((sum, group) => sum + group.crews.length, 0);
+    const totalActivities = groups.reduce((sum, group) =>
+      sum + group.crews.reduce((crewSum, crew) => crewSum + crew.activities.length, 0), 0);
+
+    return {
+      ...data,
+      groups,
+      ...(actualGroups ? { actualGroups } : {}),
+      ...(retainedPlan ? { retainedPlan } : {}),
+      milestones: filterActivities(data.milestones),
+      totalGroups: groups.length,
+      totalCrews,
+      totalActivities,
+      totalMilestones: filterActivities(data.milestones).length,
+    };
+  }
+
   private applyCalendarData(data: CrewCalendarData): void {
     const expandedGroups = new Map(this.crewGroups.map(group => [group.id, group.expanded]));
     const planningData = {
@@ -1140,7 +1327,9 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
       for (const crew of group.crews) {
         const crewId = crew.crewUid.trim().toLowerCase();
         if (crewId) crewIds.add(crewId);
-        this.rosterProjectsByCrew.set(crewId, crew.projects ?? []);
+        this.rosterProjectsByCrew.set(crewId, [
+          ...(this.rosterProjectsByCrew.get(crewId) ?? []), ...(crew.projects ?? []),
+        ]);
       }
       this.rosterCrewIdsByGroup.set(groupId, crewIds);
     }
@@ -1258,8 +1447,7 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
         ? this.layoutCrewBars([...activities.map(activity => activity.bar),
           ...uncoveredBookings(c.bookings ?? [], c.activities).map(booking => this.mapReservationToBar(booking))])
         : this.summarizeBars(activities.map(activity => activity.bar));
-      const bookedDays = bookedDaysInWindow([...c.activities, ...(c.bookings ?? [])],
-        fromDate, toDate);
+      const bookedDays = plannedDaysInWindow(c.activities, c.bookings ?? [], fromDate, toDate);
       return {
         id: hasCrew ? c.crewCode : `${g.crewGroupCode}:unassigned`,
         name: hasCrew ? c.crewCode : 'Unassigned activities',
@@ -1698,6 +1886,85 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
       crewUtilizationStatus(this.crewUtilization(group, crew)) === this.utilizationFilter);
   }
 
+  /**
+   * The crew rows of an expanded group to render. With every group expanded there are thousands of crew rows,
+   * and rendering them all makes every change on the page (scrolling, typing in the search) take seconds, so
+   * only the rows near the visible part of the list are rendered. Both panels use the same window, and the
+   * skipped rows are replaced by spacers of the same height, so the panels stay aligned.
+   */
+  crewWindow(group: CrewGroup): CrewWindow {
+    this.refreshCrewWindows();
+    return this.crewWindows.get(group) ?? { start: 0, before: 0, after: 0, crews: this.visibleCrews(group) };
+  }
+
+  private refreshCrewWindows(): void {
+    const clusters = this.ganttClusters;
+    if (this.crewLayoutSource !== clusters) {
+      this.crewLayout = this.buildCrewLayout(clusters);
+      this.crewLayoutSource = clusters;
+      this.crewWindowKey = '';
+    }
+    const element = this.leftRows?.nativeElement;
+    let from = 0;
+    let to = Number.POSITIVE_INFINITY;
+    // Without a laid-out list (first render, hidden panel, tests) every row is rendered as before.
+    if (element && element.clientHeight > 0) {
+      const step = ActivityBreakdownComponent.CREW_WINDOW_STEP_PX;
+      const overscan = ActivityBreakdownComponent.CREW_OVERSCAN_PX;
+      const start = Math.floor(element.scrollTop / step) * step;
+      from = Math.max(0, start - overscan);
+      to = start + element.clientHeight + step + overscan;
+    }
+    const key = `${from}:${to}`;
+    if (key === this.crewWindowKey) return;
+    this.crewWindowKey = key;
+    this.crewWindows = new Map([...this.crewLayout].map(([group, layout]) => [group, this.windowFor(layout, from, to)]));
+  }
+
+  private buildCrewLayout(clusters: CrewCluster[]): Map<CrewGroup, CrewGroupLayout> {
+    const layout = new Map<CrewGroup, CrewGroupLayout>();
+    let offset = 0;
+    for (const cluster of clusters) {
+      offset += ActivityBreakdownComponent.CLUSTER_ROW_HEIGHT;
+      if (!cluster.expanded) continue;
+      for (const group of cluster.groups) {
+        offset += ActivityBreakdownComponent.ROW_HEIGHT;
+        if (!group.expanded) continue;
+        const crews = this.visibleCrews(group);
+        const ends: number[] = [];
+        let height = 0;
+        for (const crew of crews) {
+          height += this.crewPlanning && crew.rowHeight ? crew.rowHeight : ActivityBreakdownComponent.ROW_HEIGHT;
+          ends.push(height);
+        }
+        layout.set(group, { top: offset, crews, ends });
+        offset += height;
+      }
+    }
+    return layout;
+  }
+
+  private windowFor(layout: CrewGroupLayout, from: number, to: number): CrewWindow {
+    const { top, crews, ends } = layout;
+    const total = ends.length ? ends[ends.length - 1] : 0;
+    const startOf = (index: number) => (index > 0 ? ends[index - 1] : 0);
+    const firstIndex = (matches: (index: number) => boolean) => {
+      let low = 0;
+      let high = crews.length;
+      while (low < high) {
+        const middle = (low + high) >> 1;
+        if (matches(middle)) high = middle;
+        else low = middle + 1;
+      }
+      return low;
+    };
+    // Rendered: crews whose bottom is below `from` and whose top is above `to`.
+    const start = firstIndex(index => top + ends[index] > from);
+    const end = Math.max(start, firstIndex(index => top + startOf(index) >= to));
+    const before = startOf(start);
+    return { start, before, after: total - startOf(end), crews: crews.slice(start, end) };
+  }
+
   crewUtilization(group: CrewGroup, crew: WellRow, basis = this.utilizationBasis): number | null {
     const members = this.rosterCrewIdsByGroup.get(group.id.trim().toLowerCase());
     if (this.totalDays <= 0 || !members?.has(crew.id.trim().toLowerCase())) return null;
@@ -1733,9 +2000,9 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   utilizationTitle(utilization: NonNullable<CrewGroup['utilization']>): string {
     if (utilization.percent === null) return `${this.utilizationLabel} unavailable: no roster crews`;
     const details = this.scheduleFilter === 'actual'
-      ? 'crew-days of recorded actual work'
-      : 'crew-days occupied (including reservations and preview allocations)';
-    return `${this.utilizationLabel} across all work for these crews: ${utilization.bookedCrewDays} of ${utilization.capacityCrewDays} ${details}`;
+      ? 'recorded activity-days (overlapping activities counted separately)'
+      : 'activity-days allocated within this plan only';
+    return `${this.utilizationLabel} across all work for these crews: ${utilization.bookedCrewDays} ${details} / ${utilization.capacityCrewDays} crew-days of capacity`;
   }
 
   visibleClusterUtilization(cluster: CrewCluster): CrewGroup['utilization'] {
@@ -2094,9 +2361,23 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   }
 
   clearRowFilter(): void {
+    clearTimeout(this.searchTimer);
+    this.searchInput = '';
+    if (this.crewSearchElement) this.crewSearchElement.value = '';
     this.searchTerm = '';
     this.rowFilterSelected = new Set();
     this.showRowFilter = false;
+  }
+
+  // Filtering re-renders every visible crew row, so apply the search once typing pauses rather than per keystroke.
+  onSearchInput(value: string): void {
+    this.searchInput = value;
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      if (this.searchTerm === value) return;
+      this.searchTerm = value;
+      this.cdr.detectChanges();
+    }, ActivityBreakdownComponent.SEARCH_DEBOUNCE_MS);
   }
 
   get ganttGroups(): CrewGroup[] {
@@ -2167,26 +2448,28 @@ export class ActivityBreakdownComponent implements OnInit, OnDestroy {
   }
 
   private partitionCrewByCluster(group: CrewGroup, crew: WellRow): { key: string; name: string; crew: WellRow }[] {
-    const parents = new Map<string, string>();
+    const parents = crewClusterNames(crew.projects);
     const selectedCluster = this.calendarScope.cluster?.trim().toLowerCase();
-    for (const project of crew.projects ?? []) {
-      const name = project.cluster?.trim();
-      if (selectedCluster && name?.toLowerCase() !== selectedCluster) continue;
-      if (name && !parents.has(name.toLowerCase())) parents.set(name.toLowerCase(), name);
+    if (selectedCluster) {
+      const name = parents.get(selectedCluster);
+      if (!name) return [];
+      parents.clear();
+      parents.set(selectedCluster, name);
     }
-    if (selectedCluster && !parents.size) return [];
-    if (!parents.size) parents.set('', 'Unmapped');
-    const activities = this.visibleActivities(crew);
+    const visibleActivities = this.visibleActivities(crew);
     const reservations = !this.showUnassigned && this.scheduleFilter === 'actual'
       ? [] : crew.bars.filter(bar => bar.reserved);
-    const activityBars = activities.map(activity => activity.bar);
-    const bars = this.crewPlanning
-      ? this.layoutCrewBars([...activityBars, ...reservations]) : this.summarizeBars(activityBars);
-    const rowHeight = Math.max(56, bars.reduce((height, bar) => Math.max(height, ((bar.lane ?? 0) + 1) * 42 + 12), 0));
     return [...parents.entries()].map(([clusterName, name]) => {
+      const activities = visibleActivities.filter(row => !row.bar.proposed ||
+        row.bar.activities?.some(activity => activityClusterKey(activity) === clusterName));
+      const activityBars = activities.map(activity => activity.bar);
+      const bars = this.crewPlanning
+        ? this.layoutCrewBars([...activityBars, ...reservations]) : this.summarizeBars(activityBars);
+      const rowHeight = Math.max(56, bars.reduce((height, bar) => Math.max(height, ((bar.lane ?? 0) + 1) * 42 + 12), 0));
       const key = JSON.stringify(['cluster', clusterName]);
       const hierarchyKey = JSON.stringify([key, group.id, crew.id]);
       return { key, name, crew: { ...crew, hierarchyKey, activities, bars, rowHeight,
+        noActivities: !crew.unassigned && bars.length === 0,
         expanded: this.hierarchyExpansion.get(hierarchyKey) ?? crew.expanded,
       } };
     });

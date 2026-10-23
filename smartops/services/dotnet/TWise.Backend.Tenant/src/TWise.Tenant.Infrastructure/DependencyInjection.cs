@@ -143,6 +143,7 @@ public static class DependencyInjection
 
         // LEGACY: remove when data migrates to tenant DB
         services.AddScoped<ILegacyCrewCalendarService, LegacyCrewCalendarService>();
+        services.AddScoped<ICrewCalendarService, CrewCalendarService>();
 
         // Reporting
         // Notifications — write-on-event into ControlPlane's centralized store (control.Notification/

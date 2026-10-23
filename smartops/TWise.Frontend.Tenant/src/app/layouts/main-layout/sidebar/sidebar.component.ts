@@ -264,6 +264,34 @@ export class SidebarComponent implements OnInit, OnChanges, OnDestroy {
 
   acknowledgePromo(): void {
     this.promoAcknowledged = true;
-    this.productTour.start();
+    this.searchTerm = '';
+    const targets: string[] = [];
+    const pageTitles: Record<string, string> = {};
+    for (const group of this.menuGroups) {
+      for (const item of group.items) {
+        const visibleChildren = item.children?.filter(child => !child.hidden && child.route) ?? [];
+        const moduleTourId = this.tourIdFor(item.label);
+        if (moduleTourId && visibleChildren.length) {
+          targets.push(`[data-tour="${moduleTourId}"]`);
+        }
+        for (const child of visibleChildren) {
+          if (!child.route) continue;
+          targets.push(`[data-tour-page="${child.route}"]`);
+          pageTitles[child.route] = child.label;
+        }
+      }
+    }
+
+    if (this.permissionService.canCreate('dashboard.wip-boards')) {
+      targets.push('[data-tour="tour-new-dashboard"]');
+    }
+    if (this.permissionService.canView('dashboard.wip-boards')) {
+      targets.push('[data-tour="tour-filters"]');
+    }
+    if (this.permissionService.canView('dashboard.categories')) {
+      targets.push('[data-tour="tour-manage-category"]');
+    }
+
+    this.productTour.start(targets, pageTitles);
   }
 }

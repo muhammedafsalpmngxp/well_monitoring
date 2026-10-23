@@ -1,234 +1,217 @@
--- Crew Calendar: activities grouped by CrewGroup → CrewId for the Gantt schedule board.
--- Parameters: @fromDate, @toDate, (optional) @wellType, @project, @cluster, @site
--- Cluster and plant filtering use the recorded project-to-plant relationship.
-
 SET NOCOUNT ON;
-DROP TABLE IF EXISTS #CrewCalendarLatestRows;
-DROP TABLE IF EXISTS #CrewCalendarActivities;
-DROP TABLE IF EXISTS #CrewCalendarWellDates;
-DROP TABLE IF EXISTS #CrewCalendarWmrTimestamps;
-DROP TABLE IF EXISTS #CrewCalendarWmrActivity;
-DECLARE @sharedLatestRows nvarchar(max) = NULL;
-/* __SHARED_LATEST_ROWS__ */
+DROP TABLE IF EXISTS #CrewCalendarCandidateKeys;
+DROP TABLE IF EXISTS #CrewCalendarEligibleKeys;
 
-CREATE TABLE #CrewCalendarLatestRows (row_id bigint NOT NULL PRIMARY KEY);
-IF @sharedLatestRows IS NOT NULL
-BEGIN
-    INSERT #CrewCalendarLatestRows (row_id)
-    SELECT row_id FROM OPENJSON(@sharedLatestRows) WITH (row_id bigint '$');
-END
-ELSE
-BEGIN
-;WITH LatestRows AS (
-    SELECT atp.row_id,
-           ROW_NUMBER() OVER (
-               PARTITION BY atp.project_id, atp.code, atp.Well_ID
-               ORDER BY atp.updated_at DESC, atp.schedule_id DESC, atp.row_id DESC
-           ) AS RowRank
-    FROM dbo.ActivityTaskPlan atp WITH (NOLOCK)
-    WHERE atp.Well_ID IS NOT NULL
-      /* __WELL_TYPE_FILTER__ */
-      /* __PROJECT_FILTER__ */
-      /* __SCOPE_FILTER__ */
-)
-INSERT #CrewCalendarLatestRows (row_id)
-SELECT row_id
-FROM LatestRows
-WHERE RowRank = 1
-OPTION (MAXDOP 1);
-END;
+SELECT DISTINCT activity.project_id,
+                activity.task_code,
+                activity.well_id
+INTO #CrewCalendarCandidateKeys
+FROM AlTasnimBI.dbo.activity_task_plan AS activity
+CROSS APPLY (VALUES (
+    CASE WHEN YEAR(activity.target_start_date) > 1900 THEN activity.target_start_date END,
+    CASE WHEN YEAR(activity.target_end_date) > 1900 THEN activity.target_end_date END,
+    CASE WHEN YEAR(activity.actual_start_date) > 1900 THEN activity.actual_start_date END,
+    CASE WHEN YEAR(activity.actual_end_date) > 1900 THEN activity.actual_end_date END
+)) AS dates(PlannedStart, PlannedEnd, ActualStart, ActualEnd)
+CROSS APPLY (VALUES (
+    CONVERT(date, COALESCE(dates.ActualStart,
+        CASE WHEN dates.ActualEnd IS NOT NULL THEN
+            CASE WHEN dates.PlannedEnd >= dates.PlannedStart
+                      AND dates.PlannedStart <= dates.ActualEnd
+                 THEN dates.PlannedStart ELSE dates.ActualEnd END
+        END)),
+    CONVERT(date, COALESCE(dates.ActualEnd, GETDATE()))
+)) AS actual(StartedOn, EndedOn)
+WHERE activity.well_id IS NOT NULL
+  AND (@wellType IS NULL OR activity.task_type = @wellType)
+  AND (@project IS NULL OR activity.project_id = @project)
+  AND (
+      (@cluster IS NULL AND @plant IS NULL)
+      OR EXISTS (
+          SELECT 1
+          FROM AlTasnimBI.project.project_mstr AS project
+          INNER JOIN AlTasnimBI.core.plant_description AS plant
+              ON plant.plant_code = TRY_CONVERT(int, project.site_code)
+          INNER JOIN AlTasnimBI.ref.cluster AS cluster
+              ON cluster.cluster_code = plant.cluster_code
+          WHERE project.project_id = activity.project_id
+            AND (@cluster IS NULL OR LTRIM(RTRIM(cluster.cluster_name)) = @cluster)
+            AND (@plant IS NULL OR LTRIM(RTRIM(plant.plant_description)) = @plant)
+      )
+  )
+  AND (
+      (dates.PlannedEnd >= dates.PlannedStart
+       AND CONVERT(date, dates.PlannedStart) <= @toDate
+       AND dates.PlannedEnd >= @fromDate)
+      OR (actual.StartedOn <= @toDate AND actual.EndedOn >= @fromDate
+          AND actual.EndedOn >= actual.StartedOn)
+  )
+OPTION (HASH GROUP, RECOMPILE);
+
+SELECT latest.row_id, latest.activity_task_plan_id
+INTO #CrewCalendarEligibleKeys
+FROM #CrewCalendarCandidateKeys AS candidate
+CROSS APPLY (
+    SELECT TOP (1) detail.row_id, detail.activity_task_plan_id,
+           detail.target_start_date, detail.target_end_date, detail.actual_start_date, detail.actual_end_date
+    FROM AlTasnimBI.dbo.activity_task_plan AS detail
+    WHERE detail.well_id = candidate.well_id
+      AND detail.task_code IS NOT DISTINCT FROM candidate.task_code
+      AND detail.project_id IS NOT DISTINCT FROM candidate.project_id
+      AND (@wellType IS NULL OR detail.task_type = @wellType)
+    ORDER BY detail.updated_at DESC, detail.schedule_id DESC, detail.row_id DESC,
+             detail.created_at DESC, detail.activity_task_plan_id DESC
+) AS latest
+CROSS APPLY (VALUES (
+    CASE WHEN YEAR(latest.target_start_date) > 1900 THEN latest.target_start_date END,
+    CASE WHEN YEAR(latest.target_end_date) > 1900 THEN latest.target_end_date END,
+    CASE WHEN YEAR(latest.actual_start_date) > 1900 THEN latest.actual_start_date END,
+    CASE WHEN YEAR(latest.actual_end_date) > 1900 THEN latest.actual_end_date END
+)) AS dates(PlannedStart, PlannedEnd, ActualStart, ActualEnd)
+CROSS APPLY (VALUES (
+    CONVERT(date, COALESCE(dates.ActualStart,
+        CASE WHEN dates.ActualEnd IS NOT NULL THEN
+            CASE WHEN dates.PlannedEnd >= dates.PlannedStart AND dates.PlannedStart <= dates.ActualEnd
+                 THEN dates.PlannedStart ELSE dates.ActualEnd END
+        END)),
+    CONVERT(date, COALESCE(dates.ActualEnd, GETDATE()))
+)) AS actual(StartedOn, EndedOn)
+WHERE (dates.PlannedEnd >= dates.PlannedStart
+       AND CONVERT(date, dates.PlannedStart) <= @toDate AND dates.PlannedEnd >= @fromDate)
+   OR (actual.StartedOn <= @toDate AND actual.EndedOn >= @fromDate AND actual.EndedOn >= actual.StartedOn)
+OPTION (RECOMPILE);
 
 ;WITH ActivityGroups AS (
-    SELECT LTRIM(RTRIM(Activity_ID)) AS ActivityId,
-           MIN(LTRIM(RTRIM(New_Crew_code))) AS CrewGroup
-    FROM dbo.ActivityCodesNorms
-    WHERE NULLIF(LTRIM(RTRIM(Activity_ID)), '') IS NOT NULL
-      AND NULLIF(LTRIM(RTRIM(New_Crew_code)), '') IS NOT NULL
-      AND New_Crew_code <> '#N/A'
-    GROUP BY LTRIM(RTRIM(Activity_ID))
-    HAVING COUNT(DISTINCT LTRIM(RTRIM(New_Crew_code))) = 1
-),
-MasterGroups AS (
-    SELECT LTRIM(RTRIM(ACTIVITY_CODE)) AS ActivityCode,
-           MIN(LTRIM(RTRIM(CREW_GROUP_CODE))) AS CrewGroup
-    FROM dbo.ActivityMasterCSV
-    WHERE NULLIF(LTRIM(RTRIM(CREW_GROUP_CODE)), '') IS NOT NULL
-    GROUP BY LTRIM(RTRIM(ACTIVITY_CODE))
-    HAVING COUNT(DISTINCT LTRIM(RTRIM(CREW_GROUP_CODE))) = 1
-),
-Ranked AS (
-    SELECT
-        atp.project_id                                           AS ProjectId,
-        COALESCE(NULLIF(LTRIM(RTRIM(atp.crew_type)), ''), ag.CrewGroup, mg.CrewGroup) AS CrewGroup,
-        LTRIM(RTRIM(atp.crew_type))                              AS CrewCode,
-        LTRIM(RTRIM(atp.crew_uid))                               AS CrewId,
-        CASE
-            WHEN atp.Parent_WBS LIKE 'W[0-9]%' THEN NULL
-            WHEN LTRIM(RTRIM(atp.Parent_WBS)) = '' THEN NULL
-            ELSE LTRIM(RTRIM(atp.Parent_WBS))
-        END                                                      AS Category,
-        LTRIM(RTRIM(atp.code))                                   AS ActivityCode,
-        LTRIM(RTRIM(COALESCE(NULLIF(CAST(atp.[text] AS NVARCHAR(500)), ''), atp.code, 'Unnamed'))) AS ActivityText,
-        atp.type                                                 AS ActivityType,
-           CASE WHEN YEAR(atp.target_start) > 1900 THEN atp.target_start END AS PlannedStart,
-           CASE WHEN YEAR(atp.target_end) > 1900 THEN atp.target_end END AS PlannedEnd,
-        CASE WHEN YEAR(atp.actual_start) > 1900 THEN atp.actual_start END AS ActualStart,
-        CASE WHEN YEAR(atp.actual_end)   > 1900 THEN atp.actual_end   END AS ActualEnd,
-        TRY_CAST(atp.progress AS DECIMAL(10,4))                  AS ProgressRaw,
-        TRY_CAST(atp.qty AS DECIMAL(18,4))                       AS Qty,
-        TRY_CAST(atp.manhours AS DECIMAL(18,4))                   AS Manhours,
-        TRY_CAST(atp.qtyactual AS DECIMAL(18,4))                  AS QtyActual,
-        LTRIM(RTRIM(atp.Well_ID))                                AS WellID,
-        CASE WHEN atp.type = 'M' THEN 1 ELSE 0 END              AS IsMilestone
-    FROM dbo.ActivityTaskPlan atp WITH (NOLOCK)
-        INNER JOIN #CrewCalendarLatestRows latest ON latest.row_id = atp.row_id
-        LEFT JOIN ActivityGroups ag ON ag.ActivityId = LEFT(LTRIM(RTRIM(atp.code)), CHARINDEX('-', LTRIM(RTRIM(atp.code)) + '-') - 1)
-        LEFT JOIN MasterGroups mg ON mg.ActivityCode = LTRIM(RTRIM(atp.code))
-    WHERE atp.Well_ID IS NOT NULL
+    SELECT LTRIM(RTRIM(activity_id)) AS ActivityId,
+           MIN(LTRIM(RTRIM(new_crew_code))) AS CrewGroup
+    FROM AlTasnimBI.dbo.activity_codes_norms
+    WHERE NULLIF(LTRIM(RTRIM(activity_id)), '') IS NOT NULL
+      AND NULLIF(LTRIM(RTRIM(new_crew_code)), '') IS NOT NULL
+      AND new_crew_code <> '#N/A'
+    GROUP BY LTRIM(RTRIM(activity_id))
+    HAVING COUNT(DISTINCT LTRIM(RTRIM(new_crew_code))) = 1
+), MasterGroups AS (
+    SELECT LTRIM(RTRIM(activity_code)) AS ActivityCode,
+           MIN(LTRIM(RTRIM(crew_code))) AS CrewGroup
+    FROM AlTasnimBI.dbo.activity_master_csv
+    WHERE NULLIF(LTRIM(RTRIM(crew_code)), '') IS NOT NULL
+    GROUP BY LTRIM(RTRIM(activity_code))
+    HAVING COUNT(DISTINCT LTRIM(RTRIM(crew_code))) = 1
+), CalendarActivities AS (
+    SELECT activity.project_id AS ProjectId,
+           COALESCE(NULLIF(LTRIM(RTRIM(activity.crew_type)), ''),
+                    activityGroup.CrewGroup, masterGroup.CrewGroup) AS CrewGroup,
+           LTRIM(RTRIM(activity.crew_type)) AS CrewCode,
+           LTRIM(RTRIM(activity.crew_uid)) AS CrewId,
+           CASE
+               WHEN activity.parent_wbs_code LIKE 'W[0-9]%' THEN NULL
+               WHEN LTRIM(RTRIM(activity.parent_wbs_code)) = '' THEN NULL
+               ELSE LTRIM(RTRIM(activity.parent_wbs_code))
+           END AS Category,
+           LTRIM(RTRIM(activity.task_code)) AS ActivityCode,
+           LTRIM(RTRIM(COALESCE(NULLIF(CAST(activity.task_description AS nvarchar(500)), ''),
+                               activity.task_code, 'Unnamed'))) AS ActivityText,
+           activity.task_type AS ActivityType,
+           CASE WHEN YEAR(activity.target_start_date) > 1900 THEN activity.target_start_date END AS PlannedStart,
+           CASE WHEN YEAR(activity.target_end_date) > 1900 THEN activity.target_end_date END AS PlannedEnd,
+           CASE WHEN YEAR(activity.actual_start_date) > 1900 THEN activity.actual_start_date END AS ActualStart,
+           CASE WHEN YEAR(activity.actual_end_date) > 1900 THEN activity.actual_end_date END AS ActualEnd,
+           activity.progress_percent AS ProgressRaw,
+           activity.planned_quantity AS Qty,
+           activity.planned_manhours AS Manhours,
+           activity.actual_quantity AS QtyActual,
+           LTRIM(RTRIM(activity.well_id)) AS WellID,
+           CASE WHEN activity.task_type = 'M' THEN 1 ELSE 0 END AS IsMilestone
+    FROM #CrewCalendarEligibleKeys AS latest
+    CROSS APPLY (
+        SELECT TOP (1) detail.*
+        FROM AlTasnimBI.dbo.activity_task_plan AS detail
+                WHERE detail.row_id IS NOT DISTINCT FROM latest.row_id
+                    AND detail.activity_task_plan_id = latest.activity_task_plan_id
+          AND (@wellType IS NULL OR detail.task_type = @wellType)
+        ORDER BY detail.updated_at DESC,
+                 detail.schedule_id DESC,
+                 detail.row_id DESC,
+                 detail.created_at DESC,
+                 detail.activity_task_plan_id DESC
+    ) AS activity
+    LEFT JOIN ActivityGroups AS activityGroup
+        ON activityGroup.ActivityId = LEFT(LTRIM(RTRIM(activity.task_code)),
+            CHARINDEX('-', LTRIM(RTRIM(activity.task_code)) + '-') - 1)
+    LEFT JOIN MasterGroups AS masterGroup
+        ON masterGroup.ActivityCode = LTRIM(RTRIM(activity.task_code))
+), WellDates AS (
+    SELECT LTRIM(RTRIM(well_id)) AS WellID,
+           MAX(rig_on_date) AS RigOnDate
+    FROM AlTasnimBI.well.well_master
+    WHERE NULLIF(LTRIM(RTRIM(well_id)), '') IS NOT NULL
+    GROUP BY LTRIM(RTRIM(well_id))
+), ProjectPlants AS (
+    SELECT project_id, MIN(TRY_CONVERT(int, site_code)) AS PlantCode
+    FROM AlTasnimBI.project.project_mstr
+    WHERE project_id IS NOT NULL
+    GROUP BY project_id
+    HAVING COUNT(DISTINCT TRY_CONVERT(int, site_code)) = 1
 )
-SELECT r.* INTO #CrewCalendarActivities
-FROM Ranked r
-CROSS APPLY (VALUES (
-    CONVERT(date, COALESCE(r.ActualStart,
-        CASE WHEN r.ActualEnd IS NOT NULL THEN
-            CASE WHEN r.PlannedEnd >= r.PlannedStart AND r.PlannedStart <= r.ActualEnd
-                 THEN r.PlannedStart ELSE r.ActualEnd END
-        END)),
-    CONVERT(date, COALESCE(r.ActualEnd, GETDATE()))
-)) actual(StartedOn, EndedOn)
-WHERE r.CrewGroup IS NOT NULL
-    AND (
-        (r.PlannedEnd >= r.PlannedStart
-            AND r.PlannedStart <= @toDate
-            AND r.PlannedEnd >= @fromDate)
-        OR (actual.StartedOn <= @toDate
-            AND actual.EndedOn >= @fromDate
-            AND actual.EndedOn >= actual.StartedOn)
-    );
-
-CREATE INDEX IX_CrewCalendarActivities_Well ON #CrewCalendarActivities(WellID);
-
-SELECT TOP (0) LTRIM(RTRIM(pdo_well_id)) AS WellID,
-       TRY_CONVERT(date, actual_rig_on_date) AS RigOnDateDt
-INTO #CrewCalendarWellDates
-FROM dbo.WellMonitoringReportOptimized;
-
-IF EXISTS (SELECT 1 FROM #CrewCalendarActivities)
-BEGIN
-    DECLARE @wmr_definition nvarchar(max) = OBJECT_DEFINITION(OBJECT_ID(N'dbo.WellMonitoringReportOptimized'));
-    DECLARE @wmr_start int = CHARINDEX(N'WITH target_week AS (', @wmr_definition);
-    DECLARE @wmr_union int = CHARINDEX(N'final_union AS (', @wmr_definition);
-    DECLARE @wmr_select int = CHARINDEX(N'SELECT', @wmr_definition, CHARINDEX(N')', @wmr_definition, @wmr_union) + 1);
-    DECLARE @wmr_end int = CHARINDEX(N'FROM final_union;', @wmr_definition, @wmr_select);
-    DECLARE @wmr_source nvarchar(100) = N'FROM dbo.ActivityTaskPlan atp';
-
-    IF @wmr_start > 0 AND @wmr_union > @wmr_start AND @wmr_select > @wmr_union AND @wmr_end > @wmr_select
-       AND (LEN(@wmr_definition) - LEN(REPLACE(@wmr_definition, @wmr_source, N''))) / LEN(@wmr_source) = 2
-       AND EXISTS (
-           SELECT 1 FROM sys.columns
-           WHERE object_id = OBJECT_ID(N'dbo.ActivityTaskPlan')
-             AND name = N'Time_Stamp' AND system_type_id = 231 AND max_length = 510
-                         AND collation_name = CONVERT(sysname, DATABASEPROPERTYEX(DB_NAME(), 'Collation'))
-       )
-    BEGIN
-        CREATE TABLE #CrewCalendarWmrTimestamps (
-            Time_Stamp nvarchar(255) COLLATE DATABASE_DEFAULT PRIMARY KEY,
-            SnapshotDate date NULL
-        );
-        DECLARE @wmr_timestamp nvarchar(255) = (SELECT MIN(Time_Stamp) FROM dbo.ActivityTaskPlan WITH (NOLOCK));
-        WHILE @wmr_timestamp IS NOT NULL
-        BEGIN
-            INSERT #CrewCalendarWmrTimestamps VALUES (
-                @wmr_timestamp,
-                TRY_CONVERT(date, LEFT(LTRIM(RTRIM(CONVERT(nvarchar(100), @wmr_timestamp))), 10), 23)
-            );
-            SELECT @wmr_timestamp = MIN(Time_Stamp)
-            FROM dbo.ActivityTaskPlan WITH (NOLOCK) WHERE Time_Stamp > @wmr_timestamp;
-        END;
-
-        DECLARE @wmr_latest_date date = (SELECT MAX(SnapshotDate) FROM #CrewCalendarWmrTimestamps);
-        SELECT atp.row_id, atp.code, atp.actual_start, atp.actual_end, atp.Time_Stamp
-        INTO #CrewCalendarWmrActivity
-        FROM dbo.ActivityTaskPlan atp WITH (NOLOCK)
-        INNER JOIN #CrewCalendarWmrTimestamps snapshot
-            ON snapshot.Time_Stamp = atp.Time_Stamp
-        WHERE snapshot.SnapshotDate = @wmr_latest_date;
-
-        DECLARE @wmr_sql nvarchar(max) = REPLACE(
-            SUBSTRING(@wmr_definition, @wmr_start, @wmr_select - @wmr_start),
-            @wmr_source, N'FROM #CrewCalendarWmrActivity atp'
-        ) + N', CrewCalendarWellReport AS ('
-          + SUBSTRING(@wmr_definition, @wmr_select, @wmr_end + LEN(N'FROM final_union') - @wmr_select)
-          + N')
-        INSERT #CrewCalendarWellDates (WellID, RigOnDateDt)
-        SELECT LTRIM(RTRIM(pdo_well_id)), MAX(TRY_CONVERT(date, actual_rig_on_date))
-        FROM CrewCalendarWellReport WITH (NOLOCK)
-        WHERE pdo_well_id IS NOT NULL AND LTRIM(RTRIM(pdo_well_id)) != ''''
-          AND EXISTS (
-              SELECT 1 FROM #CrewCalendarActivities activities
-              WHERE activities.WellID = LTRIM(RTRIM(pdo_well_id))
-          )
-        GROUP BY LTRIM(RTRIM(pdo_well_id));';
-        EXEC sys.sp_executesql @wmr_sql;
-
-        DROP TABLE #CrewCalendarWmrActivity;
-        DROP TABLE #CrewCalendarWmrTimestamps;
-    END
-    ELSE
-    BEGIN
-        INSERT #CrewCalendarWellDates (WellID, RigOnDateDt)
-        SELECT LTRIM(RTRIM(pdo_well_id)), MAX(TRY_CONVERT(date, actual_rig_on_date))
-        FROM dbo.WellMonitoringReportOptimized WITH (NOLOCK)
-        WHERE pdo_well_id IS NOT NULL AND LTRIM(RTRIM(pdo_well_id)) != ''
-          AND EXISTS (
-              SELECT 1 FROM #CrewCalendarActivities activities
-              WHERE activities.WellID = LTRIM(RTRIM(pdo_well_id))
-          )
-        GROUP BY LTRIM(RTRIM(pdo_well_id));
-    END;
-END;
-
-SELECT
-    r.CrewGroup,
-    r.CrewCode,
-    r.CrewId,
-    r.Category,
-    r.ActivityCode,
-    r.ActivityText,
-    r.ActivityType,
-    CONVERT(varchar(10), r.PlannedStart, 23) AS PlannedStart,
-    CONVERT(varchar(10), r.PlannedEnd,   23) AS PlannedEnd,
-    CASE WHEN r.ActualStart IS NOT NULL THEN CONVERT(varchar(10), r.ActualStart, 23) END AS ActualStart,
-    CASE WHEN r.ActualEnd   IS NOT NULL THEN CONVERT(varchar(10), r.ActualEnd,   23) END AS ActualEnd,
-    CAST(ISNULL(r.ProgressRaw, 0) * 100 AS DECIMAL(10,2)) AS Progress,
-    r.WellID,
-    r.IsMilestone,
-    CASE
-        WHEN r.ActivityType = 'M' THEN 'milestone'
-           WHEN r.ActualEnd IS NOT NULL THEN 'completed'
-           WHEN r.ActualStart IS NOT NULL THEN 'inprogress'
+SELECT activity.CrewGroup,
+       activity.CrewCode,
+       activity.CrewId,
+       activity.Category,
+       activity.ActivityCode,
+       activity.ActivityText,
+       activity.ActivityType,
+       CONVERT(varchar(10), activity.PlannedStart, 23) AS PlannedStart,
+       CONVERT(varchar(10), activity.PlannedEnd, 23) AS PlannedEnd,
+       CONVERT(varchar(10), activity.ActualStart, 23) AS ActualStart,
+       CONVERT(varchar(10), activity.ActualEnd, 23) AS ActualEnd,
+       CAST(ISNULL(activity.ProgressRaw, 0) * 100 AS decimal(10,2)) AS Progress,
+       activity.WellID,
+       activity.IsMilestone,
+       CASE
+           WHEN activity.ActivityType = 'M' THEN 'milestone'
+           WHEN activity.ActualEnd IS NOT NULL THEN 'completed'
+           WHEN activity.ActualStart IS NOT NULL THEN 'inprogress'
            ELSE 'planned'
-    END AS Status,
-    CONVERT(varchar(10), w.RigOnDateDt, 23) AS RigOnDate,
-    r.Qty,
-    r.Manhours,
-    r.QtyActual,
-    CASE WHEN r.Manhours > 0
-         THEN CAST(r.Qty / (r.Manhours / 8.0) AS DECIMAL(10,2))
-         ELSE NULL END AS NormsPerDay,
-    CASE WHEN r.Manhours > 0 AND r.ActualStart IS NOT NULL
-              AND DATEDIFF(DAY, r.ActualStart, GETDATE()) > 0
-              AND r.QtyActual IS NOT NULL AND r.QtyActual > 0
-         THEN CAST(
-             (r.QtyActual / CAST(DATEDIFF(DAY, r.ActualStart, GETDATE()) AS DECIMAL(18,4)))
-             / NULLIF((r.Qty / (r.Manhours / 8.0)), 0) * 100
-             AS DECIMAL(10,1))
-         ELSE NULL END AS ProductivityPct,
-    CONVERT(nvarchar(50), r.ProjectId) AS ProjectId
-FROM #CrewCalendarActivities r
-LEFT JOIN #CrewCalendarWellDates w ON r.WellID = w.WellID
-ORDER BY r.CrewGroup ASC, r.CrewCode ASC, r.PlannedStart ASC;
+       END AS Status,
+       CONVERT(varchar(10), well.RigOnDate, 23) AS RigOnDate,
+       activity.Qty,
+       activity.Manhours,
+       activity.QtyActual,
+       CASE WHEN activity.Manhours > 0
+            THEN CAST(activity.Qty / (activity.Manhours / 8.0) AS decimal(10,2))
+       END AS NormsPerDay,
+       CASE WHEN activity.Manhours > 0 AND activity.ActualStart IS NOT NULL
+                 AND DATEDIFF(DAY, activity.ActualStart, GETDATE()) > 0
+                 AND activity.QtyActual IS NOT NULL AND activity.QtyActual > 0
+            THEN CAST(
+                (activity.QtyActual / CAST(DATEDIFF(DAY, activity.ActualStart, GETDATE()) AS decimal(18,4)))
+                / NULLIF(activity.Qty / (activity.Manhours / 8.0), 0) * 100
+                AS decimal(10,1))
+       END AS ProductivityPct,
+    CONVERT(nvarchar(50), activity.ProjectId) AS ProjectId,
+    project.PlantCode
+FROM CalendarActivities AS activity
+LEFT JOIN WellDates AS well ON well.WellID = activity.WellID
+LEFT JOIN ProjectPlants AS project ON project.project_id = activity.ProjectId
+CROSS APPLY (VALUES (
+    CONVERT(date, COALESCE(activity.ActualStart,
+        CASE WHEN activity.ActualEnd IS NOT NULL THEN
+            CASE WHEN activity.PlannedEnd >= activity.PlannedStart
+                      AND activity.PlannedStart <= activity.ActualEnd
+                 THEN activity.PlannedStart ELSE activity.ActualEnd END
+        END)),
+    CONVERT(date, COALESCE(activity.ActualEnd, GETDATE()))
+)) AS actual(StartedOn, EndedOn)
+WHERE activity.CrewGroup IS NOT NULL
+  AND (
+      (activity.PlannedEnd >= activity.PlannedStart
+       AND CONVERT(date, activity.PlannedStart) <= @toDate
+       AND activity.PlannedEnd >= @fromDate)
+      OR (actual.StartedOn <= @toDate AND actual.EndedOn >= @fromDate
+          AND actual.EndedOn >= actual.StartedOn)
+  )
+ORDER BY activity.CrewGroup, activity.CrewCode, activity.PlannedStart
+OPTION (RECOMPILE);
 
-DROP TABLE #CrewCalendarLatestRows;
-DROP TABLE #CrewCalendarActivities;
-DROP TABLE #CrewCalendarWellDates;
+DROP TABLE #CrewCalendarCandidateKeys;
+DROP TABLE #CrewCalendarEligibleKeys;

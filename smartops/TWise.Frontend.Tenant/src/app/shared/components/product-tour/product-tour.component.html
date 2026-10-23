@@ -12,7 +12,7 @@
 
   <div class="product-tour__tooltip" *ngIf="targetRect" [ngStyle]="tooltipStyle">
     <h4>{{ step.title }}</h4>
-    <p>{{ step.description }}</p>
+    <p>{{ step.details }}</p>
   </div>
 
   <div class="product-tour__panel">
@@ -27,8 +27,15 @@
       </button>
     </div>
 
-    <div class="product-tour__dots">
-      <span *ngFor="let s of state.steps; let i = index" [class.active]="i === state.currentIndex"></span>
+    <div
+      class="product-tour__dots"
+      role="progressbar"
+      [attr.aria-valuenow]="state.currentIndex + 1"
+      [attr.aria-valuemin]="1"
+      [attr.aria-valuemax]="state.steps.length"
+      [attr.aria-label]="'Tour progress: step ' + (state.currentIndex + 1) + ' of ' + state.steps.length"
+    >
+      <span [style.width.%]="progressPercent"></span>
     </div>
 
     <ul class="product-tour__list">

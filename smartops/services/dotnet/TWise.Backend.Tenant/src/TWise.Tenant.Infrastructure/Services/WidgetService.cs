@@ -160,6 +160,7 @@ public sealed class WidgetService(IWidgetRepository repo) : IWidgetService
             var source = await repo.GetAccessibleByIdAsync(publishSourceId, userId, ct);
             if (source is null || source.Status != "published") return null;
 
+            source.Name = widget.Name;
             source.Description = widget.Description;
             source.Type = widget.Type;
             source.LibraryId = widget.LibraryId;
@@ -223,5 +224,6 @@ public sealed class WidgetService(IWidgetRepository repo) : IWidgetService
     private static WidgetDto ToDto(Widget w) => new(
         w.Id, w.Name, w.Description, w.Type, w.LibraryId, w.Source, w.SourceType, w.SourceId, w.DesignJson, w.Status,
         w.CategoryId, w.Category?.CategoryName,
-        w.TenantId, w.CreatedBy, w.CreatedAt, w.ModifiedBy, w.ModifiedOn);
+        w.TenantId, w.CreatedBy, w.CreatedAt, w.ModifiedBy, w.ModifiedOn,
+        CategoryDescription: w.Category?.Description);
 }

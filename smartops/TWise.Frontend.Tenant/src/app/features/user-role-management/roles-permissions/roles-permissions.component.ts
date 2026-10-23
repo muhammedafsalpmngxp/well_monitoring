@@ -1,8 +1,9 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { UserManagementService, RoleDto } from '../../../core/services/user-management.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { NotificationHelper } from '../../../core/helpers/notification.helper';
 
 export type RoleIcon = 'admin' | 'cluster_admin' | 'site_admin' | 'planner' | 'site_engineer' | 'site_mgt' | 'qa_qc' | 'hse';
 export type RoleAccent = 'blue' | 'purple' | 'orange' | 'teal' | 'green' | 'red';
@@ -57,14 +58,22 @@ const ROLE_ACCENT_MAP: Record<string, RoleAccent> = {
   operator: 'orange', viewer: 'teal', User: 'green',
 };
 
+const HIDDEN_PERMISSION_MODULE_CODES = new Set([
+  'charts.published-charts',
+  'charts.published-tiles',
+]);
+
 @Component({
   selector: 'app-roles-permissions',
   standalone: false,
   templateUrl: './roles-permissions.component.html',
   styleUrls: ['./roles-permissions.component.scss'],
 })
-export class RolesPermissionsComponent implements OnInit {
+export class RolesPermissionsComponent implements OnInit, OnDestroy {
   private readonly baseUrl = environment.controlPlaneApiUrl;
+  private readonly notify: NotificationHelper;
+
+  get successMessage(): string { return this.notify.successMessage; }
 
   allRoles: Role[] = [];
   permissionTree: PermissionNode[] = [];
@@ -85,11 +94,17 @@ export class RolesPermissionsComponent implements OnInit {
     private readonly authService: AuthService,
     private readonly http: HttpClient,
     private readonly cdr: ChangeDetectorRef,
-  ) {}
+  ) {
+    this.notify = new NotificationHelper(cdr);
+  }
 
   ngOnInit(): void {
     this.loadRoles();
     this.loadModuleTree();
+  }
+
+  ngOnDestroy(): void {
+    this.notify.destroy();
   }
 
   private checkInitialLoadComplete(): void {
@@ -146,7 +161,9 @@ export class RolesPermissionsComponent implements OnInit {
       id: m.moduleCode,
       label: m.displayName ?? m.moduleCode,
       moduleIcon: this.resolveIcon(m.moduleCode),
-      children: m.children?.map(c => this.mapModuleToNode(c)),
+      children: m.children
+        ?.filter(child => !HIDDEN_PERMISSION_MODULE_CODES.has(child.moduleCode))
+        .map(c => this.mapModuleToNode(c)),
     };
   }
 
@@ -344,6 +361,7 @@ export class RolesPermissionsComponent implements OnInit {
   showAddRoleModal = false;
   newRoleName = '';
   newRoleDescription = '';
+  roleSaveError: string | null = null;
   isEditMode = false;
   showUpdateConfirm = false;
   showDeleteConfirm = false;
@@ -353,6 +371,7 @@ export class RolesPermissionsComponent implements OnInit {
   roleToDelete: Role | null = null;
 
   openAddRoleModal(): void {
+    this.roleSaveError = null;
     this.isEditMode = false;
     this.editingRole = null;
     this.newRoleName = '';
@@ -362,6 +381,7 @@ export class RolesPermissionsComponent implements OnInit {
 
   openEditRoleModal(role: Role, event?: Event): void {
     event?.stopPropagation();
+    this.roleSaveError = null;
     this.isEditMode = true;
     this.editingRole = role;
     this.newRoleName = role.name;
@@ -431,6 +451,8 @@ export class RolesPermissionsComponent implements OnInit {
         this.roleToDelete = null;
         if (this.selectedRoleId === role.id) this.selectedRoleId = '';
         this.loadRoles();
+        this.notify.showSuccess('Role deleted successfully.');
+        this.cdr.detectChanges();
       },
       error: () => {
         this.roleToDelete = null;
@@ -443,6 +465,7 @@ export class RolesPermissionsComponent implements OnInit {
 
   submitRole(): void {
     if (!this.isRoleFormValid) return;
+    this.roleSaveError = null;
     if (this.isEditMode) {
       this.showUpdateConfirm = true;
       return;
@@ -455,31 +478,57 @@ export class RolesPermissionsComponent implements OnInit {
       this.showUpdateConfirm = false;
       return;
     }
+    this.roleSaveError = null;
+    // The login admin check reads the code, so it must follow the name; the built-in 'admin' role keeps its code.
+    const roleCode = this.editingRole.roleCode === 'admin' ? 'admin' : this.roleCodeFromName(this.newRoleName);
     this.http.put<void>(`${this.baseUrl}/roles/${this.editingRole.id}`, {
-      roleCode: this.editingRole.roleCode,
+      roleCode,
       roleName: this.newRoleName.trim(),
       description: this.newRoleDescription.trim(),
       scope: this.editingRole.scope,
       isActive: true,
-    }).subscribe(() => {
-      this.loadRoles();
-      this.showUpdateConfirm = false;
-      this.closeAddRoleModal();
+    }).subscribe({
+      next: () => {
+        this.loadRoles();
+        this.showUpdateConfirm = false;
+        this.closeAddRoleModal();
+        this.notify.showSuccess('Role updated successfully.');
+        this.cdr.detectChanges();
+      },
+      error: (error: HttpErrorResponse) => this.handleRoleSaveError(error),
     });
+  }
+
+  private roleCodeFromName(name: string): string {
+    return name.trim().toLowerCase().replace(/\s+/g, '_');
   }
 
   createRole(): void {
     if (!this.newRoleName.trim() || !this.newRoleDescription.trim()) return;
-    const code = this.newRoleName.trim().toLowerCase().replace(/\s+/g, '_');
+    this.roleSaveError = null;
+    const code = this.roleCodeFromName(this.newRoleName);
     this.http.post<any>(`${this.baseUrl}/roles`, {
       roleCode: code,
       roleName: this.newRoleName.trim(),
       description: this.newRoleDescription.trim(),
       scope: 'tenant',
       isActive: true,
-    }).subscribe(created => {
-      this.loadRoles();
-      this.closeAddRoleModal();
+    }).subscribe({
+      next: () => {
+        this.loadRoles();
+        this.closeAddRoleModal();
+        this.notify.showSuccess('Role added successfully.');
+        this.cdr.detectChanges();
+      },
+      error: (error: HttpErrorResponse) => this.handleRoleSaveError(error),
     });
+  }
+
+  private handleRoleSaveError(error: HttpErrorResponse): void {
+    const apiError = error.error?.error ?? error.error;
+    this.roleSaveError = typeof apiError?.message === 'string' && apiError.message.trim()
+      ? apiError.message
+      : 'The role could not be saved. Please try again.';
+    this.cdr.detectChanges();
   }
 }

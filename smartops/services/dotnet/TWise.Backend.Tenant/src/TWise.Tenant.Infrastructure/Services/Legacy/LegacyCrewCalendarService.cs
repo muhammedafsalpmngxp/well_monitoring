@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Diagnostics;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +11,7 @@ using TWise.Tenant.Domain.Entities;
 
 namespace TWise.Tenant.Infrastructure.Services.Legacy;
 
-/// <remarks>LEGACY: reads from AppMasterDB (ActivityTaskPlan). Remove when data migrates to tenant DB.</remarks>
+/// <remarks>Calendar activities and roster use AlTasnimBI; assignment catalogue reads retain their legacy sources.</remarks>
 public sealed class LegacyCrewCalendarService(
     IConfiguration configuration,
     IMemoryCache cache,
@@ -22,48 +20,18 @@ public sealed class LegacyCrewCalendarService(
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
     private const string CalendarDateFormat = "yyyy-MM-dd";
-    private static readonly ConditionalWeakTable<object, LatestRowsSnapshot> SourceSnapshots = new();
     private readonly CrewCalendarCache calendarCache = new(cache);
 
-    private sealed record LatestRowsSnapshot(long[] RowIds, DateTimeOffset ExpiresAt);
-
-    private static DateTimeOffset? SnapshotExpiry(object result) =>
-        SourceSnapshots.TryGetValue(result, out var snapshot) ? snapshot.ExpiresAt : null;
-
-    private Task<LatestRowsSnapshot> GetLatestRowsAsync(CancellationToken ct) =>
-        calendarCache.GetOrCreateAsync("legacy:crew-latest-rows:v1", CacheDuration, LoadLatestRowsAsync, ct,
-            snapshot => snapshot.ExpiresAt);
-
-    private async Task<LatestRowsSnapshot> LoadLatestRowsAsync(CancellationToken ct)
-    {
-        var stopwatch = Stopwatch.StartNew();
-        var assembly = Assembly.GetExecutingAssembly();
-        var resource = assembly.GetManifestResourceNames()
-            .First(name => name.EndsWith("crew-latest-rows.sql", StringComparison.OrdinalIgnoreCase));
-        using var stream = assembly.GetManifestResourceStream(resource)!;
-        using var sqlReader = new StreamReader(stream);
-        var sql = await sqlReader.ReadToEndAsync(ct);
-        var connectionString = configuration.GetConnectionString("LegacyWellsDb")
-            ?? throw new InvalidOperationException("ConnectionStrings:LegacyWellsDb is not configured.");
-        await using var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync(ct);
-        await using var command = new SqlCommand(sql, connection) { CommandTimeout = 120 };
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        var rowIds = new List<long>();
-        while (await reader.ReadAsync(ct)) rowIds.Add(reader.GetInt64(0));
-        logger.LogInformation("Legacy latest activity snapshot: {Count} rows loaded in {ElapsedMs} ms",
-            rowIds.Count, stopwatch.ElapsedMilliseconds);
-        return new LatestRowsSnapshot(rowIds.ToArray(), DateTimeOffset.UtcNow.Add(CacheDuration));
-    }
-
     private const string ScopeProjectsSql = """
-        SELECT DISTINCT TRY_CONVERT(uniqueidentifier, LTRIM(RTRIM(projects.ID))) AS ProjectId
-        FROM dbo.ProjectIDs projects
-        INNER JOIN dbo.PlantDescription plants
-            ON TRY_CONVERT(int, plants.PlantCode) = TRY_CONVERT(int, projects.Site_Code)
-        WHERE (@cluster IS NULL OR LTRIM(RTRIM(plants.Cluster)) = @cluster)
-          AND (@site IS NULL OR TRY_CONVERT(int, plants.PlantCode) = TRY_CONVERT(int, @site)
-               OR LTRIM(RTRIM(plants.PlantDescription)) = @site)
+        SELECT DISTINCT projects.project_id AS ProjectId
+        FROM AlTasnimBI.project.project_mstr projects
+        INNER JOIN AlTasnimBI.core.plant_description plants
+            ON plants.plant_code = TRY_CONVERT(int, projects.site_code)
+        INNER JOIN AlTasnimBI.ref.cluster clusters
+            ON clusters.cluster_code = plants.cluster_code
+        WHERE (@cluster IS NULL OR LTRIM(RTRIM(clusters.cluster_name)) = @cluster)
+          AND (@site IS NULL OR plants.plant_code = TRY_CONVERT(int, @site)
+               OR LTRIM(RTRIM(plants.plant_description)) = @site)
         """;
 
     private static string? _sqlTemplate;
@@ -116,9 +84,13 @@ public sealed class LegacyCrewCalendarService(
         var fromDt = (from ?? DateOnly.FromDateTime(today.AddDays(-14))).ToDateTime(TimeOnly.MinValue);
         var toDt = (to ?? DateOnly.FromDateTime(today.AddDays(14))).ToDateTime(TimeOnly.MaxValue);
 
-        var cacheKey = $"legacy:crew-cal:{cluster}:{site}:{wellType}:{project}:{fromDt:yyyyMMdd}:{toDt:yyyyMMdd}";
+        if (!string.IsNullOrWhiteSpace(project) && !Guid.TryParse(project, out _))
+            return SeparatePlanningData(new CrewCalendarResponse(0, 0, 0, 0,
+                fromDt.ToString(CalendarDateFormat), toDt.ToString(CalendarDateFormat), [], []), fromDt, toDt);
+
+        var cacheKey = $"bi:crew-cal:v1:{cluster}:{site}:{wellType}:{project}:{fromDt:yyyyMMdd}:{toDt:yyyyMMdd}";
         var cached = await calendarCache.GetOrCreateAsync(cacheKey, CacheDuration,
-            token => ExecuteAsync(cluster, site, wellType, project, fromDt, toDt, token), ct, SnapshotExpiry);
+            token => ExecuteAsync(cluster, site, wellType, project, fromDt, toDt, token), ct);
 
         // Tenant-DB assignments are merged on top of the (cached) legacy view so newly
         // assigned crews appear immediately, without polluting the legacy cache entry.
@@ -226,18 +198,18 @@ public sealed class LegacyCrewCalendarService(
         CrewCalendarResponse response, CancellationToken ct)
     {
         if (response.Groups.Count == 0 && (response.ActualGroups?.Count ?? 0) == 0) return response;
-        const string cacheKey = "legacy:crew-group-names";
+        const string cacheKey = "bi:crew-group-names:v1";
         if (!cache.TryGetValue(cacheKey, out Dictionary<string, string>? names) || names is null)
         {
-            var connStr = configuration.GetConnectionString("LegacyWellsDb")
-                ?? throw new InvalidOperationException("ConnectionStrings:LegacyWellsDb is not configured.");
+            var connStr = configuration.GetConnectionString("AlTasnimBI")
+                ?? throw new InvalidOperationException("ConnectionStrings:AlTasnimBI is not configured.");
             await using var conn = new SqlConnection(connStr);
             await conn.OpenAsync(ct);
             const string sql = """
-                SELECT LTRIM(RTRIM(Code)), MAX(NULLIF(LTRIM(RTRIM(Description)), ''))
-                FROM dbo.CrewType
-                WHERE Code IS NOT NULL
-                GROUP BY LTRIM(RTRIM(Code));
+                SELECT LTRIM(RTRIM(crew_type_code)), MAX(NULLIF(LTRIM(RTRIM(crew_type_name)), ''))
+                FROM AlTasnimBI.ref.crew_type
+                WHERE crew_type_code IS NOT NULL
+                GROUP BY LTRIM(RTRIM(crew_type_code));
                 """;
             await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
             await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -263,21 +235,21 @@ public sealed class LegacyCrewCalendarService(
 
     private async Task<Dictionary<Guid, string>> GetProjectClustersAsync(CancellationToken ct)
     {
-        const string cacheKey = "legacy:crew-project-clusters";
+        const string cacheKey = "bi:crew-project-clusters:v1";
         if (cache.TryGetValue(cacheKey, out Dictionary<Guid, string>? clusters) && clusters is not null)
             return clusters;
 
-        var connectionString = configuration.GetConnectionString("LegacyWellsDb")
-            ?? throw new InvalidOperationException("ConnectionStrings:LegacyWellsDb is not configured.");
+        var connectionString = configuration.GetConnectionString("AlTasnimBI")
+            ?? throw new InvalidOperationException("ConnectionStrings:AlTasnimBI is not configured.");
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
         const string sql = """
-            SELECT TRY_CONVERT(uniqueidentifier, LTRIM(RTRIM(ID))),
-                   MIN(NULLIF(LTRIM(RTRIM(Cluster)), ''))
-            FROM dbo.ProjectIDs
-            WHERE TRY_CONVERT(uniqueidentifier, LTRIM(RTRIM(ID))) IS NOT NULL
-            GROUP BY TRY_CONVERT(uniqueidentifier, LTRIM(RTRIM(ID)))
-            HAVING COUNT(DISTINCT NULLIF(LTRIM(RTRIM(Cluster)), '')) = 1;
+             SELECT projects.project_id,
+                 MIN(NULLIF(LTRIM(RTRIM(projects.cluster)), ''))
+             FROM AlTasnimBI.project.project_mstr projects
+             WHERE projects.project_id IS NOT NULL
+             GROUP BY projects.project_id
+             HAVING COUNT(DISTINCT NULLIF(LTRIM(RTRIM(projects.cluster)), '')) = 1;
             """;
         await using var command = new SqlCommand(sql, connection) { CommandTimeout = 120 };
         await using var reader = await command.ExecuteReaderAsync(ct);
@@ -292,11 +264,11 @@ public sealed class LegacyCrewCalendarService(
 
     private async Task<HashSet<Guid>> GetScopeProjectIdsAsync(string? cluster, string? site, CancellationToken ct)
     {
-        var cacheKey = $"legacy:crew-scope:{cluster?.Trim()}:{site?.Trim()}";
+        var cacheKey = $"bi:crew-scope:v1:{cluster?.Trim()}:{site?.Trim()}";
         if (cache.TryGetValue(cacheKey, out HashSet<Guid>? projects) && projects is not null) return projects;
 
-        var connectionString = configuration.GetConnectionString("LegacyWellsDb")
-            ?? throw new InvalidOperationException("ConnectionStrings:LegacyWellsDb is not configured.");
+        var connectionString = configuration.GetConnectionString("AlTasnimBI")
+            ?? throw new InvalidOperationException("ConnectionStrings:AlTasnimBI is not configured.");
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
         await using var command = new SqlCommand(ScopeProjectsSql, connection) { CommandTimeout = 120 };
@@ -425,9 +397,9 @@ public sealed class LegacyCrewCalendarService(
     {
         var fromDt = from.ToDateTime(TimeOnly.MinValue);
         var toDt = to.ToDateTime(TimeOnly.MaxValue);
-        var cacheKey = $"legacy:crew-roster:{from:yyyyMMdd}:{to:yyyyMMdd}";
+        var cacheKey = $"bi:crew-roster:v1:{from:yyyyMMdd}:{to:yyyyMMdd}";
         var roster = await calendarCache.GetOrCreateAsync(cacheKey, CacheDuration,
-            token => LoadCrewRosterAsync(fromDt, toDt, token), ct, SnapshotExpiry);
+            token => LoadCrewRosterAsync(fromDt, toDt, token), ct);
 
         if (!includeAssignments) return roster;
 
@@ -462,22 +434,19 @@ public sealed class LegacyCrewCalendarService(
         DateTime fromDt, DateTime toDt, CancellationToken ct)
     {
         var stopwatch = Stopwatch.StartNew();
-        var snapshot = await GetLatestRowsAsync(ct);
         var assembly = Assembly.GetExecutingAssembly();
         var resource = assembly.GetManifestResourceNames()
             .First(name => name.EndsWith("crew-roster.sql", StringComparison.OrdinalIgnoreCase));
         using var stream = assembly.GetManifestResourceStream(resource)!;
         using var sqlReader = new StreamReader(stream);
         var sql = await sqlReader.ReadToEndAsync(ct);
-        sql = sql.Replace("/* __SHARED_LATEST_ROWS__ */", "SET @sharedLatestRows = @latestRowsJson;");
-        var connectionString = configuration.GetConnectionString("LegacyWellsDb")
-            ?? throw new InvalidOperationException("ConnectionStrings:LegacyWellsDb is not configured.");
+        var connectionString = configuration.GetConnectionString("AlTasnimBI")
+            ?? throw new InvalidOperationException("ConnectionStrings:AlTasnimBI is not configured.");
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
         await using var command = new SqlCommand(sql, connection) { CommandTimeout = 120 };
         command.Parameters.Add("@fromDate", System.Data.SqlDbType.DateTime2).Value = fromDt;
         command.Parameters.Add("@toDate", System.Data.SqlDbType.DateTime2).Value = toDt;
-        command.Parameters.Add("@latestRowsJson", System.Data.SqlDbType.NVarChar, -1).Value = JsonSerializer.Serialize(snapshot.RowIds);
         var members = new List<(string Group, string? Name, string Crew, string? Type)>();
         var bookings = new Dictionary<string, List<CrewBookingDto>>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await command.ExecuteReaderAsync(ct);
@@ -504,10 +473,9 @@ public sealed class LegacyCrewCalendarService(
                     .Select(member => new CrewRosterMemberDto(member.Crew, member.Type,
                         bookings.GetValueOrDefault(member.Crew) ?? [],
                         projects.GetValueOrDefault(member.Crew) ?? [])).ToList())).ToList();
-        logger.LogInformation("Legacy crew roster loaded in {ElapsedMs} ms; shared latest rows: {SharedLatestRows}; groups: {Groups}",
-            stopwatch.ElapsedMilliseconds, true, groups.Count);
+        logger.LogInformation("AlTasnimBI crew roster loaded in {ElapsedMs} ms; groups: {Groups}",
+            stopwatch.ElapsedMilliseconds, groups.Count);
         var result = new CrewRosterResponse(groups);
-        SourceSnapshots.Add(result, snapshot);
         return result;
     }
 
@@ -659,45 +627,45 @@ public sealed class LegacyCrewCalendarService(
         return response;
     }
 
+    internal static SqlCommand CreateCalendarCommand(SqlConnection connection,
+        string? cluster, string? site, string? wellType, string? project, DateTime fromDt, DateTime toDt)
+    {
+        const string plantCompatibilitySql = """
+            IF TRY_CONVERT(int, @plant) IS NOT NULL
+            BEGIN
+                SELECT @plant = COALESCE(MAX(NULLIF(LTRIM(RTRIM(plant_description)), '')), @plant)
+                FROM AlTasnimBI.core.plant_description
+                WHERE plant_code = TRY_CONVERT(int, @plant);
+            END;
+            """;
+        var command = new SqlCommand(plantCompatibilitySql + Environment.NewLine + LoadSqlTemplate(), connection)
+        {
+            CommandTimeout = 120
+        };
+        command.Parameters.Add("@fromDate", System.Data.SqlDbType.Date).Value = fromDt.Date;
+        command.Parameters.Add("@toDate", System.Data.SqlDbType.Date).Value = toDt.Date;
+        command.Parameters.Add("@cluster", System.Data.SqlDbType.NVarChar, 100).Value =
+            string.IsNullOrWhiteSpace(cluster) ? DBNull.Value : cluster.Trim();
+        command.Parameters.Add("@plant", System.Data.SqlDbType.NVarChar, 100).Value =
+            string.IsNullOrWhiteSpace(site) ? DBNull.Value : site.Trim();
+        command.Parameters.Add("@wellType", System.Data.SqlDbType.NVarChar, 50).Value =
+            string.IsNullOrWhiteSpace(wellType) ? DBNull.Value : wellType.Trim();
+        command.Parameters.Add("@project", System.Data.SqlDbType.UniqueIdentifier).Value =
+            string.IsNullOrWhiteSpace(project) ? DBNull.Value : Guid.Parse(project);
+        return command;
+    }
+
     private async Task<CrewCalendarResponse> ExecuteAsync(
         string? cluster, string? site, string? wellType, string? project,
         DateTime fromDt, DateTime toDt, CancellationToken ct)
     {
         var stopwatch = Stopwatch.StartNew();
-        var sql = LoadSqlTemplate();
         var projectClusters = await GetProjectClustersAsync(ct);
-        var shareLatestRows = string.IsNullOrWhiteSpace(cluster) && string.IsNullOrWhiteSpace(site)
-            && string.IsNullOrWhiteSpace(wellType) && string.IsNullOrWhiteSpace(project);
-        var snapshot = shareLatestRows ? await GetLatestRowsAsync(ct) : null;
-        if (shareLatestRows)
-        {
-            sql = sql.Replace("/* __SHARED_LATEST_ROWS__ */", "SET @sharedLatestRows = @latestRowsJson;");
-        }
-
-        // Apply optional filters by replacing placeholders
-        sql = sql.Replace("/* __WELL_TYPE_FILTER__ */",
-            string.IsNullOrWhiteSpace(wellType) ? "" : "AND atp.type = @wellType");
-        sql = sql.Replace("/* __PROJECT_FILTER__ */",
-            string.IsNullOrWhiteSpace(project) ? "" : "AND atp.project_id = @project");
-
-        var hasScope = !string.IsNullOrWhiteSpace(cluster) || !string.IsNullOrWhiteSpace(site);
-        sql = sql.Replace("/* __SCOPE_FILTER__ */", hasScope
-            ? $"AND TRY_CONVERT(uniqueidentifier, LTRIM(RTRIM(atp.project_id))) IN ({ScopeProjectsSql})"
-            : "");
-
-        var connStr = configuration.GetConnectionString("LegacyWellsDb")
-            ?? throw new InvalidOperationException("ConnectionStrings:LegacyWellsDb is not configured.");
-
+        var connStr = configuration.GetConnectionString("AlTasnimBI")
+            ?? throw new InvalidOperationException("ConnectionStrings:AlTasnimBI is not configured.");
         await using var conn = new SqlConnection(connStr);
         await conn.OpenAsync(ct);
-        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
-        cmd.Parameters.Add("@fromDate", System.Data.SqlDbType.DateTime2).Value = fromDt;
-        cmd.Parameters.Add("@toDate", System.Data.SqlDbType.DateTime2).Value = toDt;
-        if (snapshot is not null)
-            cmd.Parameters.Add("@latestRowsJson", System.Data.SqlDbType.NVarChar, -1).Value = JsonSerializer.Serialize(snapshot.RowIds);
-        if (!string.IsNullOrWhiteSpace(wellType)) cmd.Parameters.AddWithValue("@wellType", wellType);
-        if (!string.IsNullOrWhiteSpace(project)) cmd.Parameters.AddWithValue("@project", project);
-        if (hasScope) AddScopeParameters(cmd, cluster, site);
+        await using var cmd = CreateCalendarCommand(conn, cluster, site, wellType, project, fromDt, toDt);
 
         var rows = new List<FlatRow>();
         await using var rdr = await cmd.ExecuteReaderAsync(ct);
@@ -722,11 +690,12 @@ public sealed class LegacyCrewCalendarService(
                 RigOnDate: rdr.IsDBNull(15) ? null : rdr.GetString(15),
                 NormsPerDay: rdr.IsDBNull(19) ? null : rdr.GetDecimal(19),
                 ProductivityPct: rdr.IsDBNull(20) ? null : rdr.GetDecimal(20),
-                ProjectId: rdr.IsDBNull(21) ? null : rdr.GetString(21)));
+                ProjectId: rdr.IsDBNull(21) ? null : rdr.GetString(21),
+                PlantCode: rdr.IsDBNull(22) ? null : rdr.GetInt32(22)));
         }
 
-        logger.LogInformation("Legacy crew calendar: {Count} rows from DB in {ElapsedMs} ms; shared latest row IDs: {LatestRowCount}",
-            rows.Count, stopwatch.ElapsedMilliseconds, snapshot?.RowIds.Length ?? 0);
+        logger.LogInformation("AlTasnimBI crew calendar: {Count} rows from DB in {ElapsedMs} ms",
+            rows.Count, stopwatch.ElapsedMilliseconds);
 
         var milestoneRows = rows.Where(r => r.IsMilestone).ToList();
         var crewRows = rows.Where(r => !r.IsMilestone && !string.IsNullOrEmpty(r.CrewGroup)).ToList();
@@ -764,8 +733,6 @@ public sealed class LegacyCrewCalendarService(
             ToDate: toDt.ToString("yyyy-MM-dd"),
             Groups: groups,
             Milestones: milestones);
-        if (snapshot is not null)
-            SourceSnapshots.Add(result, snapshot);
         return result;
     }
 
@@ -786,7 +753,8 @@ public sealed class LegacyCrewCalendarService(
         NormsPerDay: r.NormsPerDay,
         ProductivityPct: r.ProductivityPct,
         Source: "legacy",
-        Cluster: ProjectCluster(r.ProjectId, projectClusters));
+        Cluster: ProjectCluster(r.ProjectId, projectClusters),
+        PlantCode: r.PlantCode);
 
     private record FlatRow(
         string? CrewGroup, string? CrewCode, string? CrewId,
@@ -795,5 +763,5 @@ public sealed class LegacyCrewCalendarService(
         string? ActualStart, string? ActualEnd, decimal Progress,
         string WellId, bool IsMilestone, string Status,
         string? RigOnDate, decimal? NormsPerDay, decimal? ProductivityPct,
-        string? ProjectId);
+        string? ProjectId, int? PlantCode);
 }

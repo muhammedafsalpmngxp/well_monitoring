@@ -699,7 +699,7 @@
         flex: 1;
         min-height: 0;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
     }
 
     &__left-header {
@@ -1346,6 +1346,12 @@ $col-w: 32px;
 .ab-bar-row--crew-planning {
     box-sizing: border-box;
     flex-shrink: 0;
+}
+
+// Stands in for crew rows outside the rendered window (see crewWindow in the component).
+.ab-virtual-spacer {
+    flex-shrink: 0;
+    pointer-events: none;
 }
 
 .ab-bar-row--crew-planning {

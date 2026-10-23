@@ -69,6 +69,7 @@ export class AuthService {
     const email = this.profileText(profile.email) || tokenUser?.email || this.profileText(sameUser?.email);
     const user: User = {
       userId: profile.userId ?? tokenUser?.userId ?? 0,
+      employeeId: this.profileText(profile.employeeId !== undefined ? profile.employeeId : sameUser?.employeeId) || null,
       email,
       displayName: this.profileText(profile.displayName) || tokenUser?.displayName
         || this.profileText(sameUser?.displayName) || email,
@@ -171,4 +172,3 @@ export class AuthService {
     return this.permissionService.isAdminUser;
   }
 }
-

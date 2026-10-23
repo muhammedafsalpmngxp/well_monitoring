@@ -279,6 +279,128 @@ body.has-fullscreen-card {
   background: $color-bg-overlay;
   z-index: 1000;
   @include flex-center;
+
+  // Above the sidebar's own breakpoint (sidebar.component.scss) it's a persistent flex
+  // column reserving `--sidebar-width`, not an overlay — center the dialog in the
+  // remaining space instead of across the full viewport, or it overlaps the sidebar.
+  @media (min-width: 993px) {
+    padding-left: var(--sidebar-width);
+  }
+}
+
+.discard-confirm-backdrop {
+   position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
+}
+
+.discard-confirm {
+   position: relative;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 24px 24px;
+  background: var(--color-bg-card, #fff);
+  border-radius: 8px;
+  border: 1px solid #E9EEF5;
+
+  &__close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app, #f9fafb);
+    }
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    margin-bottom: 14px;
+    border-radius: 50%;
+    // Soft red halo behind the trash icon, matching the redesigned delete popup.
+    background: #FEE4E2;
+    box-shadow: 0 0 0 14px #FEF3F2, 0 0 30px 26px #FEF3F2;
+  }
+
+  &__title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary, #101828);
+  }
+
+  &__message {
+    max-width: 390px;
+    margin: 0 auto 22px;
+    color: #797584;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: end;
+    gap: 10px;
+    width: 100%;
+  }
+
+  &__keep {
+    padding: 10px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #DCE3ED;
+    background: #FFF;
+    color: var(--color-text-primary, #344054);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-bg-app, #f9fafb);
+    }
+  }
+
+  &__confirm {
+    padding: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: #EF5350;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #B91C1C;
+    }
+  }
 }
 
 .dialog {
@@ -286,7 +408,7 @@ body.has-fullscreen-card {
   border-radius: $radius-xl;
   box-shadow: 0 20px 60px rgba(16, 24, 40, 0.18);
   width: 100%;
-  max-width: 480px;
+  max-width: 500px;
   overflow: hidden;
 
   &__header {
@@ -378,6 +500,10 @@ body.has-fullscreen-card {
 .d-grid {
   display: grid;
 }
+
+// .discard-confirm__icon svg {
+//   display: none;
+// }
 
 .d-none {
   display: none;

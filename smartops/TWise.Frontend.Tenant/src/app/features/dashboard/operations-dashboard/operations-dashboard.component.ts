@@ -1,20 +1,25 @@
 import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
+import { resolveTileLayout, type TileLayout } from '../../../core/utils/tile-layout.util';
+import { buildTimelineOptions } from '../../../core/utils/timeline-chart.util';
+import { buildHistogramOptions } from '../../../core/utils/histogram-chart.util';
 import { dateRangePopupPlacement } from '../../../shared/components/date-range-popup/date-range-popup.placement';
 import { isPlantFilter } from '../../../core/utils/plant-filter.util';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartZoom } from '../../../core/utils/chart-zoom.util';
 import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { highlightLegendPoint } from '../../../core/utils/chart-legend-hover.util';
+import { legendLayoutClass, LegendPosition, readLegendPosition } from '../../../core/utils/chart-legend-position.util';
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { Lock, createElement } from 'lucide';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
+import { consumeReliabilityReturn } from '../../../shared/components/reliability-details/reliability-navigation';
 import type Highcharts from 'highcharts';
 import { AdvancedChartPayload, advancedChartExport, isAdvancedChart, readAdvancedConfig } from '../../../core/utils/advanced-chart.util';
 import { concat, forkJoin, of, Subject, Subscription, firstValueFrom } from 'rxjs';
 import { catchError, debounceTime, finalize, shareReplay, switchMap, takeUntil, tap, map } from 'rxjs/operators';
 import { DashboardService } from '../../../core/services/dashboard.service';
-import { WidgetService } from '../../../core/services/widget.service';
+import { WidgetService, WidgetDataFilter } from '../../../core/services/widget.service';
 import { DashboardSavedFilterService } from '../../../core/services/dashboard-saved-filter.service';
 import { CommonApiService, PlantFilterDto } from '../../../core/services/common-api.service';
 import { CommentService, CommentDto as CommentApiDto } from '../../../core/services/comment.service';
@@ -27,11 +32,13 @@ import { PermissionService } from '../../../core/services/permission.service';
 import { SCHEDULES_MODULE } from '../../../core/services/schedule.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ChartView, ChartViewIcon, chartSwitchOptions, chartViewIcon, chartViewLabel, toChartView } from '../../../core/constants/chart-view.constants';
-import { DaxModelConfig, appendDaxToChartData, getActiveDaxMeasures, appendDaxToTableRows, getDaxRowColumnMeasures, formatDaxValue, evaluateTileDaxValue, getSelectedDaxMeasure } from '../../../core/utils/dax-evaluator.util';
+import { DaxModelConfig, appendDaxToChartData, getActiveDaxMeasures, appendDaxToTableRows, getDaxRowColumnMeasures, formatDaxValue, evaluateTileDaxValue, getSelectedDaxMeasure, getSelectableDaxMeasures, withViewerMeasure } from '../../../core/utils/dax-evaluator.util';
 import { SavedConditionalFilter, applyConditionalFilters, getSavedConditionalFilters } from '../../../core/utils/conditional-filter.util';
 import { ParameterFilterRule, applyParameterFilters, getSavedParameterFilters, remapDesignColumns } from '../../../core/utils/parameter-filter.util';
 import { appendLockedFilterTitle } from '../../../core/utils/locked-filter-title.util';
 import { CustomDashboardFilter, mergeDashboardSharedFilters } from '../../../core/utils/dashboard-shared-filter.util';
+import { GlobalFilterSelection, globalSelectionValues, hasGlobalSelection, isGlobalFilterOptionChecked, GlobalFilterClearState, toggleGlobalSelection, matchesGlobalSelection,
+  globalSelectionLabel, globalSelectionPayload, globalSelectionQueryValue, parseGlobalSelection } from '../../../core/utils/global-filter-selection.util';
 import { getViewDateRangeDefaults, hasFutureDateParameter } from '../../../core/utils/view-date-parameters.util';
 import { sanitizePersistedLayout } from '../../../core/utils/dashboard-layout.util';
 import { createDashboardExportHeader } from '../../../core/utils/dashboard-export-header.util';
@@ -42,11 +49,18 @@ import { CHART_AUTO_COLORS, chartFallbackColor, getSeriesColorByName, usesPeriod
 import { AiService } from '../../../core/services/ai.service';
 import { chartDataFromOptions } from '../../../core/utils/chart-data.util';
 import { canvasImage, writeAiDeck } from '../../../core/utils/ai-deck.util';
+import { buildScatterOptions } from '../../../core/utils/scatter-chart.util';
+import { buildHeatmapOptions, resolveHeatmapMeasure } from '../../../core/utils/heatmap-chart.util';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import PptxGenJS from 'pptxgenjs';
 import { buildKpiChartOptions, computeKpiValue } from '../../../core/utils/kpi-chart.util';
+import type { InteractionDataAdapter } from '../interaction-config/interaction-config.component';
+import { DashboardInteractionConfig, InteractionVisualInput, readInteractionConfig } from '../interaction-config/interaction.util';
+import { tableClusterPlantFilters } from '../../../core/utils/table-global-filter.util';
+import { AdvancedFilterComponent, type AdvancedFilterValue } from '../../../shared/components/advanced-filter/advanced-filter.component';
+import { advancedHierarchyFilters } from '../../../core/utils/advanced-hierarchy-filter.util';
 
 export type BoardAccent = 'purple' | 'blue' | 'green' | 'orange';
 export type BoardIcon = 'gauge' | 'calendar' | 'crew';
@@ -55,12 +69,12 @@ export interface SavedFilterPreset {
   id: number;
   name: string;
   accent: 'purple' | 'green' | 'orange' | 'yellow';
-  country: string;
-  sector: string;
-  businessUnit: string;
-  division: string;
-  cluster: string;
-  plant: string;
+  country: GlobalFilterSelection;
+  sector: GlobalFilterSelection;
+  businessUnit: GlobalFilterSelection;
+  division: GlobalFilterSelection;
+  cluster: GlobalFilterSelection;
+  plant: GlobalFilterSelection;
   quickRange: string;
   fromDate: string;
   toDate: string;
@@ -97,6 +111,12 @@ interface TileDesign {
   suffix?: string;
   breakdownRows?: { id: number; label: string; value: string; color: string; sourceName?: string; sourceType?: string; column?: string }[];
   viewId?: number;
+  drillDownViewId?: number | null;
+  showTileIcon?: boolean;
+  tileLayout?: TileLayout;
+  valueBold?: boolean;
+  valueItalic?: boolean;
+  valueColor?: string;
   dataSourceMode?: string;
 }
 
@@ -109,6 +129,7 @@ interface ChartDesign {
   tableHeaderTextColor?: string;
   tableRowColors?: string[];
   tableRowTextColors?: string[];
+  tableGrid?: Partial<import('../../../core/utils/table-grid-features.util').TableGridOptions>;
   xAxis?: string;
   yAxis?: string;
   yAggColumn?: string;
@@ -130,8 +151,10 @@ interface ChartDesign {
   showStackTotal?: boolean;
   showDataLabels?: boolean;
   showLegend?: boolean;
+  legendPosition?: LegendPosition;
   xAxisTitle?: string;
   yAxisTitle?: string;
+  yAxis2Title?: string;
   drillDownViewId?: number;
   trendMode?: TrendMode;
   daxModel?: DaxModelConfig;
@@ -141,11 +164,14 @@ interface ChartDesign {
   gaugeMax?: number;
   bulletTargetColumn?: string;
   bubbleSizeColumn?: string;
+  scatterCategoryColumn?: string;
   heatmapYColumn?: string;
   sankeyFromColumn?: string;
   sankeyToColumn?: string;
   sankeyWeightColumn?: string;
   timelineDateColumn?: string;
+  timelineEndColumn?: string;
+  histogramBins?: number;
   timelineLabelColumn?: string;
   colorRules?: ColorRule[];
   colorOverrides?: Record<string, string>;
@@ -191,6 +217,13 @@ export interface KpiFooterPart {
 
 export interface Kpi {
   widgetId: number;
+  /** Optional database view opened when a viewer clicks this tile. */
+  drillDownViewId?: number | null;
+  showIcon?: boolean;
+  tileLayout?: TileLayout;
+  valueBold?: boolean;
+  valueItalic?: boolean;
+  valueColor?: string;
   /** Exact sortOrder saved in configJson.widgets — used to look up its saved layout entry. */
   sortOrder: number;
   icon: KpiIcon;
@@ -201,6 +234,22 @@ export interface Kpi {
   footerParts?: KpiFooterPart[];
   footerText?: string;
   footerColor?: string;
+}
+
+/** An attached tile shown inline under a chart card; may open its own drill-down view when clicked. */
+interface DashInlineTile {
+  widgetId: number;
+  drillDownViewId?: number | null;
+  showIcon?: boolean;
+  tileLayout?: TileLayout;
+  valueBold?: boolean;
+  valueItalic?: boolean;
+  valueColor?: string;
+  label: string;
+  value: string;
+  color: string;
+  icon: string;
+  breakdown: { label: string; value: string; color: string }[];
 }
 
 /** A single reply nested under a dashboard comment thread. */
@@ -328,6 +377,16 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   closeReliabilityDialog(): void { this.showReliabilityDialog = false; }
   isLoading = false;
+  /** An interactive dashboard (charts and tiles that filter or highlight each other), when this board was built as one. */
+  interactionConfig: DashboardInteractionConfig | null = null;
+  interactionCharts: InteractionVisualInput[] = [];
+  interactionTiles: InteractionVisualInput[] = [];
+  interactionReloadToken = 0;
+  readonly interactionAdapter: InteractionDataAdapter = {
+    transformSql: sql => this.injectDateParams(sql, true),
+    previewFilters: viewId => this.globalPreviewFilters(viewId),
+    filterRows: rows => this.applyGlobalRowFilter(rows),
+  };
   dashboardStatus = '';
   isReadOnlyShareView = false;
   isInternalShareView = false;
@@ -378,22 +437,25 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   showFilterPanel = true;
 
   filterCountryOptions: string[] = [];
-  filterCountry = 'All';
+  filterCountry: GlobalFilterSelection = 'All';
 
   filterSectorOptions: string[] = [];
-  filterSector = 'All';
+  filterSector: GlobalFilterSelection = 'All';
 
   filterBusinessUnitOptions: string[] = [];
-  filterBusinessUnit = 'All';
+  filterBusinessUnit: GlobalFilterSelection = 'All';
 
   filterDivisionOptions: string[] = [];
-  filterDivision = 'All';
+  filterDivision: GlobalFilterSelection = 'All';
 
   filterClusterOptions: string[] = [];
-  filterCluster = 'All';
+  filterCluster: GlobalFilterSelection = 'All';
 
   filterPlantOptions: string[] = [];
-  filterPlant = 'All';
+  filterPlant: GlobalFilterSelection = 'All';
+  readonly globalSelectionLabel = globalSelectionLabel;
+  readonly globalSelectionValues = globalSelectionValues;
+  readonly isGlobalFilterOptionChecked = isGlobalFilterOptionChecked;
 
   private allPlants: PlantFilterDto[] = [];
 
@@ -496,7 +558,45 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   filterQuickRangeOptions = ['Today', 'Till Last Tuesday', 'This Week', 'This Month', 'Last Month', 'This Quarter', 'This Year', 'After', 'Custom'];
   filterQuickRange = '';
 
-  openFilterName: string | null = null;
+  private globalFilterClearState?: GlobalFilterClearState;
+
+  get globalFilterClear(): GlobalFilterClearState {
+    return this.globalFilterClearState ??= new GlobalFilterClearState();
+  }
+  private openFilterNameValue: string | null = null;
+
+  get openFilterName(): string | null {
+    return this.openFilterNameValue;
+  }
+
+  set openFilterName(name: string | null) {
+    this.openFilterNameValue = name;
+    // Closing a dropdown left in the "Clear all" state reverts that filter to All.
+    const abandoned = this.globalFilterClear.release(name);
+    if (abandoned) this.revertClearedGlobalFilter(abandoned.key);
+  }
+
+  clearGlobalFilterSelection(key: unknown, event: Event): void {
+    event.stopPropagation();
+    this.globalFilterClear.clear(key, this.openFilterName);
+  }
+
+  isGlobalFilterCleared(key: unknown): boolean {
+    return this.globalFilterClear.isCleared(key);
+  }
+
+  private revertClearedGlobalFilter(key: unknown): void {
+    if (typeof key !== 'string') {
+      const filter = key as CustomDashboardFilter;
+      if (hasGlobalSelection(filter.value)) this.selectCustomFilterOption(filter, 'All');
+      return;
+    }
+    const selections: Record<string, GlobalFilterSelection> = {
+      country: this.filterCountry, sector: this.filterSector, businessUnit: this.filterBusinessUnit,
+      division: this.filterDivision, cluster: this.filterCluster, plant: this.filterPlant,
+    };
+    if (hasGlobalSelection(selections[key])) this.selectFilterOption(key, 'All');
+  }
 
   // ── Saved Filter presets ───────────────────────────────
   showSavedFilterList = false;
@@ -519,12 +619,12 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   get currentFilterChips(): { label: string; value: string }[] {
     return [
-      { label: 'Country', value: this.filterCountry },
-      { label: 'Sector', value: this.filterSector },
-      { label: 'Business Unit', value: this.filterBusinessUnit },
-      { label: 'Division', value: this.filterDivision },
-      { label: 'Cluster', value: this.filterCluster },
-      { label: 'Plant', value: this.filterPlant },
+      { label: 'Country', value: globalSelectionLabel(this.filterCountry) },
+      { label: 'Sector', value: globalSelectionLabel(this.filterSector) },
+      { label: 'Business Unit', value: globalSelectionLabel(this.filterBusinessUnit) },
+      { label: 'Division', value: globalSelectionLabel(this.filterDivision) },
+      { label: 'Cluster', value: globalSelectionLabel(this.filterCluster) },
+      { label: 'Plant', value: globalSelectionLabel(this.filterPlant) },
       { label: 'Quick Range', value: this.filterQuickRange },
       { label: 'From Date', value: this.filterFrom },
       { label: 'To Date', value: this.filterTo },
@@ -533,7 +633,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   presetMeta(preset: SavedFilterPreset): string {
     return [preset.country, preset.sector, preset.businessUnit, preset.division, preset.cluster]
-      .filter(v => v && v !== 'All').join(' • ');
+      .filter(hasGlobalSelection).map(globalSelectionLabel).join(' • ');
   }
 
   /** Whether this preset is the one currently applied — only ever true for a single row. */
@@ -550,12 +650,12 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           id: f.id,
           name: f.filterName,
           accent: this.presetAccents[i % this.presetAccents.length],
-          country: f.country ?? 'All',
-          sector: f.sector ?? 'All',
-          businessUnit: f.businessUnit ?? 'All',
-          division: f.division ?? 'All',
-          cluster: f.cluster ?? 'All',
-          plant: f.plant ?? 'All',
+          country: parseGlobalSelection(f.country ?? 'All'),
+          sector: parseGlobalSelection(f.sector ?? 'All'),
+          businessUnit: parseGlobalSelection(f.businessUnit ?? 'All'),
+          division: parseGlobalSelection(f.division ?? 'All'),
+          cluster: parseGlobalSelection(f.cluster ?? 'All'),
+          plant: parseGlobalSelection(f.plant ?? 'All'),
           quickRange: f.quickRange ?? '',
           fromDate: f.fromDate ?? '',
           toDate: f.toDate ?? '',
@@ -692,12 +792,12 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
     this.savedFilterService.save(this.currentDashboardId, {
       filterName: name,
-      country: this.filterCountry,
-      sector: this.filterSector,
-      businessUnit: this.filterBusinessUnit,
-      division: this.filterDivision,
-      cluster: this.filterCluster,
-      plant: this.filterPlant,
+      country: globalSelectionQueryValue(this.filterCountry),
+      sector: globalSelectionQueryValue(this.filterSector),
+      businessUnit: globalSelectionQueryValue(this.filterBusinessUnit),
+      division: globalSelectionQueryValue(this.filterDivision),
+      cluster: globalSelectionQueryValue(this.filterCluster),
+      plant: globalSelectionQueryValue(this.filterPlant),
       quickRange: this.filterQuickRange,
       fromDate: this.filterFrom,
       toDate: this.filterTo,
@@ -706,12 +806,12 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
         id: saved.id,
         name: saved.filterName,
         accent: this.presetAccents[this.savedFilterPresets.length % this.presetAccents.length],
-        country: saved.country ?? 'All',
-        sector: saved.sector ?? 'All',
-        businessUnit: saved.businessUnit ?? 'All',
-        division: saved.division ?? 'All',
-        cluster: saved.cluster ?? 'All',
-        plant: saved.plant ?? 'All',
+        country: parseGlobalSelection(saved.country ?? 'All'),
+        sector: parseGlobalSelection(saved.sector ?? 'All'),
+        businessUnit: parseGlobalSelection(saved.businessUnit ?? 'All'),
+        division: parseGlobalSelection(saved.division ?? 'All'),
+        cluster: parseGlobalSelection(saved.cluster ?? 'All'),
+        plant: parseGlobalSelection(saved.plant ?? 'All'),
         quickRange: saved.quickRange ?? '',
         fromDate: saved.fromDate ?? '',
         toDate: saved.toDate ?? '',
@@ -1227,11 +1327,11 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     // The stage is fixed-position and off-screen, so it takes no space in the layout and is never seen.
     // (html2canvas keeps visibility:hidden even when it is undone in its copy, so it is not hidden that way.)
     const individualExport = keepFullTitle && !includeControls;
-    // Individual exports use layout pixels: html2canvas does not consistently render CSS zoom.
-    // Grow the capture width (not just reveal it) when an inner table is naturally wider than the
-    // card — measured on the real, on-screen `el`, since wrapping inside html2canvas is unreliable.
-    const baseCaptureW = individualExport ? el.offsetWidth : Math.ceil(el.getBoundingClientRect().width);
-    const captureW = includeScrollableContent ? measureDashboardWidgetCaptureWidth(el, baseCaptureW) : baseCaptureW;
+    // Capture in layout pixels: html2canvas does not consistently render CSS zoom.
+    // Only individual downloads grow to a wide table. Dashboard captures retain the slot width
+    // and wrap headers so compositing does not squeeze the chart, title and labels.
+    const baseCaptureW = el.offsetWidth;
+    const captureW = includeScrollableContent && individualExport ? measureDashboardWidgetCaptureWidth(el, baseCaptureW) : baseCaptureW;
     const stage = document.createElement('div');
     stage.style.cssText = `position:fixed;left:-100000px;top:0;width:${captureW}px;pointer-events:none;`;
     const copy = el.cloneNode(true) as HTMLElement;
@@ -1298,11 +1398,11 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       titleTextEl.style.setProperty('text-overflow', 'unset', 'important');
       titleTextEl.style.setProperty('white-space', 'normal', 'important');
     }
-    // Inline stat tiles within a chart card (e.g. "Total/Actual/Plan" above a pie chart) are
+    // Inline tiles within a chart card (e.g. "Total/Actual/Plan" above a pie chart) are
     // ellipsis-truncated like the title - un-clip for every real export, not just individual ones
     // (the block below only ran for individual exports, so this was missing from full-dashboard ones).
     if (keepFullTitle) {
-      copy.querySelectorAll<HTMLElement>('.ops-dashboard__card-stat-text > span').forEach(span => {
+      copy.querySelectorAll<HTMLElement>('.board-inline-tile__label').forEach(span => {
         span.style.setProperty('overflow', 'visible', 'important');
         span.style.setProperty('text-overflow', 'unset', 'important');
         span.style.setProperty('white-space', 'nowrap', 'important');
@@ -1316,7 +1416,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       });
       // Without wrapping, a row of several tiles overflows the card width and the excess tiles'
       // names get cut off at the fixed capture edge instead of just wrapping to a new line.
-      const cardStatsEl = copy.querySelector('.ops-dashboard__card-stats') as HTMLElement | null;
+      const cardStatsEl = copy.querySelector('.board-inline-tiles') as HTMLElement | null;
       cardStatsEl?.style.setProperty('flex-wrap', 'wrap', 'important');
     }
     if (individualExport) {
@@ -1325,21 +1425,22 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
         copy.querySelectorAll<HTMLElement>(selector).forEach(element => {
           for (const [property, value] of Object.entries(properties)) element.style.setProperty(property, value, 'important');
         });
-      setExportStyle('.ops-dashboard__card-title-row, .ops-dashboard__card-stats', { 'flex-wrap': 'wrap' });
-      setExportStyle('.ops-dashboard__card-title-text, .ops-dashboard__card-stat-text > span, .ops-dashboard__chart-legend-label',
+      setExportStyle('.ops-dashboard__card-title-row, .board-inline-tiles', { 'flex-wrap': 'wrap' });
+      setExportStyle('.ops-dashboard__card-title-text, .board-inline-tile__label, .ops-dashboard__chart-legend-label',
         { 'white-space': 'normal', 'overflow': 'visible', 'text-overflow': 'unset', 'overflow-wrap': 'anywhere' });
-      setExportStyle('.ops-dashboard__card-stat-icon', { 'flex-shrink': '0' });
+      setExportStyle('.board-inline-tile__icon', { 'flex-shrink': '0' });
     }
     const captureH = individualExport ? Math.max(el.offsetHeight, copy.scrollHeight) : copy.scrollHeight;
     return html2canvas(copy, {
-      scale: 2, useCORS: true, backgroundColor: '#ffffff', x: 0, y: 0, width: captureW, height: captureH, scrollX: 0, scrollY: 0,
+      scale: individualExport ? 2 : 2 * el.getBoundingClientRect().width / baseCaptureW,
+      useCORS: true, backgroundColor: '#ffffff', x: 0, y: 0, width: captureW, height: captureH, scrollX: 0, scrollY: 0,
       // Lay the copy out at the real window size so the page around the stage renders as on screen.
       windowWidth: document.documentElement.clientWidth, windowHeight: Math.max(document.documentElement.clientHeight, captureH),
       ignoreElements: onlyDashboardWidget(copy),
       // html2canvas renders its own copy of the page: bring the stage into view there.
       onclone: (doc, clone) => {
         if (clone.parentElement) clone.parentElement.style.cssText = `position:fixed;left:0;top:0;width:${captureW}px;`;
-        if (individualExport) prepareIndividualChartExportClone(clone, captureW);
+        prepareIndividualChartExportClone(clone, captureW);
         // Last, after every restyle above: otherwise the title's words overlap in the PDF/PNG.
         return loadCloneFonts(doc, clone);
       },
@@ -1430,6 +1531,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       // html2canvas renders its own copy of the page: bring the stage into view there.
       onclone: (doc, clone) => {
         if (clone.parentElement) clone.parentElement.style.cssText = `position:fixed;left:0;top:0;width:${tileW}px;`;
+        prepareIndividualChartExportClone(clone, captureW);
         return loadCloneFonts(doc, clone);
       },
     }).then((canvas: HTMLCanvasElement) => canvas.width && canvas.height ? canvas : null)
@@ -1582,7 +1684,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       const imgData = canvas.toDataURL('image/png');
       const pdfW = 297;
       const pdfH = (canvas.height * pdfW) / canvas.width;
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [pdfW, pdfH + 10] });
+      const pageH = pdfH + 10;
+      const pdf = new jsPDF({ orientation: pageH > pdfW ? 'portrait' : 'landscape', unit: 'mm', format: [pdfW, pageH] });
       pdf.addImage(imgData, 'PNG', 0, 5, pdfW, pdfH);
       pdf.save(`${title}.pdf`);
     });
@@ -1723,6 +1826,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       await this.dashboardRenderCompletion;
       signal?.throwIfAborted();
       this.cdr.detectChanges();
+      await loadCloneFonts(document, this.exportHost.nativeElement);
+      signal?.throwIfAborted();
       const render = this.renderDashboardPng(keepFullTitle, includeScrollableContent, showTable, showLegends);
       this.dashboardRenderCompletion = render.then(() => undefined, () => undefined);
       const canvas = await render;
@@ -1935,24 +2040,26 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           cursor: 'pointer',
           events: { ...options.plotOptions?.series?.events, click: (e: any) => {
             const p = e?.point; const isCircular = p?.series?.type === 'pie' || p?.series?.type === 'funnel'; const cat = (isCircular ? (p?.name ?? p?.category) : (p?.category ?? p?.name)) ?? '';
-            this.drillDownTo(widgetId, String(cat), trendMode, card);
+            const seriesName = !isCircular && (options.series?.length ?? 0) > 1 ? String(p?.series?.name ?? '') : '';
+            this.drillDownTo(widgetId, String(cat), trendMode, card, seriesName);
           } },
         },
       },
     };
   }
 
-  private drillDownTo(widgetId: number, cat: string, trendMode?: TrendMode, source?: { sortOrder?: number; widgetId?: number }): void {
+  private drillDownTo(widgetId: number, cat: string, trendMode?: TrendMode, source?: { sortOrder?: number; widgetId?: number }, seriesName?: string): void {
     const queryParams: Record<string, string> = {};
     if (String(cat)) queryParams['filter'] = String(cat);
+    if (seriesName) queryParams['series'] = seriesName;
     if (trendMode) queryParams['mode'] = trendMode;
-    const globalFilters: Record<string, string> = {
+    const globalFilters: Record<string, GlobalFilterSelection> = {
       country: this.filterCountry, sector: this.filterSector,
       businessUnit: this.filterBusinessUnit, division: this.filterDivision,
       cluster: this.filterCluster, plant: this.filterPlant,
     };
     for (const [key, value] of Object.entries(globalFilters)) {
-      if (value && value !== 'All') queryParams[key] = value;
+      if (hasGlobalSelection(value)) queryParams[key] = globalSelectionQueryValue(value);
     }
     if (this.filterFrom) queryParams['fromDate'] = this.filterFrom;
     if (this.filterTo) queryParams['toDate'] = this.filterTo;
@@ -1976,13 +2083,49 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.router.navigate(['/charts-tiles/view', widgetId, 'drilldown'], { queryParams });
   }
 
+  /** Standalone KPI tile → open its drill-down view (if configured), carrying active global/date filters. */
+  kpiDrillDown(kpi: Kpi): void {
+    if (kpi.drillDownViewId) this.navigateWidgetDrillDown(kpi.widgetId);
+  }
+
+  /** Attached (inline) tile under a chart card → open the tile's own drill-down view. */
+  inlineTileDrillDown(tile: DashInlineTile): void {
+    if (tile.drillDownViewId) this.navigateWidgetDrillDown(tile.widgetId);
+  }
+
+  private navigateWidgetDrillDown(widgetId: number): void {
+    const queryParams: Record<string, string> = {};
+    const globalFilters: Record<string, GlobalFilterSelection> = {
+      country: this.filterCountry, sector: this.filterSector,
+      businessUnit: this.filterBusinessUnit, division: this.filterDivision,
+      cluster: this.filterCluster, plant: this.filterPlant,
+    };
+    for (const [key, value] of Object.entries(globalFilters)) {
+      if (hasGlobalSelection(value)) queryParams[key] = globalSelectionQueryValue(value);
+    }
+    if (this.filterFrom) queryParams['fromDate'] = this.filterFrom;
+    if (this.filterTo) queryParams['toDate'] = this.filterTo;
+    queryParams['boardFrom'] = this.isStandardDetailContext ? 'standard' : 'wip';
+    if (this.currentDashboardId) queryParams['boardId'] = String(this.currentDashboardId);
+    if (this.board?.title) queryParams['boardTitle'] = this.board.title;
+    this.router.navigate(['/charts-tiles/view', widgetId, 'drilldown'], { queryParams });
+  }
+
   toggleFilterDropdown(name: string, event: Event): void {
     event.stopPropagation();
     this.openFilterName = this.openFilterName === name ? null : name;
   }
 
   selectFilterOption(name: string, value: string): void {
-    const v = value || 'All';
+    const selections: Record<string, GlobalFilterSelection> = {
+      country: this.filterCountry, sector: this.filterSector, businessUnit: this.filterBusinessUnit,
+      division: this.filterDivision, cluster: this.filterCluster, plant: this.filterPlant,
+    };
+    const options: Record<string, string[]> = {
+      country: this.filterCountryOptions, sector: this.filterSectorOptions, businessUnit: this.filterBusinessUnitOptions,
+      division: this.filterDivisionOptions, cluster: this.filterClusterOptions, plant: this.filterPlantOptions,
+    };
+    const v = toggleGlobalSelection(selections[name] ?? 'All', value, options[name], this.globalFilterClear.consume(name));
     switch (name) {
       case 'country':
         this.filterCountry = v;
@@ -2022,13 +2165,15 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       resetToAll && name === 'cluster',
       resetToAll && (name === 'cluster' || name === 'plant'),
     );
-    if (name !== 'quickRange') this.onClusterChange();
     this.openFilterName = null;
+    if (name !== 'quickRange') this.onClusterChange();
     this.persistFilterState();
   }
 
   /** Reset every filter field back to its default and refresh KPIs/charts. */
   clearAllFilters(): void {
+    this.advancedFilters = [];
+    this.advancedFilterRef?.clear();
     this.filterCountry = 'All';
     this.filterSector = 'All';
     this.filterBusinessUnit = 'All';
@@ -2063,11 +2208,12 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     cats: string[]; vals: number[]; multiSeries: Highcharts.SeriesOptionsType[]; dataReady: boolean;
     additionalFilterNoData?: boolean;
     design: ChartDesign;
+    hideDataTableOverride?: boolean;
     advanced?: AdvancedChartPayload;
     daxSummaries?: { name: string; value: number; formattedValue: string }[];
     tableHeaders?: string[]; tableRows?: (string | number)[][];
     localFilters: { label: string; controlType: string; sourceTable: string; sourceColumn: string; value: string; values?: string[]; options: string[]; hidden?: boolean; locked?: boolean; operator?: string; valueText?: string; mode?: string; dashboardAdditional?: boolean }[];
-    inlineTiles: { label: string; value: string; color: string; icon: string; breakdown: { label: string; value: string; color: string }[] }[];
+    inlineTiles: DashInlineTile[];
     rawRows?: Record<string, unknown>[];
     viewSql?: string; viewConnectionId?: number; viewIdForPreview?: number;
     width?: number; height?: number;
@@ -2085,6 +2231,10 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     /** Local filter values the dashboard opened with, for the card's reset button. */
     defaultFilters?: { value: string; values: string[] }[];
     defaultChartType?: ChartView;
+    /** Bar/column "Switch Metrics": switchable Y columns, the active one, and the open state. */
+    metricSwitchColumns?: string[];
+    activeMetric?: string;
+    openMetricSwitch?: boolean;
   }[] = [];
   readonly chartColors = CHART_COLORS;
   /** Open MultiSelect card filter, keyed as "cardIdx:filterIdx". */
@@ -2093,6 +2243,27 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   chartViewLabel(view: ChartView): string { return chartViewLabel(view); }
   chartViewIcon(view: ChartView): ChartViewIcon { return chartViewIcon(view); }
   isTrendChart(design: ChartDesign): boolean { return TREND_CHART_TYPES.has(design.chartType ?? ''); }
+  readonly legendLayoutClass = legendLayoutClass;
+  legendPositionOf(card: { design?: ChartDesign }): LegendPosition { return readLegendPosition(card.design); }
+  isSideLegend(card: { design?: ChartDesign }): boolean {
+    const position = this.legendPositionOf(card);
+    return position === 'left' || position === 'right';
+  }
+
+  tileValueColor(color: string): string {
+    const colors: Record<string, string> = { blue: '#2563EB', green: '#16A34A', red: '#DC2626', amber: '#D97706', teal: '#0D9488' };
+    return colors[color] ?? '#374151';
+  }
+
+  tileBreakdownBg(color: string): string {
+    const colors: Record<string, string> = { blue: '#DBEAFE', green: '#DCFCE7', red: '#FEE2E2', amber: '#FEF9C3', teal: '#CCFBF1' };
+    return colors[color] ?? '#F3F4F6';
+  }
+
+  tileBreakdownFg(color: string): string {
+    const colors: Record<string, string> = { blue: '#1D4ED8', green: '#15803D', red: '#B91C1C', amber: '#A16207', teal: '#0F766E' };
+    return colors[color] ?? '#374151';
+  }
 
   savedGridStyle(type: 'tile' | 'chart', sortOrder: number | undefined): Record<string, string> | null {
     if (!this.savedLayout || sortOrder === undefined) return null;
@@ -2274,7 +2445,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   get breadcrumbs() { return [{label:'Home', route:'/'}, {label:'Dashboard', route:'/dashboard'}, {label: this.parentBoardLabel, route: this.parentBoardRoute}, {label: this.board.title}]; }
 
   get boardSubtitle(): string {
-    const now = new Date();
+    const toMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(this.filterTo || '');
+    const now = toMatch ? new Date(+toMatch[1], +toMatch[2] - 1, +toMatch[3]) : new Date();
     const day = now.getDate();
     const month = now.toLocaleString('en-GB', { month: 'long' });
     const year = now.getFullYear();
@@ -2307,6 +2479,13 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.aiFeaturesSub = this.ai.features().subscribe({ next: f => { this.aiDeckAllowed = f.enabled.includes('summary'); this.cdr.markForCheck(); }, error: () => { /* option stays hidden */ } });
     const id = this.route.snapshot.paramMap.get('id');
     this.initializeShareContext(id && !Number.isNaN(Number(id)) ? Number(id) : null);
+    const reliabilitySource = consumeReliabilityReturn(this.router, this.location);
+    if (reliabilitySource && !this.shareDataContext) {
+      this.reliabilityDialogTitle = reliabilitySource.sourceLabel;
+      this.reliabilityDialogTable = reliabilitySource.tableName;
+      this.reliabilityDialogViewId = reliabilitySource.viewId;
+      this.showReliabilityDialog = true;
+    }
     this.prevSidebarState = this.layoutState.isCollapsed;
     this.layoutState.collapse();
 
@@ -2477,11 +2656,30 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.shareToken = this.route.snapshot.queryParamMap.get('token') ?? '';
   }
 
+  /** Loads the charts and tiles an interactive dashboard was built from (they need not be placed on the board grid). */
+  private loadInteractionVisuals(config: DashboardInteractionConfig): void {
+    const toInput = (widget: { id: number; name: string; designJson?: string; source?: string; sourceType?: string }): InteractionVisualInput => ({
+      id: String(widget.id), title: widget.name, designJson: widget.designJson, source: widget.source, sourceType: widget.sourceType,
+    });
+    forkJoin(config.visuals.map(ref => this.widgetService.getWidgetById(Number(ref.id), this.shareDataContext).pipe(
+      map(widget => ({ ref, widget })),
+      catchError(() => of({ ref, widget: null })),
+    ))).pipe(takeUntil(this.destroy$)).subscribe(results => {
+      const loaded = results.filter(result => !!result.widget);
+      this.interactionCharts = loaded.filter(result => result.ref.kind === 'chart').map(result => toInput(result.widget!));
+      this.interactionTiles = loaded.filter(result => result.ref.kind === 'tile').map(result => toInput(result.widget!));
+      this.cdr.markForCheck();
+    });
+  }
+
   /** Loads a specific dashboard version's content (widgets + config) in place. */
   private loadDashboardData(id: number): void {
     this.resetDashboardChartDates();
     this.isLoading = true;
     this.branding = {};
+    this.interactionConfig = null;
+    this.interactionCharts = [];
+    this.interactionTiles = [];
     this.initializeShareContext(id);
     this.comments = [];
     this.activeReplyId = null;
@@ -2518,7 +2716,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           const widgetMap = new Map(allLibraryWidgets.map(w => [w.id, w]));
 
           // Parse configJson widgets
-          let configWidgets: { chartId: number; sortOrder: number; width?: number; height?: number; presetColumn?: string; presetValue?: string }[] = [];
+          let configWidgets: { chartId: number; sortOrder: number; width?: number; height?: number; presetColumn?: string; presetValue?: string; hideDataTableOverride?: boolean }[] = [];
           this.savedLayout = null;
           this.customFilters = [];
           if (d.configJson) {
@@ -2528,6 +2726,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
                 ...filter, value: this.pendingCustomFilterValues[filter.id] || 'All',
               }));
               this.branding = normalizeDashboardBranding(cfg.branding);
+              this.interactionConfig = readInteractionConfig(cfg.interactions);
+              if (this.interactionConfig) this.loadInteractionVisuals(this.interactionConfig);
               configWidgets = cfg.widgets ?? [];
               this.chartColumns = cfg.chartColumns === 4 ? 4 : cfg.chartColumns === 3 ? 3 : 2;
               this.savedLayout = sanitizePersistedLayout(cfg.layout as DashboardLayoutConfig | undefined);
@@ -2549,7 +2749,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
           // Separate tile and chart widgets
           const tileWidgets: { widget: WidgetLibraryItem; design: TileDesign; sortOrder: number }[] = [];
-          const chartWidgets: { widget: WidgetLibraryItem; design: ChartDesign; width?: number; height?: number; presetColumn?: string; presetValue?: string; sortOrder: number }[] = [];
+          const chartWidgets: { widget: WidgetLibraryItem; design: ChartDesign; width?: number; height?: number; presetColumn?: string; presetValue?: string; sortOrder: number; hideDataTableOverride?: boolean }[] = [];
 
           for (const cw of configWidgets) {
             const lw = widgetMap.get(cw.chartId);
@@ -2559,7 +2759,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
               if (lw.type === 'tile') {
                 tileWidgets.push({ widget: lw, design: parsed as TileDesign, sortOrder: cw.sortOrder });
               } else {
-                chartWidgets.push({ widget: lw, design: parsed as ChartDesign, width: cw.width, height: cw.height, presetColumn: cw.presetColumn, presetValue: cw.presetValue, sortOrder: cw.sortOrder });
+                chartWidgets.push({ widget: lw, design: parsed as ChartDesign, width: cw.width, height: cw.height, presetColumn: cw.presetColumn, presetValue: cw.presetValue, sortOrder: cw.sortOrder, hideDataTableOverride: cw.hideDataTableOverride });
               }
             } catch { /* skip bad JSON */ }
           }
@@ -2580,12 +2780,12 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
             // No locally-persisted filter — fall back to the dashboard's saved default filter (set from Build/Edit Dashboard).
             this.savedFilterService.getDefault(d.dashboardId).pipe(takeUntil(this.destroy$)).subscribe(def => {
               if (!def) return;
-              this.filterCountry = def.country ?? this.filterCountry;
-              this.filterSector = def.sector ?? this.filterSector;
-              this.filterBusinessUnit = def.businessUnit ?? this.filterBusinessUnit;
-              this.filterDivision = def.division ?? this.filterDivision;
-              this.filterCluster = def.cluster ?? this.filterCluster;
-              this.filterPlant = def.plant ?? this.filterPlant;
+              if (def.country != null) this.filterCountry = parseGlobalSelection(def.country);
+              if (def.sector != null) this.filterSector = parseGlobalSelection(def.sector);
+              if (def.businessUnit != null) this.filterBusinessUnit = parseGlobalSelection(def.businessUnit);
+              if (def.division != null) this.filterDivision = parseGlobalSelection(def.division);
+              if (def.cluster != null) this.filterCluster = parseGlobalSelection(def.cluster);
+              if (def.plant != null) this.filterPlant = parseGlobalSelection(def.plant);
               this.filterQuickRange = def.quickRange ?? this.filterQuickRange;
               if (def.fromDate) this.filterFrom = this.toDateOnly(def.fromDate);
               if (def.toDate) this.filterTo = this.toDateOnly(def.toDate);
@@ -2945,6 +3145,12 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
     this.kpis = tiles.map((t, i) => ({
       widgetId: t.widget.id,
+      drillDownViewId: t.design.drillDownViewId ?? null,
+      showIcon: t.design.showTileIcon !== false,
+      tileLayout: resolveTileLayout(t.design.tileLayout),
+      valueBold: t.design.valueBold === true,
+      valueItalic: t.design.valueItalic === true,
+      valueColor: t.design.valueColor || '',
       sortOrder: t.sortOrder,
       icon: kpiIconMap[t.design.tileIcon ?? ''] ?? (t.design.tileIcon as KpiIcon) ?? 'well',
       accent: (t.design.tileColor && kpiColorMap[t.design.tileColor]) || kpiAccents[i % kpiAccents.length],
@@ -2976,12 +3182,17 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           this.finishPendingLoad();
         };
         const isTable = !isView && sourceType.toLowerCase() === 'table';
-        // Table tiles always read their value from SQL (correct on huge tables); the global filter
-        // is intentionally ignored for table sources for now. Shared dashboards pass their token so
-        // anonymous visitors get the same server-side value.
+        // Non-DAX Table tiles apply the global Cluster/Plant as best-effort FK-joined filters; DAX
+        // tiles keep their getTileAggregate path (server-side DAX) unchanged.
         if (isTable && source) {
           this.pendingLoads++;
-          this.getTileAggregate(source, t.design)
+          const tableGlobals = t.design.daxModel?.enabled ? [] : tableClusterPlantFilters(this.filterCluster, this.filterPlant);
+          const value$ = tableGlobals.length
+            ? this.widgetService.getFilteredChartData({ chartSource: source, chartSourceType: 'Table', viewId: null,
+                filters: tableGlobals, aggregation: t.design.aggregation ?? 'count', valueField: t.design.valueField || undefined }, this.shareDataContext)
+                .pipe(map(r => ({ value: Number(r.rows?.[0]?.['Value'] ?? 0) })))
+            : this.getTileAggregate(source, t.design);
+          value$
             .pipe(takeUntil(this.cancelReload$), takeUntil(this.destroy$), finalize(finishLoad)).subscribe({
               next: res => { valueLoaded = true; this.kpis[i] = { ...this.kpis[i], value: this.formatTileNumber(res.value ?? 0, t.design) }; this.cdr.detectChanges(); },
               error: () => { this.kpis[i] = { ...this.kpis[i], value: t.design.daxModel?.enabled ? 'DAX error' : '\u2014' }; this.cdr.detectChanges(); },
@@ -2994,7 +3205,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           ? this.commonApi.getDatabaseViewById(viewId, this.shareDataContext).pipe(
               switchMap(view => {
                 const sql = this.injectDateParams(view.generatedSql);
-                return this.commonApi.previewView({ connectionId: view.connectionId, sql, viewId: view.id, maxRows: 1000 }, this.shareDataContext);
+                return this.commonApi.previewView({ connectionId: view.connectionId, sql, viewId: view.id, maxRows: 1000, filters: this.globalPreviewFilters(view.id) }, this.shareDataContext);
               }),
               catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[], daxError: !!t.design.daxModel?.enabled })),
             )
@@ -3028,7 +3239,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     }
   }
 
-  private loadChartWidgets(charts: { widget: WidgetLibraryItem; design: ChartDesign; width?: number; height?: number; presetColumn?: string; presetValue?: string; sortOrder: number }[]): void {
+  private loadChartWidgets(charts: { widget: WidgetLibraryItem; design: ChartDesign; width?: number; height?: number; presetColumn?: string; presetValue?: string; sortOrder: number; hideDataTableOverride?: boolean }[]): void {
     this.chartLoaders.length = 0;
     this.loadedChartIdx.clear();
     if (!charts.length) { this.chartCards = []; return; }
@@ -3070,6 +3281,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       multiSeries: [] as Highcharts.SeriesOptionsType[],
       dataReady: false,
       design: ch.design,
+      hideDataTableOverride: ch.hideDataTableOverride,
       width: ch.width ?? defaultCardWidth,
       height: ch.height ?? defaultCardHeight,
       localFilters: [
@@ -3099,7 +3311,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           mode: f.mode || 'Include',
         })),
       ],
-      inlineTiles: [] as { label: string; value: string; color: string; icon: string; breakdown: { label: string; value: string; color: string }[] }[],
+      inlineTiles: [] as DashInlineTile[],
       isClone: !!ch.presetColumn,
       trendMode: ch.design.trendMode ?? 'monthly',
     }));
@@ -3168,6 +3380,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
               sql: this.injectDateParams(view.generatedSql, true),
               viewId: view.id,
               maxRows: 1000,
+              filters: this.globalPreviewFilters(view.id),
             }, this.shareDataContext);
           }),
           catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[] })),
@@ -3211,7 +3424,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       chartSourceType: card.design.sourceType ?? 'View',
       viewId: card.design.viewId ?? null,
       preserveFutureDateRange: true,
-      filters: [...this.effectiveCardFilters(card).filter(filter => filter.value), ...this.globalHierarchyFilterPayload(card.design.viewId).filter(filter => !card.isClone || !card.localFilters.some(isPlantFilter) || !isPlantFilter(filter))],
+      filters: [...this.serverCardFilters(card), ...this.globalHierarchyFilterPayload(card.design.viewId).filter(filter => !card.isClone || !card.localFilters.some(isPlantFilter) || !isPlantFilter(filter))],
       mode,
       fromDate: this.filterFrom || undefined,
       toDate: this.filterTo || undefined,
@@ -3394,6 +3607,19 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cdr.detectChanges();
   }
 
+  toggleCardMetricSwitch(idx: number, event: Event): void {
+    event.stopPropagation();
+    const card = this.chartCards[idx];
+    this.chartCards[idx] = { ...card, openMetricSwitch: !card.openMetricSwitch };
+    this.cdr.detectChanges();
+  }
+
+  switchCardMetric(idx: number, col: string): void {
+    const card = { ...this.chartCards[idx], activeMetric: col, openMetricSwitch: false };
+    this.chartCards[idx] = { ...card, ...this.buildCardResult(card.rawRows ?? [], card) };
+    this.cdr.detectChanges();
+  }
+
   private colorForRule(
     category: string, value: number, design: ChartDesign | undefined, seriesName?: string, includeCategoryRule = true,
   ): string | undefined {
@@ -3532,7 +3758,11 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           out.type = s.name === 'Total' ? 'line' : 'column';
           out.stacking = s.name === 'Total' ? undefined : 'normal';
           break;
-        case 'grouped': case 'bar':
+        case 'grouped':
+          out.type = 'column';
+          if (isComboLine) out.yAxis = 1;
+          break;
+        case 'bar':
           out.type = 'column';
           break;
         case 'column':
@@ -3597,8 +3827,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
             borderWidth: 2,
             borderColor: '#fff',
             showInLegend: false,
-            dataLabels: { enabled: true, distance: -28, format: '{point.y}',
-              style: { color: '#fff', fontWeight: '700', fontSize: '12px', textOutline: 'none' } },
+            dataLabels: { enabled: true, distance: chartType === 'donut' ? '-20%' : -28, format: '{point.y}', allowOverlap: true, crop: false, overflow: 'allow',
+              style: { color: '#fff', fontWeight: '700', fontSize: '12px', textOutline: 'none' } } as any,
           },
         },
         series: [{ type: 'pie', name: title, data: pieData.filter(d => d.y !== 0) }],
@@ -3608,6 +3838,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     const showAxis = design?.showAxisTitle as boolean | undefined;
     const xTitle = showAxis ? ((design?.xAxisTitle as string) || undefined) : undefined;
     const yTitle = showAxis ? ((design?.yAxisTitle as string) || undefined) : undefined;
+    const y2Title = showAxis ? ((design?.yAxis2Title as string) || undefined) : undefined;
     const axes: Highcharts.Options = {
       xAxis: {
         categories: cats,
@@ -3639,8 +3870,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       };
       if (hasDualY) {
         opts.yAxis = [
-          { title: { text: undefined }, gridLineColor: '#F1F3F6' },
-          { title: { text: undefined }, opposite: true, gridLineWidth: 0 },
+          { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+          { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
         ];
         opts.tooltip = { shared: true };
       }
@@ -3694,8 +3925,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
         ...axes,
         chart: { ...base.chart, type: 'column' },
         yAxis: [
-          { title: { text: undefined }, gridLineColor: '#F1F3F6' },
-          { title: { text: undefined }, opposite: true, gridLineWidth: 0 },
+          { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+          { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
         ],
         tooltip: { shared: true },
         plotOptions: {
@@ -3709,10 +3940,18 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     const isGrouped = chartType === 'grouped';
 
     if (isGrouped && hasMulti) {
+      const hasDualY = series.some((s: any) => s.yAxis === 1);
       return {
         ...base,
         ...axes,
         chart: { ...base.chart, type: 'column' },
+        ...(hasDualY ? {
+          yAxis: [
+            { title: { text: yTitle }, gridLineColor: '#F1F3F6' },
+            { title: { text: y2Title }, opposite: true, gridLineWidth: 0 },
+          ],
+          tooltip: { shared: true },
+        } : {}),
         plotOptions: {
           column: { grouping: true, borderRadius: 4, borderWidth: 0,
             dataLabels: { enabled: true, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } } },
@@ -3734,7 +3973,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       plotOptions: {
         [hcBarType]: { borderRadius: isStacked ? 0 : 4, borderWidth: 0,
           stacking: isStacked ? 'normal' as any : undefined,
-          dataLabels: { enabled: isStacked, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } } },
+          dataLabels: { enabled: isStacked, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600', color: '#fff' } } },
       },
       series: barSeries,
     };
@@ -3748,7 +3987,14 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     const design = remapDesignColumns(card.design as unknown as Record<string, any>, paramFilters) as unknown as ChartDesign;
     const { rows: transformedRows } = applyParameterFilters(rows, paramFilters);
     rows = applyConditionalFilters(transformedRows, getSavedConditionalFilters(design as unknown as Record<string, unknown>));
-    const result = { daxSummaries: [], ...this.buildCardData(rows, design, card.title, card.chartType) };
+    // Bar/column "Switch Metrics": aggregate the viewer-selected column instead of the saved one.
+    const metricCols = (card.chartType === 'bar' || card.chartType === 'column')
+      ? (((card.design as unknown as Record<string, unknown>)['metricColumns'] as string[] | undefined) ?? []) : [];
+    card.metricSwitchColumns = metricCols.length > 1 ? metricCols : [];
+    if (card.metricSwitchColumns.length && (!card.activeMetric || !card.metricSwitchColumns.includes(card.activeMetric)))
+      card.activeMetric = card.metricSwitchColumns[0];
+    const effectiveDesign = card.metricSwitchColumns.length ? { ...design, yAggColumn: card.activeMetric } : design;
+    const result = { daxSummaries: [], ...this.buildCardData(rows, effectiveDesign, card.title, card.chartType) };
     if (card.design.drillDownViewId && card.widgetId) {
       result.options = this.injectDrillDownClick(result.options, card.widgetId, this.isTrendChart(card.design) ? card.trendMode : undefined, card);
     }
@@ -3784,6 +4030,13 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (chartType === 'timeline') return withDaxSummaries(this.buildTimelineCardData(rows, design));
     if (chartType === 'bullet') return withDaxSummaries(this.buildBulletCardData(rows, design));
     if (chartType === 'bubble') return withDaxSummaries(this.buildBubbleCardData(rows, design));
+    if (chartType === 'scatter') {
+      const resolve = (column?: string): string => rows.length && column ? this.resolveColumn(rows[0], column) : column ?? '';
+      return withDaxSummaries(this.cardResult(buildScatterOptions({
+        rows, xColumn: resolve(design.xAxis), yColumn: resolve(design.yAggColumn || design.yAxis),
+        categoryColumn: resolve(design.scatterCategoryColumn) || undefined, height: 280,
+      })));
+    }
     if (chartType === 'heatmap') return withDaxSummaries(this.buildHeatmapCardData(rows, design));
 
     if (multiY.length > 0) {
@@ -3863,21 +4116,10 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     });
   }
 
-  /** Histogram bins raw numeric values itself via a hidden "raw data" series. */
   private buildHistogramCardData(rows: Record<string, unknown>[], design: ChartDesign) {
     const col = design.yAggColumn || design.yAxis || '';
     const resolvedCol = rows.length && col ? this.resolveColumn(rows[0], col) : col;
-    const rawValues = rows.map(r => Number(r[resolvedCol])).filter(v => !Number.isNaN(v));
-    return this.cardResult({
-      chart: { backgroundColor: 'transparent', height: 280 },
-      title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-      xAxis: [{ alignTicks: false }, { title: { text: 'Histogram' }, alignTicks: false, opposite: true }],
-      yAxis: [{ title: { text: undefined } }, { title: { text: 'Frequency' }, opposite: true }],
-      series: [
-        { name: col || 'Raw data', type: 'scatter' as const, data: rawValues, visible: false, id: 'ops-histogram-raw' },
-        { name: col || 'Histogram', type: 'histogram' as any, xAxis: 1, yAxis: 1, baseSeries: 'ops-histogram-raw', zIndex: -1, color: chartFallbackColor(`${col || 'Histogram'}:`, 0) },
-      ],
-    });
+    return this.cardResult(buildHistogramOptions(rows, resolvedCol, design.histogramBins, 280, CHART_AUTO_COLORS));
   }
 
   /** Reuses X-axis category + Y-axis value, adds an optional Target column per category. */
@@ -3932,36 +4174,14 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     });
   }
 
-  /** Grid of X-axis category × Y-category, colored by aggregated Y-axis value. */
+  /** X dimension x Y dimension grid, coloured by the aggregated Intensity / Value. */
   private buildHeatmapCardData(rows: Record<string, unknown>[], design: ChartDesign) {
-    const xAxis = design.xAxis ?? '';
-    const yCol = design.heatmapYColumn ?? '';
-    const valueCol = design.yAggColumn || design.yAxis || '';
-    const resolvedX = rows.length && xAxis ? this.resolveColumn(rows[0], xAxis) : xAxis;
-    const resolvedY = rows.length && yCol ? this.resolveColumn(rows[0], yCol) : yCol;
-    const resolvedVal = rows.length && valueCol ? this.resolveColumn(rows[0], valueCol) : valueCol;
-    const xCats = [...new Set(rows.map(r => this.toStr(r[resolvedX])))];
-    const yCats = [...new Set(rows.map(r => this.toStr(r[resolvedY])))];
-    const cellMap = new Map<string, number>();
-    for (const row of rows) {
-      const xi = xCats.indexOf(this.toStr(row[resolvedX]));
-      const yi = yCats.indexOf(this.toStr(row[resolvedY]));
-      if (xi < 0 || yi < 0) continue;
-      const key = `${xi}-${yi}`;
-      cellMap.set(key, (cellMap.get(key) ?? 0) + (Number(row[resolvedVal]) || 0));
-    }
-    const data = [...cellMap.entries()].map(([key, v]) => {
-      const [xi, yi] = key.split('-').map(Number);
-      return [xi, yi, v] as [number, number, number];
-    });
-    return this.cardResult({
-      chart: { type: 'heatmap', backgroundColor: 'transparent', height: 280 },
-      title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-      xAxis: { categories: xCats, title: { text: undefined } },
-      yAxis: { categories: yCats, title: { text: undefined }, reversed: true },
-      colorAxis: { minColor: '#EAF2FF', maxColor: '#2563EB' } as any,
-      series: [{ type: 'heatmap' as const, name: valueCol || 'Value', data, dataLabels: { enabled: true } }],
-    });
+    const resolve = (column?: string): string => rows.length && column ? this.resolveColumn(rows[0], column) : column ?? '';
+    const measure = resolveHeatmapMeasure(design.yAggColumn, design.yAxis);
+    return this.cardResult(buildHeatmapOptions({
+      rows, xColumn: resolve(design.xAxis), yColumn: resolve(design.heatmapYColumn), valueColumn: resolve(measure.valueColumn), operation: measure.operation,
+      xTitle: design.xAxisTitle || undefined, yTitle: design.yAxisTitle || undefined, height: 280, showLegend: design.showLegend !== false,
+    }));
   }
 
   /** From/To/Weight relationship — no xAxis/yAxis at all. */
@@ -3990,19 +4210,11 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     });
   }
 
-  /** Date + Label columns — no xAxis/yAxis at all. */
   private buildTimelineCardData(rows: Record<string, unknown>[], design: ChartDesign) {
-    const dateCol = design.timelineDateColumn ?? '';
-    const labelCol = design.timelineLabelColumn ?? '';
-    const resolvedDate = rows.length && dateCol ? this.resolveColumn(rows[0], dateCol) : dateCol;
-    const resolvedLabel = rows.length && labelCol ? this.resolveColumn(rows[0], labelCol) : labelCol;
-    const data = rows.map(r => ({ name: this.toStr(r[resolvedLabel]), label: this.toStr(r[resolvedDate]) }));
-    return this.cardResult({
-      chart: { type: 'timeline' as any, backgroundColor: 'transparent', height: 280 },
-      title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-      xAxis: { visible: false }, yAxis: { visible: false },
-      series: [{ type: 'timeline' as any, name: labelCol || 'Timeline', data }],
-    });
+    const resolve = (col: string | undefined): string => (rows.length && col ? this.resolveColumn(rows[0], col) : col ?? '');
+    return this.cardResult(buildTimelineOptions(rows, {
+      start: resolve(design.timelineDateColumn), end: resolve(design.timelineEndColumn), task: resolve(design.timelineLabelColumn),
+    }, 280));
   }
 
   private formatTableCell(value: unknown): string | number {
@@ -4036,7 +4248,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     }
     allCols.push(...(design.multiYColumns ?? []));
     const comboLineCols = design.comboLineColumns ?? [];
-    const hasDualY = comboLineCols.length > 0 && (design.chartType === 'combo' || design.chartType === 'multiline');
+    const hasDualY = comboLineCols.length > 0 && (design.chartType === 'combo' || design.chartType === 'multiline' || design.chartType === 'grouped');
     if (hasDualY) {
       for (const col of comboLineCols) {
         if (!allCols.includes(col)) allCols.push(col);
@@ -4161,12 +4373,29 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     return this.commonApi.getAggregate({ sourceName: source, sourceType: 'Table', aggregation: design.aggregation ?? 'count', valueField: design.valueField || undefined }, this.shareDataContext);
   }
 
-  /** Recompute each breakdown row's value live (1st value of its column) — Table via aggregate, View via first row. */
-  private hydrateBreakdown(target: { value: string }[], defs: ({ sourceName?: string; sourceType?: string; column?: string } | undefined)[]): void {
+  /** Recompute each breakdown row's value live, mirroring the tile's main value: a chart card's
+   *  active local/clone filters (passed in) flow to the breakdown; global hierarchy applies to View
+   *  sources only. Standalone KPI tiles pass no local filters (independent tiles have none). */
+  private hydrateBreakdown(target: { value: string }[], defs: ({ sourceName?: string; sourceType?: string; column?: string } | undefined)[],
+    localFilters: { sourceTable: string; sourceColumn: string; controlType: string; value: string; label: string }[] = [], chartSource = ''): void {
     defs.forEach((d, i) => {
       if (!d?.sourceName || !d?.column) return;
-      this.commonApi.getBreakdownValue(d.sourceName, d.sourceType ?? 'Table', d.column, this.shareDataContext)
-        .pipe(takeUntil(this.destroy$))
+      const isView = (d.sourceType ?? 'Table').toLowerCase() === 'view';
+      const locals = localFilters.map(f => ({
+        sourceTable: !f.sourceTable || f.sourceTable.toLowerCase() === chartSource.toLowerCase() ? d.sourceName! : f.sourceTable,
+        sourceColumn: f.sourceColumn, controlType: f.controlType, value: f.value, label: f.label,
+      }));
+      // Global hierarchy applies to View sources (via the SQL params); Table sources get the global
+      // Cluster/Plant as best-effort FK-joined filters.
+      const globals = isView ? this.globalHierarchyFilterPayload(1).filter(g => g.advancedHierarchy || !locals.some(l =>
+        l.sourceColumn.toLowerCase() === g.sourceColumn.toLowerCase() || l.label.toLowerCase() === g.label.toLowerCase()))
+        : tableClusterPlantFilters(this.filterCluster, this.filterPlant);
+      this.commonApi.getBreakdownValueFiltered({
+        sourceName: d.sourceName, sourceType: d.sourceType ?? 'Table', column: d.column,
+        filters: [...locals, ...globals],
+        fromDate: this.filterFrom || undefined, toDate: this.filterTo || undefined,
+        shareContext: this.shareDataContext,
+      }).pipe(takeUntil(this.destroy$))
         .subscribe(v => { if (target[i]) { target[i].value = String(Math.round(v * 100) / 100); this.cdr.detectChanges(); } });
     });
   }
@@ -4303,7 +4532,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   private loadInlineTilesForCard(idx: number, tileIds: number[], onAllLoaded?: () => void): void {
     // Pre-allocate slots to preserve tileIds order regardless of response timing
-    const slots: ({ label: string; value: string; color: string; icon: string; breakdown: { label: string; value: string; color: string }[] } | null)[] = tileIds.map(() => null);
+    const slots: (DashInlineTile | null)[] = tileIds.map(() => null);
     let completed = 0;
 
     tileIds.forEach((tileId, slotIdx) => {
@@ -4316,9 +4545,19 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           const label = (d.title || tile.name) ?? '';
           const color = d.tileColor ?? 'blue';
           const icon = d.tileIcon ?? 'well';
+          const drillDownViewId = d.drillDownViewId ?? null;
+          const showIcon = d.showTileIcon !== false;
+          const tileLayout = resolveTileLayout(d.tileLayout);
+          const valueBold = d.valueBold === true;
+          const valueItalic = d.valueItalic === true;
+          const valueColor = d.valueColor || '';
           const breakdownDefs = (d.breakdownRows ?? []).filter(r => r && (r.label || r.value));
           const breakdown = breakdownDefs.map(r => ({ label: r.label ?? '', value: r.value ?? '', color: r.color ?? 'blue' }));
-          this.hydrateBreakdown(breakdown, breakdownDefs);
+          const breakdownCard = this.chartCards[idx];
+          // A chart card's active local/clone filters flow to its tiles' breakdowns too (independent KPI tiles pass none).
+          const breakdownLocals = breakdownCard.localFilters.filter(f => f.value && f.controlType !== 'MultiSelect')
+            .map(f => ({ sourceTable: f.sourceTable, sourceColumn: f.sourceColumn, controlType: f.controlType, value: f.value, label: f.label }));
+          this.hydrateBreakdown(breakdown, breakdownDefs, breakdownLocals, breakdownCard.design.source ?? '');
           if (!source) { completed++; this.rebuildInlineTiles(idx, slots, completed, tileIds.length, onAllLoaded); return; }
 
           const card = this.chartCards[idx];
@@ -4333,16 +4572,31 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
               }))
             : [];
 
-          if (sourceType.toLowerCase() === 'table' && !cloneFilters.length) {
-            this.getTileAggregate(source, d)
+          // A non-clone card's active local filter must flow to its Table tiles (including DAX ones).
+          // Take the plain/DAX aggregate (via getTileAggregate) only when there's no clone filter AND
+          // no active local filter; with an active local filter, fall through to the filtered path
+          // below, which sends the local filters together with the daxModel.
+          const hasActiveNonCloneLocal = !card.isClone
+            && card.localFilters.some(filter => filter.value && filter.controlType !== 'MultiSelect');
+          if (sourceType.toLowerCase() === 'table' && !cloneFilters.length && !hasActiveNonCloneLocal) {
+            // Inline tiles follow the chart's global Cluster/Plant: non-DAX Table tiles aggregate
+            // server-side via FK when a global is active, else take the plain/DAX aggregate.
+            const inlineTableGlobals = d.daxModel?.enabled ? [] : tableClusterPlantFilters(this.filterCluster, this.filterPlant);
+            const value$ = inlineTableGlobals.length
+              ? this.widgetService.getFilteredChartData({ chartSource: source, chartSourceType: 'Table', viewId: null,
+                  filters: inlineTableGlobals, fromDate: this.filterFrom || undefined, toDate: this.filterTo || undefined,
+                  aggregation: d.aggregation ?? 'count', valueField: d.valueField || undefined,
+                }, this.shareDataContext).pipe(map(res => ({ value: Number(res.rows?.[0]?.['Value'] ?? 0) })))
+              : this.getTileAggregate(source, d);
+            value$
               .pipe(takeUntil(this.destroy$)).subscribe({
                 next: res => {
-                  slots[slotIdx] = { label, value: this.formatTileNumber(res.value ?? 0, d), color, icon, breakdown };
+                  slots[slotIdx] = { widgetId: tileId, drillDownViewId, tileLayout, showIcon, valueBold, valueItalic, valueColor, label, value: this.formatTileNumber(res.value ?? 0, d), color, icon, breakdown };
                   completed++;
                   this.rebuildInlineTiles(idx, slots, completed, tileIds.length, onAllLoaded);
                 },
                 error: () => {
-                  if (d.daxModel?.enabled) slots[slotIdx] = { label, value: 'DAX error', color, icon, breakdown };
+                  if (d.daxModel?.enabled) slots[slotIdx] = { widgetId: tileId, drillDownViewId, tileLayout, showIcon, valueBold, valueItalic, valueColor, label, value: 'DAX error', color, icon, breakdown };
                   completed++; this.rebuildInlineTiles(idx, slots, completed, tileIds.length, onAllLoaded);
                 },
               });
@@ -4350,8 +4604,8 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           }
 
           const viewId = sourceType.toLowerCase() === 'view' ? (tile.sourceId ?? d.viewId ?? null) : null;
-          // Non-clone cards: forward the card's active local filters to attached VIEW tiles so they filter with the chart.
-          const nonCloneLocal = (!card.isClone && sourceType.toLowerCase() === 'view' && viewId)
+          // Non-clone cards: forward the card's active local filters to attached View/Table tiles so they filter with the chart.
+          const nonCloneLocal = (!card.isClone && ((sourceType.toLowerCase() === 'view' && !!viewId) || sourceType.toLowerCase() === 'table'))
             ? card.localFilters.filter(filter => filter.value && filter.controlType !== 'MultiSelect').map(filter => ({
                 sourceTable: !filter.sourceTable || filter.sourceTable.toLowerCase() === (card.design.source ?? '').toLowerCase()
                   ? source : filter.sourceTable,
@@ -4369,10 +4623,11 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
                 chartSourceType: sourceType,
                 viewId,
                 filters: [
-                  ...this.globalHierarchyFilterPayload(viewId).filter(global => !serverLocalFilters.some(local =>
+                  ...this.globalHierarchyFilterPayload(viewId).filter(global => global.advancedHierarchy || !serverLocalFilters.some(local =>
                     local.label.toLowerCase() === global.label.toLowerCase()
                     || local.sourceColumn.toLowerCase() === global.sourceColumn.toLowerCase())),
                   ...serverLocalFilters,
+                  ...(aggregateTile && !d.daxModel?.enabled ? tableClusterPlantFilters(this.filterCluster, this.filterPlant) : []),
                 ],
                 fromDate: this.filterFrom || undefined,
                 toDate: this.filterTo || undefined,
@@ -4382,7 +4637,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
             ? this.commonApi.getDatabaseViewById(viewId, this.shareDataContext).pipe(
                 switchMap(view => {
                   const sql = this.injectDateParams(view.generatedSql);
-                  return this.commonApi.previewView({ connectionId: view.connectionId, sql, viewId: view.id, maxRows: 1000 }, this.shareDataContext);
+                  return this.commonApi.previewView({ connectionId: view.connectionId, sql, viewId: view.id, maxRows: 1000, filters: this.globalPreviewFilters(view.id) }, this.shareDataContext);
                 })
               )
             : this.widgetService.getTableData(source, sourceType, this.shareDataContext);
@@ -4399,12 +4654,12 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
               const formatted = aggregateTile
                 ? this.formatTileNumber(Number(rows[0]?.['Value'] ?? 0), d)
                 : this.computeTileValue(rows, d);
-              slots[slotIdx] = { label, value: formatted, color, icon, breakdown };
+              slots[slotIdx] = { widgetId: tileId, drillDownViewId, tileLayout, showIcon, valueBold, valueItalic, valueColor, label, value: formatted, color, icon, breakdown };
               completed++;
               this.rebuildInlineTiles(idx, slots, completed, tileIds.length, onAllLoaded);
             },
             error: () => {
-              if (d.daxModel?.enabled) slots[slotIdx] = { label, value: 'DAX error', color, icon, breakdown };
+              if (d.daxModel?.enabled) slots[slotIdx] = { widgetId: tileId, drillDownViewId, tileLayout, showIcon, valueBold, valueItalic, valueColor, label, value: 'DAX error', color, icon, breakdown };
               completed++; this.rebuildInlineTiles(idx, slots, completed, tileIds.length, onAllLoaded);
             },
           });
@@ -4415,10 +4670,10 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   private rebuildInlineTiles(
-    idx: number, slots: ({ label: string; value: string; color: string; icon: string; breakdown: { label: string; value: string; color: string }[] } | null)[],
+    idx: number, slots: (DashInlineTile | null)[],
     completed: number, total: number, onAllLoaded?: () => void,
   ): void {
-    this.chartCards[idx].inlineTiles = slots.filter((s): s is { label: string; value: string; color: string; icon: string; breakdown: { label: string; value: string; color: string }[] } => s !== null);
+    this.chartCards[idx].inlineTiles = slots.filter((s): s is DashInlineTile => s !== null);
     if (completed >= total) { this.cdr.detectChanges(); onAllLoaded?.(); }
   }
 
@@ -4428,9 +4683,33 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (card && this.effectiveCardFilters(card).some(f => f.value || f.valueText || (f.values?.length ?? 0) > 0)) this.applyLocalFilter(idx);
   }
 
+  kpiMeasures(index: number) { return getSelectableDaxMeasures(this.kpiTileDefs[index]?.design.daxModel); }
+
+  kpiMetricId(index: number): string | null {
+    const model = this.kpiTileDefs[index]?.design.daxModel;
+    return model?.viewerMeasureId ?? model?.selectedMeasureId ?? null;
+  }
+
+  selectKpiMetric(index: number, id: string | null): void {
+    const design = this.kpiTileDefs[index]?.design;
+    if (!design?.daxModel) return;
+    design.daxModel = withViewerMeasure(design.daxModel, id);
+    this.kpis[index] = { ...this.kpis[index], value: '—' };
+    this.reloadKpiTiles(index);
+  }
+
+  cardMeasures(card: OperationsDashboardComponent['chartCards'][number]) { return getSelectableDaxMeasures(card.design.daxModel); }
+
+  selectCardMetric(idx: number, id: string | null): void {
+    const card = this.chartCards[idx];
+    if (!card.design.daxModel) return;
+    this.chartCards[idx] = { ...card, design: { ...card.design, daxModel: withViewerMeasure(card.design.daxModel, id) } };
+    this.applyLocalFilter(idx);
+  }
+
   applyLocalFilter(idx: number): void {
     const card = this.chartCards[idx];
-    const singleActive = this.effectiveCardFilters(card).filter(f => f.value && f.controlType !== 'MultiSelect');
+    const singleActive = this.serverCardFilters(card);
     const multiActive = card.localFilters.filter(f => f.controlType === 'MultiSelect' && (f.valueText || (f.values?.length ?? 0) > 0));
     const source = card.design.source ?? '';
     const sourceType = card.design.sourceType ?? 'Table';
@@ -4445,7 +4724,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
     // Same-source locked filters can be applied to the loaded rows directly. This avoids
     // replacing a valid preview with an empty server response for a local Plant filter.
-  if (!hasCrossTableFilter && !this.hasActiveSharedFilter(card) && !(card.isClone && card.design.viewId && singleActive.some(isPlantFilter))) {
+  if (!hasCrossTableFilter && !this.hasActiveSharedFilter(card) && !this.hasAdvancedViewFilters(card) && !(card.isClone && card.design.viewId && singleActive.some(isPlantFilter))) {
       let rows = card.rawRows ?? [];
       for (const filter of singleActive) {
         const resolved = rows.length ? this.resolveColumn(rows[0], filter.sourceColumn) : filter.sourceColumn;
@@ -4473,9 +4752,10 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
         sourceColumn: f.sourceColumn,
         controlType: f.controlType,
         value: f.value,
+        values: f.values,
         label: f.label,
         dashboardAdditional: f.dashboardAdditional,
-      })), ...(this.isTrendChart(card.design) || this.hasActiveSharedFilter(card) || (card.isClone && singleActive.some(isPlantFilter))
+      })), ...(this.isTrendChart(card.design) || this.hasActiveSharedFilter(card) || this.hasAdvancedViewFilters(card) || (card.isClone && singleActive.some(isPlantFilter))
         ? this.globalHierarchyFilterPayload(card.design.viewId).filter(filter => !card.isClone || !singleActive.some(isPlantFilter) || !isPlantFilter(filter)) : [])],
       fromDate: this.filterFrom || undefined,
       toDate: this.filterTo || undefined,
@@ -4491,6 +4771,24 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       },
       error: () => this.notify.showError(`Failed to apply filter for chart: ${card.title}`),
     });
+  }
+
+  applyAdvancedFilter(value: AdvancedFilterValue): void {
+    this.cancelReload$.next();
+    this.advancedFilters = advancedHierarchyFilters(value.hierarchy);
+    this.reloadKpiTiles();
+    this.chartCards.forEach((card, index) => {
+      if (card.design.viewId) this.reloadCardData(index);
+      else if (card.design.attachedTileIds?.length)
+        this.loadInlineTilesForCard(index, card.design.attachedTileIds);
+    });
+  }
+
+  private advancedFilters: (WidgetDataFilter & { label: string })[] = [];
+  @ViewChild('advancedFilter') private advancedFilterRef?: AdvancedFilterComponent;
+
+  private hasAdvancedViewFilters(card: OperationsDashboardComponent['chartCards'][number]): boolean {
+    return !!card.design.viewId && !!this.advancedFilters?.length;
   }
 
   /** Apply interactive and conditional MultiSelect filters to the card's rows. */
@@ -4605,7 +4903,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
         `DECLARE @end_date $1 = '${this.filterTo}';`,
       );
     }
-    if (this.filterCluster && this.filterCluster !== 'All' && this.safeValuePattern.test(this.filterCluster)) {
+    if (typeof this.filterCluster === 'string' && this.filterCluster && this.filterCluster !== 'All' && this.safeValuePattern.test(this.filterCluster)) {
       const hasDeclare = /DECLARE\s+@cluster\s/i.test(sql);
       if (hasDeclare) {
         sql = sql.replace(
@@ -4616,7 +4914,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
         sql = `DECLARE @cluster NVARCHAR(100) = '${this.filterCluster}';\n${sql}`;
       }
     }
-    if (this.filterPlant && this.filterPlant !== 'All' && this.safeValuePattern.test(this.filterPlant)) {
+    if (typeof this.filterPlant === 'string' && this.filterPlant && this.filterPlant !== 'All' && this.safeValuePattern.test(this.filterPlant)) {
       const hasDeclare = /DECLARE\s+@plant\s/i.test(sql);
       if (hasDeclare) {
         sql = sql.replace(
@@ -4638,13 +4936,13 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   /** Set by restoreFilterState() when a stored selection was actually applied; consumed once the initial tiles/charts populate. */
   private pendingFilterReload = false;
   customFilters: CustomDashboardFilter[] = [];
-  private pendingCustomFilterValues: Record<string, string> = {};
+  private pendingCustomFilterValues: Record<string, GlobalFilterSelection> = {};
   private customFilterOptions: Record<string, string[]> = {};
 
   private effectiveCardFilters(card: typeof this.chartCards[0]): typeof card.localFilters {
     return mergeDashboardSharedFilters(card.localFilters, this.customFilters, filter => ({
       label: filter.label, sourceTable: filter.sourceTable, sourceColumn: filter.sourceColumn,
-      controlType: 'Dropdown', value: filter.value, options: [], dashboardAdditional: true,
+      ...globalSelectionPayload(filter.value), options: [], dashboardAdditional: true,
     }));
   }
 
@@ -4652,9 +4950,14 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     return this.effectiveCardFilters(card).some((filter, index) => filter !== card.localFilters[index]);
   }
 
+  private serverCardFilters(card: typeof this.chartCards[0]): typeof card.localFilters {
+    return this.effectiveCardFilters(card).filter(filter =>
+      (filter.controlType !== 'MultiSelect' && !!filter.value) ||
+      (!card.localFilters.includes(filter) && !!filter.values?.length));
+  }
+
   selectCustomFilterOption(filter: CustomDashboardFilter, value: string): void {
-    filter.value = value;
-    this.openFilterName = null;
+    filter.value = toggleGlobalSelection(filter.value, value, this.getCustomFilterOptions(filter), this.globalFilterClear.consume(filter));
     this.persistFilterState();
     this.onClusterChange();
   }
@@ -4751,46 +5054,46 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   private autoSelectSingle(): void {
     if (this.filterCountryOptions.length === 1) this.filterCountry = this.filterCountryOptions[0];
-    const active = (v: string) => v && v !== 'All';
+    const active = hasGlobalSelection;
     let filtered = this.allPlants;
-    if (active(this.filterCountry)) filtered = filtered.filter(p => p.country === this.filterCountry);
+    if (active(this.filterCountry)) filtered = filtered.filter(p => matchesGlobalSelection(p.country, this.filterCountry));
     const sectors = this.distinct(filtered, p => p.sector);
     if (sectors.length === 1) this.filterSector = sectors[0];
-    if (active(this.filterSector)) filtered = filtered.filter(p => p.sector === this.filterSector);
+    if (active(this.filterSector)) filtered = filtered.filter(p => matchesGlobalSelection(p.sector, this.filterSector));
     const bus = this.distinct(filtered, p => p.businessUnit);
     if (bus.length === 1) this.filterBusinessUnit = bus[0];
-    if (active(this.filterBusinessUnit)) filtered = filtered.filter(p => p.businessUnit === this.filterBusinessUnit);
+    if (active(this.filterBusinessUnit)) filtered = filtered.filter(p => matchesGlobalSelection(p.businessUnit, this.filterBusinessUnit));
     const divs = this.distinct(filtered, p => p.division);
     if (divs.length === 1) this.filterDivision = divs[0];
-    if (active(this.filterDivision)) filtered = filtered.filter(p => p.division === this.filterDivision);
+    if (active(this.filterDivision)) filtered = filtered.filter(p => matchesGlobalSelection(p.division, this.filterDivision));
     const clusters = this.distinct(filtered, p => p.cluster);
     if (clusters.length === 1) this.filterCluster = clusters[0];
-    if (active(this.filterCluster)) filtered = filtered.filter(p => p.cluster === this.filterCluster);
+    if (active(this.filterCluster)) filtered = filtered.filter(p => matchesGlobalSelection(p.cluster, this.filterCluster));
     const plantNames = this.distinct(filtered, p => p.plantDescription);
     if (plantNames.length === 1) this.filterPlant = plantNames[0];
   }
 
   private rebuildCascadingOptions(suppressAutoCluster = false, suppressAutoPlant = false): void {
-    const active = (v: string) => v && v !== 'All';
+    const active = hasGlobalSelection;
     let filtered = this.allPlants;
 
-    if (active(this.filterCountry)) filtered = filtered.filter(p => p.country === this.filterCountry);
+    if (active(this.filterCountry)) filtered = filtered.filter(p => matchesGlobalSelection(p.country, this.filterCountry));
     this.filterSectorOptions = active(this.filterCountry) ? this.distinct(filtered, p => p.sector) : [];
 
-    if (active(this.filterSector)) filtered = filtered.filter(p => p.sector === this.filterSector);
+    if (active(this.filterSector)) filtered = filtered.filter(p => matchesGlobalSelection(p.sector, this.filterSector));
     this.filterBusinessUnitOptions = active(this.filterSector) ? this.distinct(filtered, p => p.businessUnit) : [];
 
-    if (active(this.filterBusinessUnit)) filtered = filtered.filter(p => p.businessUnit === this.filterBusinessUnit);
+    if (active(this.filterBusinessUnit)) filtered = filtered.filter(p => matchesGlobalSelection(p.businessUnit, this.filterBusinessUnit));
     this.filterDivisionOptions = active(this.filterBusinessUnit) ? this.distinct(filtered, p => p.division) : [];
 
-    if (active(this.filterDivision)) filtered = filtered.filter(p => p.division === this.filterDivision);
+    if (active(this.filterDivision)) filtered = filtered.filter(p => matchesGlobalSelection(p.division, this.filterDivision));
     this.filterClusterOptions = active(this.filterDivision) ? this.distinct(filtered, p => p.cluster) : [];
     // Narrowing down to a single cluster/plant should auto-select it (not leave the field
     // showing "All") so the lock UI's displayed value matches what's actually being filtered.
     // Skip when the user explicitly reset to "All", otherwise the reset can never stick.
     if (!suppressAutoCluster && !active(this.filterCluster) && this.filterClusterOptions.length === 1) this.filterCluster = this.filterClusterOptions[0];
 
-    if (active(this.filterCluster)) filtered = filtered.filter(p => p.cluster === this.filterCluster);
+    if (active(this.filterCluster)) filtered = filtered.filter(p => matchesGlobalSelection(p.cluster, this.filterCluster));
     this.filterPlantOptions = this.distinct(filtered, p => p.plantDescription);
     if (!suppressAutoPlant && !active(this.filterPlant) && this.filterPlantOptions.length === 1) this.filterPlant = this.filterPlantOptions[0];
   }
@@ -4800,6 +5103,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   onClusterChange(): void {
+    this.interactionReloadToken++;
     this.cancelReload$.next();
     this.reloadKpiTiles();
 
@@ -4822,9 +5126,13 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
     concat(...reloads$).pipe(takeUntil(this.cancelReload$), takeUntil(this.destroy$)).subscribe();
   }
 
-  private reloadKpiTiles(): void {
+  private reloadKpiTiles(only?: number): void {
     if (!this.kpiTileDefs.length) return;
     this.kpiTileDefs.forEach((t, i) => {
+      if (only !== undefined && only !== i) return;
+      // Re-hydrate the breakdown so it tracks the global filter too (standalone KPI = no local filter).
+      const fp = this.kpis[i]?.footerParts;
+      if (fp) this.hydrateBreakdown(fp, t.design.breakdownRows ?? []);
       const viewId = t.design.viewId ?? 0;
       const isView = t.design.dataSourceMode === 'view' && viewId > 0;
       const source = t.design.source ?? '';
@@ -4836,9 +5144,15 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       // via markKpiLoaded, leaving it stuck at its placeholder dash forever with nothing left to
       // retry it.
       const isTable = !isView && sourceType.toLowerCase() === 'table';
-      // Table tiles always read from SQL (global filter ignored for now); shares pass their token.
+      // Non-DAX Table tiles apply the global Cluster/Plant as best-effort FK-joined filters.
       if (isTable && source) {
-        this.getTileAggregate(source, t.design)
+        const tableGlobals = t.design.daxModel?.enabled ? [] : tableClusterPlantFilters(this.filterCluster, this.filterPlant);
+        const value$ = tableGlobals.length
+          ? this.widgetService.getFilteredChartData({ chartSource: source, chartSourceType: 'Table', viewId: null,
+              filters: tableGlobals, aggregation: t.design.aggregation ?? 'count', valueField: t.design.valueField || undefined }, this.shareDataContext)
+              .pipe(map(r => ({ value: Number(r.rows?.[0]?.['Value'] ?? 0) })))
+          : this.getTileAggregate(source, t.design);
+        value$
           .pipe(takeUntil(this.cancelReload$), takeUntil(this.destroy$)).subscribe({
             next: res => { this.kpis[i] = { ...this.kpis[i], value: this.formatTileNumber(res.value ?? 0, t.design) }; this.markKpiLoaded(i); this.cdr.detectChanges(); },
             error: () => {
@@ -4863,9 +5177,16 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
         ? this.commonApi.getDatabaseViewById(viewId, this.shareDataContext).pipe(
             switchMap(view => {
               const sql = this.injectDateParams(view.generatedSql);
-              return this.commonApi.previewView({ connectionId: view.connectionId, sql, viewId: view.id, maxRows: 1000 }, this.shareDataContext);
+              return this.commonApi.previewView({ connectionId: view.connectionId, sql, viewId: view.id, maxRows: 1000, filters: this.globalPreviewFilters(view.id) }, this.shareDataContext);
             }),
-            catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[], daxError: !!t.design.daxModel?.enabled })),
+            catchError(error => {
+              if (this.advancedFilters?.length) {
+                console.error('Failed to apply Advanced Filters to dashboard tile', error);
+                this.notify.showError('Failed to apply Advanced Filters to dashboard tile.');
+                return of();
+              }
+              return of({ columns: [] as string[], rows: [] as Record<string, unknown>[], daxError: !!t.design.daxModel?.enabled });
+            }),
           )
         : this.widgetService.getTableData(source, sourceType, this.shareDataContext).pipe(
           catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[], daxError: !!t.design.daxModel?.enabled })),
@@ -4882,6 +5203,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   /** Re-execute all view-based charts when global From/To dates change */
   onGlobalDateChange(): void {
+    this.interactionReloadToken++;
     this.dateChange$.next();
     this.persistFilterState();
   }
@@ -4912,26 +5234,19 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   private reloadCardData(idx: number): void {
-    this.reloadCardData$(idx).pipe(takeUntil(this.destroy$)).subscribe();
+    this.reloadCardData$(idx).pipe(takeUntil(this.cancelReload$), takeUntil(this.destroy$)).subscribe();
   }
 
   /** Filter rows by global filter selections (cluster, plant, etc.) based on matching column names. */
   private applyGlobalRowFilter(rows: Record<string, unknown>[], plantClone = false): Record<string, unknown>[] {
-    const cluster = this.filterCluster !== 'All' ? this.filterCluster : '';
-    const plant = !plantClone && this.filterPlant !== 'All' ? this.filterPlant : '';
-    if (!cluster && !plant) return rows;
-
-    return rows.filter(row => {
-      if (cluster) {
-        const col = this.findColumn(row, 'cluster');
-        if (col && String(row[col]).toLowerCase() !== cluster.toLowerCase()) return false;
-      }
-      if (plant) {
-        const col = this.findColumn(row, 'plant');
-        if (col && String(row[col]).toLowerCase() !== plant.toLowerCase()) return false;
-      }
-      return true;
-    });
+    const selections: [string, GlobalFilterSelection][] = [
+      ['country', this.filterCountry], ['sector', this.filterSector], ['businessUnit', this.filterBusinessUnit],
+      ['division', this.filterDivision], ['cluster', this.filterCluster], ['plant', plantClone ? 'All' : this.filterPlant],
+    ];
+    return rows.filter(row => selections.every(([field, selection]) => {
+      const column = this.findColumn(row, field);
+      return !column || matchesGlobalSelection(row[column], selection);
+    }));
   }
 
   private findColumn(row: Record<string, unknown>, keyword: string): string | null {
@@ -4946,27 +5261,33 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
    * endpoint, whose period rows have no cluster/plant column to filter on afterwards, so the
    * hierarchy must travel with the request or a date change silently drops it.
    */
-  private globalHierarchyFilterPayload(viewId: number | null | undefined): { sourceTable: string; sourceColumn: string; controlType: string; value: string; label: string }[] {
+  private globalHierarchyFilterPayload(viewId: number | null | undefined): (WidgetDataFilter & { label: string })[] {
     // Only with the view id the request sends: view SQL matches these to its DECLARE @cluster/@plant
     // placeholders and ignores the rest, while a table source would turn them into WHERE clauses.
     if (!viewId || viewId <= 0) return [];
-    const values: Record<string, string> = {
+    const values: Record<string, GlobalFilterSelection> = {
       country: this.filterCountry, sector: this.filterSector, businessUnit: this.filterBusinessUnit,
       division: this.filterDivision, cluster: this.filterCluster, plant: this.filterPlant,
     };
-    return Object.entries(values)
-      .filter(([, value]) => value && value !== 'All')
-      .map(([key, value]) => ({ sourceTable: key, sourceColumn: key, controlType: 'Dropdown', value, label: key }));
+    return [...Object.entries(values)
+      .filter(([, value]) => hasGlobalSelection(value))
+      .map(([key, value]) => ({ sourceTable: key, sourceColumn: key, ...globalSelectionPayload(value), label: key })),
+      ...(this.advancedFilters ?? [])];
+  }
+
+  private globalPreviewFilters(viewId: number) {
+    return this.globalHierarchyFilterPayload(viewId).filter(filter => filter.advancedHierarchy || (filter.values?.length ?? 0) > 1);
   }
 
   private reloadCardData$(idx: number) {
     const card = this.chartCards[idx];
     const source = card.design.source ?? '';
     const sourceType = card.design.sourceType ?? 'Table';
-    const isView = card.design.dataSourceMode === 'view' && (card.design.viewId ?? 0) > 0;
+    const isView = (card.design.dataSourceMode === 'view' || sourceType.toLowerCase() === 'view')
+      && (card.design.viewId ?? 0) > 0;
 
-    const apply = (res: { rows?: Record<string, unknown>[]; columns?: string[] }) => {
-  const rows = this.applyGlobalRowFilter(res.rows ?? [], card.isClone && card.localFilters.some(isPlantFilter));
+    const apply = (res: { rows?: Record<string, unknown>[]; columns?: string[] }, serverFiltered = false) => {
+      const rows = serverFiltered ? (res.rows ?? []) : this.applyGlobalRowFilter(res.rows ?? [], card.isClone && card.localFilters.some(isPlantFilter));
       const hasSharedFilter = this.hasActiveSharedFilter(card);
       const displayRows = hasSharedFilter
         ? this.applyCardMultiFilters(rows, card.localFilters.filter(filter => filter.controlType === 'MultiSelect'))
@@ -4979,13 +5300,13 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       if (!hasSharedFilter) this.applyPresetIfAny(idx);
     };
 
-    if (this.hasActiveSharedFilter(card)) {
+    if (this.hasActiveSharedFilter(card) || this.hasAdvancedViewFilters(card)) {
       return this.widgetService.getFilteredChartData({
         chartSource: source,
         chartSourceType: sourceType,
         viewId: isView ? (card.design.viewId ?? null) : null,
         preserveFutureDateRange: true,
-        filters: [...this.effectiveCardFilters(card).filter(filter => filter.value && filter.controlType !== 'MultiSelect'),
+        filters: [...this.serverCardFilters(card),
           ...this.globalHierarchyFilterPayload(isView ? card.design.viewId : null).filter(filter => !card.isClone || !card.localFilters.some(isPlantFilter) || !isPlantFilter(filter))],
         fromDate: this.filterFrom || undefined,
         toDate: this.filterTo || undefined,
@@ -5008,7 +5329,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
           chartSourceType: sourceType,
           viewId: card.design.viewId ?? null,
           preserveFutureDateRange: true,
-          filters: [...this.effectiveCardFilters(card).filter(filter => filter.value), ...this.globalHierarchyFilterPayload(card.design.viewId).filter(filter => !card.isClone || !card.localFilters.some(isPlantFilter) || !isPlantFilter(filter))],
+          filters: [...this.serverCardFilters(card), ...this.globalHierarchyFilterPayload(card.design.viewId).filter(filter => !card.isClone || !card.localFilters.some(isPlantFilter) || !isPlantFilter(filter))],
           ...(this.isTrendChart(card.design) ? { mode: card.trendMode } : {}),
           fromDate: this.filterFrom || undefined,
           toDate: this.filterTo || undefined,
@@ -5021,7 +5342,7 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
       const sql = card.viewSql ? this.injectDateParams(card.viewSql, true) : '';
       const connId = card.viewConnectionId;
       if (sql && connId) {
-        return this.commonApi.previewView({ connectionId: connId, sql, viewId: card.viewIdForPreview ?? 0, maxRows: 1000 }, this.shareDataContext).pipe(
+        return this.commonApi.previewView({ connectionId: connId, sql, viewId: card.viewIdForPreview ?? 0, maxRows: 1000, filters: this.globalPreviewFilters(card.design.viewId ?? 0) }, this.shareDataContext).pipe(
           catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[] })),
           tap(apply),
         );
@@ -5032,13 +5353,26 @@ export class OperationsDashboardComponent implements OnInit, AfterViewInit, OnDe
             this.chartCards[idx].viewConnectionId = view.connectionId;
             this.chartCards[idx].viewIdForPreview = view.id;
             const sql = this.injectDateParams(view.generatedSql, true);
-            return this.commonApi.previewView({ connectionId: view.connectionId, sql, viewId: view.id, maxRows: 1000 }, this.shareDataContext);
+            return this.commonApi.previewView({ connectionId: view.connectionId, sql, viewId: view.id, maxRows: 1000, filters: this.globalPreviewFilters(view.id) }, this.shareDataContext);
           }),
           catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[] })),
           tap(apply),
         );
       }
     } else {
+      // Table chart: apply the global Cluster/Plant server-side (FK join) so the capped rows come
+      // back already filtered; a table with no FK is returned unfiltered (optional filter skipped).
+      const tableGlobals = tableClusterPlantFilters(this.filterCluster, this.filterPlant);
+      if (tableGlobals.length) {
+        return this.widgetService.getFilteredChartData({
+          chartSource: source, chartSourceType: sourceType, viewId: null, preserveFutureDateRange: true,
+          filters: [...this.effectiveCardFilters(card).filter(filter => filter.value && filter.controlType !== 'MultiSelect'), ...tableGlobals],
+          fromDate: this.filterFrom || undefined, toDate: this.filterTo || undefined,
+        }, this.shareDataContext).pipe(
+          catchError(() => of({ columns: [] as string[], rows: [] as Record<string, unknown>[] })),
+          tap(res => apply(res, true)),
+        );
+      }
       return this.widgetService.getTableData(source, sourceType, this.shareDataContext).pipe(
         catchError(() => of({ rows: [] as Record<string, unknown>[], columns: [] as string[] })),
         tap(apply),

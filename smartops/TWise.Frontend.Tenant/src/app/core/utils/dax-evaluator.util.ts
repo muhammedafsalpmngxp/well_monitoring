@@ -1,3 +1,5 @@
+import { coerceNumberAllowPercent as toDaxNumber } from './percent-number.util';
+
 function safeString(v: unknown): string {
   if (v == null) return '';
   if (typeof v === 'string') return v;
@@ -40,6 +42,10 @@ export interface DaxModelConfig {
   selectedMeasureId?: string;
   measures: DaxMeasureConfig[];
   calculatedColumns?: DaxCalculatedColumnConfig[];
+  /** Tiles, charts and reports: viewers may switch between the enabled measures. */
+  allowMetricSelector?: boolean;
+  /** A viewer's pick, applied on top of the saved model in memory; never saved. */
+  viewerMeasureId?: string;
   displayPreference?: DaxDisplayPreference;
   selectedColumns?: string[];
   selectedOperation?: string;
@@ -59,11 +65,21 @@ export interface DaxToken {
 
 const DAX_AGGREGATE_FUNCTIONS = new Set(['SUM', 'PRODUCT', 'AVERAGE', 'MIN', 'MAX', 'COUNT', 'DISTINCTCOUNT', 'MEDIAN', 'STDEV', 'VARIANCE', 'PERCENTILE', 'COUNTBLANK', 'DISTINCTCOUNTNOBLANK', 'STDEV.S', 'STDEV.P', 'VAR.S', 'VAR.P', 'PERCENTILE.INC']);
 
+/** TOTAL sums the whole table and RUNNINGSUM sums up to the current order position, ignoring the current group. */
+const DAX_CONTEXT_FUNCTIONS = new Set(['TOTAL', 'RUNNINGSUM']);
+const DAX_TABLE = Symbol('daxTable');
+type DaxRowSet = Record<string, unknown>[] & { [DAX_TABLE]?: Record<string, unknown>[] };
+
+function withDaxTable(rows: Record<string, unknown>[], table?: Record<string, unknown>[]): Record<string, unknown>[] {
+  return table && table !== rows ? Object.assign([...rows], { [DAX_TABLE]: table }) : rows;
+}
+
 /** Every function the evaluator understands, with the fewest arguments it needs. */
 const DAX_FUNCTION_MIN_ARGS: Record<string, number> = {
   SUM: 1, PRODUCT: 1, AVERAGE: 1, MIN: 1, MAX: 1, COUNT: 0, DISTINCTCOUNT: 1, MEDIAN: 1, STDEV: 1, VARIANCE: 1, PERCENTILE: 2,
   COUNTROWS: 0, BLANK: 0, COALESCE: 1, DIVIDE: 2, PERCENTAGE: 2, IF: 2, SWITCH: 3,
   COUNTBLANK: 1, DISTINCTCOUNTNOBLANK: 1, ISBLANK: 1, 'STDEV.S': 1, 'STDEV.P': 1, 'VAR.S': 1, 'VAR.P': 1, 'PERCENTILE.INC': 2,
+  TOTAL: 1, RUNNINGSUM: 1,
   // Logic and math
   AND: 2, OR: 2, NOT: 1, IFERROR: 2, ROUND: 1, ABS: 1,
   // Text
@@ -97,6 +113,7 @@ export const DAX_FUNCTION_SNIPPETS: readonly string[] = [
   'DIVIDE(SUM([Actual]) - SUM([Target]), SUM([Target]), 0) * 100',
   'SUM(IF(AND([Date] >= DATE(2026, 1, 1), [Date] < DATE(2027, 1, 1)), [Amount], 0))',
   'SUM(IF(ISBLANK([Column]), 0, 1))',
+  'DIVIDE(SUM([Column]), TOTAL([Column])) * 100', 'RUNNINGSUM([Column])', 'RUNNINGSUM([Column], [Date])',
 ];
 
 export function buildDaxOperationExpression(snippet: string, columns: string[], scope: DaxEvaluationScope = 'column'): string {
@@ -164,6 +181,7 @@ export function cloneDaxModel(model: DaxModelConfig | undefined): DaxModelConfig
     selectedMeasureId: model.selectedMeasureId ?? measures[0].id,
     measures,
     calculatedColumns: (model.calculatedColumns ?? []).map(c => ({ ...c })),
+    ...(model.allowMetricSelector ? { allowMetricSelector: true } : {}),
     displayPreference: (model.displayPreference as string) === 'selected-result' ? 'result' : (model.displayPreference ?? 'result'),
     selectedColumns: [...(model.selectedColumns ?? [])],
     selectedOperation: model.selectedOperation ?? '',
@@ -220,6 +238,11 @@ export function validateDaxExpression(expression: string, availableColumns?: str
       const min = DAX_FUNCTION_MIN_ARGS[node.name];
       if (min === undefined) return `${node.name} is not a supported function.`;
       if (node.args.length < min) return `${node.name} needs at least ${min} argument${min === 1 ? '' : 's'}.`;
+      if (DAX_CONTEXT_FUNCTIONS.has(node.name)) {
+        if (insideAggregate) return `${node.name} cannot be used inside another aggregate function.`;
+        if (node.name === 'TOTAL' && node.args.length !== 1) return 'TOTAL needs exactly 1 argument.';
+        if (node.name === 'RUNNINGSUM' && node.args.length > 2) return 'RUNNINGSUM needs a value and an optional order column.';
+      }
       if (['COUNTBLANK', 'DISTINCTCOUNTNOBLANK', 'ISBLANK', 'STDEV.S', 'STDEV.P', 'VAR.S', 'VAR.P', 'PERCENTILE.INC'].includes(node.name)
         && node.args.length !== min) return `${node.name} needs exactly ${min} argument${min === 1 ? '' : 's'}.`;
       if (node.name === 'DATEDIFF') {
@@ -228,7 +251,7 @@ export function validateDaxExpression(expression: string, availableColumns?: str
           return 'DATEDIFF needs a unit in quotes: "DAY", "WEEK", "MONTH", "QUARTER", "YEAR", "HOUR", "MINUTE" or "SECOND".';
         }
       }
-      const aggregates = insideAggregate || DAX_AGGREGATE_FUNCTIONS.has(node.name);
+      const aggregates = insideAggregate || DAX_AGGREGATE_FUNCTIONS.has(node.name) || DAX_CONTEXT_FUNCTIONS.has(node.name);
       for (const arg of node.args) {
         const argError = visit(arg, aggregates);
         if (argError) return argError;
@@ -243,14 +266,15 @@ export function evaluateDaxMeasure(
   measure: DaxMeasureConfig | undefined,
   rows: Record<string, unknown>[],
   availableColumns?: string[],
+  table?: Record<string, unknown>[],
 ): number {
   if (!measure?.expression?.trim() || !rows?.length) return 0;
   const { ast } = parseDaxExpression(measure.expression);
   if (!ast) return 0;
   if ((measure.evaluationScope ?? 'column') === 'row') {
-    return rows.reduce((sum, row) => sum + asNumber(evaluateDaxNode(ast, [row], availableColumns)), 0);
+    return rows.reduce((sum, row) => sum + asNumber(evaluateDaxNode(ast, withDaxTable([row], table ?? rows), availableColumns)), 0);
   }
-  const result = evaluateDaxNode(ast, rows, availableColumns);
+  const result = evaluateDaxNode(ast, withDaxTable(rows, table), availableColumns);
   return asNumber(result);
 }
 
@@ -267,7 +291,7 @@ export function evaluateDaxMeasureForRow(
   const { ast } = parseDaxExpression(measure.expression);
   if (!ast) return 0;
   // Row scope is per row by design: SUM([A], [B]) adds the two columns of this row.
-  return asNumber(evaluateDaxNode(ast, [row], availableColumns));
+  return asNumber(evaluateDaxNode(ast, withDaxTable([row], allRows), availableColumns));
 }
 
 /** Formats a DAX measure's numeric result per its configured display format (number, currency, percent). */
@@ -293,7 +317,28 @@ export function getActiveDaxMeasures(design: Record<string, unknown> | null | un
   const model = design?.['daxModel'] as DaxModelConfig | undefined;
   // Turning DAX Model off in the builder must hide its measures in every saved view too.
   if (!model?.enabled) return [];
-  return (model.measures ?? []).filter(m => m.includeInSeries !== false && !!m.expression?.trim());
+  const measures = (model.measures ?? []).filter(m => m.includeInSeries !== false && !!m.expression?.trim());
+  const picked = model.allowMetricSelector ? measures.find(m => m.id === model.viewerMeasureId) : undefined;
+  return picked ? [picked] : measures;
+}
+
+const selectableCache = new WeakMap<object, DaxMeasureConfig[]>();
+
+/** The measures a viewer can switch between; empty unless the design allows it and has at least two. */
+export function getSelectableDaxMeasures(model: DaxModelConfig | null | undefined): DaxMeasureConfig[] {
+  if (!model?.enabled || !model.allowMetricSelector) return [];
+  const cached = selectableCache.get(model);
+  if (cached) return cached;
+  const measures = (model.measures ?? []).filter(m => m.includeInSeries !== false && !!m.expression?.trim());
+  const result = measures.length > 1 ? measures : [];
+  selectableCache.set(model, result);
+  return result;
+}
+
+/** A copy of the model showing the viewer's pick; null shows every measure again (charts and reports). */
+export function withViewerMeasure(model: DaxModelConfig, id: string | null): DaxModelConfig {
+  const valid = !!id && getSelectableDaxMeasures(model).some(measure => measure.id === id);
+  return valid ? { ...model, viewerMeasureId: id!, selectedMeasureId: id! } : { ...model, viewerMeasureId: undefined };
 }
 
 export function getSelectedDaxMeasure(model: DaxModelConfig | null | undefined): DaxMeasureConfig | undefined {
@@ -303,6 +348,8 @@ export function getSelectedDaxMeasure(model: DaxModelConfig | null | undefined):
 
 export function getTileDaxRequest(model: DaxModelConfig | null | undefined, columns?: string[]): { expression: DaxAstNode; scope: DaxEvaluationScope } | undefined {
   if (!model?.enabled) return undefined;
+  // With no measure holding an expression (e.g. after Delete Measure) DAX has nothing to calculate, so the tile keeps its normal calculation.
+  if (!model.measures?.some(m => !!m.expression?.trim())) return undefined;
   const measure = getSelectedDaxMeasure(model);
   if (!measure) throw new Error('Select a valid DAX measure for this tile.');
   const scope = measure.evaluationScope ?? 'column';
@@ -310,7 +357,14 @@ export function getTileDaxRequest(model: DaxModelConfig | null | undefined, colu
   if (error) throw new Error(error);
   const { ast } = parseDaxExpression(measure.expression);
   if (!ast) throw new Error('Invalid tile DAX expression.');
+  if (scope === 'row' && usesDaxFunction(ast, 'RUNNINGSUM')) throw new Error('RUNNINGSUM in a tile needs Calculate By set to Column.');
   return { expression: ast, scope };
+}
+
+function usesDaxFunction(node: DaxAstNode, name: string): boolean {
+  if (node.kind === 'function') return node.name === name || node.args.some(arg => usesDaxFunction(arg, name));
+  if (node.kind === 'binary') return usesDaxFunction(node.left, name) || usesDaxFunction(node.right, name);
+  return node.kind === 'unary' && usesDaxFunction(node.value, name);
 }
 
 export function evaluateTileDaxValue(rows: Record<string, unknown>[], model: DaxModelConfig | null | undefined, columns?: string[]): number | undefined {
@@ -440,7 +494,7 @@ export function appendDaxToTableRows(
 
   if (rowMeasures.length && rowGroups?.length === tableRows.length) {
     for (const measure of rowMeasures) {
-      tableRows.forEach((cells, i) => cells.push(formatDaxValue(evaluateDaxMeasure(measure, rowGroups[i], availableColumns), measure)));
+      tableRows.forEach((cells, i) => cells.push(formatDaxValue(evaluateDaxMeasure(measure, rowGroups[i], availableColumns, rows), measure)));
     }
   }
 
@@ -686,7 +740,7 @@ function evaluateDaxBinary(
 function isNumericValue(value: unknown): boolean {
   if (typeof value === 'number') return Number.isFinite(value);
   if (typeof value === 'boolean') return true;
-  return typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value));
+  return typeof value === 'string' && value.trim() !== '' && Number.isFinite(toDaxNumber(value));
 }
 
 /** Numbers compare as numbers, dates (e.g. DATE(), TODAY(), a date column) as dates, the rest as case-insensitive text. */
@@ -734,8 +788,23 @@ function evaluateDaxFunction(
   if (DAX_AGGREGATE_FUNCTIONS.has(name)) {
     return evaluateDaxAggregateFunction(name, args, fullRows ?? rows, availableColumns);
   }
+  if (DAX_CONTEXT_FUNCTIONS.has(name)) return evaluateDaxContextFunction(name, args, rows, availableColumns);
   const values = () => args.map(arg => evaluateDaxNode(arg, rows, availableColumns, fullRows));
   return evaluateDaxTextFunction(name, values) ?? evaluateDaxDateFunction(name, values) ?? 0;
+}
+
+function evaluateDaxContextFunction(name: string, args: DaxAstNode[], rows: Record<string, unknown>[], columns?: string[]): number {
+  const table = (rows as DaxRowSet)[DAX_TABLE] ?? rows;
+  if (name === 'TOTAL') return evaluateDaxAggregateFunction('SUM', args, table, columns);
+  if (!rows.length) return 0;
+  const [valueArg, orderArg] = args;
+  const positions = new Map(table.map((row, index): [Record<string, unknown>, number] => [row, index]));
+  const keyOf = (row: Record<string, unknown>): unknown => orderArg ? evaluateDaxNodeForRow(orderArg, row, columns) : positions.get(row) ?? -1;
+  const blank = (value: unknown) => value === null || value === undefined || value === '';
+  // Blank order values sort first, so a tile over the whole table sums every row.
+  const order = (a: unknown, b: unknown) => blank(a) ? (blank(b) ? 0 : -1) : blank(b) ? 1 : compareDax(a, b);
+  const current = rows.map(keyOf).reduce((max, key) => order(key, max) > 0 ? key : max);
+  return evaluateDaxAggregateFunction('SUM', [valueArg], table.filter(row => order(keyOf(row), current) <= 0), columns);
 }
 
 /** Text functions; undefined when `name` is not one. Positions are 1-based, as in DAX. */
@@ -840,9 +909,9 @@ function evaluateDaxAggregateFunction(
   const values = valueArgs.length
     ? valueArgs.flatMap(arg => collectDaxValues(arg, rows, availableColumns))
     : collectDaxValues(undefined, rows, availableColumns);
-  const nums = values.map(Number).filter(Number.isFinite);
+  const nums = values.map(toDaxNumber).filter(Number.isFinite);
   const numericValues = values.filter(value => value != null && value !== '' && typeof value !== 'boolean')
-    .map(Number).filter(Number.isFinite);
+    .map(toDaxNumber).filter(Number.isFinite);
   const populationVariance = () => {
     if (!numericValues.length) return 0;
     const mean = numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length;
@@ -955,7 +1024,7 @@ function standardDeviation(values: number[]): number {
 }
 
 function asNumber(value: unknown): number {
-  const n = Number(value ?? 0);
+  const n = toDaxNumber(value ?? 0);
   return Number.isFinite(n) ? n : 0;
 }
 

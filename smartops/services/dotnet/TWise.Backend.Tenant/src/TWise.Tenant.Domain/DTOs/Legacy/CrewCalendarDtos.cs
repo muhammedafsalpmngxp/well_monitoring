@@ -18,7 +18,8 @@ public record CrewCalendarActivityDto(
     decimal? ProductivityPct = null,
     string Source = "legacy",
     long? AssignmentId = null,
-    string? Cluster = null);
+    string? Cluster = null,
+    int? PlantCode = null);
 
 public record CrewCalendarCrewDto(
     string CrewCode,

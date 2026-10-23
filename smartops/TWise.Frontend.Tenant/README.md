@@ -44,6 +44,22 @@ To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use th
 ng test
 ```
 
+## Report percentage columns
+
+Report columns containing numeric text with an appended `%` (for example, `12.5%`) are available to Math Operation transformations, numeric DAX operations, calculated fields, numeric comparisons, and data bars, as well as Sum/Average totals and grouping. Calculations use the displayed numeric value (`12.5%` is `12.5`, not `0.125`). Math Operation preserves the `%` suffix without rounding intermediate results; Type Change to Number removes it. Other text suffixes remain non-numeric, and percentage columns remain available to text operations.
+
+## Report Excel export
+
+Excel generates one serial-number column. When the report includes a visible Sl No. source column, its saved header label, group, and sub-group are retained on that generated column, including groups shared with neighboring columns. Reports without a serial source column keep the separate auto-number header.
+
+## Crew Calendar planning and utilization
+
+Planned is an independent scenario containing only unassigned activities that have not started. Recorded assignments and historical roster reservations are not loaded into that scenario; Actual retains the recorded activity data. Allocation follows cluster, then crew group, then natural crew-code order. A named-cluster activity requires a roster crew mapped to that same cluster and crew group; missing mappings are not a wildcard. Unclassified activities can use only unmapped crews. A crew mapped to several clusters shares its availability across them, and each preview activity is shown only under its own cluster.
+
+Pending activities are considered by start date, end date, then activity ID. Each is proposed to the first matching crew whose proposals in the current allocation round do not overlap its inclusive dates. Earlier rounds are tried first. If every matching crew conflicts in every existing round, a new round starts from the first matching crew and may overlap work in earlier rounds. For example, four distinct activities on October 1-7 with three matching crews go to Crew 1, Crew 2, Crew 3, then Crew 1 again; a nonconflicting activity on October 10-13 still goes to Crew 1. Activities without a matching roster crew or valid dates remain unallocated rather than receiving an unrelated crew. Later crews can remain idle when earlier crews fit all eligible work. Browser-cached proposals cannot override this ordering. Planning does not write assignments to the database.
+
+For a selected date range, utilization is the sum of each distinct planned or recorded activity's days in the range divided by the crew's available calendar days. Overlapping activities count separately: two activities spanning the entire range yield 200%, including activities allocated in different planning rounds. Historical reservation days do not contribute to the independent plan. Actual work stops at today; milestones and draft activities do not contribute. Idle days cannot be negative, and 100% or greater is shown as fully utilized in the report.
+
 ## Running end-to-end tests
 
 For end-to-end (e2e) testing, run:

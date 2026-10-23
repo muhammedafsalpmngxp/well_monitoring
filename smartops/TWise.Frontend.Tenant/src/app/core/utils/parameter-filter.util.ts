@@ -1,5 +1,6 @@
 import { renameDaxColumn, type DaxMeasureConfig } from './dax-evaluator.util';
 import { remapAdvancedColumns } from './advanced-chart.util';
+import { coerceNumberAllowPercent, isPercentValue } from './percent-number.util';
 
 export type ParameterFilterAction =
   | 'type_change'
@@ -10,6 +11,8 @@ export type ParameterFilterAction =
   | 'merge_columns'
   | 'trim_text'
   | 'text_operation'
+  | 'append_text'
+  | 'prepend_text'
   | 'extract_value'
   | 'json_extract'
   | 'math_transform'
@@ -74,6 +77,10 @@ export function getParameterRuleError(rule: ParameterFilterRule): string | null 
       return rule.dedupStrategy === '' ? 'Select a deduplication strategy.' : null;
     case 'split_column':
       return rule.delimiter ? null : 'Enter the delimiter to split on.';
+    case 'append_text':
+    case 'prepend_text':
+      // An empty value would be a no-op (and must not coerce null cells into ''), so require text.
+      return (rule.literalText ?? '') !== '' ? null : 'Enter the text to add.';
     case 'math_transform': {
       const op = rule.mathOperator ?? '+';
       if (MATH_OPERATORS_WITHOUT_VALUE.has(op)) return null;
@@ -247,6 +254,16 @@ function parseDate(value: unknown): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+// Strict ISO (YYYY-MM-DD, optionally with a time) only. Unlike parseDate, this never falls back
+// to V8's lenient Date parser, which turns free text like "NIMR-1704" into 01-Jan-1704.
+function parseIsoDate(value: unknown): Date | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/.exec(value.trim());
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return date.getMonth() === Number(match[2]) - 1 ? date : null;
+}
+
 function dateToDayNumber(value: unknown): number | null {
   const date = value instanceof Date ? value : parseDate(value);
   if (!date || Number.isNaN(date.getTime())) return null;
@@ -348,7 +365,7 @@ export function applyParameterFilters(
               if (val instanceof Date) {
                 row[colKey] = dateToDayNumber(val) ?? 0;
               } else {
-                const num = Number(val);
+                const num = coerceNumberAllowPercent(val);
                 row[colKey] = Number.isFinite(num) ? num : dateToDayNumber(val) ?? 0;
               }
             } else if (targetType === 'Text') {
@@ -460,8 +477,8 @@ export function applyParameterFilters(
           let nextColumnIndex = sourceColumnIndex >= 0 ? sourceColumnIndex + 1 : currentCols.length;
           currentRows.forEach(row => {
             const rawValue = row[colKey];
-            const parsed = rawValue instanceof Date ? rawValue : parseDate(rawValue);
-            const text = parsed ? formatDate(parsed, 'DD-MMM-YYYY') : safeString(rawValue);
+            const isoDate = rawValue instanceof Date ? rawValue : parseIsoDate(rawValue);
+            const text = isoDate ? formatDate(isoDate, 'DD-MMM-YYYY') : safeString(rawValue);
             const parts = text.split(delim);
             parts.forEach((p, idx) => {
               const partCol = `${prefix}_${idx + 1}`;
@@ -554,6 +571,29 @@ export function applyParameterFilters(
         break;
       }
 
+      case 'append_text':
+      case 'prepend_text': {
+        // Adds a fixed string to the end (append) or start (prepend) of each non-empty cell.
+        // Blank/null cells are left untouched so the column isn't polluted with the lone value.
+        const addition = rule.literalText ?? '';
+        const isAppend = rule.action === 'append_text';
+        for (const col of targetCols) {
+          const colKey = resolveTransformedColumnKey(currentRows[0], col, rules);
+          const targetCol = (targetCols.length === 1 && rule.newColumnName?.trim()) ? rule.newColumnName.trim() : colKey;
+          currentRows.forEach(row => {
+            const raw = row[colKey];
+            if (raw == null || raw === '') {
+              if (targetCol !== colKey) row[targetCol] = raw ?? '';
+              return;
+            }
+            const text = safeString(raw);
+            row[targetCol] = isAppend ? text + addition : addition + text;
+          });
+          if (!currentCols.includes(targetCol)) currentCols.push(targetCol);
+        }
+        break;
+      }
+
       case 'extract_value': {
         const mode = rule.extractMode ?? 'First N Chars';
         const len = Math.max(1, Number(rule.extractLength) || 1);
@@ -590,8 +630,8 @@ export function applyParameterFilters(
       }
 
       case 'math_transform': {
-        if (rule.mathValue == null || String(rule.mathValue).trim() === '') break;
         const op = rule.mathOperator ?? '+';
+        if (!MATH_OPERATORS_WITHOUT_VALUE.has(op) && (rule.mathValue == null || String(rule.mathValue).trim() === '')) break;
         const operand = Number(rule.mathValue ?? 0);
         if (!Number.isFinite(operand)) break;
 
@@ -599,7 +639,8 @@ export function applyParameterFilters(
           const colKey = resolveTransformedColumnKey(currentRows[0], col, rules);
           const targetCol = (targetCols.length === 1 && rule.newColumnName?.trim()) ? rule.newColumnName.trim() : colKey;
           currentRows.forEach(row => {
-            const num = Number(row[colKey]);
+            const cell = row[colKey];
+            const num = coerceNumberAllowPercent(cell);
             if (!Number.isFinite(num)) return;
             let result = num;
             if (op === '+') result = num + operand;
@@ -612,7 +653,7 @@ export function applyParameterFilters(
             else if (op === 'abs') result = Math.abs(num - operand);
             else if (op === 'sqrt' && num + operand >= 0) result = Math.sqrt(num + operand);
             else if (op === 'percentage') result = num * operand / 100;
-            row[targetCol] = result;
+            row[targetCol] = isPercentValue(cell) ? `${result}%` : result;
           });
           if (!currentCols.includes(targetCol)) currentCols.push(targetCol);
         }

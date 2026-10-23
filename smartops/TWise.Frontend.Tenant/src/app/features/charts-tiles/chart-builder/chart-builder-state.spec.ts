@@ -1,11 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Subject } from 'rxjs';
+import { signal } from '@angular/core';
+import { of, Subject } from 'rxjs';
 import { ChartBuilderComponent } from './chart-builder.component';
 
 describe('Chart builder working state', () => {
+  it('marks hierarchy filters for source-column scoping without changing local filters', () => {
+    const component = Object.assign(Object.create(ChartBuilderComponent.prototype), {
+      filterValues: { country: 'Oman', sector: 'All', plant: ['Plant A', 'Plant B'] },
+    }) as ChartBuilderComponent;
+    expect(component['globalHierarchyFilterPayload']()).toEqual([
+      expect.objectContaining({ sourceColumn: 'country', value: 'Oman', globalHierarchy: true }),
+      expect.objectContaining({
+        sourceColumn: 'plant_description', values: ['Plant A', 'Plant B'], globalHierarchy: true,
+      }),
+    ]);
+  });
+
   function createBuilder(userId = 1, tenantId = 7, chartId: string | null = null) {
     const component = Object.assign(Object.create(ChartBuilderComponent.prototype), {
-      authService: { getCurrentUser: () => ({ userId, tenantId }) },
+      authService: { getCurrentUser: () => ({ userId, tenantId }), isAdmin: () => true },
       route: { snapshot: {
         paramMap: { get: () => chartId },
         queryParamMap: { get: (key: string) => key === 'name' ? 'Import Chart' : null },
@@ -17,6 +30,7 @@ describe('Chart builder working state', () => {
       tabStates: new Map(), savedChartIds: new Map(), sourceModeStates: new Map(), chartTypeStates: new Map(),
       sourceLoadVersion: 0, nextFilterId: 1, draftReady: true, discardDraftOnExit: false,
       savedDraftBaseline: '', selectedCategoryId: 2, category: 'Charts',
+      saveError: signal<string | null>(null),
       chartModels: [{ id: 'Wells', label: 'Wells', modelType: 'Table' }],
       chartTypes: [{ id: 'table', widgetLibraryId: 1 }, { id: 'bar', widgetLibraryId: 2 }],
       // Built from the prototype, so the component's own field initialisers never run.
@@ -52,6 +66,139 @@ describe('Chart builder working state', () => {
 
   beforeEach(() => sessionStorage.clear());
   afterEach(() => vi.restoreAllMocks());
+
+  it('defaults scenario parameters to disabled and persists only the enable setting in chart designs', () => {
+    const component = createBuilder();
+    Object.assign(component, { syncDaxModelBeforeSave: vi.fn(), buildColorAssignments: () => ({}) });
+    expect(component.scenarioParametersEnabled).toBe(false);
+    expect(JSON.parse(component['buildDesignJson']()).scenarioParametersEnabled).toBe(false);
+    component.toggleScenarioParameters();
+    component.scenarioPreviewResult = {
+      options: {}, categories: ['Simulation only'], values: [9999], series: [],
+    };
+    const design = JSON.parse(component['buildDesignJson']());
+    expect(design.scenarioParametersEnabled).toBe(true);
+    expect(JSON.stringify(design)).not.toContain('Simulation only');
+    expect(design.scenarioPreviewResult).toBeUndefined();
+    expect(design.scenarioPlanAdjustments).toBeUndefined();
+  });
+
+  it('restores the scenario setting across Undo, Redo, tabs, and working drafts', () => {
+    const component = createBuilder();
+    component.toggleScenarioParameters();
+    component.undo();
+    expect(component.scenarioParametersEnabled).toBe(false);
+    component.redo();
+    expect(component.scenarioParametersEnabled).toBe(true);
+    component['openNewChartTab']();
+    expect(component.scenarioParametersEnabled).toBe(false);
+    component.setActiveTab('chart-1');
+    expect(component.scenarioParametersEnabled).toBe(true);
+    component.persistEditorDraft();
+    const restored = createBuilder();
+    expect(restored['restoreEditorDraft']()).toBe(true);
+    expect(restored.scenarioParametersEnabled).toBe(true);
+  });
+
+  it('returns to the baseline chart and table when scenario parameters are disabled', () => {
+    const component = createBuilder();
+    const baseline = { categories: ['Baseline'], values: [100] };
+    Object.assign(component, {
+      previewData: baseline, previewMultiSeries: [], scenarioParametersEnabled: true,
+      scenarioPreviewResult: { options: { title: { text: 'Simulation' } }, categories: ['Scenario'], values: [110], series: [] },
+    });
+    expect(component.displayedPreviewData.values).toEqual([110]);
+    expect(component.displayedPreviewOptions?.title?.text).toBe('Simulation');
+    component.toggleScenarioParameters();
+    expect(component.displayedPreviewData).toBe(baseline);
+    expect(component.displayedPreviewSeries).toEqual([]);
+    expect(component.scenarioPreviewResult).toBeNull();
+  });
+
+  it('resolves the selected view by ID even when the saved name matches a different view', () => {
+    const component = createBuilder();
+    Object.assign(component, {
+      dataSourceMode: 'view', selectedViewId: 3, selectedChartModelId: 'OldName',
+      availableViews: [{ id: 9, viewName: 'OldName' }, { id: 3, viewName: 'RenamedView' }],
+    });
+    expect(component.selectedView).toEqual({ id: 3, viewName: 'RenamedView' });
+    component.selectedViewId = 99;
+    expect(component.selectedView).toBeUndefined();
+    expect(component['snapshotState']().viewId).toBe(99);
+  });
+
+  it.each([
+    [true, true], [false, true], [true, undefined], [false, false],
+  ])('restores the Edit source and saved scenario setting (view listed: %s, scenarios: %s)', (inList, scenarios) => {
+    const component = createBuilder();
+    const view = { id: 3, viewName: 'RenamedView' };
+    const hydrate = vi.fn();
+    const getDatabaseViewById = vi.fn(() => of(view));
+    Object.assign(component, {
+      apiCategories: [], isLoadingChart: { set: vi.fn() },
+      widgetService: { getWidgetById: () => of({
+        name: 'Buffer Flowline Readiness Trend', source: 'OldName', sourceType: 'View', sourceId: 3,
+        designJson: JSON.stringify({
+          chartType: 'line', source: 'OldName', dataSourceMode: 'view',
+          scenarioParametersEnabled: scenarios,
+          daxModel: { schemaVersion: 1, enabled: false, measures: [], selectedMeasureId: null },
+        }),
+      }) },
+      commonApi: {
+        getDatabaseViews: () => of(inList ? [{ id: 9, viewName: 'OldName' }, view] : [{ id: 9, viewName: 'OldName' }]),
+        getDatabaseViewById,
+      },
+      hydrateViewSourcePreview: hydrate,
+    });
+    component['loadSavedChart'](42);
+    expect(component.scenarioParametersEnabled).toBe(scenarios === true);
+    expect(component.selectedViewId).toBe(3);
+    expect(component.selectedView).toEqual(view);
+    expect(component.selectedChartModelId).toBe('RenamedView');
+    expect(hydrate).toHaveBeenCalledWith('RenamedView', 3, expect.any(Object));
+    expect(getDatabaseViewById).toHaveBeenCalledTimes(inList ? 0 : 1);
+  });
+
+  it('preserves view IDs across source switching, Undo, and draft restoration', () => {
+    const component = createBuilder();
+    Object.assign(component, {
+      dataSourceMode: 'view', selectedViewId: 3, selectedChartModelId: 'OldName',
+      availableViews: [{ id: 3, viewName: 'RenamedView' }, { id: 9, viewName: 'OldName' }],
+    });
+    component.switchDataSourceMode('table');
+    expect(component.selectedViewId).toBeNull();
+    component.switchDataSourceMode('view');
+    expect(component.selectedView?.id).toBe(3);
+
+    component.pushUndo();
+    component.selectedViewId = 9;
+    component.undo();
+    expect(component.selectedView?.id).toBe(3);
+    component['openNewChartTab']();
+    component.setActiveTab('chart-1');
+    expect(component.selectedView?.id).toBe(3);
+    component.persistEditorDraft();
+    const restored = createBuilder();
+    expect(restored['restoreEditorDraft']()).toBe(true);
+    expect(restored.selectedViewId).toBe(3);
+    expect(restored.selectedView?.id).toBe(3);
+  });
+
+  it('treats views with the same name but different IDs as different sources', () => {
+    const component = createBuilder();
+    const first = { id: 3, viewName: 'SharedName' };
+    const second = { ...first, id: 9 };
+    Object.assign(component, {
+      dataSourceMode: 'view', selectedViewId: 3, selectedChartModelId: 'SharedName', editId: 42,
+      availableViews: [first, second], loadViewDateParameters: vi.fn(),
+    });
+    component.selectView(component.availableViews[1]);
+    expect(component.selectedView?.id).toBe(9);
+    expect(component.multiYColumns).toEqual([]);
+    expect(component['snapshotState']().viewId).toBe(9);
+    component.undo();
+    expect(component.selectedView?.id).toBe(3);
+  });
 
   it('reloads imported preview rows on Undo and ignores the response after Redo', () => {
     const component = createBuilder();
@@ -174,6 +321,38 @@ describe('Chart builder working state', () => {
     expect(restored.fromDate).toBe('2026-01-01');
   });
 
+  it('persists and restores multi-valued global filter selections', () => {
+    const original = createBuilder();
+    original.filterValues['country'] = ['Oman', 'Qatar'];
+    original.persistEditorDraft();
+
+    const restored = createBuilder();
+    expect(restored['restoreEditorDraft']()).toBe(true);
+    expect(restored.filterValues['country']).toEqual(['Oman', 'Qatar']);
+  });
+
+  it('toggles categorical selections without closing the dropdown and unions child options', () => {
+    const component = createBuilder();
+    component['allPlants'] = [
+      { plantCode: 1, country: 'Oman', sector: 'Construction', businessUnit: 'Energy', division: 'Oilfield', cluster: 'North', plantDescription: 'Plant A' },
+      { plantCode: 2, country: 'Qatar', sector: 'Utilities', businessUnit: 'Power', division: 'Projects', cluster: 'South', plantDescription: 'Plant B' },
+    ];
+    component.filterFields[0].options = ['Oman', 'Qatar'];
+    component.filterValues = {
+      country: 'All', sector: 'All', businessUnit: 'All', division: 'All', cluster: 'All', plant: 'All',
+    };
+    component.openGlobalFilterName = 'country';
+    component['reloadGlobalViewPreview'] = vi.fn();
+    component.persistEditorDraft = vi.fn();
+
+    component.selectGlobalFilterOption('country', 'Oman');
+    component.selectGlobalFilterOption('country', 'Qatar');
+
+    expect(component.filterValues['country']).toEqual(['Oman', 'Qatar']);
+    expect(component.filterFields[1].options).toEqual(['Construction', 'Utilities']);
+    expect(component.openGlobalFilterName).toBe('country');
+  });
+
   it('persists on navigation out of the component', () => {
     const component = createBuilder();
     component.ngOnDestroy();
@@ -204,7 +383,7 @@ describe('Chart builder working state', () => {
   it('removes a discarded draft without recreating it on exit', () => {
     const component = createBuilder();
     component.persistEditorDraft();
-    component.discard();
+    component.confirmDiscard();
     component.ngOnDestroy();
     expect(sessionStorage.getItem(component['draftStorageKey'])).toBeNull();
   });

@@ -4,6 +4,7 @@ import { Observable, map, of, shareReplay, tap, catchError, switchMap, defer } f
 import { environment } from '../../../environments/environment';
 import { DashboardShareContext } from './widget.service';
 import { DaxModelConfig, getTileDaxRequest } from '../utils/dax-evaluator.util';
+import { API_ENDPOINTS } from '../constants/api.constants';
 
 export interface SourceDto {
   name: string;
@@ -97,6 +98,11 @@ export interface DbSchema {
   tables: DbSchemaTable[];
 }
 
+/** Latest successful AlTasnimBI migration sync, as an ISO 8601 timestamp with the Oman +04:00 offset. */
+export interface SyncTimeResponse {
+  omanTimestamp: string;
+}
+
 export interface PlantFilterDto {
   plantCode: number;
   plantDescription: string;
@@ -126,6 +132,8 @@ export interface CompanyRow {
 export interface AdvancedFilterDataDto {
   orgStructure: OrgStructureRow[];
   companies: CompanyRow[];
+  resourceTypes?: string[];
+  resourceTypesError?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -157,6 +165,11 @@ export class CommonApiService {
     return this.http.get<SourceDto[] | { data: SourceDto[] }>(`${this.baseUrl}/bi-sources`).pipe(
       map(response => Array.isArray(response) ? response : response.data ?? []),
     );
+  }
+
+  /** GET /api/common/sync-time – latest successful data sync (404 when none has been recorded). */
+  getSyncTime(): Observable<SyncTimeResponse> {
+    return this.http.get<SyncTimeResponse>(`${environment.apiBaseUrl}${API_ENDPOINTS.COMMON.SYNC_TIME}`);
   }
 
   /** GET /api/common/table-data?sourceName=X&sourceType=Y – preview data from a source. */
@@ -211,6 +224,39 @@ export class CommonApiService {
       }),
       catchError(() => of(0)),
     );
+  }
+
+  /**
+   * Breakdown "1st value" computed with the SAME filter logic as the tile's main value:
+   * View → filtered view rows' first-row column (global/local/date params injected into the view
+   * SQL server-side); Table + filters → server-side aggregate 'value' over the filtered set
+   * (rows[0].Value); Table + no filters → plain server-side aggregate 'value'. Falls back to 0.
+   */
+  getBreakdownValueFiltered(args: {
+    sourceName: string; sourceType: string; column: string;
+    filters?: { sourceTable: string; sourceColumn: string; controlType: string; value: string; values?: string[]; label?: string; optional?: boolean }[];
+    fromDate?: string; toDate?: string; shareContext?: DashboardShareContext;
+  }): Observable<number> {
+    const { sourceName, sourceType, column, filters = [], fromDate, toDate, shareContext } = args;
+    if (!sourceName || !column) return of(0);
+    if ((sourceType || 'Table').toLowerCase() === 'view') {
+      const run = (viewId: number) => this.postFilteredChartData({ chartSource: sourceName, chartSourceType: 'View', viewId, filters, fromDate, toDate }, shareContext)
+        .pipe(map(res => Number(res.rows?.[0]?.[column] ?? 0) || 0));
+      return this.getDatabaseViews('view').pipe(
+        switchMap(views => { const v = views.find(x => x.viewName === sourceName); return v ? run(v.id) : of(0); }),
+        catchError(() => of(0)),
+      );
+    }
+    // Table → always via the filtered endpoint (aggregation 'value'), so the no-filter and filtered
+    // cases use the same TOP-1 query and the breakdown's first value stays consistent with the grid.
+    return this.postFilteredChartData({ chartSource: sourceName, chartSourceType: 'Table', viewId: null, filters, aggregation: 'value', valueField: column, fromDate, toDate }, shareContext)
+      .pipe(map(res => Number(res.rows?.[0]?.['Value'] ?? 0) || 0), catchError(() => of(0)));
+  }
+
+  private postFilteredChartData(body: { chartSource: string; chartSourceType: string; viewId: number | null; filters: { sourceTable: string; sourceColumn: string; controlType: string; value: string; values?: string[]; label?: string; optional?: boolean }[]; fromDate?: string; toDate?: string; aggregation?: string; valueField?: string }, shareContext?: DashboardShareContext): Observable<{ columns: string[]; rows: Record<string, unknown>[] }> {
+    let params = new HttpParams();
+    if (shareContext) params = params.set('shareDashboardId', shareContext.dashboardId).set('shareToken', shareContext.token);
+    return this.http.post<{ columns: string[]; rows: Record<string, unknown>[] }>(`${this.baseUrl}/chart-data/filtered`, body, { params });
   }
 
   getPlantFilters(shareContext?: DashboardShareContext): Observable<PlantFilterDto[]> {
@@ -331,12 +377,38 @@ export interface CreateDatabaseViewRequest {
   referencedComponentIdsJson?: string;
 }
 
+export interface PreviewFilterParam {
+  sourceTable?: string;
+  sourceColumn?: string;
+  controlType?: 'Dropdown' | 'MultiSelect' | string;
+  value?: string;
+  values?: string[];
+  label?: string;
+  dashboardAdditional?: boolean;
+  advancedHierarchy?: string;
+}
+
+export function globalSelectionPayload(selection: string | string[] | null | undefined): {
+  controlType: 'Dropdown' | 'MultiSelect';
+  value: string;
+  values?: string[];
+} {
+  const values = (Array.isArray(selection) ? selection : [selection ?? ''])
+    .map(v => (v ?? '').trim())
+    .filter(v => v.length > 0 && v !== 'All');
+
+  return values.length > 1
+    ? { controlType: 'MultiSelect', value: '', values }
+    : { controlType: 'Dropdown', value: values[0] ?? '' };
+}
+
 export interface PreviewViewRequest {
   connectionId: number;
   /** Optional. When omitted the API resolves the SQL from the stored view identified by viewId. */
   sql?: string;
   viewId: number;
   maxRows: number;
+  filters?: PreviewFilterParam[];
 }
 
 /** One failed rule of docs/VIEW-CONTRACT.md. An empty list means the view is model-compliant. */

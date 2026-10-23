@@ -4,14 +4,14 @@ namespace TWise.Tenant.Application.Features.Delivery;
 
 /// <summary>
 /// A user as the control plane knows them now: address, name, whether they may sign in, roles, plants, and the page
-/// modules they may view (ViewModules). An admin role passes every module check, as it does in the access token.
+/// modules they may view (ViewModules); every role, admin included, is checked against it.
 /// </summary>
 public sealed record DirectoryUser(
     long UserId, string Email, string? Name, bool IsActive, IReadOnlyList<string> RoleCodes, IReadOnlyList<int> PlantCodes,
     IReadOnlyList<string>? ViewModules = null)
 {
     public bool CanView(string moduleCode)
-        => RunAsScope.Roles(this).Contains("admin") || (ViewModules ?? []).Contains(moduleCode);
+        => (ViewModules ?? []).Contains(moduleCode);
 }
 
 /// <summary>

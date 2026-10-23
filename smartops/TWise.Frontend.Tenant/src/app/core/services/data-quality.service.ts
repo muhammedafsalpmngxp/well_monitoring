@@ -1,8 +1,23 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, from, Observable, of, throwError } from 'rxjs';
+import { catchError, concatMap, finalize, map, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { DashboardShareContext } from './widget.service';
+import { NotificationRefreshService } from './notification-refresh.service';
+import { ToastService } from './toast.service';
+
+export type ValidationRuleExecutionStatus = 'loading' | 'success' | 'failed';
+
+export interface ValidationRuleBatchState {
+  isRunning: boolean;
+  statuses: Readonly<Record<string, ValidationRuleExecutionStatus>>;
+  triggeredOnByRule: Readonly<Record<string, string>>;
+  successCount: number;
+  failedCount: number;
+  completionId: number;
+  completionPending: boolean;
+}
 
 export interface CreateValidationRuleRequest {
   category: string;
@@ -95,8 +110,29 @@ export interface ExecuteRuleResponse { ruleId: string; message: string; inserted
 @Injectable({ providedIn: 'root' })
 export class DataQualityService {
   private readonly baseUrl = `${environment.tenantApiUrl}/data-quality`;
+  private readonly batchState = new BehaviorSubject<ValidationRuleBatchState>({
+    isRunning: false,
+    statuses: {},
+    triggeredOnByRule: {},
+    successCount: 0,
+    failedCount: 0,
+    completionId: 0,
+    completionPending: false,
+  });
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly notificationRefreshService: NotificationRefreshService,
+    private readonly toastService: ToastService,
+  ) {}
+
+  get validationRuleBatchState$(): Observable<ValidationRuleBatchState> {
+    return this.batchState.asObservable();
+  }
+
+  get validationRuleBatchState(): ValidationRuleBatchState {
+    return this.batchState.value;
+  }
 
   // Rules CRUD
   createRule(request: CreateValidationRuleRequest): Observable<{ data: CreateValidationRuleResponse }> {
@@ -117,6 +153,88 @@ export class DataQualityService {
 
   executeRule(ruleId: string): Observable<{ data: ExecuteRuleResponse }> {
     return this.http.post<{ data: ExecuteRuleResponse }>(`${this.baseUrl}/rules/${ruleId}/execute`, {});
+  }
+
+  executeRuleWithStatus(ruleId: string): Observable<{ data: ExecuteRuleResponse }> {
+    this.setRuleExecutionStatus(ruleId, 'loading');
+    return this.executeRule(ruleId).pipe(
+      tap(() => this.setRuleExecutionStatus(ruleId, 'success', new Date().toISOString().slice(0, 16).replace('T', ' '))),
+      catchError(error => {
+        this.setRuleExecutionStatus(ruleId, 'failed');
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  runRulesSequentially(ruleIds: string[]): void {
+    const uniqueRuleIds = [...new Set(ruleIds)];
+    if (this.batchState.value.isRunning || uniqueRuleIds.length === 0) return;
+
+    const statuses = Object.fromEntries(uniqueRuleIds.map(ruleId => [ruleId, 'loading'])) as Record<string, ValidationRuleExecutionStatus>;
+    this.batchState.next({
+      ...this.batchState.value,
+      isRunning: true,
+      statuses,
+      triggeredOnByRule: {},
+      successCount: 0,
+      failedCount: 0,
+      completionPending: false,
+    });
+
+    from(uniqueRuleIds).pipe(
+      concatMap(ruleId => this.executeRule(ruleId).pipe(
+        map(() => ({ ruleId, status: 'success' as const })),
+        catchError(() => of({ ruleId, status: 'failed' as const })),
+      )),
+      tap(result => {
+        const current = this.batchState.value;
+        this.batchState.next({
+          ...current,
+          statuses: { ...current.statuses, [result.ruleId]: result.status },
+          triggeredOnByRule: result.status === 'success'
+            ? { ...current.triggeredOnByRule, [result.ruleId]: new Date().toISOString().slice(0, 16).replace('T', ' ') }
+            : current.triggeredOnByRule,
+        });
+      }),
+      finalize(() => {
+        const current = this.batchState.value;
+        const successCount = Object.values(current.statuses).filter(status => status === 'success').length;
+        const failedCount = Object.values(current.statuses).filter(status => status === 'failed').length;
+        const message = `Rule batch execution completed with ${successCount} success and ${failedCount} failed`;
+        this.toastService.pending = message;
+        this.batchState.next({
+          ...current,
+          isRunning: false,
+          successCount,
+          failedCount,
+          completionId: current.completionId + 1,
+          completionPending: true,
+        });
+        this.publishRuleBatchCompletionNotification(successCount, failedCount);
+      }),
+    ).subscribe();
+  }
+
+  private publishRuleBatchCompletionNotification(successCount: number, failedCount: number): void {
+    this.http.post<void>(`${this.baseUrl}/rules/batch-completion`, { successCount, failedCount }).pipe(
+      catchError(() => of(undefined)),
+    ).subscribe(() => this.notificationRefreshService.requestRefresh());
+  }
+
+  acknowledgeValidationRuleBatchCompletion(): void {
+    if (!this.batchState.value.completionPending) return;
+    this.batchState.next({ ...this.batchState.value, completionPending: false });
+  }
+
+  private setRuleExecutionStatus(ruleId: string, status: ValidationRuleExecutionStatus, triggeredOn?: string): void {
+    const current = this.batchState.value;
+    this.batchState.next({
+      ...current,
+      statuses: { ...current.statuses, [ruleId]: status },
+      triggeredOnByRule: triggeredOn
+        ? { ...current.triggeredOnByRule, [ruleId]: triggeredOn }
+        : current.triggeredOnByRule,
+    });
   }
 
   deleteRule(ruleId: string): Observable<unknown> {

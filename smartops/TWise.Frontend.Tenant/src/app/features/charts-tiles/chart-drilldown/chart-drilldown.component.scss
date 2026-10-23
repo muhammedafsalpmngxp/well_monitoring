@@ -66,7 +66,7 @@
 
 // Panel header (same as chart detail)
 .wv-panel-header {
-  display: flex; align-items: center; gap: 10px; padding: 16px 20px;
+  display: flex; align-items: center; gap: 10px; padding: 16px 20px 0px;
   &__icon {
     width: 40px; height: 40px; border-radius: 12px; background: #7C3AED;
     color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -80,7 +80,8 @@
 // Filter bar styles (same as widget-view / chart detail page)
 .ops-dashboard__filter-bar {
   position: relative;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 16px;
   border-radius: 10px;

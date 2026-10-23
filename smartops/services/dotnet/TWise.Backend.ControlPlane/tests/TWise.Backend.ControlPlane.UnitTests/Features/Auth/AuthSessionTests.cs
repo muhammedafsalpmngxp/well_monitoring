@@ -110,6 +110,41 @@ public sealed class AuthSessionTests : IDisposable
 
     private static string SessionId(string token) => Principal(token).FindFirst("sid")!.Value;
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("EMP00042")]
+    [InlineData("00076")]
+    public async Task Login_ReturnsStoredEmployeeIdWithoutSubstitutingUserId(string? employeeId)
+    {
+        _user.EmployeeId = employeeId;
+        await _db.SaveChangesAsync();
+
+        var response = await LoginAsync();
+
+        response.UserId.Should().Be(_user.UserId);
+        response.EmployeeId.Should().Be(employeeId);
+        var json = JsonSerializer.SerializeToElement(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        json.GetProperty("employeeId").GetString().Should().Be(employeeId);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("00076")]
+    public async Task Refresh_ReturnsLatestEmployeeIdIncludingNull(string? employeeId)
+    {
+        _user.EmployeeId = "EMP00042";
+        await _db.SaveChangesAsync();
+        var login = await LoginAsync();
+        _user.EmployeeId = employeeId;
+        await _db.SaveChangesAsync();
+        _db.ChangeTracker.Clear();
+
+        var response = await _auth.RefreshAsync(login.RefreshToken);
+
+        response.Should().NotBeNull();
+        response!.EmployeeId.Should().Be(employeeId);
+    }
+
     [Fact]
     public async Task Login_CreatesIndependentSessionsAndRefreshPreservesIdentity()
     {

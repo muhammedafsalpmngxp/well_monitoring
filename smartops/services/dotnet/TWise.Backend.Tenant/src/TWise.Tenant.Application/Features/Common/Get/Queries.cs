@@ -9,6 +9,9 @@ public record ListSourcesQuery : IRequest<IReadOnlyList<SourceDto>>;
 /// <summary>Returns all tables from the AlTasnimBI database — temporary.</summary>
 public record ListBISourcesQuery : IRequest<IReadOnlyList<SourceDto>>;
 
+/// <summary>Returns the latest successful migration sync time in Oman (UTC+04:00).</summary>
+public sealed record GetSyncTimeQuery : IRequest<SyncTimeResponse?>;
+
 /// <summary>Returns full data (columns + rows) from a core schema table or view for live preview.</summary>
 public record GetTableDataQuery(string SourceName, string SourceType) : IRequest<TableDataDto?>;
 

@@ -1,0 +1,283 @@
+<div [class.ic-backdrop]="!viewer" [class.ic-inline]="viewer">
+
+  <!-- Step 1: choose the source chart and the visuals it can drive -->
+  <div *ngIf="stage === 'select' && !viewer" appDialog (dialogClose)="close()" class="ic-modal ic-modal--select">
+    <div class="ic-modal__header">
+      <span class="ic-modal__icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="18" cy="18" r="3"></circle><path d="M8.7 10.6l6.6-3.2M8.7 13.4l6.6 3.2"></path></svg>
+      </span>
+      <h3 class="ic-modal__title">Interaction Configuration</h3>
+      <button type="button" class="ic-info" [class.is-open]="showInfo" (click)="showInfo = !showInfo"
+        [attr.aria-expanded]="showInfo" aria-controls="ic-info-panel" title="How this works" aria-label="How this works">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+      </button>
+      <button type="button" class="ic-modal__close" (click)="close()" title="Close" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <ng-container *ngTemplateOutlet="infoPanel"></ng-container>
+
+    <div class="ic-modal__body">
+      <label class="ic-sr-only" for="ic-search">Search charts and tiles</label>
+      <input id="ic-search" type="search" class="ic-search" placeholder="Search charts and tiles"
+        [ngModel]="search" (ngModelChange)="search = $event; onSearch()" />
+
+      <div class="ic-source-banner" *ngIf="hasAnchor" role="status">
+        Source: <strong>{{ anchorTitle }}</strong> &middot; picks <strong>{{ anchorDimension }}</strong>
+      </div>
+
+      <div class="ic-columns">
+        <section class="ic-list" aria-labelledby="ic-charts-title">
+          <h4 id="ic-charts-title">Charts <span class="ic-count">{{ chartRows.length }}</span></h4>
+          <p class="ic-empty" *ngIf="!chartRows.length">No charts found.</p>
+          <ul>
+            <li *ngFor="let row of chartRows; trackBy: trackRow" class="ic-option"
+              [class.is-selected]="row.selected" [class.is-disabled]="row.disabled && !row.selected">
+              <label>
+                <input type="checkbox" [checked]="row.selected" [disabled]="row.disabled && !row.selected" (change)="toggle(row)" />
+                <span class="ic-option__text">
+                  <span class="ic-option__title">{{ row.profile.title }}</span>
+                  <span class="ic-option__hint">{{ row.hint }}</span>
+                </span>
+              </label>
+              <span class="ic-tag" *ngIf="row.anchor">Source</span>
+              <span class="ic-tag ic-tag--type">{{ row.profile.chartType || 'chart' | titlecase }}</span>
+              <button type="button" class="ic-link" *ngIf="row.selected && !row.anchor && row.profile.canSource"
+                (click)="makeSource(row, $event)">Make source</button>
+            </li>
+          </ul>
+        </section>
+
+        <section class="ic-list" aria-labelledby="ic-tiles-title">
+          <h4 id="ic-tiles-title">Tiles <span class="ic-count">{{ tileRows.length }}</span></h4>
+          <p class="ic-empty" *ngIf="!tileRows.length">No tiles found.</p>
+          <ul>
+            <li *ngFor="let row of tileRows; trackBy: trackRow" class="ic-option"
+              [class.is-selected]="row.selected" [class.is-disabled]="row.disabled && !row.selected">
+              <label>
+                <input type="checkbox" [checked]="row.selected" [disabled]="row.disabled && !row.selected" (change)="toggle(row)" />
+                <span class="ic-option__text">
+                  <span class="ic-option__title">{{ row.profile.title }}</span>
+                  <span class="ic-option__hint">{{ row.hint }}</span>
+                </span>
+              </label>
+              <span class="ic-tag ic-tag--type">Tile</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <div class="ic-modal__footer">
+      <span class="ic-footer-note">{{ selectedCount }} selected<ng-container *ngIf="hasAnchor && selectedCount < 2"> &middot; add at least one more</ng-container></span>
+      <button type="button" class="btn btn-secondary ic-danger" *ngIf="hasSavedConfig" (click)="removeConfig()">Remove interactions</button>
+      <button type="button" class="btn btn-secondary" (click)="close()">Cancel</button>
+      <button type="button" class="btn btn-primary" [disabled]="!canAdd" (click)="addToDashboard()">
+        {{ hasSavedConfig ? 'Update' : 'Add' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 2: interactive dashboard preview -->
+  <div *ngIf="stage === 'preview' && !viewer" appDialog (dialogClose)="close()" class="ic-modal ic-modal--preview">
+    <div class="ic-modal__header">
+      <span class="ic-modal__icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="18" cy="18" r="3"></circle><path d="M8.7 10.6l6.6-3.2M8.7 13.4l6.6 3.2"></path></svg>
+      </span>
+      <h3 class="ic-modal__title">Visual Interactions Preview</h3>
+      <button type="button" class="ic-info" [class.is-open]="showInfo" (click)="showInfo = !showInfo"
+        [attr.aria-expanded]="showInfo" aria-controls="ic-info-panel" title="How this works" aria-label="How this works">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+      </button>
+      <button type="button" class="ic-modal__close" (click)="close()" title="Close" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <ng-container *ngTemplateOutlet="infoPanel"></ng-container>
+
+    <ng-container *ngTemplateOutlet="previewBody"></ng-container>
+
+    <div class="ic-modal__footer">
+      <button type="button" class="btn btn-secondary" (click)="close()">Cancel</button>
+      <button type="button" class="btn btn-primary" (click)="saveConfiguration()">Save Configuration</button>
+    </div>
+  </div>
+
+  <!-- The same dashboard, shown inline to people viewing it -->
+  <ng-container *ngIf="stage === 'preview' && viewer">
+    <ng-container *ngTemplateOutlet="previewBody"></ng-container>
+  </ng-container>
+
+  <ng-template #infoPanel>
+    <section id="ic-info-panel" class="ic-info-panel" *ngIf="showInfo" role="region" aria-label="How interactions work"
+      (keydown.escape)="showInfo = false; $event.stopPropagation()">
+      <div class="ic-info-panel__grid">
+        <div>
+          <h4>How it works</h4>
+          <ol>
+            <li>Pick the <strong>source chart</strong>. A click on its bar, slice or table row drives the other visuals.</li>
+            <li>Pick the charts and tiles that should react to it, then press <strong>Add</strong>.</li>
+            <li>For each one choose <strong>Filter</strong> (show only the matching records), <strong>Highlight</strong> (keep everything and emphasise the matching records) or <strong>None</strong>.</li>
+            <li>Press <strong>Save Configuration</strong>, then save the dashboard.</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Why are some items disabled?</h4>
+          <p>A chart or tile can only react to the source if it uses the same data. It is enabled when:</p>
+          <ul>
+            <li>it is built on the <strong>same table or view</strong> as the source chart, or</li>
+            <li>its data has the <strong>same field</strong> the source chart groups by (for example <em>location</em>) <strong>and</strong> contains the same values.</li>
+          </ul>
+          <p>Tiles are disabled until a source chart is chosen, because a tile has no bars to click. Charts without a category field cannot be a source. "Checking data…" means the data is still being compared.</p>
+        </div>
+        <div>
+          <h4>To enable a disabled item</h4>
+          <ul>
+            <li>Choose a <strong>different source chart</strong>: the enabled list changes with the source.</li>
+            <li>Or build the chart or tile on the <strong>same table or view</strong> in the Chart Builder / Tile Builder.</li>
+            <li>The field the source groups by (shown as <em>picks</em> under the title) must exist in that table or view.</li>
+          </ul>
+          <p class="ic-info-panel__count" *ngIf="stage === 'select' && hasAnchor">
+            With <strong>{{ anchorTitle }}</strong> as the source: {{ enabledCount }} can be selected, {{ disabledCount }} are disabled.
+          </p>
+        </div>
+      </div>
+    </section>
+  </ng-template>
+
+  <ng-template #previewBody>
+    <div class="ic-preview">
+      <main class="ic-layout" [class.ic-layout--viewer]="viewer">
+        <aside class="ic-panel" *ngIf="!viewer">
+          <h2>Interaction Configuration</h2>
+          <div class="ic-toolbar" role="group" aria-label="Preview mode">
+            <button type="button" class="ic-pill" [class.active]="isAdmin" [attr.aria-pressed]="isAdmin" (click)="setRole('admin')">Admin Mode</button>
+            <button type="button" class="ic-pill" [class.active]="!isAdmin" [attr.aria-pressed]="!isAdmin" (click)="setRole('viewer')">Viewer Mode</button>
+          </div>
+
+          <div *ngIf="isAdmin">
+            <label class="ic-label" for="ic-source">Source Visual</label>
+            <select id="ic-source" [ngModel]="activeSourceKey" (ngModelChange)="onSourceChange($event)">
+              <optgroup label="Charts">
+                <option *ngFor="let chart of sourceChoices; trackBy: trackProfile" [value]="chart.key">{{ chart.title }}</option>
+              </optgroup>
+              <optgroup label="Targets only" *ngIf="fixedTargets.length">
+                <option *ngFor="let item of fixedTargets; trackBy: trackProfile" [value]="item.key" disabled>
+                  {{ item.title }} ({{ item.kind === 'tile' ? 'Tile' : 'Chart' }})
+                </option>
+              </optgroup>
+            </select>
+
+            <div class="ic-target" *ngFor="let target of targetSettings; trackBy: trackTarget">
+              <strong>{{ target.profile.title }}</strong>
+              <div class="ic-options" role="group" [attr.aria-label]="'Interaction for ' + target.profile.title">
+                <button type="button" *ngFor="let mode of modes" [class.active]="target.mode === mode"
+                  [disabled]="!target.connected" [attr.aria-pressed]="target.mode === mode"
+                  (click)="setMode(target, mode)">{{ modeLabels[mode] }}</button>
+              </div>
+            </div>
+
+            <div class="ic-actions">
+              <button type="button" class="ic-btn ic-btn--alt" (click)="backToSelection()">Change visuals</button>
+            </div>
+          </div>
+
+          <span class="ic-label" id="ic-values-label" *ngIf="isAdmin && sourceValues.length">Try a value</span>
+          <div class="ic-chips" *ngIf="isAdmin && sourceValues.length" role="group" aria-labelledby="ic-values-label">
+            <button type="button" class="ic-chip-btn" *ngFor="let value of sourceValues" [class.active]="isValueSelected(value)"
+              [attr.aria-pressed]="isValueSelected(value)" (click)="pickValue(value, $event.ctrlKey || $event.metaKey)">{{ value }}</button>
+          </div>
+
+          <span class="ic-label">Current Selection</span>
+          <div class="ic-chips">
+            <span class="ic-chip" *ngFor="let value of selection?.values">{{ selection?.dimension }}: {{ value }}</span>
+            <span class="ic-muted" *ngIf="!selection">Nothing selected</span>
+          </div>
+          <div class="ic-actions">
+            <button type="button" class="ic-btn ic-btn--alt" [disabled]="!selection" (click)="clearSelection()">Clear Selection</button>
+          </div>
+        </aside>
+
+        <section class="ic-stage">
+          <div class="ic-toolbar" *ngIf="!viewer">
+            <strong>Dashboard Preview</strong>
+            <span class="ic-tag" role="status">{{ stateLabel }}</span>
+          </div>
+
+          <div class="ic-selection" *ngIf="viewer && selection" role="status">
+            <span class="ic-selection__label">Filtered by</span>
+            <span class="ic-chip" *ngFor="let value of selection.values">{{ selection.dimension }}: {{ value }}</span>
+            <button type="button" class="ic-btn ic-btn--alt ic-selection__clear" (click)="clearSelection()">Clear Selection</button>
+          </div>
+
+          <div class="ic-kpis" *ngIf="previewTiles.length">
+            <article class="ic-kpi" *ngFor="let tile of previewTiles; trackBy: trackProfile"
+              [class.is-filtered]="renders[tile.key]?.applied === 'filter'"
+              [class.is-highlighted]="renders[tile.key]?.applied === 'highlight'">
+              <div class="ic-kpi__content">
+                <span class="ic-kpi__icon ic-kpi__icon--{{ tileLook(tile).accent }}">
+                  <svg [appTileIcon]="tileLook(tile).icon" [color]="tileLook(tile).accent" width="24" height="24"></svg>
+                </span>
+                <span class="ic-kpi__label" [appTileTooltip]="tileLabel(tile)">{{ tileLabel(tile) }}</span>
+                <ng-container *ngIf="renders[tile.key] as render">
+                  <span class="ic-muted" *ngIf="render.status === 'loading'">Loading...</span>
+                  <span class="ic-error" *ngIf="render.status === 'error'">Unable to load data</span>
+                  <span *ngIf="render.status === 'ready'" class="ic-kpi__value" [appTileTooltip]="render.value">{{ render.value }}</span>
+                  <span class="ic-kpi__breakdown" *ngIf="render.highlightValue !== undefined">
+                    Highlighted&nbsp;<strong>{{ render.highlightValue }}</strong>
+                  </span>
+                </ng-container>
+              </div>
+            </article>
+          </div>
+
+          <div class="ic-dashboard">
+            <article class="ic-card" *ngFor="let chart of previewCharts; trackBy: trackProfile"
+              [class.is-source]="renders[chart.key]?.isSource">
+              <div class="ic-card__head">
+                <h3 class="ic-card__title">{{ chart.title }}</h3>
+                <span class="ic-tag ic-tag--mode" *ngIf="renders[chart.key]?.applied as applied">{{ modeLabels[applied] }}</span>
+              </div>
+              <ng-container *ngIf="renders[chart.key] as render">
+                <div class="ic-empty" *ngIf="render.status === 'loading'" role="status">Loading data...</div>
+                <div class="ic-empty ic-error" *ngIf="render.status === 'error'" role="alert">Unable to load data for this chart.</div>
+                <ng-container *ngIf="render.status === 'ready'">
+                  <div class="ic-empty" *ngIf="render.empty">No matching records</div>
+                  <div *ngIf="render.options" [class]="legendLayoutClass(legendPositionOf(chart))">
+                    <highcharts-chart *ngFor="let layout of [render.chartKey]" [options]="render.options" class="ic-chart"></highcharts-chart>
+                    <div class="ic-legend chart-legend-layout__legend" appLegendPager *ngIf="render.legend?.length">
+                      <button type="button" class="ic-legend__item" *ngFor="let entry of render.legend"
+                        [class.is-selected]="entry.selected" [class.is-muted]="entry.muted" [class.is-static]="!entry.pickable"
+                        [disabled]="!entry.pickable || !chart.canSource" [attr.aria-pressed]="entry.pickable ? entry.selected : null"
+                        [attr.title]="entry.label" (click)="pickFromLegend(chart, entry, $event)">
+                        <span class="ic-legend__dot" [style.background]="entry.color"></span>
+                        <span class="ic-legend__label">{{ entry.label }}</span>
+                        <span class="ic-legend__value" *ngIf="entry.value !== undefined" [style.color]="entry.color">{{ entry.value }}</span>
+                        <span class="ic-legend__value ic-legend__value--highlight" *ngIf="entry.highlightValue !== undefined">({{ entry.highlightValue }})</span>
+                      </button>
+                    </div>
+                  </div>
+                  <table class="ic-table" *ngIf="render.table">
+                    <thead>
+                      <tr><th scope="col" *ngFor="let header of render.table.headers">{{ header }}</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let row of render.table.rows" [class.sel]="row.selected" [class.matched]="row.matched" [class.muted]="row.muted">
+                        <td>
+                          <button type="button" class="ic-row-btn" *ngIf="chart.canSource" [attr.aria-pressed]="row.selected"
+                            (click)="pickFromTable(chart, row, $event)">{{ row.category }}</button>
+                          <ng-container *ngIf="!chart.canSource">{{ row.category }}</ng-container>
+                        </td>
+                        <td *ngFor="let cell of row.cells">{{ cell }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </ng-container>
+              </ng-container>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </ng-template>
+</div>

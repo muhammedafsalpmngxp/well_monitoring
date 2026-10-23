@@ -16,6 +16,7 @@ import { registerDefaultCustomRenderers } from './core/utils/advanced-chart-rend
 import { registerInstalledVisuals } from './core/utils/installed-visual-renderers';
 import { MarketplaceService } from './core/services/marketplace.service';
 import { DashboardIdlePreloadingStrategy } from './core/services/dashboard-idle-preloading.strategy';
+import { registerCrowdedChartScrolling } from './core/utils/chart-scroll.util';
 
 // Renderers for the "Custom Visual / Extensibility" chart type. Registered here, at module
 // load, so they are in place before any chart builder or viewer reads the renderer list.
@@ -56,6 +57,8 @@ export const appConfig: ApplicationConfig = {
     // undefined is not a constructor or null".
     provideHighcharts({ modules: () => [
       (async () => {
+        const { default: highcharts } = await import('highcharts/esm/highcharts');
+        registerCrowdedChartScrolling(highcharts);
         await import('highcharts/esm/highcharts-more');
         await import('highcharts/esm/modules/funnel');
         await import('highcharts/esm/modules/treemap');
@@ -66,6 +69,7 @@ export const appConfig: ApplicationConfig = {
         await import('highcharts/esm/modules/bullet');
         await import('highcharts/esm/modules/sankey');
         await import('highcharts/esm/modules/timeline');
+        await import('highcharts/esm/modules/xrange');
         await import('highcharts/esm/modules/stock');
         await import('highcharts/esm/modules/map');
         await import('highcharts/esm/modules/flowmap');

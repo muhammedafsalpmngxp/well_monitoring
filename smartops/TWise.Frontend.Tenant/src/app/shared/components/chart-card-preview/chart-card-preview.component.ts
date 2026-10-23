@@ -1,6 +1,10 @@
 import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
 import type Highcharts from 'highcharts';
 import { buildFunnelOptions } from '../../../core/utils/funnel-chart.util';
+import { buildTimelineOptions } from '../../../core/utils/timeline-chart.util';
+import { buildHistogramOptions } from '../../../core/utils/histogram-chart.util';
+import { buildScatterOptions } from '../../../core/utils/scatter-chart.util';
+import { buildHeatmapOptions, resolveHeatmapMeasure } from '../../../core/utils/heatmap-chart.util';
 import { applyDataLabelPreference } from '../../../core/utils/chart-data-labels.util';
 import { applyChartSort } from '../../../core/utils/chart-sort.util';
 import { Widget, WidgetService } from '../../../core/services/widget.service';
@@ -10,7 +14,7 @@ import { appendDaxToChartData, appendDaxToTableRows, getActiveDaxMeasures, getDa
 import { applyConditionalFilters, getSavedConditionalFilters } from '../../../core/utils/conditional-filter.util';
 import { applyParameterFilters, getSavedParameterFilters, remapDesignColumns } from '../../../core/utils/parameter-filter.util';
 import { AdvancedChartPayload, isAdvancedChart, readAdvancedConfig } from '../../../core/utils/advanced-chart.util';
-import { CHART_AUTO_COLORS, getSeriesColorByName } from '../../../core/utils/chart-color.util';
+import { CHART_AUTO_COLORS, getSeriesColorByName, usesPeriodLineCategoryColorRules, usesSeriesCategoryColorRules } from '../../../core/utils/chart-color.util';
 import { buildKpiChartOptions, computeKpiValue } from '../../../core/utils/kpi-chart.util';
 import { comboAxes, gaugeShape, treemapShape } from '../../../core/utils/chart-shapes.util';
 
@@ -215,6 +219,8 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
     const { rows: transformedRows, columns: transformedCols } = applyParameterFilters(rawRows, paramFilters, _columns);
     const rows = applyConditionalFilters(transformedRows, getSavedConditionalFilters(design));
     const chartType = this.chartTypeOverride ?? (design['chartType'] as string ?? '');
+    this.ruleDesignValue = design;
+    this.ruleChartType = chartType;
     if (isAdvancedChart(chartType)) {
       this.advanced = { type: chartType, config: readAdvancedConfig(design['advancedConfig']), rows, daxMeasures: getActiveDaxMeasures(design) };
       this.options = null;
@@ -226,19 +232,27 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
     const yAxis = design['yAxis'] as string ?? 'Count (F)';
     const yAggCol = design['yAggColumn'] as string ?? '';
     const multiYColumns = (design['multiYColumns'] as string[]) ?? [];
-    const comboLineCols = (chartType === 'combo' || chartType === 'multiline') ? ((design['comboLineColumns'] as string[]) ?? []) : [];
-    const allMultiCols = (chartType === 'combo' || (chartType === 'multiline' && comboLineCols.length > 0)) ? [...new Set([...multiYColumns, ...comboLineCols])] : multiYColumns;
+    const comboLineCols = (chartType === 'combo' || chartType === 'multiline' || chartType === 'grouped') ? ((design['comboLineColumns'] as string[]) ?? []) : [];
+    const allMultiCols = (chartType === 'combo' || ((chartType === 'multiline' || chartType === 'grouped') && comboLineCols.length > 0)) ? [...new Set([...multiYColumns, ...comboLineCols])] : multiYColumns;
     const isMulti = ['multiline', 'area', 'stacked', 'grouped', 'combo', 'table'].includes(chartType) && allMultiCols.length > 0;
     const daxMeasures = getActiveDaxMeasures(design);
 
     // Chart types with their own field set instead of the plain xAxis/yAxis category+value shape.
     if (chartType === 'kpi') { this.options = buildKpiChartOptions(computeKpiValue(rows, design), 220); this.cdr.markForCheck(); return; }
     if (chartType === 'gauge') { this.buildGaugeChart(rows, yAxis, yAggCol, design); return; }
-    if (chartType === 'histogram') { this.buildHistogramChart(rows, yAggCol || yAxis); return; }
+    if (chartType === 'histogram') { this.buildHistogramChart(rows, yAggCol || yAxis, design['histogramBins'] as number | undefined); return; }
     if (chartType === 'sankey') { this.buildSankeyChart(rows, design); return; }
     if (chartType === 'timeline') { this.buildTimelineChart(rows, design); return; }
     if (chartType === 'bullet') { this.buildBulletChart(rows, xAxis, yAxis, yAggCol, design); return; }
     if (chartType === 'bubble') { this.buildBubbleChart(rows, xAxis, yAxis, yAggCol, design); return; }
+    if (chartType === 'scatter') {
+      this.options = buildScatterOptions({
+        rows, xColumn: xAxis, yColumn: yAggCol || yAxis,
+        categoryColumn: (design['scatterCategoryColumn'] as string) || undefined, height: 220,
+      });
+      this.cdr.markForCheck();
+      return;
+    }
     if (chartType === 'heatmap') { this.buildHeatmapChart(rows, xAxis, yAxis, yAggCol, design); return; }
 
     if (chartType === 'table') {
@@ -323,25 +337,64 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  /** Saved per-category color override from the Color Rules panel (Field = "Category"), so the
-   *  card preview matches the Chart Details page instead of falling back to the auto palette. */
-  private categoryColorForRule(category: string): string | undefined {
-    const rules = (this.cachedDesign?.['colorRules'] as Array<{ field: string; categories?: string[]; color: string }> | undefined) ?? [];
-    const normalized = category.trim().toLowerCase();
-    return rules.find(rule => rule.field?.trim().toLowerCase() === 'category'
+  /** Design used for color-rule matching (column names remapped by parameter filters). */
+  private ruleDesignValue: Record<string, any> | null = null;
+  private ruleChartType = '';
+
+  private get ruleDesign(): Record<string, any> {
+    return this.ruleDesignValue ?? this.cachedDesign ?? {};
+  }
+
+  private get colorRules(): Array<{ field: string; operator: string; value: string; value2?: string; categories?: string[]; color: string }> {
+    return (this.ruleDesign['colorRules'] as any[] | undefined) ?? [];
+  }
+
+  /** Saved per-category color override from the Color Rules panel (Field = "Category"). For
+   *  stacked/grouped/combo (and Period x-axis) charts the rule targets the series name, matching
+   *  the Chart Details page. */
+  private categoryColorForRule(category: string, seriesName = ''): string | undefined {
+    const usesSeriesCategory = usesSeriesCategoryColorRules(this.ruleChartType, this.ruleDesign['xAxis'] as string | undefined);
+    const normalized = (usesSeriesCategory ? seriesName : category).trim().toLowerCase();
+    return this.colorRules.find(rule => rule.field?.trim().toLowerCase() === 'category'
       && (rule.categories ?? []).some(selected => selected.trim().toLowerCase() === normalized))?.color;
   }
 
-  /** Non-"Category" color rules (operator + value, e.g. "pk_id Equal 179"), matched against
-   *  either the row's category (first column) or its numeric value (second column). */
-  private colorForRule(category: string, value: number): string | undefined {
-    const rules = (this.cachedDesign?.['colorRules'] as Array<{ field: string; operator: string; value: string; value2?: string; color: string }> | undefined) ?? [];
-    for (const rule of rules) {
-      if (rule.field?.trim().toLowerCase() === 'category') continue;
-      if (this.matchesColorRule(category, rule.operator, rule.value, rule.value2)
-        || this.matchesColorRule(value, rule.operator, rule.value, rule.value2)) return rule.color;
+  /** Non-"Category" color rules (operator + value, e.g. "pk_id Equal 179"), matched the same way
+   *  as the Chart Details page: against the category, the value, or the field the rule names. */
+  private colorForRule(category: string, value: number, seriesName = ''): string | undefined {
+    const xField = ((this.ruleDesign['xAxis'] as string) ?? '').toLowerCase();
+    const xTitle = ((this.ruleDesign['xAxisTitle'] as string) ?? '').toLowerCase();
+    const yField = (((this.ruleDesign['yAggColumn'] as string) || (this.ruleDesign['yAxis'] as string)) ?? '').toLowerCase();
+    const yTitle = ((this.ruleDesign['yAxisTitle'] as string) ?? '').toLowerCase();
+    for (const rule of this.colorRules) {
+      const field = rule.field?.trim().toLowerCase() ?? '';
+      if (field === 'category') continue;
+      const candidates: unknown[] = [category, value];
+      if (field && (field === xField || field === xTitle)) candidates.splice(1, 1);
+      else if (field && (field === yField || field === yTitle || field === seriesName.toLowerCase())) candidates.splice(0, 1);
+      if (rule.operator === 'Between' && this.matchesColorRule(value, rule.operator, rule.value, rule.value2)) return rule.color;
+      if (candidates.some(candidate => this.matchesColorRule(candidate, rule.operator, rule.value, rule.value2))) return rule.color;
     }
     return undefined;
+  }
+
+  private colorOverrideFor(category: string, seriesName = ''): string | undefined {
+    const overrides = this.ruleDesign['colorOverrides'] as Record<string, string> | undefined;
+    if (!overrides) return undefined;
+    const names = [seriesName, this.ruleDesign['yAggColumn'] as string, this.ruleDesign['yAxis'] as string, '']
+      .filter((name, index, all) => name !== undefined && name !== null && all.indexOf(name) === index);
+    for (const name of names) {
+      const color = overrides[`${name}:${category}`];
+      if (color) return color;
+    }
+    return undefined;
+  }
+
+  /** Same precedence as the Chart Details page: category rule → manual override → value rule. */
+  private pointColor(category: string, value: number, seriesName = '', includeCategoryRule = true): string | undefined {
+    return (includeCategoryRule ? this.categoryColorForRule(category, seriesName) : undefined)
+      ?? this.colorOverrideFor(category, seriesName)
+      ?? this.colorForRule(category, value, seriesName);
   }
 
   private matchesColorRule(raw: unknown, operator: string, expected: string, expectedUpper?: string): boolean {
@@ -371,7 +424,7 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
    *  saved per-row colors, matching the Chart Details page's own table coloring. */
   private computeTableRowColors(rows: (string | number)[][]): string[] {
     const manual = (this.cachedDesign?.['tableRowColors'] as string[]) ?? [];
-    const hasRules = ((this.cachedDesign?.['colorRules'] as unknown[]) ?? []).length > 0;
+    const hasRules = this.colorRules.length > 0;
     if (!hasRules) return manual;
     return rows.map((row, i) => {
       const category = String(row[0] ?? '');
@@ -381,6 +434,8 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private buildSingleChart(chartType: string, cats: string[], vals: number[]): void {
+    this.ruleChartType = chartType;
+    const singleSeriesName = String(this.ruleDesign['yAggColumn'] || this.ruleDesign['yAxis'] || 'Value');
     if (chartType === 'funnel') {
       this.options = buildFunnelOptions(cats, vals, COLORS, 260, 'Value', this.cachedDesign?.['showLegend'] !== false);
       this.cdr.markForCheck();
@@ -416,12 +471,14 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
             },
           },
         },
-        series: [{ type: 'pie', name: 'Value', data: cats.map((name, i) => ({ name, y: vals[i] ?? 0, color: this.categoryColorForRule(name) ?? COLORS[i % COLORS.length] })).filter(d => d.y !== 0) }],
+        series: [{ type: 'pie', name: 'Value', data: cats.map((name, i) => ({ name, y: vals[i] ?? 0, color: this.pointColor(name, vals[i] ?? 0, singleSeriesName) ?? COLORS[i % COLORS.length] })).filter(d => d.y !== 0) }],
       };
     } else if (isTreemap) {
       const shape = treemapShape(cats.map((name, i) => ({ name, value: vals[i] ?? 0 })), 'Value', COLORS);
       this.options = { ...shape, chart: { ...shape.chart, height: 220 } };
     } else {
+      const lineCategoryColor = usesPeriodLineCategoryColorRules(this.ruleChartType, this.ruleDesign['xAxis'] as string, hcType)
+        ? this.categoryColorForRule('', singleSeriesName) : undefined;
       this.options = {
         chart: { type: hcType as any, backgroundColor: 'transparent', height: 220 },
         title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
@@ -430,7 +487,11 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
         tooltip: { pointFormat: '<b>{point.y}</b>' },
         plotOptions: { column: { borderRadius: 4, borderWidth: 0, colorByPoint: true, colors: COLORS, dataLabels: { enabled: true, style: { fontSize: '11px', fontWeight: '600' } } }, line: { marker: { enabled: true } }, area: { fillOpacity: 0.15 } },
         // A matched Color Rule overrides colorByPoint's cycling color for that one point only.
-        series: [{ type: hcType as any, name: 'Value', data: vals.map((v, i) => { const c = this.categoryColorForRule(cats[i] ?? ''); return c ? { y: v, color: c } : v; }), showInLegend: false }],
+        series: [{
+          type: hcType as any, name: 'Value', showInLegend: false,
+          ...(lineCategoryColor ? { color: lineCategoryColor } : {}),
+          data: vals.map((v, i) => { const c = this.pointColor(cats[i] ?? '', v, singleSeriesName, !lineCategoryColor); return c ? { y: v, color: c } : v; }),
+        }],
       };
     }
     this.cdr.markForCheck();
@@ -454,19 +515,8 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Histogram bins raw numeric values itself via a hidden "raw data" series. */
-  private buildHistogramChart(rows: Record<string, unknown>[], col: string): void {
-    const rawValues = rows.map(r => Number(r[col])).filter(v => !Number.isNaN(v));
-    this.options = {
-      chart: { backgroundColor: 'transparent', height: 220 },
-      title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-      xAxis: [{ alignTicks: false }, { title: { text: 'Histogram' }, alignTicks: false, opposite: true }],
-      yAxis: [{ title: { text: undefined } }, { title: { text: 'Frequency' }, opposite: true }],
-      series: [
-        { name: col || 'Raw data', type: 'scatter' as const, data: rawValues, visible: false, id: 'ccp-histogram-raw' },
-        { name: col || 'Histogram', type: 'histogram' as any, xAxis: 1, yAxis: 1, baseSeries: 'ccp-histogram-raw', zIndex: -1, color: COLORS[0] },
-      ],
-    };
+  private buildHistogramChart(rows: Record<string, unknown>[], col: string, bins?: number): void {
+    this.options = buildHistogramOptions(rows, col, bins, 220, COLORS);
     this.cdr.markForCheck();
   }
 
@@ -518,32 +568,13 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Grid of X-axis category × Y-category, colored by aggregated Y-axis value. */
+  /** X dimension x Y dimension grid, coloured by the aggregated Intensity / Value. */
   private buildHeatmapChart(rows: Record<string, unknown>[], xAxis: string, yAxis: string, yAggCol: string, design: Record<string, any>): void {
-    const valueCol = yAggCol || yAxis;
-    const yCol = design['heatmapYColumn'] as string ?? '';
-    const xCats = [...new Set(rows.map(r => safeString(r[xAxis])))];
-    const yCats = [...new Set(rows.map(r => safeString(r[yCol])))];
-    const cellMap = new Map<string, number>();
-    for (const row of rows) {
-      const xi = xCats.indexOf(safeString(row[xAxis]));
-      const yi = yCats.indexOf(safeString(row[yCol]));
-      if (xi < 0 || yi < 0) continue;
-      const key = `${xi}-${yi}`;
-      cellMap.set(key, (cellMap.get(key) ?? 0) + (Number(row[valueCol]) || 0));
-    }
-    const data = [...cellMap.entries()].map(([key, v]) => {
-      const [xi, yi] = key.split('-').map(Number);
-      return [xi, yi, v] as [number, number, number];
+    this.options = buildHeatmapOptions({
+      rows, xColumn: xAxis, yColumn: design['heatmapYColumn'] as string ?? '', ...resolveHeatmapMeasure(yAggCol, yAxis),
+      xTitle: (design['xAxisTitle'] as string) || undefined, yTitle: (design['yAxisTitle'] as string) || undefined,
+      height: 220, showLegend: design['showLegend'] !== false,
     });
-    this.options = {
-      chart: { type: 'heatmap', backgroundColor: 'transparent', height: 220 },
-      title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-      xAxis: { categories: xCats, title: { text: undefined } },
-      yAxis: { categories: yCats, title: { text: undefined }, reversed: true },
-      colorAxis: { minColor: '#EAF2FF', maxColor: '#2563EB' } as any,
-      series: [{ type: 'heatmap' as const, name: valueCol || 'Value', data, dataLabels: { enabled: true } }],
-    };
     this.cdr.markForCheck();
   }
 
@@ -571,17 +602,12 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Date + Label columns — no xAxis/yAxis at all. */
   private buildTimelineChart(rows: Record<string, unknown>[], design: Record<string, any>): void {
-    const dateCol = design['timelineDateColumn'] as string ?? '';
-    const labelCol = design['timelineLabelColumn'] as string ?? '';
-    const data = rows.map(r => ({ name: safeString(r[labelCol]), label: safeString(r[dateCol]) }));
-    this.options = {
-      chart: { type: 'timeline' as any, backgroundColor: 'transparent', height: 220 },
-      title: { text: undefined }, credits: { enabled: false }, legend: { enabled: false },
-      xAxis: { visible: false }, yAxis: { visible: false },
-      series: [{ type: 'timeline' as any, name: labelCol || 'Timeline', data }],
-    };
+    this.options = buildTimelineOptions(rows, {
+      start: design['timelineDateColumn'] as string ?? '',
+      end: design['timelineEndColumn'] as string ?? '',
+      task: design['timelineLabelColumn'] as string ?? '',
+    }, 220);
     this.cdr.markForCheck();
   }
 
@@ -634,34 +660,48 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
     const isStacked = chartType === 'stacked';
     const isGrouped = chartType === 'grouped';
     const isCombo = chartType === 'combo';
+    // Grouped bars can carry a secondary (right) Y-axis: right-axis series stay bars, just on axis 1.
+    const isGroupedDualY = isGrouped && comboLineCols.length > 0;
     // replace nested ternary with if/else to satisfy sonar rule
     let hcType: string;
     if (isStacked || isCombo || isGrouped) { hcType = 'column'; }
     else if (chartType === 'area') { hcType = 'area'; }
     else { hcType = 'line'; }
 
+    const usesSeriesCategory = usesSeriesCategoryColorRules(chartType, xAxis);
+    this.ruleChartType = chartType;
     const series: Highcharts.SeriesOptionsType[] = allCols.map((col, i) => {
       const isLineSeries = isCombo && comboLineCols.includes(col);
+      const isRightAxis = (isCombo || isGroupedDualY) && comboLineCols.includes(col);
+      const values = cats.map(cat => {
+        const catRows = grouped.get(cat) ?? [];
+        const nums = catRows.map(r => Number(r[col] ?? 0)).filter(n => !Number.isNaN(n));
+        return nums.length ? nums.reduce((a, b) => a + b, 0) : 0;
+      });
+      // Series-level "Category" rule (stacked/grouped/combo or Period line series) recolors the
+      // whole series so the legend matches; other rules recolor individual points.
+      const seriesCategoryColor = usesSeriesCategory
+        || usesPeriodLineCategoryColorRules(chartType, xAxis, isLineSeries ? 'line' : hcType)
+        ? this.categoryColorForRule('', col) : undefined;
       // only attach optional props when they have a real value to avoid Highcharts axis-lookup errors
       const s: any = {
         type: isLineSeries ? 'line' : hcType,
         name: col,
-        data: cats.map(cat => {
-          const catRows = grouped.get(cat) ?? [];
-          const nums = catRows.map(r => Number(r[col] ?? 0)).filter(n => !Number.isNaN(n));
-          return nums.length ? nums.reduce((a, b) => a + b, 0) : 0;
+        data: values.map((value, ci) => {
+          const color = this.pointColor(cats[ci] ?? '', value, col, !seriesCategoryColor);
+          return color ? { y: value, color } : value;
         }),
-        color: getSeriesColorByName(col, i),
+        color: seriesCategoryColor ?? getSeriesColorByName(col, i),
       };
       if (isStacked || (isCombo && !isLineSeries)) s.stacking = 'normal';
-      if (isCombo) { s.yAxis = isLineSeries ? 1 : 0; }
+      if (isCombo || isGroupedDualY) { s.yAxis = isRightAxis ? 1 : 0; }
       if (isLineSeries) { s.marker = { enabled: true, radius: 3 }; }
       return s as Highcharts.SeriesOptionsType;
     });
 
     if (isStacked && this.cachedDesign?.['showStackTotal'] !== false) {
       const totals = cats.map((_cat, ci) =>
-        series.reduce((sum, s) => sum + (((s as any).data as number[])[ci] ?? 0), 0)
+        series.reduce((sum, s) => sum + this.pointValue(((s as any).data as unknown[])[ci]), 0)
       );
       series.push({
         type: 'line' as any,
@@ -673,7 +713,7 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
       });
     }
 
-    const yAxisOptions: any = isCombo
+    const yAxisOptions: any = (isCombo || isGroupedDualY)
       ? comboAxes('#F1F3F6')
       : [{ title: { text: undefined }, gridLineColor: '#F1F3F6' }];
 
@@ -690,7 +730,7 @@ export class ChartCardPreviewComponent implements OnInit, OnChanges, OnDestroy {
       plotOptions: {
         line: { marker: { enabled: true } }, area: { fillOpacity: 0.15 }, column: {
           stacking: (isStacked || isCombo) ? 'normal' as any : undefined, grouping: isGrouped, borderRadius: (isStacked || isCombo) ? 0 : 4, borderWidth: 0,
-          dataLabels: { enabled: isStacked || isGrouped, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600' } }
+          dataLabels: { enabled: isStacked || isGrouped, allowOverlap: true, crop: false, overflow: 'allow' as any, style: { fontSize: '11px', fontWeight: '600', ...(isStacked ? { color: '#fff' } : {}) } }
         }
       },
       series,

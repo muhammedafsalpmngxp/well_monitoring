@@ -11,6 +11,7 @@ export class LazyVisibleDirective implements AfterViewInit, OnDestroy {
 
   private observer?: IntersectionObserver;
   private emitted = false;
+  private emitTimer?: number;
 
   constructor(private readonly host: ElementRef<HTMLElement>, private readonly zone: NgZone) {}
 
@@ -22,11 +23,19 @@ export class LazyVisibleDirective implements AfterViewInit, OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.observer = new IntersectionObserver((entries) => {
         if (entries.some(e => e.isIntersecting)) {
-          this.zone.run(() => this.emit());
+          this.zone.run(() => this.scheduleEmit());
         }
       }, { root: null, rootMargin: '200px', threshold: 0.01 });
       this.observer.observe(this.host.nativeElement);
     });
+  }
+
+  private scheduleEmit(): void {
+    if (this.emitTimer !== undefined || this.emitted) return;
+    this.emitTimer = window.setTimeout(() => {
+      this.emitTimer = undefined;
+      this.emit();
+    }, 150);
   }
 
   private emit(): void {
@@ -37,6 +46,10 @@ export class LazyVisibleDirective implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.emitTimer !== undefined) {
+      window.clearTimeout(this.emitTimer);
+      this.emitTimer = undefined;
+    }
     this.observer?.disconnect();
   }
 }

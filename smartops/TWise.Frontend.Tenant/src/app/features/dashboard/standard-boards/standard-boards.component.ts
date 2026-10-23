@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
-import { NavigationEnd, Router } from '@angular/router';
+import { NavigationEnd, NavigationStart, Router } from '@angular/router';
 import { catchError, filter, forkJoin, of, Subscription } from 'rxjs';
 import { CategoryService } from '../../../core/services/category.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
@@ -123,6 +123,8 @@ export class StandardBoardsComponent implements OnInit, OnDestroy {
   get error(): string { return this.notify.error; }
 
   // Toggle active
+  /** Card toggle is hidden for now; set to true to show it again. */
+  showCardToggle = false;
   togglingBoardId: string | null = null;
   showUnpublishConfirm = false;
   pendingUnpublishBoard: Board | null = null;
@@ -160,11 +162,13 @@ export class StandardBoardsComponent implements OnInit, OnDestroy {
     this.loadTenantUsersForNameResolution();
     // This route is kept alive by ListRouteReuseStrategy, so revisiting reattaches the same
     // instance without re-running ngOnInit. Collapse every category on each entry so a category
-    // left open before navigating away never stays expanded on return.
+    // left open before navigating away never stays expanded on return. Back keeps the page as it was.
+    let viaBack = false;
     this.routerSub = this.router.events
-      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .pipe(filter((e): e is NavigationStart | NavigationEnd => e instanceof NavigationStart || e instanceof NavigationEnd))
       .subscribe((e) => {
-        if (e.urlAfterRedirects.includes('/standard-boards')) {
+        if (e instanceof NavigationStart) { viaBack = e.navigationTrigger === 'popstate'; return; }
+        if (e.urlAfterRedirects.includes('/standard-boards') && !viaBack) {
           this.searchTerm = '';
           this.activeTab = 'all';
           this.sortOption = 'default';
@@ -179,7 +183,6 @@ export class StandardBoardsComponent implements OnInit, OnDestroy {
       });
     this.categorySub = this.categoryService.getCategoriesByType('dashboard').subscribe((cats) => {
       this.apiCategories = cats;
-      this.groups.forEach(g => { g.description = cats.find(c => c.categoryName === g.label)?.description; });
       this.cdr.markForCheck();
     });
     this.dashboardSub = this.dashboardService.published$.subscribe((data) => {
@@ -239,7 +242,7 @@ export class StandardBoardsComponent implements OnInit, OnDestroy {
     return data.map((cat, gi) => ({
       id: `cat-${cat.categoryId}`,
       label: cat.categoryName,
-      description: this.apiCategories.find(c => c.categoryName === cat.categoryName)?.description,
+      description: cat.description ?? undefined,
       icon: StandardBoardsComponent.GROUP_ICONS[gi % StandardBoardsComponent.GROUP_ICONS.length],
       expanded: false,
       boards: cat.dashboards.map((d, bi) => this.mapToBoard(d, bi))
@@ -303,7 +306,8 @@ export class StandardBoardsComponent implements OnInit, OnDestroy {
     return ['all', ...new Set([...apiNames, ...boardCats])];
   }
   get categoryOptions(): { value: string; label: string }[] {
-    return this.apiCategories.map(c => ({ value: c.categoryName, label: c.categoryName }));
+    return [...new Set(this.allBoards.map(b => b.category))]
+      .map(category => ({ value: category, label: category }));
   }
   toggleCategoryDropdown(): void {
     this.categoryOpen = !this.categoryOpen;

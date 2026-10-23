@@ -1,2 +1,43 @@
 // Global entry point — imports the full style system
 @use 'styles/global' as *;
+
+.app-tile-tooltip {
+	position: fixed;
+	inset: auto;
+	margin: 0;
+	box-sizing: border-box;
+	width: max-content;
+	max-width: min(360px, calc(100vw - 16px));
+	max-height: calc(100vh - 16px);
+	overflow: auto;
+	padding: 6px 10px;
+	border: none;
+	border-radius: 6px;
+	background: #101828;
+	color: #fff;
+	font-family: var(--font-family-base, sans-serif);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.4;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	box-shadow: 0 4px 12px rgba(16, 24, 40, 0.18);
+	z-index: 2147483647;
+}
+
+button.advanced-filter-applied {
+	position: relative;
+}
+
+.advanced-filter-applied-dot {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	width: 8px;
+	height: 8px;
+	box-sizing: border-box;
+	border: 1px solid #fff;
+	border-radius: 50%;
+	background: #86efac;
+	pointer-events: none;
+}

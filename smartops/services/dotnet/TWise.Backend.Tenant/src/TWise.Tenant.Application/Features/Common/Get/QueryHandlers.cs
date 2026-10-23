@@ -18,6 +18,13 @@ public sealed class ListBISourcesHandler(ISourceService svc)
         => svc.ListBITablesAsync(cancellationToken);
 }
 
+public sealed class GetSyncTimeHandler(ISourceService svc)
+    : IRequestHandler<GetSyncTimeQuery, SyncTimeResponse?>
+{
+    public Task<SyncTimeResponse?> Handle(GetSyncTimeQuery request, CancellationToken cancellationToken)
+        => svc.GetSyncTimeAsync(cancellationToken);
+}
+
 public sealed class GetTableDataHandler(ISourceService svc)
     : IRequestHandler<GetTableDataQuery, TableDataDto?>
 {

@@ -41,7 +41,9 @@ export interface CalculatedField {
 
 export type CfOperator =
   | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'
-  | 'between' | 'contains' | 'startsWith' | 'isEmpty' | 'notEmpty';
+  | 'between' | 'contains' | 'startsWith' | 'isEmpty' | 'notEmpty'
+  /** Value occurs more than once in the column (case-insensitive, trimmed; blanks never match). */
+  | 'duplicate';
 
 /** How far a conditional-formatting match spreads: just the rule's column cell, the whole
  * matched row, or every cell in the report (any column/page) whose own value meets the condition. */
@@ -111,9 +113,11 @@ export interface ReportJsonColumn {
  */
 export type RowLayoutRef = { src: number } | { insId: string };
 
+import type { GlobalFilterSelection } from '../../../core/utils/global-filter-selection.util';
+
 export interface ReportJsonConfig {
   columns?: ReportJsonColumn[];
-  filters?: { key: string; label: string; value: string }[];
+  filters?: { key: string; label: string; value: GlobalFilterSelection }[];
   sortBy?: string;
   groupBy?: string;
   metric?: string;
@@ -125,6 +129,12 @@ export interface ReportJsonConfig {
   headerSubtitle?: string;
   headerSubtitle2?: string;
   bannerText?: string;
+  /** Custom secondary banner title, retained across cluster changes until cleared. */
+  clusterBannerText?: string;
+  /** Normalized cluster-selection key associated with the custom title. */
+  clusterBannerSelection?: string;
+  /** Builder defaults to checked for a selected cluster, unchecked for All; saves the visibility choice. */
+  customClusterBannerEnabled?: boolean;
   headerBackgroundColor?: string;
   headerTextColor?: string;
   bannerBackgroundColor?: string;
@@ -137,6 +147,10 @@ export interface ReportJsonConfig {
   subGroupColors?: Record<string, string>;
   groupTextColor?: string;
   subGroupTextColor?: string;
+  /** Per-group text color, keyed by group name; falls back to the global groupTextColor. */
+  groupTextColors?: Record<string, string>;
+  /** Per-sub-group text color, keyed by sub-group name; falls back to the global subGroupTextColor. */
+  subGroupTextColors?: Record<string, string>;
   leftLogoUrl?: string;
   rightLogoUrl?: string;
   rightLogoColor?: string;
@@ -148,17 +162,29 @@ export interface ReportJsonConfig {
   /** Column-header row height in px (adjustable in the builder's Appearance panel). */
   gridHeaderHeight?: number;
   rowColors?: Record<number, string>;
+  /** Row background keyed by a source record identity or a `group:` field/key path. */
+  rowColorsByKey?: Record<string, string>;
+  /** Row text color keyed by a source record identity or a `group:` field/key path. */
+  rowTextColorsByKey?: Record<string, string>;
+  /** Pinned aggregate-row colors keyed by their stable label (Sum, Avg, Count, Total, Min, Max). */
+  summaryRowColors?: Record<string, string>;
+  summaryRowTextColors?: Record<string, string>;
   /** Row background by position within a page from 0, propagated to that row on every page. */
   pageRowColors?: Record<number, string>;
   /** Page size used when pageRowColors positions were assigned (defaults to 20). */
   paginationPageSize?: number;
+  /** Cell background colors, keyed by stable record+field key; legacy `${rowIndex}:${field}` keys remain supported. */
   cellColors?: Record<string, string>;
   headerCellColors?: Record<string, string>;
   headerRowTextColor?: string;
   rowTextColors?: Record<number, string>;
+  /** Cell text colors, keyed by stable record+field key; legacy `${rowIndex}:${field}` keys remain supported. */
   cellTextColors?: Record<string, string>;
   headerCellTextColors?: Record<string, string>;
   pinnedColumns?: string[];
+  /** Numeric columns drawn with an inline data bar. */
+  dataBarColumns?: string[];
+  dataBarColor?: string;
   bannerCompanyName?: string;
   bannerContractInfo?: string;
   bannerReportLabel?: string;
@@ -175,24 +201,30 @@ export interface ReportJsonConfig {
   cellOverrides?: Record<string, unknown>;
   /** Source-row indices removed via "Delete Row" (kept so grown data never resurrects them). */
   deletedRowIndices?: number[];
-  /** Embedded sub-grids ("Split Cells") per cell, keyed `${rowIndex}:${field}`. */
+  /** Embedded sub-grids ("Split Cells") per cell, keyed by stable record+field key; legacy index keys remain supported. */
   cellEmbeds?: Record<string, CellEmbed>;
-  /** Vertical (bottom-to-top) text per data cell, keyed `${rowIndex}:${field}`. Absent = horizontal. */
+  /** Vertical (bottom-to-top) text per data cell, keyed by stable record+field key; legacy index keys remain supported. */
   cellOrientations?: Record<string, TextOrientation>;
   /** Vertical (bottom-to-top) text per header cell, keyed by field. Absent = horizontal. */
   headerCellOrientations?: Record<string, TextOrientation>;
-  /** Horizontal text alignment per data cell, keyed `${rowIndex}:${field}`. Absent = theme default. */
+  /** Horizontal text alignment per data cell, keyed by stable record+field key; legacy index keys remain supported. */
   cellAlignments?: Record<string, TextAlign>;
   /** Horizontal text alignment per header cell, keyed by field. Absent = theme default. */
   headerCellAlignments?: Record<string, TextAlign>;
   /** Report-wide horizontal text alignment (all cells and headers), overridden by the per-cell/per-header maps. */
   reportAlignment?: TextAlign;
-  /** Per-side outlined border for a data cell, keyed `${rowIndex}:${field}`. Absent = inherit reportBorder; present (even empty) = explicit override. */
+  /** Horizontal alignment per column-group header, keyed by group name. Absent = report alignment, else center. */
+  groupHeaderAlignments?: Record<string, TextAlign>;
+  /** Horizontal alignment per column sub-group header, keyed by sub-group name. Absent = report alignment, else center. */
+  subGroupHeaderAlignments?: Record<string, TextAlign>;
+  /** Per-side outlined border for a data cell, keyed by position; absent = inherit reportBorder; present (even empty) = explicit override. */
   cellBorders?: Record<string, CellBorder>;
   /** Per-side outlined border for a header cell, keyed by field. Absent = inherit reportBorder. */
   headerCellBorders?: Record<string, CellBorder>;
   /** Report-wide border placement (all cells and headers), overridden by the per-cell/per-header maps. */
   reportBorder?: BorderType;
+  /** Custom header text for the auto row-number ('#') column. Absent/empty = default '#'. */
+  rowNumberHeader?: string;
   /** Id of the last-applied built-in theme preset (drives the theme dropdown's selection). */
   themeId?: string;
   /** Accent color of the applied built-in theme; used for branded row striping in builder + viewer. */
@@ -203,16 +235,28 @@ export interface ReportJsonConfig {
   conditionalRules?: ConditionalRule[];
   /** DAX Model: calculated measures shown as extra columns (row scope) or a totals value (column scope). */
   daxModel?: DaxModelConfig;
+  /** Optional color swatches and descriptions shown above this sheet's report grid. */
+  legends?: ReportLegendItem[];
   /** Row-level data filters that scope which source rows the report shows. */
   conditionalFilters?: ReportConditionalFilter[];
   /** Parameter-driven data transformation rules (Data Transformation section), applied to preview rows. */
   parameterFilters?: ParameterFilterRule[];
+  /**
+   * Template setups only: 'source' when column-keyed formatting is keyed by source column names
+   * (so it maps onto any target report's renames). Absent = keyed by the displayed column names.
+   */
+  columnKeyBasis?: 'source' | 'display';
   /**
    * Excel-like multiple pages. When present with >1 entry, the report has multiple sheets;
    * each carries its own data source + full config. The top-level fields above mirror the
    * FIRST sheet so older single-page readers still render page 1. Absent = single-page report.
    */
   sheets?: ReportSheetConfig[];
+}
+
+export interface ReportLegendItem {
+  color: string;
+  label: string;
 }
 
 /** One page/sheet of a multi-sheet report: its tab name, data source, and full config. */

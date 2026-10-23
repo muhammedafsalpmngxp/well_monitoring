@@ -1,14 +1,151 @@
-import { ColDef, ColGroupDef, IAggFuncParams, ICellRendererParams, SpanRowsParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community';
-import { ConditionalRule, MergedCellRange, ReportJsonConfig, RowLayoutRef, CellBorder, BorderType } from './report-config.model';
+import { CellClassParams, ColDef, ColGroupDef, Column, GridApi, HeaderStyleFunc, IAggFuncParams, ICellRendererParams, IRowNode, SpanRowsParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community';
+import { ConditionalRule, MergedCellRange, ReportJsonColumn, ReportJsonConfig, RowLayoutRef, CellBorder, BorderType, TextAlign } from './report-config.model';
 import { getReportGridPageSize } from './report-grid-lifecycle.util';
+import { getRuleSourceColumns } from '../../../core/utils/parameter-filter.util';
+import { coerceNumberAllowPercent, formatPercentValue, isPercentValue, parseNumberAllowPercent } from '../../../core/utils/percent-number.util';
+import { DEFAULT_DATA_BAR_COLOR, dataBarCellRenderer } from '../../../core/utils/table-grid-features.util';
 
 /** Internal row-object keys added by materializeRows so edits can be mapped back to state. */
 export const MANUAL_ROW_FLAG = '__manual';
 export const MANUAL_ROW_ID = '__insId';
 export const SOURCE_ROW_INDEX = '__srcIndex';
+export const ROW_COLOR_KEY = '__reportRowColorKey';
+
+/** A group's complete field/key path stays stable as rows expand, sort or change page. */
+export function getReportGroupRowColorKey(node: IRowNode | null | undefined): string | undefined {
+  if (!node?.group || node.footer || node.rowPinned || node.level < 0) return undefined;
+  const path: [string, string | null][] = [];
+  for (let group: IRowNode | null = node; group && group.level >= 0; group = group.parent) {
+    const field = group.rowGroupColumn?.getColDef().field ?? group.field;
+    if (!field) return undefined;
+    path.unshift([field, group.key]);
+  }
+  return `group:${JSON.stringify(path)}`;
+}
+
+export function getReportGroupRowStyle(
+  config: ReportJsonConfig | null | undefined,
+  node: IRowNode | null | undefined,
+): { backgroundColor: string; color: string } | undefined {
+  const key = getReportGroupRowColorKey(node);
+  if (!key) return undefined;
+  const field = node?.rowGroupColumn?.getColDef().field ?? node?.field;
+  return resolveReportGroupRowStyle(config, key, field);
+}
+
+export function resolveReportGroupRowStyle(
+  config: ReportJsonConfig | null | undefined,
+  key: string,
+  field: string | null | undefined,
+): { backgroundColor: string; color: string } {
+  const column = field ? createColumnConfigResolver(config)(field) : undefined;
+  return {
+    backgroundColor: config?.rowColorsByKey?.[key] ?? column?.rowGroupColor ?? '',
+    color: config?.rowTextColorsByKey?.[key] ?? '',
+  };
+}
+
+/** Cell-setting key that stays attached to a record as its displayed position changes. */
+export function reportCellSettingKey(rowColorKey: string, field: string): string {
+  return `record:${JSON.stringify([rowColorKey, field])}`;
+}
+
+export function reportCellSettingPrefix(rowColorKey: string): string {
+  return `record:${JSON.stringify([rowColorKey]).slice(0, -1)},`;
+}
+
+/** Discards prior per-cell styles on a record, including legacy styles keyed by its current row index. */
+export function clearReportCellSettingsForRecord<T>(
+  settings: Record<string, T>,
+  rowIndex: number,
+  rowColorKey?: string,
+): void {
+  const prefixes = rowColorKey
+    ? [reportCellSettingPrefix(rowColorKey), `${rowIndex}:`]
+    : [`${rowIndex}:`];
+  for (const key of Object.keys(settings)) {
+    if (prefixes.some(prefix => key.startsWith(prefix))) delete settings[key];
+  }
+}
+
+/** Excel-style default alignment for cells without a manual alignment: numbers/dates right, text left. */
+export function defaultReportCellAlign(rightAligned: boolean): TextAlign {
+  return rightAligned ? 'right' : 'left';
+}
+
+/** Identifies a column-group (or sub-group) header; carried on ColGroupDef.context.reportHeaderGroup. */
+export interface ReportHeaderGroupRef {
+  level: 'group' | 'subGroup';
+  name: string;
+}
+
+/** Group/sub-group header alignment: per-name override, then report-wide alignment, then center. */
+export function resolveGroupHeaderAlign(
+  config: Pick<ReportJsonConfig, 'groupHeaderAlignments' | 'subGroupHeaderAlignments' | 'reportAlignment'> | null | undefined,
+  ref: ReportHeaderGroupRef,
+): TextAlign {
+  const overrides = ref.level === 'group' ? config?.groupHeaderAlignments : config?.subGroupHeaderAlignments;
+  const align = overrides?.[ref.name] ?? config?.reportAlignment;
+  return align === 'left' || align === 'right' || align === 'center' ? align : 'center';
+}
+
+/** Reads a stable cell setting first, then falls back to the legacy row-index key. */
+export function getReportCellSetting<T>(
+  settings: Record<string, T> | undefined,
+  rowData: Record<string, unknown> | undefined,
+  rowIndex: number | null | undefined,
+  field: string,
+): T | undefined {
+  const rowColorKey = rowData?.[ROW_COLOR_KEY];
+  if (typeof rowColorKey === 'string') {
+    const stableValue = settings?.[reportCellSettingKey(rowColorKey, field)];
+    if (stableValue !== undefined) return stableValue;
+  }
+  return rowIndex == null ? undefined : settings?.[`${rowIndex}:${field}`];
+}
+
+/** True when a cell-setting map key belongs to the given column. */
+export function isReportCellSettingForField(key: string, field: string): boolean {
+  return key.endsWith(`:${field}`) || key.endsWith(`,${JSON.stringify(field)}]`);
+}
+
+/** Stable identity for a source row; falls back to its original source position if no usable PK is available. */
+export function getReportRowColorKey(row: Record<string, unknown>, primaryKeys: string[] = [], sourceIndex = 0): string {
+  const primaryKeyValues = primaryKeys.map(primaryKey => {
+    const exact = primaryKey.trim();
+    const column = exact in row
+      ? exact
+      : Object.keys(row).find(key => key.toLowerCase() === exact.toLowerCase());
+    return column ? row[column] : undefined;
+  });
+  if (primaryKeys.length && primaryKeyValues.every(value => value != null)) {
+    return `pk:${JSON.stringify(primaryKeyValues)}`;
+  }
+  return `row:${sourceIndex}`;
+}
 
 /** Key holding a summary row's left-hand label (e.g. "Sum", "Average") — shown in the Sl.No column. */
 export const TOTALS_LABEL_FIELD = '__totalLabel';
+
+export function getPinnedSummaryLabel(node: {
+  rowPinned?: string | null;
+  data?: Record<string, unknown>;
+} | null | undefined): string | undefined {
+  const label = node?.data?.[TOTALS_LABEL_FIELD];
+  return node?.rowPinned === 'bottom' && typeof label === 'string' && label ? label : undefined;
+}
+
+export function getSummaryRowStyle(
+  config: Pick<ReportJsonConfig, 'summaryRowColors' | 'summaryRowTextColors'> | null | undefined,
+  label: string | undefined,
+): { backgroundColor?: string; color?: string } | undefined {
+  if (!label) return undefined;
+  const backgroundColor = config?.summaryRowColors?.[label];
+  const color = config?.summaryRowTextColors?.[label];
+  return backgroundColor || color
+    ? { ...(backgroundColor ? { backgroundColor } : {}), ...(color ? { color } : {}) }
+    : undefined;
+}
 
 /**
  * Fixed row height (px) for data rows that contain at least one vertical-orientation cell.
@@ -18,8 +155,19 @@ export const TOTALS_LABEL_FIELD = '__totalLabel';
 export const VERTICAL_CELL_ROW_HEIGHT = 150;
 
 /** True when the given (absolute, unpinned) row index has at least one cell set to vertical. */
-export function rowHasVerticalCell(cellOrientations: Record<string, string> | undefined, rowIndex: number | null | undefined): boolean {
+export function rowHasVerticalCell(
+  cellOrientations: Record<string, string> | undefined,
+  rowIndex: number | null | undefined,
+  rowData?: Record<string, unknown>,
+): boolean {
   if (cellOrientations == null || rowIndex == null) return false;
+  const rowColorKey = rowData?.[ROW_COLOR_KEY];
+  if (typeof rowColorKey === 'string') {
+    const prefix = reportCellSettingPrefix(rowColorKey);
+    for (const key in cellOrientations) {
+      if (key.startsWith(prefix) && cellOrientations[key] === 'vertical') return true;
+    }
+  }
   const prefix = `${rowIndex}:`;
   for (const key in cellOrientations) {
     if (cellOrientations[key] === 'vertical' && key.startsWith(prefix)) return true;
@@ -33,6 +181,9 @@ const BORDER_COLORS: Record<string, string> = { dark: '#334155', light: '#FFFFFF
 const BORDER_COLOR = BORDER_COLORS['dark'];
 /** Light grid-line color (matches the AG theme borderColor) used for the header's baseline bottom line. */
 const GRID_LINE_COLOR = '#E2E7EF';
+
+/** Stable colId of the auto-generated row-number ('#') column, so it can be targeted (e.g. an editable header). */
+export const ROW_NUMBER_COL_ID = '__rowNumber__';
 
 /** Grid position of a cell within the range the border applies to (selection or whole grid/header row). */
 export interface BorderPos { firstRow: boolean; lastRow: boolean; firstCol: boolean; lastCol: boolean; }
@@ -165,37 +316,93 @@ export const REPORT_AGG_FUNCS: Record<string, (params: IAggFuncParams) => unknow
   numSum: (params: IAggFuncParams) => {
     let sum = 0;
     let has = false;
+    let allPercent = true;
     for (const v of params.values) {
       if (v == null || v === '') continue;
-      const n = typeof v === 'number' ? v : Number(v);
-      if (!Number.isNaN(n)) { sum += n; has = true; }
+      const n = parseReportNumber(v);
+      if (!Number.isNaN(n)) { sum += n; has = true; if (!isPercentValue(v)) allPercent = false; }
     }
-    return has ? sum : null;
+    if (!has) return null;
+    return allPercent ? formatPercentValue(sum) : sum;
   },
   numAvg: (params: IAggFuncParams) => {
     let sum = 0;
     let count = 0;
+    let allPercent = true;
     for (const v of params.values) {
       if (v == null || v === '') continue;
       if (typeof v === 'object' && v && '__twCount' in (v as Record<string, unknown>)) {
-        sum += Number((v as Record<string, unknown>)['__twSum']);
-        count += Number((v as Record<string, unknown>)['__twCount']);
+        const agg = v as Record<string, unknown>;
+        sum += Number(agg['__twSum']);
+        count += Number(agg['__twCount']);
+        if (!agg['__twPct']) allPercent = false;
       } else {
-        const n = typeof v === 'number' ? v : Number(v);
-        if (!Number.isNaN(n)) { sum += n; count += 1; }
+        const n = parseReportNumber(v);
+        if (!Number.isNaN(n)) { sum += n; count += 1; if (!isPercentValue(v)) allPercent = false; }
       }
     }
     if (!count) return null;
     const value = sum / count;
-    return { __twSum: sum, __twCount: count, value, toString: () => String(value), valueOf: () => value };
+    const text = allPercent ? formatPercentValue(value) : String(value);
+    return { __twSum: sum, __twCount: count, __twPct: allPercent, value, toString: () => text, valueOf: () => value };
   },
 };
 
+export { isPercentValue, formatPercentValue, parseNumberAllowPercent as parseReportNumber };
+const parseReportNumber = parseNumberAllowPercent;
+
+/** True when most populated cells of the column are percentage strings ("12.5%"). */
+export function isPercentColumn(rows: Record<string, unknown>[], field: string): boolean {
+  let sampleCount = 0;
+  let pctCount = 0;
+  for (const row of rows) {
+    const v = row[field];
+    if (v == null || (typeof v === 'string' && v.trim() === '')) continue;
+    sampleCount++;
+    if (isPercentValue(v)) pctCount++;
+    if (sampleCount === 50) break;
+  }
+  return sampleCount > 0 && pctCount > sampleCount * 0.5;
+}
+
+/** Columns that can be Summed/Averaged: numeric columns, or percentage columns ("12.5%"). */
+export function isAggregatableColumn(rows: Record<string, unknown>[], field: string): boolean {
+  return isNumericColumn(rows, field) || isPercentColumn(rows, field);
+}
+
+/**
+ * Sum/avg/min/max over cell values, accepting "%"-suffixed values. When every contributing value
+ * is a percentage the result keeps the "%" suffix; returns null when nothing is numeric.
+ */
+export function aggregateReportValues(values: unknown[], agg: 'sum' | 'avg' | 'min' | 'max'): number | string | null {
+  const nums: number[] = [];
+  let allPercent = true;
+  for (const v of values) {
+    const n = parseReportNumber(v);
+    if (Number.isNaN(n)) continue;
+    nums.push(n);
+    if (!isPercentValue(v)) allPercent = false;
+  }
+  if (!nums.length) return null;
+  let result: number;
+  switch (agg) {
+    case 'sum': result = nums.reduce((a, b) => a + b, 0); break;
+    case 'avg': result = +(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2); break;
+    case 'min': result = Math.min(...nums); break;
+    case 'max': result = Math.max(...nums); break;
+  }
+  return allPercent ? formatPercentValue(result) : result;
+}
+
 /** True when a single conditional-formatting rule matches a cell's value. */
-function ruleMatches(rule: ConditionalRule, raw: unknown): boolean {
+function ruleMatches(rule: ConditionalRule, raw: unknown, duplicates?: ReadonlySet<string>): boolean {
   const str = raw == null ? '' : String(raw);
-  const num = Number(raw);
-  const target = Number(rule.value);
+  // Blank cells (null/undefined/whitespace) are NOT the number 0 — `Number(null)` and `Number('')`
+  // both coerce to 0, which would make ordered comparisons like "less than 15" wrongly match empty
+  // cells. Treat blanks as non-numeric so only the explicit isEmpty/notEmpty rules act on them.
+  const isBlank = raw == null || str.trim() === '';
+  const num = isBlank ? NaN : coerceNumberAllowPercent(raw);
+  const target = coerceNumberAllowPercent(rule.value);
   const numeric = !isNaN(num) && !isNaN(target);
   switch (rule.operator) {
     case 'eq': return numeric ? num === target : str.toLowerCase() === String(rule.value ?? '').toLowerCase();
@@ -204,13 +411,86 @@ function ruleMatches(rule: ConditionalRule, raw: unknown): boolean {
     case 'gte': return numeric && num >= target;
     case 'lt': return numeric && num < target;
     case 'lte': return numeric && num <= target;
-    case 'between': return !isNaN(num) && num >= Number(rule.value) && num <= Number(rule.value2);
+    case 'between': return !isNaN(num) && num >= coerceNumberAllowPercent(rule.value) && num <= coerceNumberAllowPercent(rule.value2);
     case 'contains': return str.toLowerCase().includes(String(rule.value ?? '').toLowerCase());
     case 'startsWith': return str.toLowerCase().startsWith(String(rule.value ?? '').toLowerCase());
     case 'isEmpty': return raw == null || str.trim() === '';
     case 'notEmpty': return raw != null && str.trim() !== '';
+    case 'duplicate': {
+      const key = duplicateValueKey(raw);
+      return key != null && !!duplicates?.has(key);
+    }
     default: return false;
   }
+}
+
+/** Light red used by default for the "Duplicate values" conditional-formatting rule. */
+export const DUPLICATE_HIGHLIGHT_BG = '#FEE2E2';
+
+/** Fixed dark-red text for the "Duplicate values" rule (Excel's "Light Red Fill with Dark Red Text"). */
+export const DUPLICATE_HIGHLIGHT_TEXT = '#9C0006';
+
+/** Returns the set of values (by duplicateValueKey) that repeat within a column. */
+export type DuplicateValueLookup = (field: string) => ReadonlySet<string>;
+
+/** Normalised comparison key for duplicate detection; null for blank cells (never duplicates). */
+export function duplicateValueKey(raw: unknown): string | null {
+  if (raw == null) return null;
+  const text = (raw instanceof Date ? raw.toISOString() : String(raw)).trim();
+  return text ? text.toLowerCase() : null;
+}
+
+/** Keys of every value that occurs more than once in `field` across `rows`. */
+export function findDuplicateValues(rows: Iterable<Record<string, unknown> | undefined>, field: string): Set<string> {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const row of rows) {
+    const key = duplicateValueKey(row?.[field]);
+    if (key == null) continue;
+    if (seen.has(key)) duplicates.add(key);
+    else seen.add(key);
+  }
+  return duplicates;
+}
+
+interface DuplicateSourceApi {
+  forEachNode(callback: (node: { data?: Record<string, unknown>; group?: boolean }) => void): void;
+}
+
+// Per-source (grid API or row array) duplicate sets, kept only for the current synchronous
+// render/export pass so every cell shares one O(n) scan yet cell edits are picked up next pass.
+const duplicateCache = new WeakMap<object, Map<string, Set<string>>>();
+
+/**
+ * Duplicate lookup over the grid's current data (cell edits, inserted rows included), falling
+ * back to `fallbackRows` when no grid API is available (e.g. before the grid is ready).
+ */
+export function createDuplicateValueLookup(
+  api: DuplicateSourceApi | null | undefined,
+  fallbackRows: Record<string, unknown>[] | null | undefined,
+): DuplicateValueLookup {
+  return field => {
+    const source: object | null | undefined = api ?? fallbackRows;
+    if (!source) return new Set<string>();
+    let perField = duplicateCache.get(source);
+    if (!perField) {
+      perField = new Map();
+      duplicateCache.set(source, perField);
+      void Promise.resolve().then(() => duplicateCache.delete(source));
+    }
+    let duplicates = perField.get(field);
+    if (!duplicates) {
+      if (api) {
+        const rows: Record<string, unknown>[] = [];
+        api.forEachNode(node => { if (!node.group && node.data) rows.push(node.data); });
+        duplicates = findDuplicateValues(rows, field);
+      } else {
+        duplicates = findDuplicateValues(fallbackRows ?? [], field);
+      }
+      perField.set(field, duplicates);
+    }
+    return duplicates;
+  };
 }
 
 /** First matching rule's format for a cell (first-match wins), or empty when none apply. */
@@ -218,6 +498,7 @@ export function evaluateConditionalRules(
   rules: ConditionalRule[] | undefined,
   field: string,
   rowData: Record<string, unknown> | undefined,
+  duplicateLookup?: DuplicateValueLookup,
 ): { backgroundColor?: string; textColor?: string; bold?: boolean } {
   if (!rules?.length || !rowData) return {};
   for (const rule of rules) {
@@ -225,9 +506,11 @@ export function evaluateConditionalRules(
     const scope = rule.scope ?? (rule.applyToRow ? 'row' : 'column');
     // 'column': only the rule's own column cell. 'row': any cell in a row whose rule-field
     // value matches. 'report': any cell (any column/page) whose OWN value meets the condition.
-    const testValue = scope === 'report' ? rowData[field] : rowData[rule.field];
+    const testField = scope === 'report' ? field : rule.field;
+    const testValue = rowData[testField];
     if (scope === 'column' && rule.field !== field) continue;
-    if (ruleMatches(rule, testValue)) {
+    const duplicates = rule.operator === 'duplicate' ? duplicateLookup?.(testField) : undefined;
+    if (ruleMatches(rule, testValue, duplicates)) {
       return { backgroundColor: rule.backgroundColor, textColor: rule.textColor, bold: rule.bold };
     }
   }
@@ -271,7 +554,7 @@ export function reconcileRowLayout(
 
 /**
  * Builds the final grid rows from a reconciled layout: source rows carry a __srcIndex and
- * any cell overrides; inserted rows carry their stored values plus __manual/__insId markers.
+ * any cell overrides; inserted rows carry their stored values plus identity markers.
  * The extra keys aren't bound to any column so AG Grid never renders them.
  */
 export function materializeRows(
@@ -296,7 +579,12 @@ export function materializeRows(
       const ov = ovBySrc.get(ref.src);
       return { ...base, ...(ov ?? {}), [SOURCE_ROW_INDEX]: ref.src };
     }
-    return { ...(manualRows[ref.insId] ?? {}), [MANUAL_ROW_FLAG]: true, [MANUAL_ROW_ID]: ref.insId };
+    return {
+      ...(manualRows[ref.insId] ?? {}),
+      [ROW_COLOR_KEY]: `manual:${ref.insId}`,
+      [MANUAL_ROW_FLAG]: true,
+      [MANUAL_ROW_ID]: ref.insId,
+    };
   });
 }
 
@@ -307,14 +595,17 @@ export function materializeRows(
  */
 
 export function isNumericColumn(rows: Record<string, unknown>[], field: string): boolean {
-  const sample = rows.slice(0, 50);
+  let sampleCount = 0;
   let numCount = 0;
-  for (const row of sample) {
+  // Sample populated values so sparse columns and leading nulls do not hide numeric operations.
+  for (const row of rows) {
     const v = row[field];
-    if (v == null || v === '') continue;
-    if (!Number.isNaN(Number(v))) numCount++;
+    if (v == null || (typeof v === 'string' && v.trim() === '')) continue;
+    sampleCount++;
+    if ((typeof v === 'number' || typeof v === 'string') && Number.isFinite(Number(v))) numCount++;
+    if (sampleCount === 50) break;
   }
-  return numCount > sample.length * 0.5;
+  return numCount > sampleCount * 0.5;
 }
 
 export function isDateColumn(rows: Record<string, unknown>[], field: string): boolean {
@@ -340,8 +631,35 @@ export function isBooleanColumn(rows: Record<string, unknown>[], field: string):
   return boolCount > 0 && boolCount >= sample.filter(r => r[field] != null && r[field] !== '').length * 0.5;
 }
 
+// V8's Date constructor is extremely lenient: new Date("MAURID NE-105") and new Date("105")
+// both yield 01-Jan-0105, and new Date("OP-9") yields 01-Sep-2001. Free-text cell values
+// (common after a Split Column transformation whose derived column is value-inferred as a
+// "date") would therefore be coerced into bogus dates. Restrict the lenient fallback parse
+// to strings that actually look like a date so everything else renders as its original text.
+function looksLikeDateString(value: string): boolean {
+  // Numeric: 15/01/2024, 15-01-2024, 1.15.2024 (optionally followed by a time component).
+  if (/^\d{1,4}[/.\-]\d{1,2}[/.\-]\d{1,4}([ T]\d.*)?$/.test(value)) return true;
+  const months = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)';
+  // Day Month Year: 15-Jan-2024, 15 January 2024.
+  if (new RegExp(`^\\d{1,2}[ /.\\-]${months}[a-z]*[ /.\\-]\\d{1,4}$`, 'i').test(value)) return true;
+  // Month Day, Year: Jan 15, 2024, January 15 2024.
+  if (new RegExp(`^${months}[a-z]*[ /.\\-]\\d{1,2},?[ /.\\-]?\\d{1,4}$`, 'i').test(value)) return true;
+  return false;
+}
+
+/** Number display shared by the grid and PDF export: integers as-is, decimals rounded without grouping. */
+export function formatGridNumberValue(value: unknown, field: string): string {
+  // Percentage text (e.g. "12.5%" from an Append Text transformation, or a percent Average) keeps its "%".
+  if (isPercentValue(value)) return String(value);
+  if (value && typeof value === 'object' && (value as Record<string, unknown>)['__twPct']) return String(value);
+  const n = Number(value);
+  if (Number.isNaN(n)) return String(value);
+  const maxFractionDigits = field === 'Northing' || field === 'Easting' ? 4 : 2;
+  return Number.isInteger(n) ? String(n) : n.toLocaleString(undefined, { useGrouping: false, minimumFractionDigits: 0, maximumFractionDigits: maxFractionDigits });
+}
+
 export function formatGridDateValue(value: unknown): string {
-  if (value == null || value === '') return '—';
+  if (value == null || value === '') return '';
 
   let date: Date | null = null;
   if (value instanceof Date) {
@@ -356,8 +674,11 @@ export function formatGridDateValue(value: unknown): string {
     if (isoDateOnly) {
       const [, year, month, day] = isoDateOnly;
       date = new Date(Number(year), Number(month) - 1, Number(day));
-    } else {
+    } else if (looksLikeDateString(trimmed)) {
       date = new Date(trimmed);
+    } else {
+      // Not a date — render the original text instead of a V8-coerced bogus date.
+      return String(value);
     }
   }
 
@@ -433,24 +754,22 @@ export function computeTotalsRow(
 ): { totals: Record<string, unknown>; hasAnyTotal: boolean } {
   const totals: Record<string, unknown> = {};
   let hasAnyTotal = false;
+  // A `rename_column` data transformation renames the displayed field while the config entry
+  // stays keyed by the original source field, so resolve through the rename-aware helper.
+  const resolve = createColumnConfigResolver(config);
   for (const field of displayColumns) {
-    const cfgTotal = normalizeTotalAgg(config?.columns?.find(c => c.field === field)?.total);
+    const cfgTotal = normalizeTotalAgg(resolve(field)?.total);
     if (cfgTotal === 'count') {
       // Count works on any column type: tally non-empty cells (numeric OR text).
       totals[field] = rows.reduce((n, r) => {
-        const v = r[field];
+        const v = readRowValue(r, field);
         return v === null || v === undefined || v === '' ? n : n + 1;
       }, 0);
       hasAnyTotal = true;
     } else if (cfgTotal) {
-      const nums = rows.map(r => Number(r[field])).filter(n => !Number.isNaN(n));
-      if (!nums.length) { totals[field] = '—'; continue; }
-      switch (cfgTotal) {
-        case 'sum':   totals[field] = nums.reduce((a, b) => a + b, 0); break;
-        case 'avg':   totals[field] = +(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2); break;
-        case 'min':   totals[field] = Math.min(...nums); break;
-        case 'max':   totals[field] = Math.max(...nums); break;
-      }
+      const value = aggregateReportValues(rows.map(r => readRowValue(r, field)), cfgTotal);
+      if (value == null) { totals[field] = '—'; continue; }
+      totals[field] = value;
       hasAnyTotal = true;
     } else {
       totals[field] = '';
@@ -483,10 +802,13 @@ export function computeTotalsRows(
   displayColumns: string[],
 ): Record<string, unknown>[] {
   const byAgg = new Map<string, Record<string, unknown>>();
+  // Resolve through the rename-aware helper so a `rename_column` transformed field still finds
+  // its original config entry (which carries the Total aggregation selection).
+  const resolve = createColumnConfigResolver(config);
   for (const field of displayColumns) {
-    const agg = normalizeTotalAgg(config?.columns?.find(c => c.field === field)?.total);
+    const agg = normalizeTotalAgg(resolve(field)?.total);
     if (!agg) continue;
-    let value: number;
+    let value: number | string;
     if (agg === 'count') {
       // Count works on any column type: tally non-empty cells (numeric OR text).
       value = rows.reduce((n, r) => {
@@ -494,14 +816,9 @@ export function computeTotalsRows(
         return v === null || v === undefined || v === '' ? n : n + 1;
       }, 0);
     } else {
-      const nums = rows.map(r => Number(readRowValue(r, field))).filter(n => !Number.isNaN(n));
-      if (!nums.length) continue;
-      switch (agg) {
-        case 'sum': value = nums.reduce((a, b) => a + b, 0); break;
-        case 'avg': value = +(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2); break;
-        case 'min': value = Math.min(...nums); break;
-        case 'max': value = Math.max(...nums); break;
-      }
+      const aggregated = aggregateReportValues(rows.map(r => readRowValue(r, field)), agg);
+      if (aggregated == null) continue;
+      value = aggregated;
     }
     if (!byAgg.has(agg)) byAgg.set(agg, {});
     byAgg.get(agg)![field] = value;
@@ -536,6 +853,191 @@ export function computeGrandTotalRow(
 }
 
 export type ConfigGetter = () => ReportJsonConfig | null;
+
+function getHeaderColorClasses(config: ReportJsonConfig | null | undefined, field: string): string[] {
+  const classes: string[] = [];
+  for (const [kind, color] of [
+    ['bg', resolveHeaderBackgroundColor(config, field)],
+    ['fg', resolveHeaderTextColor(config, field)],
+  ]) {
+    if (!color || !/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) continue;
+    const hex = color.length === 4 ? color.slice(1).split('').map(ch => ch + ch).join('') : color.slice(1);
+    classes.push(`xl-${kind}-${hex.toLowerCase()}`);
+  }
+  return classes;
+}
+
+/**
+ * Resolves a column header's BACKGROUND color from the saved config — the single precedence shared
+ * by BOTH the live grid and every export path: per-cell override (`headerCellColors`) → uniform
+ * header-row color (`headerRowColor`) → the column's own color. Returns undefined when nothing is
+ * configured, so each caller applies its own default (the live grid leaves it to the AG Grid theme
+ * header background; exporters pass an explicit hex fallback). The column color resolves a
+ * Data Transformation rename back to the source column's config.
+ *
+ * Centralized so the viewer and its exports can never drift (the cause of the Sl.No/header color
+ * export bugs) — do NOT re-inline this precedence anywhere.
+ */
+export function resolveHeaderBackgroundColor(
+  config: ReportJsonConfig | null | undefined,
+  field: string,
+): string | undefined {
+  return config?.headerCellColors?.[field]
+    || config?.headerRowColor
+    || createColumnConfigResolver(config)(field)?.color
+    || undefined;
+}
+
+/**
+ * Resolves a column header's TEXT color: per-cell override (`headerCellTextColors`) → uniform
+ * header-row text color (`headerRowTextColor`). The column's own body text color is intentionally
+ * NOT a fallback — a "Column Text color" must never bleed into the header. Returns undefined when
+ * nothing is configured. Centralized alongside resolveHeaderBackgroundColor.
+ */
+export function resolveHeaderTextColor(
+  config: ReportJsonConfig | null | undefined,
+  field: string,
+): string | undefined {
+  return config?.headerCellTextColors?.[field]
+    || config?.headerRowTextColor
+    || undefined;
+}
+
+/** Generated row-group columns keep their source field in showRowGroup, not field. */
+export function getReportColumnField(colDef: ColDef): string | undefined {
+  return typeof colDef.showRowGroup === 'string' ? colDef.showRowGroup : colDef.field ?? colDef.colId;
+}
+
+export function buildReportAutoGroupColumnStyles(
+  getConfig: () => ReportJsonConfig | null | undefined,
+): Pick<ColDef, 'headerStyle' | 'headerClass' | 'cellStyle'> {
+  const position = (api: GridApi, column: Column | null | undefined) => {
+    const columns = api.getAllDisplayedColumns();
+    const index = column ? columns.indexOf(column) : -1;
+    return {
+      firstCol: index === 0,
+      lastCol: index >= 0 && index === columns.length - 1,
+    };
+  };
+  return {
+    headerStyle: params => {
+      const config = getConfig();
+      const field = getReportColumnField(params.column?.getColDef() ?? {}) ?? '';
+      const pos = position(params.api, params.column);
+      const sides = resolveStoredSides(config?.headerCellBorders, config?.reportBorder, field, {
+        ...pos, firstRow: true, lastRow: true,
+      });
+      const bodySides = resolveStoredSides(config?.cellBorders, config?.reportBorder, `0:${field}`, {
+        ...pos, firstRow: true, lastRow: false,
+      });
+      return {
+        backgroundColor: resolveHeaderBackgroundColor(config, field) ?? '',
+        color: resolveHeaderTextColor(config, field) ?? '',
+        boxShadow: 'none',
+        ...headerBorderStyles(sides, !!bodySides?.top),
+      };
+    },
+    headerClass: params => {
+      const config = getConfig();
+      const field = getReportColumnField(params.column?.getColDef() ?? {}) ?? '';
+      const classes: string[] = [];
+      const align = config?.headerCellAlignments?.[field] ?? config?.reportAlignment;
+      if (align) classes.push(`rb-header-align-${align}`);
+      if (config?.headerCellOrientations?.[field] === 'vertical') classes.push('rb-header-vertical');
+      classes.push(...getHeaderColorClasses(config, field));
+      return classes;
+    },
+    cellStyle: params => {
+      const config = getConfig();
+      const rowIndex = params.node.rowIndex;
+      const field = getReportColumnField(params.colDef) ?? '';
+      const displayedField = params.colDef.colId ?? field;
+      const pos = position(params.api, params.column);
+      const totalRows = params.api.getDisplayedRowCount();
+      const sidesAt = (index: number) => index < 0 || index >= totalRows ? null
+        : resolveStoredSides(config?.cellBorders, config?.reportBorder,
+          config?.cellBorders && `${index}:${displayedField}` in config.cellBorders
+            ? `${index}:${displayedField}` : `${index}:${field}`, {
+          ...pos, firstRow: index === 0, lastRow: index === totalRows - 1,
+        });
+      const sides = !params.node.rowPinned && rowIndex != null && rowIndex >= 0
+        ? dedupeBorderSides(sidesAt(rowIndex), sidesAt(rowIndex - 1), null, rowIndex === totalRows - 1, pos.lastCol)
+        : null;
+      const colorKey = params.data?.[ROW_COLOR_KEY];
+      const groupStyle = getReportGroupRowStyle(config, params.node);
+      const validRow = !params.node.rowPinned && !params.node.group && rowIndex != null && rowIndex >= 0;
+      const bg = groupStyle ? groupStyle.backgroundColor : validRow
+        ? (typeof colorKey === 'string' ? config?.rowColorsByKey?.[colorKey] : undefined)
+          ?? config?.pageRowColors?.[rowIndex] ?? config?.rowColors?.[rowIndex]
+        : undefined;
+      const fg = groupStyle ? groupStyle.color : validRow
+        ? (typeof colorKey === 'string' ? config?.rowTextColorsByKey?.[colorKey] : undefined)
+          ?? config?.rowTextColors?.[rowIndex]
+        : undefined;
+      return {
+        backgroundColor: bg ?? '',
+        color: fg ?? '',
+        borderTopStyle: '', borderTopColor: '',
+        borderRightStyle: '', borderRightColor: '',
+        borderBottomStyle: '', borderBottomColor: '',
+        borderLeftStyle: '', borderLeftColor: '',
+        ...borderSideStyles(sides),
+        ...(params.node.rowPinned ? getSummaryRowStyle(config, getPinnedSummaryLabel(params.node)) : {}),
+      };
+    },
+  };
+}
+
+/**
+ * Resolves a *displayed* column name back to its saved `ColumnConfig`. A `rename_column`
+ * data-transformation changes the on-screen/export field name while the config entry stays
+ * keyed by the original source field, so a naive `columns.find(c => c.field === name)` misses
+ * it — losing that column's grouping/sub-grouping (and any other config-keyed metadata).
+ *
+ * Both the live grid and the exporters MUST resolve through this helper so an export's
+ * group/sub-group headers match exactly what the viewer renders.
+ */
+export function createColumnConfigResolver(
+  config: ReportJsonConfig | null | undefined,
+): (field: string) => ReportJsonColumn | undefined {
+  const columnSources = createColumnSourceMap(config);
+  const columnConfigByField = new Map((config?.columns ?? []).map(column => [column.field, column]));
+  return (field: string) => {
+    const direct = columnConfigByField.get(field);
+    if (direct) return direct;
+    const source = columnSources.get(field);
+    return source ? columnConfigByField.get(source) : undefined;
+  };
+}
+
+function createColumnSourceMap(config: ReportJsonConfig | null | undefined): Map<string, string> {
+  return getReportColumnSourceMap(config);
+}
+
+/** Displayed column name → source column name after the config's rename_column rules (identity for unrenamed columns). */
+export function getReportColumnSourceMap(config: Pick<ReportJsonConfig, 'columns' | 'parameterFilters'> | null | undefined): Map<string, string> {
+  const columnSources = new Map((config?.columns ?? []).map(column => [column.field, column.field]));
+  for (const rule of config?.parameterFilters ?? []) {
+    if (rule.action !== 'rename_column' || rule.enabled === false) continue;
+    const name = rule.newColumnName?.trim();
+    if (!name) continue;
+    const targets = getRuleSourceColumns(rule).map(target =>
+      [...columnSources.keys()].find(column => column.toLowerCase() === target.toLowerCase()) ?? target,
+    );
+    for (const target of targets) {
+      const source = columnSources.get(target) ?? target;
+      const renamed = targets.length === 1
+        ? name
+        : name.includes('{col}') || name.includes('{}')
+          ? name.replace(/\{col\}|\{\}/gi, target).trim()
+          : `${target}_${name}`;
+      if (!renamed || renamed === target) continue;
+      columnSources.delete(target);
+      columnSources.set(renamed, source);
+    }
+  }
+  return columnSources;
+}
 
 /**
  * A merge is either a column merge (colSpan > 1, rowSpan === 1) or a row merge
@@ -579,7 +1081,14 @@ export function buildReportGridColumns(
   columnTypes?: Record<string, string>,
 ): (ColDef | ColGroupDef)[] {
   const config = getConfig();
-  const cols = config?.columns?.filter(c => c.shown !== false) ?? [];
+  const cols = config?.columns ?? [];
+  const findGroupingConfig = createColumnConfigResolver(config);
+  visibleFields = [...new Set([
+    ...visibleFields,
+    ...[...createColumnSourceMap(config)].filter(([, source]) =>
+      cols.some(column => column.field === source && column.rowGroup)).map(([field]) => field),
+  ])];
+
   const groupColor = config?.columnGroupColors?.find(color => color.level === 0)?.color;
   const subGroupColor = config?.columnGroupColors?.find(color => color.level === 1)?.color;
   // Per-group background overrides (keyed by group name), falling back to groupColor.
@@ -588,26 +1097,64 @@ export function buildReportGridColumns(
   const subGroupColors = config?.subGroupColors ?? {};
   const groupTextColor = config?.groupTextColor || '#FFFFFF';
   const subGroupTextColor = config?.subGroupTextColor || '#FFFFFF';
+  // Per-group / per-sub-group text-color overrides (keyed by name), falling back to the globals.
+  const groupTextColors = config?.groupTextColors ?? {};
+  const subGroupTextColors = config?.subGroupTextColors ?? {};
   const mergedCellRanges = config?.mergedCellRanges ?? [];
   // Fields that contain at least one vertical cell — those columns get auto-height + truncation.
   const verticalFields = new Set<string>();
   for (const key of Object.keys(config?.cellOrientations ?? {})) {
+    const stableField = key.startsWith('record:')
+      ? (() => {
+          try {
+            const parsed: unknown = JSON.parse(key.slice('record:'.length));
+            return Array.isArray(parsed) && typeof parsed[1] === 'string' ? parsed[1] : undefined;
+          } catch {
+            return undefined;
+          }
+        })()
+      : undefined;
     const sep = key.indexOf(':');
-    if (sep >= 0 && config!.cellOrientations![key] === 'vertical') verticalFields.add(key.slice(sep + 1));
+    const field = stableField ?? (sep >= 0 ? key.slice(sep + 1) : undefined);
+    if (field && config!.cellOrientations![key] === 'vertical') verticalFields.add(field);
   }
   const colByField = new Map<string, ColDef>();
   const groupOfField = new Map<string, string>();
   const subGroupOfField = new Map<string, string>();
   const seen = new Set<string>();
+  // The auto '#' column is prepended (pinned left) unless the data already carries an Sl.No-style
+  // column. When present it is the table's true first column, so leaf columns are no longer the
+  // first column for outer/left/vertical border placement — the '#' column owns that outer edge.
+  const hasRowNumber = !visibleFields.some(isSerialNumberField);
+  const leafFirstCol = (field: string) => !hasRowNumber && field === visibleFields[0];
 
   for (const field of visibleFields) {
     if (seen.has(field)) continue;
     seen.add(field);
-    const cfg = cols.find(c => c.field === field);
+    const cfg = cols.find(column => column.field === field);
+    // A `rename_column` data transformation renames the displayed field while its config entry
+    // stays keyed by the original source field. Header / pinned / display props stay keyed by the
+    // displayed field, but the aggregation (row-group Sum/Average + subtotal/grand-total rows)
+    // must resolve rename-aware so a renamed numeric column still aggregates on group/total rows.
+    const aggCfg = findGroupingConfig(field) ?? cfg;
     const sqlType = gridDataTypeForTransformation(config, field) ?? gridDataTypeForSqlType(columnTypes?.[field]);
     const isBoolean = sqlType ? sqlType === 'boolean' : isBooleanColumn(sampleRows, field);
     const isNum = sqlType ? sqlType === 'number' : isNumericColumn(sampleRows, field);
     const isDate = sqlType ? sqlType === 'date' : isDateColumn(sampleRows, field);
+    const defaultAlign = defaultReportCellAlign((isNum && !isBoolean) || isDate);
+    const alignStyle = (align: TextAlign) => ({
+      textAlign: align,
+      justifyContent: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center',
+    });
+    // Keep numeric behavior intact; untyped string values only change to a checkbox-list filter.
+    const useSetFilterForNumericStrings = !sqlType && isNum &&
+      sampleRows
+        .filter(row => {
+          const value = row[field];
+          return value != null && !(typeof value === 'string' && value.trim() === '');
+        })
+        .slice(0, 50)
+        .every(row => typeof row[field] === 'string');
     const rowMerges = mergedCellRanges.filter(r => r.field === field && isRowMerge(r));
 
     // Vertical headers show the full label rotated top-to-bottom; autoHeaderHeight +
@@ -618,7 +1165,7 @@ export function buildReportGridColumns(
     const col: ColDef = {
       field,
       headerName,
-      filter: isBoolean ? 'agTextColumnFilter' : (isDate ? 'agDateColumnFilter' : (isNum ? 'agNumberColumnFilter' : 'agSetColumnFilter')),
+      filter: isBoolean ? 'agTextColumnFilter' : (isDate ? 'agDateColumnFilter' : (isNum ? (useSetFilterForNumericStrings ? 'agSetColumnFilter' : 'agNumberColumnFilter') : 'agSetColumnFilter')),
       sortable: true,
       resizable: true,
       wrapHeaderText: true,
@@ -626,7 +1173,7 @@ export function buildReportGridColumns(
       headerTooltip: headerFull,
       enableRowGroup: true,
       enablePivot: true,
-      enableValue: isNum && !isBoolean,
+      enableValue: (isNum && !isBoolean) || (!sqlType && isPercentColumn(sampleRows, field)),
     };
 
     // AG Grid reads a '.' in `field` as a deep path (e.g. "Sl No." → data['Sl No']['']), so any
@@ -658,11 +1205,14 @@ export function buildReportGridColumns(
     // repaint via refreshHeader() without needing to reset columnDefs.
     (col as any).headerStyle = () => {
       const c = getConfig();
-      const bg = c?.headerCellColors?.[field] || c?.headerRowColor || cols.find(x => x.field === field)?.color;
-      const fg = c?.headerCellTextColors?.[field] || c?.headerRowTextColor || c?.columns?.find(x => x.field === field)?.textColor;
+      const bg = resolveHeaderBackgroundColor(c, field);
+      // Header text color is independent of the column's body text color: picking a
+      // "Column Text color" must not bleed into the header — only "Header Text color"
+      // (per-cell) or "All headers Text color" (row-wide) affect the header text.
+      const fg = resolveHeaderTextColor(c, field);
       const hb = c?.headerCellBorders;
       // Headers are a single row, so firstRow/lastRow are both true; columns use the visible order.
-      const isFirstCol = field === visibleFields[0];
+      const isFirstCol = leafFirstCol(field);
       const isLastCol = field === visibleFields[visibleFields.length - 1];
       const sides = (hb && field in hb)
         ? toCellBorder(hb[field])
@@ -674,8 +1224,8 @@ export function buildReportGridColumns(
       const row0Sides = resolveStoredSides(c?.cellBorders, c?.reportBorder, `0:${field}`, { firstRow: true, lastRow: false, firstCol: isFirstCol, lastCol: isLastCol });
       const bodyOwnsBottom = !!row0Sides?.top;
       return {
-        ...(bg ? { backgroundColor: bg } : {}),
-        ...(fg ? { color: fg } : {}),
+        backgroundColor: bg ?? '',
+        color: fg ?? '',
         ...headerBorderStyles(sides, bodyOwnsBottom),
       };
     };
@@ -690,26 +1240,14 @@ export function buildReportGridColumns(
     // headerStyle (above) paints the header live on-screen, but AG Grid's native Excel export only
     // reads headerClass -> excelStyles, not arbitrary inline styles - so also tag the header with the
     // same color as a class id (report-builder's updateExcelStyles registers a matching xl-bg-<hex> style).
-    const headerBg = config?.headerCellColors?.[field] || config?.headerRowColor || cols.find(x => x.field === field)?.color;
-    if (headerBg && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(headerBg)) {
-      const hex = headerBg.length === 4 ? headerBg.slice(1).split('').map(ch => ch + ch).join('') : headerBg.slice(1, 7);
-      headerClasses.push(`xl-bg-${hex.toLowerCase()}`);
-    }
+    headerClasses.push(...getHeaderColorClasses(config, field));
     if (headerClasses.length) col.headerClass = headerClasses;
 
     if (isNum && !isBoolean) {
       col.type = 'numericColumn';
       col.valueFormatter = (params: ValueFormatterParams) => {
-        if (params.value == null || params.value === '') {
-          // Summary rows (totals/grand-total/subtotal) leave untotaled columns blank rather
-          // than "—", so the totals row isn't cluttered with dashes.
-          return (params.node?.rowPinned || params.node?.footer) ? '' : '—';
-        }
-        const n = Number(params.value);
-        if (Number.isNaN(n)) return String(params.value);
-        const maxFractionDigits = field === 'Northing' || field === 'Easting' ? 4 : 2;
-        const formatted = Number.isInteger(n) ? String(n) : n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: maxFractionDigits });
-        return formatted;
+        if (params.value == null || params.value === '') return '';
+        return formatGridNumberValue(params.value, field);
       };
     }
 
@@ -721,12 +1259,12 @@ export function buildReportGridColumns(
       col.cellDataType = false;
       col.filter = 'agTextColumnFilter';
       col.cellRenderer = (params: ICellRendererParams) => {
-        if (params.value == null || params.value === '') return '—';
+        if (params.value == null || params.value === '') return '';
         const value = typeof params.value === 'string' ? params.value.toLowerCase() : params.value;
         return value === true || value === 'true' || value === 1 ? 'true' : 'false';
       };
       col.valueFormatter = (params: ValueFormatterParams) => {
-        if (params.value == null || params.value === '') return '—';
+        if (params.value == null || params.value === '') return '';
         const v = typeof params.value === 'string' ? params.value.toLowerCase() : params.value;
         return v === true || v === 'true' || v === 1 ? 'true' : 'false';
       };
@@ -736,24 +1274,45 @@ export function buildReportGridColumns(
     // Merged cells (either axis) also get flex-centered content, matching Excel's "merge & center".
     col.cellStyle = (params) => {
       const c = getConfig();
+      const column = createColumnConfigResolver(c)(field);
+      if (params.node?.rowPinned) {
+        const style = {
+          ...(column?.color ? { backgroundColor: column.color } : {}),
+          ...(column?.textColor ? { color: column.textColor } : {}),
+          ...alignStyle(c?.reportAlignment ?? defaultAlign),
+          ...getSummaryRowStyle(c, getPinnedSummaryLabel(params.node)),
+        };
+        return Object.keys(style).length ? style : null;
+      }
       const rowIndex = params.node?.rowIndex;
       // Manual colors/alignments/borders are keyed by the row's absolute index (matching where
       // they are stored), so a styled row keeps its styling on that row only — it is not repeated
       // at the same position on every pagination page.
-      const rowKey = (params.node?.rowPinned || rowIndex == null || rowIndex < 0)
+      const groupStyle = getReportGroupRowStyle(c, params.node);
+      const rowKey = (params.node?.rowPinned || params.node?.group || rowIndex == null || rowIndex < 0)
         ? undefined
         : rowIndex;
       const cellKey = rowKey != null ? `${rowKey}:${field}` : undefined;
-      const manualBg = (cellKey ? c?.cellColors?.[cellKey] : undefined)
+      const manualBg = groupStyle
+        ? groupStyle.backgroundColor || column?.color
+        : getReportCellSetting(c?.cellColors, params.data, rowIndex, field)
+        || (params.data?.[ROW_COLOR_KEY] != null ? c?.rowColorsByKey?.[String(params.data[ROW_COLOR_KEY])] : undefined)
         || (rowKey != null ? c?.pageRowColors?.[rowKey] : undefined)
         || (rowKey != null ? c?.rowColors?.[rowKey] : undefined)
-        || c?.columns?.find(x => x.field === field)?.color;
-      const manualFg = (cellKey ? c?.cellTextColors?.[cellKey] : undefined)
+        || column?.color;
+      const manualFg = groupStyle
+        ? groupStyle.color || column?.textColor
+        : getReportCellSetting(c?.cellTextColors, params.data, rowIndex, field)
+        || (params.data?.[ROW_COLOR_KEY] != null
+          ? c?.rowTextColorsByKey?.[String(params.data[ROW_COLOR_KEY])]
+          : undefined)
         || (rowKey != null ? c?.rowTextColors?.[rowKey] : undefined)
-        || c?.columns?.find(x => x.field === field)?.textColor;
+        || column?.textColor;
 
       // Conditional formatting wins over manual paint (skip the totals row); manual fills gaps.
-      const cf = params.node?.rowPinned ? {} : evaluateConditionalRules(c?.conditionalRules, field, params.data);
+      const cf = params.node?.rowPinned || params.node?.group
+        ? {}
+        : evaluateConditionalRules(c?.conditionalRules, field, params.data, createDuplicateValueLookup(params.api, sampleRows));
       const bg = cf.backgroundColor || manualBg;
       const fg = cf.textColor || manualFg;
 
@@ -765,12 +1324,13 @@ export function buildReportGridColumns(
         && (inRowMerge || (rowIndex != null && mergedCellRanges.some(r => r.field === field && r.rowIndex === rowIndex && isColumnMerge(r))));
       // Orientation is keyed by absolute rowIndex (matches setCellOrientation + the cell renderer), not the page-relative color key.
       const vertical = (rowIndex != null && !params.node?.rowPinned)
-        ? c?.cellOrientations?.[`${rowIndex}:${field}`] === 'vertical'
+        ? getReportCellSetting(c?.cellOrientations, params.data, rowIndex, field) === 'vertical'
         : false;
       // Aggregated value cells (e.g. "Average: 0.05" on group/total rows) render bold.
-      const isAggCell = !!cfg?.aggFunc && (params.node?.group === true || params.node?.footer === true);
-      // Manual horizontal alignment (keyed page-relative like colors); wins over the theme default and merge-centering.
-      const align = (cellKey ? c?.cellAlignments?.[cellKey] : undefined) ?? c?.reportAlignment;
+      const isAggCell = !!aggCfg?.aggFunc && (params.node?.group === true || params.node?.footer === true);
+      // Manual horizontal alignment wins over merge-centering; otherwise unmerged cells use the Excel-style default.
+      const manualAlign = getReportCellSetting(c?.cellAlignments, params.data, rowIndex, field) ?? c?.reportAlignment;
+      const align = manualAlign ?? (isMerged ? undefined : defaultAlign);
       const cb = c?.cellBorders;
       // Borders are stored per-cell, but a shared edge must be painted once. Resolve this cell's
       // sides plus its top/left neighbours' sides, then de-duplicate so each edge is drawn by a
@@ -787,7 +1347,7 @@ export function buildReportGridColumns(
           return resolveStoredSides(cb, c?.reportBorder, keyAt(absRow, fld), {
             firstRow: absRow === 0,
             lastRow: totalRows > 0 && absRow === totalRows - 1,
-            firstCol: colI === 0,
+            firstCol: colI === 0 && !hasRowNumber,
             lastCol: colI === lastColIdx,
           });
         };
@@ -797,16 +1357,36 @@ export function buildReportGridColumns(
         sides = dedupeBorderSides(own, above, leftN, totalRows > 0 && rowIndex === totalRows - 1, colIdx === lastColIdx);
       }
       const hasBorder = hasAnyBorderSide(sides);
-      if (!isMerged && !bg && !fg && !vertical && !cf.bold && !isAggCell && !align && !hasBorder) return null;
+      if (!isMerged && !bg && !fg && !vertical && !cf.bold && !isAggCell && !align && !hasBorder && !groupStyle) return null;
       return {
         ...(isMerged ? { display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' } : {}),
         ...(bg ? { backgroundColor: bg } : {}),
         ...(fg ? { color: fg } : {}),
         ...((cf.bold || isAggCell) ? { fontWeight: '700' } : {}),
-        ...(align ? { textAlign: align, justifyContent: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center' } : {}),
+        ...(align ? alignStyle(align) : {}),
         ...borderSideStyles(sides),
+        ...(groupStyle ? { backgroundColor: bg ?? '', color: fg ?? '' } : {}),
       };
     };
+    // Inline data bars (numeric columns only). Declared before the vertical-text wrapper below so
+    // vertical cells keep rendering rotated and every other cell draws its bar.
+    if ((isNum || isPercentColumn(sampleRows, field)) && !isBoolean && config?.dataBarColumns?.includes(field)) {
+      let max = 0;
+      for (const row of sampleRows) {
+        const value = row[field];
+        const number = value == null || value === '' ? NaN : coerceNumberAllowPercent(value);
+        if (Number.isFinite(number) && number > max) max = number;
+      }
+      const drawBar = dataBarCellRenderer(max, config.dataBarColor || DEFAULT_DATA_BAR_COLOR);
+      const plainRenderer = col.cellRenderer as ((p: ICellRendererParams) => unknown) | undefined;
+      col.cellRenderer = (params: ICellRendererParams) => {
+        if (params.node?.group || params.node?.rowPinned || params.node?.footer || params.value == null || params.value === '') {
+          return plainRenderer ? plainRenderer(params) : (params.valueFormatted ?? (params.value == null ? '' : String(params.value)));
+        }
+        return drawBar(params);
+      };
+    }
+
     // Vertical cells: show the full value rotated top-to-bottom, wrapping into multiple
     // rotated lines (via the 'rb-cell-vertical' class + CSS) instead of clipping with an
     // ellipsis. AG's autoHeight can't measure rotated content, so the row height is set
@@ -818,11 +1398,11 @@ export function buildReportGridColumns(
       // defaultColDef's cellClass (which carries the native-Excel-export color classes).
       col.cellClassRules = {
         'rb-cell-vertical': (params) =>
-          getConfig()?.cellOrientations?.[`${params.node?.rowIndex}:${field}`] === 'vertical',
+          getReportCellSetting(getConfig()?.cellOrientations, params.data, params.node?.rowIndex, field) === 'vertical',
       };
       const baseRenderer = col.cellRenderer as ((p: ICellRendererParams) => unknown) | undefined;
       col.cellRenderer = (params: ICellRendererParams) => {
-        const isVertical = getConfig()?.cellOrientations?.[`${params.node?.rowIndex}:${field}`] === 'vertical';
+        const isVertical = getReportCellSetting(getConfig()?.cellOrientations, params.data, params.node?.rowIndex, field) === 'vertical';
         if (!isVertical) {
           return baseRenderer ? baseRenderer(params) : (params.valueFormatted ?? (params.value == null ? '' : String(params.value)));
         }
@@ -847,9 +1427,10 @@ export function buildReportGridColumns(
     }
 
     // Pin column if configured
-    const isPinned = cfg?.pinned || config?.pinnedColumns?.includes(field);
+    const pinnedSide = (cfg ?? aggCfg)?.pinned;
+    const isPinned = pinnedSide || config?.pinnedColumns?.includes(field);
     if (isPinned) {
-      col.pinned = cfg?.pinned || 'left';
+      col.pinned = pinnedSide || 'left';
     }
 
     // Row grouping — grouped columns are normally hidden so their values show only in the
@@ -860,25 +1441,25 @@ export function buildReportGridColumns(
     // Always set rowGroup/hide explicitly: on a columnDefs update AG Grid RETAINS a column's
     // prior grouping (and hidden) state for any property left undefined, so omitting them here
     // meant unchecking a grouped column never actually ungrouped it (its panel chip lingered too).
-    if (cfg?.rowGroup) {
+    if (aggCfg?.rowGroup) {
       col.rowGroup = true;
-      if (typeof cfg.rowGroupIndex === 'number') col.rowGroupIndex = cfg.rowGroupIndex;
-      col.hide = !cfg.aggFunc;
+      if (typeof aggCfg.rowGroupIndex === 'number') col.rowGroupIndex = aggCfg.rowGroupIndex;
+      col.hide = !aggCfg.aggFunc;
     } else {
       col.rowGroup = false;
       col.rowGroupIndex = null;
       col.hide = false;
     }
     // Map to the numeric-coercing aggregations so string data still sums/averages correctly.
-    if (cfg?.aggFunc === 'sum') col.aggFunc = 'numSum';
-    else if (cfg?.aggFunc === 'avg') col.aggFunc = 'numAvg';
-    else if (cfg?.aggFunc) col.aggFunc = cfg.aggFunc;
+    if (aggCfg?.aggFunc === 'sum') col.aggFunc = 'numSum';
+    else if (aggCfg?.aggFunc === 'avg') col.aggFunc = 'numAvg';
+    else if (aggCfg?.aggFunc) col.aggFunc = aggCfg.aggFunc;
 
     // The per-column "Total" selection (Sum/Average/Count) also drives AG Grid's grand-total
     // and group-subtotal rows, which aggregate via aggFunc — without this those rows render
     // blank ("—") for columns that only set a Total (and no row-group aggregation).
     if (!col.aggFunc) {
-      const totalAgg = normalizeTotalAgg(cfg?.total);
+      const totalAgg = normalizeTotalAgg(aggCfg?.total);
       if (totalAgg === 'sum') col.aggFunc = 'numSum';
       else if (totalAgg === 'avg') col.aggFunc = 'numAvg';
       else if (totalAgg) col.aggFunc = totalAgg;
@@ -917,8 +1498,9 @@ export function buildReportGridColumns(
     // (e.g. a stray space or newline from the multiline textarea) counts as "no group" —
     // matching the builder's groupNames/subGroupNames getters and avoiding a ghost empty
     // header bar that would otherwise persist here and in the saved report.
-    const grp = cfg?.group?.trim();
-    const sub = cfg?.subGroup?.trim();
+    const groupingConfig = findGroupingConfig(field);
+    const grp = groupingConfig?.group?.trim();
+    const sub = groupingConfig?.subGroup?.trim();
     colByField.set(field, col);
     if (grp) groupOfField.set(field, grp);
     if (sub) subGroupOfField.set(field, sub);
@@ -926,9 +1508,11 @@ export function buildReportGridColumns(
 
   const defs: (ColDef | ColGroupDef)[] = [];
   // Skip the auto row-number column when the data already carries an Sl.No-style column.
-  if (!visibleFields.some(isSerialNumberField)) {
+  if (hasRowNumber) {
+    const rowNumBase: Record<string, string> = { fontWeight: '600', color: '#667085', textAlign: 'center' };
     defs.push({
-      headerName: '#',
+      colId: ROW_NUMBER_COL_ID,
+      headerName: getConfig()?.rowNumberHeader?.trim() || '#',
       valueGetter: (p: ValueGetterParams) => {
         const label = (p.data as Record<string, unknown> | undefined)?.[TOTALS_LABEL_FIELD];
         if (label != null && label !== '') return label;
@@ -945,7 +1529,32 @@ export function buildReportGridColumns(
       editable: false,
       suppressHeaderMenuButton: true,
       headerComponent: undefined,
-      cellStyle: { fontWeight: '600', color: '#667085', textAlign: 'center' },
+      headerClass: () => getHeaderColorClasses(getConfig(), ROW_NUMBER_COL_ID),
+      // '#' is the table's first column — give its header/cells the report-wide border so an
+      // "all"/"outer"/"vertical" placement outlines the serial column too (live via getConfig()).
+      headerStyle: () => {
+        const c = getConfig();
+        const type = c?.reportBorder;
+        const sides = type ? borderSidesFor(type, { firstRow: true, lastRow: true, firstCol: true, lastCol: false }) : null;
+        const row0OwnsTop = !!type && !!borderSidesFor(type, { firstRow: true, lastRow: false, firstCol: true, lastCol: false }).top;
+        return {
+          backgroundColor: resolveHeaderBackgroundColor(c, ROW_NUMBER_COL_ID) ?? '',
+          color: resolveHeaderTextColor(c, ROW_NUMBER_COL_ID) ?? '',
+          ...headerBorderStyles(sides, row0OwnsTop),
+        };
+      },
+      cellStyle: (p: CellClassParams) => {
+        if (p.node?.rowPinned) {
+          return { ...rowNumBase, ...getSummaryRowStyle(getConfig(), getPinnedSummaryLabel(p.node)) };
+        }
+        const groupStyle = getReportGroupRowStyle(getConfig(), p.node);
+        const type = getConfig()?.reportBorder;
+        if (!type || p.node?.rowPinned) return { ...rowNumBase, ...groupStyle };
+        const total = p.api?.getDisplayedRowCount?.() ?? 0;
+        const ri = p.node?.rowIndex ?? 0;
+        const sides = borderSidesFor(type, { firstRow: ri === 0, lastRow: total > 0 && ri === total - 1, firstCol: true, lastCol: false });
+        return { ...rowNumBase, ...borderSideStyles(sides), ...groupStyle };
+      },
     } as ColDef);
   }
   // Preserve column order: a grouped column's header is inserted at the position of the
@@ -953,6 +1562,34 @@ export function buildReportGridColumns(
   // column never moves it — or its neighbors — away from where the user placed it.
   const placedGroups = new Set<string>();
   const placedStandaloneSubs = new Set<string>();
+  // Live header style for a group/sub-group bar: its saved background plus the report-wide border
+  // (so an "all"/"outer"/… placement also outlines the grouping tiers). A header tier never owns
+  // its bottom edge — the tier directly below paints that shared line as its top — so pass
+  // bodyOwnsBottom=true. `getConfig()` keeps it live so applyBorder → refreshHeader repaints it.
+  const groupHeaderStyle = (memberFields: string[], isTopTier: boolean, bg: string | undefined, fgColor: string): HeaderStyleFunc => {
+    return () => {
+      const type = getConfig()?.reportBorder;
+      let border: Record<string, string> = {};
+      if (type) {
+        const idxs = memberFields.map(f => visibleFields.indexOf(f)).filter(i => i >= 0);
+        if (idxs.length) {
+          const sides = borderSidesFor(type, {
+            firstRow: isTopTier,
+            lastRow: false,
+            firstCol: !hasRowNumber && Math.min(...idxs) === 0,
+            lastCol: Math.max(...idxs) === visibleFields.length - 1,
+          });
+          border = headerBorderStyles(sides, true);
+        }
+      }
+      return { ...(bg ? { backgroundColor: bg, color: fgColor } : {}), ...border };
+    };
+  };
+  // Group/sub-group header identity + live alignment class (re-read on header refresh).
+  const groupHeaderMeta = (ref: ReportHeaderGroupRef): Pick<ColGroupDef, 'context' | 'headerClass'> => ({
+    context: { reportHeaderGroup: ref },
+    headerClass: () => [`rb-group-align-${resolveGroupHeaderAlign(getConfig(), ref)}`],
+  });
   for (const field of visibleFields) {
     const col = colByField.get(field);
     if (!col) continue;
@@ -973,7 +1610,8 @@ export function buildReportGridColumns(
       const subHeader: ColGroupDef = {
         groupId: `subgrp:${sub}`,
         headerName: sub,
-        ...(sgColor ? { headerStyle: { backgroundColor: sgColor, color: subGroupTextColor } } : {}),
+        headerStyle: groupHeaderStyle(subFields, false, sgColor, subGroupTextColors[sub] || subGroupTextColor),
+        ...groupHeaderMeta({ level: 'subGroup', name: sub }),
         wrapHeaderText: true,
         autoHeaderHeight: true,
         children: subChildren,
@@ -981,6 +1619,7 @@ export function buildReportGridColumns(
       defs.push({
         groupId: `subgrp-wrap:${sub}`,
         headerName: '',
+        headerStyle: groupHeaderStyle(subFields, true, undefined, subGroupTextColor),
         children: [subHeader],
       } as ColGroupDef);
       continue;
@@ -1006,11 +1645,13 @@ export function buildReportGridColumns(
       if (placedSubGroups.has(subGroup)) continue;
       placedSubGroups.add(subGroup);
       const subMembers = groupChildrenCols.filter(c => c.field && subGroupOfField.get(c.field) === subGroup);
+      const subMemberFields = subMembers.map(c => c.field).filter((f): f is string => !!f);
       const sgColor = subGroupColors[subGroup] || subGroupColor;
       groupChildren.push({
         groupId: `grp:${grp}>${subGroup}`,
         headerName: subGroup,
-        ...(sgColor ? { headerStyle: { backgroundColor: sgColor, color: subGroupTextColor } } : {}),
+        headerStyle: groupHeaderStyle(subMemberFields, false, sgColor, subGroupTextColors[subGroup] || subGroupTextColor),
+        ...groupHeaderMeta({ level: 'subGroup', name: subGroup }),
         wrapHeaderText: true,
         autoHeaderHeight: true,
         children: subMembers,
@@ -1020,7 +1661,8 @@ export function buildReportGridColumns(
     defs.push({
       groupId: `grp:${grp}`,
       headerName: grp,
-      ...((groupColors[grp] || groupColor) ? { headerStyle: { backgroundColor: groupColors[grp] || groupColor, color: groupTextColor } } : {}),
+      headerStyle: groupHeaderStyle(groupFields, true, groupColors[grp] || groupColor, groupTextColors[grp] || groupTextColor),
+      ...groupHeaderMeta({ level: 'group', name: grp }),
       wrapHeaderText: true,
       autoHeaderHeight: true,
       children: groupChildren,

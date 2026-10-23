@@ -184,6 +184,6 @@ public sealed class AuthService(ControlPlaneDbContext db, IJwtTokenService jwt, 
 
         var refresh = jwt.IssueRefreshToken(user.UserId.ToString(), securityStamp, sessionId.ToString());
 
-        return new LoginResponse(token, refresh, user.UserId, user.Email, user.DisplayName, roleCode, tenantId);
+        return new LoginResponse(token, refresh, user.UserId, user.Email, user.DisplayName, roleCode, tenantId, user.EmployeeId);
     }
 }

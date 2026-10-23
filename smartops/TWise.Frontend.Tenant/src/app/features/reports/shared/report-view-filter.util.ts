@@ -1,7 +1,12 @@
 import { switchMap } from 'rxjs';
 import type { Observable } from 'rxjs';
-import type { CommonApiService, DatabaseViewDetail } from '../../../core/services/common-api.service';
+import type { CommonApiService, DatabaseViewDetail, PreviewFilterParam } from '../../../core/services/common-api.service';
 import { replaceViewDateRangeParameters } from '../../../core/utils/view-date-parameters.util';
+import {
+  GlobalFilterSelection,
+  globalSelectionPayload,
+  globalSelectionValues,
+} from '../../../core/utils/global-filter-selection.util';
 
 export function formatReportPeriod(fromDate: string, toDate: string): string {
   const formatDate = (value: string): string => {
@@ -47,15 +52,15 @@ export function filterReportMonthColumns(
 
 export function applyReportViewParameters(
   sql: string,
-  hierarchy: Readonly<Record<string, string>>,
+  hierarchy: Readonly<Record<string, GlobalFilterSelection>>,
   fromDate: string,
   toDate: string,
 ): string {
   sql = replaceViewDateRangeParameters(sql, fromDate, toDate);
   for (const name of ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant']) {
-    const value = hierarchy[name];
+    const values = globalSelectionValues(hierarchy[name]);
     // All must clear a stored view's default, rather than retaining its original scope.
-    const literal = !value || value === 'All' ? 'NULL' : `N'${value.replace(/'/g, "''")}'`;
+    const literal = values.length === 1 ? `N'${values[0].replace(/'/g, "''")}'` : 'NULL';
     const names = name === 'businessUnit' ? ['businessUnit', 'business_unit'] : [name];
     for (const parameter of names) {
       const declaration = new RegExp(
@@ -75,20 +80,34 @@ export function previewReportView(
     previewView: CommonApiService['previewView'];
   },
   viewId: number,
-  hierarchy: Readonly<Record<string, string>>,
+  hierarchy: Readonly<Record<string, GlobalFilterSelection>>,
   fromDate: string,
   toDate: string,
+  advancedFilters: readonly PreviewFilterParam[] = [],
 ) {
   return api.getDatabaseViewById(viewId).pipe(
     switchMap(view => {
       const sql = view.manualSql?.trim() ? view.manualSql : view.generatedSql;
       if (!sql?.trim()) throw new Error(`Report source view "${view.viewName}" has no SQL definition.`);
-      return api.previewView({
+      const filters = [...Object.entries(hierarchy)
+        .filter(([, selection]) => globalSelectionValues(selection).length > 1)
+        .map(([key, selection]) => {
+          const payload = globalSelectionPayload(selection);
+          return {
+            sourceTable: key,
+            sourceColumn: key,
+            label: key,
+            ...payload,
+          };
+        }), ...advancedFilters];
+      const request = {
         connectionId: view.connectionId,
         viewId: view.id,
         sql: applyReportViewParameters(sql, hierarchy, fromDate, toDate),
         maxRows: 0,
-      });
+        ...(filters.length ? { filters } : {}),
+      };
+      return api.previewView(request);
     }),
   );
 }

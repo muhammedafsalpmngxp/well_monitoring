@@ -36,7 +36,7 @@ export function getSuggestedChartTypeIds(columns: string[], rows: Record<string,
     const config = applyAdvancedDefaultMapping(type, rows, columns, defaultAdvancedConfig());
     try {
       validateAdvancedConfig(type, rows, config);
-      if (type === 'stackedarea100' && config.measures.length < 2) continue;
+      if (type === 'stackedarea100' && new Set(rows.map(row => row[config.fields['series']])).size < 2) continue;
       if (type === 'boxplot' && rows.some(row => {
         const points = ['low', 'q1', 'median', 'q3', 'high'].map(role => row[config.fields[role]]);
         return points.some(value => value == null || value === '' || !numeric(value))

@@ -129,7 +129,10 @@ export class MyReportsComponent implements OnInit, OnDestroy {
       this.categoryService.getCategoriesByType('report').subscribe({
         next: (cats) => {
           this.apiCategories = cats;
-          this.groups.forEach(g => { g.subtitle = cats.find(c => c.categoryName === g.label)?.description || MyReportsComponent.GROUP_SUBTITLE; });
+          this.groups.forEach(group => {
+            const category = cats.find(c => `cat-${c.categoryId}` === group.id);
+            if (category) group.subtitle = category.description || MyReportsComponent.GROUP_SUBTITLE;
+          });
           this.cdr.markForCheck();
         },
       }),
@@ -145,11 +148,14 @@ export class MyReportsComponent implements OnInit, OnDestroy {
     this.subs.push(forkJoin({
       drafts: this.tenantReports.getAll('draft'),
       completed: this.tenantReports.getAll('completed'),
+      // Only the user's own categories are listed; if they cannot be loaded, show everything.
+      ownCategories: this.categoryService.getCategoriesByType('report').pipe(catchError(() => of(null))),
       favourites: this.widgetService.getFavourites(4).pipe(catchError(() => of([]))),
       recentlyViewed: this.widgetService.getRecentlyViewed(4).pipe(catchError(() => of([]))),
     }).subscribe({
-      next: ({ drafts, completed, favourites, recentlyViewed }) => {
-        this.groups = this.mapToGroups([...drafts, ...completed]);
+      next: ({ drafts, completed, ownCategories, favourites, recentlyViewed }) => {
+        const ownIds = ownCategories ? new Set(ownCategories.map(c => c.categoryId)) : null;
+        this.groups = this.mapToGroups([...drafts, ...completed], ownIds);
         this.recentOrder = recentlyViewed.map(r => String(r.controlId));
         const favIds = new Set(favourites.filter(f => f.isFavourite).map(f => String(f.controlId)));
         const recentIds = new Set(this.recentOrder);
@@ -174,21 +180,23 @@ export class MyReportsComponent implements OnInit, OnDestroy {
     this.notify.destroy();
   }
 
-  private mapToGroups(reports: TenantReportDto[]): ReportGroup[] {
-    const grouped = new Map<string, TenantReportDto[]>();
+  /** Reports in a category the user did not create (not in ownIds) are grouped under "Others" (group key 0). */
+  private mapToGroups(reports: TenantReportDto[], ownIds: Set<number> | null): ReportGroup[] {
+    const grouped = new Map<number, TenantReportDto[]>();
     for (const r of reports) {
-      const cat = r.categoryName || 'Uncategorized';
-      if (!grouped.has(cat)) grouped.set(cat, []);
-      grouped.get(cat)!.push(r);
+      const key = ownIds && !ownIds.has(r.categoryId) ? 0 : r.categoryId;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(r);
     }
-    return Array.from(grouped.entries()).map(([label, items], gi) => {
+    return Array.from(grouped.entries()).map(([categoryId, items], gi) => {
       const icon = MyReportsComponent.GROUP_ICONS[gi % MyReportsComponent.GROUP_ICONS.length];
+      const others = categoryId === 0;
       return {
-        id: `cat-${gi}`,
-        label,
+        id: `cat-${categoryId}`,
+        label: others ? 'Others' : (items[0].categoryName || 'Uncategorized'),
         icon,
-        subtitle: this.apiCategories.find(c => c.categoryName === label)?.description || MyReportsComponent.GROUP_SUBTITLE,
-        expanded: false,
+        subtitle: (others ? null : items[0].categoryDescription) || MyReportsComponent.GROUP_SUBTITLE,
+        expanded: this.groups.find(g => g.id === `cat-${categoryId}`)?.expanded ?? false,
         reports: items.map((r, ri) => this.mapToCard(r, ri)),
       };
     });
@@ -655,7 +663,10 @@ export class MyReportsComponent implements OnInit, OnDestroy {
     this.showCategoryManager = false;
     this.categoryService.getCategoriesByType('report').subscribe(cats => {
       this.apiCategories = cats;
-      this.groups.forEach(g => { g.subtitle = cats.find(c => c.categoryName === g.label)?.description || MyReportsComponent.GROUP_SUBTITLE; });
+      this.groups.forEach(group => {
+        const category = cats.find(c => `cat-${c.categoryId}` === group.id);
+        if (category) group.subtitle = category.description || MyReportsComponent.GROUP_SUBTITLE;
+      });
       this.cdr.markForCheck();
     });
   }

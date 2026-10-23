@@ -17,6 +17,127 @@
 - User & Role Management (users, roles, permissions)
 - Settings (database view builder — SQL view definitions)
 
+Report numeric-column inference samples up to 50 populated values, ignoring null,
+missing, and whitespace-only cells. A majority of finite numbers or numeric strings
+enables numeric operations, including Sum/Average in the report builder's Total
+dropdown. Empty columns remain non-numeric; nulls are not replaced with zero.
+
+Report numbers display without thousands-separator grouping in the builder,
+viewer, and PDF output. Decimal precision remains at up to two places (four for
+Northing/Easting); whole numbers stay unchanged. Excel numeric cells also use
+ungrouped number formats.
+
+Report body cells default to Excel-style alignment: numeric and date columns align
+right; text and boolean columns align left. This applies to the builder and viewer
+grids (including pinned summary rows) and to PDF and Excel exports. Manual per-cell
+alignment wins, then report-wide alignment, then this default. Merged cells stay
+centered unless manually aligned, group labels align left, and headers and the
+Sl.No column remain centered.
+
+Column group and sub-group headers can be aligned left, center, or right: click a
+group/sub-group header in the builder grid (it is outlined), then use the toolbar
+alignment buttons. Alignment is saved per name in `groupHeaderAlignments` and
+`subGroupHeaderAlignments` (default center) and used by the builder, viewer, PDF,
+and Excel. Report-wide alignment (nothing selected) also applies to group headers
+and clears their overrides. Selecting a cell or column clears the group selection.
+
+Template setups store column Group/Sub group on the source column, so grouping
+survives Data Transformation `rename_column` rules whether the rename happens
+before or after grouping. Applying a template from a different source copies
+Group/Sub group onto same-named columns (case-insensitive) and skips columns the
+target source does not have.
+
+Applying a template keeps the report's own settings and skips template items for
+columns the report does not have (`report-template-merge.util.ts`). Data
+Transformation rules are dry-run on one synthetic row to find which columns exist,
+so a template rule is accepted only when its columns exist after the rules before
+it (columns created by earlier accepted rules count). A template rule replaces the
+report's rule with the same action on the same column(s); identical rules are not
+duplicated. Template conditional filters, conditional-formatting rules, DAX
+measures and column-keyed formatting are likewise added only for existing columns
+(so a filter on a missing column can no longer empty the report, and split/merge
+rules can no longer add blank columns); the template wins only on the same key.
+Row grouping changes only if the template defines it; row, page-row and summary-row
+colors are merged. Non-column appearance (banner, fonts, theme, colors) still comes
+from the template.
+
+Renames never orphan formatting. Column-keyed formatting (header/cell colors, text
+colors, alignment, orientation, borders, split cells, cell edits, inserted-row
+values, row-group heading colors, merges, pins, data bars, conditional-formatting
+rules, row grouping) is keyed by the displayed column name. The builder records
+which renames those keys follow (`columnKeyRenames`); on every rebuild/history
+capture, if the applied rename rules changed, every key moves to the column's new
+name via its source column (`report-column-rename.util.ts`). Wholesale restores
+(load, undo/redo, sheet switch) re-baseline instead of moving keys. DAX and
+conditional filters that reference a rename output follow it too; references to
+source names keep working through the existing source-name aliases. A rename onto
+another existing column's name is ignored for re-keying. Column color, text color
+and pins live on the source column config and are resolved for renamed columns in
+the builder, viewer and exports. Saved templates key this formatting by source
+column (`columnKeyBasis: 'source'`); applying one maps it onto the target's final
+column names, converting legacy templates through their own rename rules. Drill to
+Detail hides the internal original-name copy of renamed columns.
+
+The auto-generated Sl.No (`__rowNumber__`) header follows the same saved header
+background and text colors as data headers: a per-header override takes precedence
+over All headers colors, otherwise the existing theme default is retained.
+This applies to the live grid and Excel/HTML/print exports; numbering and body-cell
+styling are unchanged.
+
+In Appearance > Header and Footer Text, "Add Cluster Banner" defaults to checked
+when a specific global cluster is selected and unchecked/disabled for All.
+Changing the global cluster resets the checkbox to that selection's default;
+users can manually uncheck it for the current selection. The banner requires both
+a checked checkbox and a selected cluster. Its input is visible while checked but
+disabled until the Edit button on its right is clicked. Editing updates the full
+banner title immediately, with an informational note below the input. Cluster
+changes disable editing again. Non-empty custom text persists across cluster
+changes; clearing it restores the generated "REPORT NAME - CLUSTER NAME" title.
+Banner settings are saved per sheet and restored with saved setups. The viewer,
+expanded preview, and Excel/print exports use the same title and visibility rules.
+
+In auto-size mode (the default), report builder and viewer grids widen each data
+column to fit its longest formatted value on one line across every filtered row,
+including other pages, later-loaded rows, and pinned total rows. This re-runs when
+row data changes (for example, after a global filter change). Widths only grow, so
+wider header-driven or manually resized widths are kept; fit-to-width mode is
+unchanged. Vertical cells and row-group label columns do not drive these widths.
+
+Right-click a pinned Sum, Avg, Count, or Total row in the report builder to change
+that row's background or text color (Min/Max summaries use the same mechanism).
+These options are not shown for regular data rows. Colors are saved per sheet in
+`summaryRowColors` and `summaryRowTextColors`, keyed by summary label rather than
+the pinned row's index, and restored by sheet undo/redo and saved setups.
+They apply across the full row, including the serial/label cell, in the live
+builder/viewer and Excel/print exports. Choosing None removes that override.
+Pinned clicks never become data-row selections or write to data-cell color maps.
+
+Generated row-group columns use their underlying grouping field's header formatting
+(background, text color, alignment, orientation, and borders), including All headers
+settings. With no selected header color they fall back to the grid theme.
+Their body cells also follow the table border placement using the displayed column
+order, while preserving row colors and independent pinned-summary colors. Builder,
+expanded preview, and viewer share these callbacks; grouped headers also carry
+their color classes into native Excel exports.
+
+Report row-group headings store background/text overrides in `rowColorsByKey` and
+`rowTextColorsByKey` using a `group:` key containing the full grouping field/value
+path. Heading colors follow that group across expand/collapse, sorting, pagination,
+sheet changes, saved reports, and Excel/print exports; they do not use row positions
+or inherit data-row positional colors. Identical child labels under different
+parents remain independent. Clearing an override restores the grouping field's
+default color (if set). Hidden grouping fields remain available to the viewer,
+and renamed fields resolve their saved grouping metadata back to their source.
+Excel and PDF use the same heading override/default precedence. Positional cell/row
+colors use the actual grid row position (including group headings), not the exported
+leaf-row serial number; this prevents a heading's old positional paint from bleeding
+onto the next data row. Inactive-sheet exports fall back to the expanded export row
+positions. Collapsed leaves have no live positional paint, but retain stable-key,
+column and conditional colors. Branded stripes use a separate leaf-only sequence,
+so inserting group headings does not shift zebra striping.
+
+Header colors remain independent of group-heading, data-row, and pinned-summary colors.
+
 **Confirmed Technology Stack:**
 
 | Layer              | Technology                                        | Version      |
@@ -681,6 +802,10 @@ Source: `package.json`
 
 The app serves on `http://localhost:4200/` by default. The proxy forwards `/api/tenant` requests to a local Tenant API at `http://localhost:5069`.
 
+For Windows terminal crashes during rebuilds, see
+[Windows terminal: `Error: write UNKNOWN`](#windows-terminal-error-write-unknown)
+under Troubleshooting.
+
 The ControlPlane API is expected at `http://localhost:7007/api` (referenced in `environment.ts`).
 
 ---
@@ -738,6 +863,41 @@ Deployment process could not be verified from the repository. No CI/CD configura
 ---
 
 ## 19. Troubleshooting
+
+### Windows terminal: `Error: write UNKNOWN`
+
+The development server may exit during a rebuild with `Error: write UNKNOWN`,
+`errno: -4094`, and `syscall: 'write'`. A stack trace containing `listr2`,
+`log-update`, and `ProcessOutputStream.write` points to a failure writing the
+interactive progress display to the terminal. A preceding "Application bundle
+generation complete" message means that build finished; this stack trace alone
+does not indicate an application compilation error.
+
+Open a fresh terminal in `smartops\TWise.Frontend.Tenant` and disable interactive
+terminal output before restarting the server.
+
+**Command Prompt:**
+
+```bat
+set NG_FORCE_TTY=false
+npm start
+```
+
+**PowerShell:**
+
+```powershell
+$env:NG_FORCE_TTY = 'false'
+npm start
+```
+
+Keep any extra arguments normally used with `npm start`. This setting applies
+only to the current terminal session and child processes; no application code or
+backend changes are needed. Build diagnostics, file watching, and browser reloads
+remain enabled. Closing the terminal removes the session-only setting.
+
+If the failure persists in a fresh terminal with this setting, capture the new
+stack trace and check the terminal host and Node/Angular CLI versions rather
+than assuming the report code caused it.
 
 | Issue                         | Resolution                                                                                                                                                            |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -40,6 +40,7 @@
   </div> -->
 
   <div class="advanced-filter-panel__body">
+    <p *ngIf="loadError" role="alert">{{ loadError }}</p>
     <!-- Identification -->
     <!-- <div class="filter-section">
       <button type="button" class="filter-section__header" [attr.aria-expanded]="identificationExpanded" (click)="toggleIdentificationSection()">
@@ -99,7 +100,7 @@
   
         </button>
         <!-- Its own button, not inside the header button: nested controls are unusable for screen readers. -->
-        <button type="button" class="filter-section__clear" (click)="clearHierarchyFilters()">Clear</button>
+        <button type="button" class="filter-section__clear" (click)="clearHierarchyFilters()">Clear All</button>
       </div>
 
       <div class="filter-section__body" *ngIf="hierarchyExpanded">
@@ -108,6 +109,13 @@
 
           <div class="filter-multiselect" (click)="$event.stopPropagation()">
             <div class="filter-multiselect__chips">
+              <span class="filter-chip" *ngIf="isAllHierarchySelected(field)">
+                All
+                <button type="button" class="filter-chip__remove" [attr.aria-label]="'Remove all ' + field.label" (click)="clearHierarchyField(field)">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </span>
+              <ng-container *ngIf="!isAllHierarchySelected(field)">
               <span class="filter-chip" *ngFor="let value of field.selected">
                 {{ hierarchyOptionLabel(field, value) }}
                 <button type="button" class="filter-chip__remove" [attr.aria-label]="'Remove ' + value" (click)="removeHierarchyChip(field, value)">
@@ -117,6 +125,7 @@
                   </svg>
                 </button>
               </span>
+              </ng-container>
               <span class="filter-multiselect__placeholder" *ngIf="!field.selected.length">None selected</span>
             </div>
 
@@ -139,6 +148,8 @@
             </div>
 
             <div class="filter-multiselect__dropdown" *ngIf="field.dropdownOpen">
+              <button *ngIf="field.id === 'resource-type'" type="button" class="filter-multiselect__option" [disabled]="!field.options.length"
+                (click)="selectAllHierarchyOptions(field)">All</button>
               <button class="filter-multiselect__option" *ngFor="let option of availableHierarchyOptions(field)"
                 (click)="selectHierarchyOption(field, option)">
                 {{ option.label }}

@@ -7,7 +7,11 @@ public record ChartFilterParam(
     string Value,
     string? Label = null,
     IReadOnlyList<string>? Values = null,
-    bool DashboardAdditional = false
+    bool DashboardAdditional = false,
+    // Best-effort filter (e.g. a global cluster/plant on a Table source): if the source table has no
+    // FK path to the filter table, the filter is skipped (data returned unfiltered) instead of failing.
+    bool Optional = false,
+    string? AdvancedHierarchy = null
 );
 
 public record ChartFilteredDataRequest(

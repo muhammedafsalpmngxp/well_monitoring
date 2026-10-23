@@ -15,6 +15,7 @@ import { ChartTypeIconComponent } from '../../shared/components/chart-type-icon.
 import { DashboardBrandingComponent } from './dashboard-branding/dashboard-branding.component';
 import { DashboardBrandingEditorComponent } from './dashboard-branding/dashboard-branding-editor.component';
 import { DashboardPreviewComponent } from './dashboard-preview/dashboard-preview.component';
+import { InteractionConfigComponent } from './interaction-config/interaction-config.component';
 import { ScheduleDialogModule } from '../../shared/schedule-dialog/schedule-dialog.module';
 
 @NgModule({
@@ -22,6 +23,6 @@ import { ScheduleDialogModule } from '../../shared/schedule-dialog/schedule-dial
   // Note: angular-gridster2@22 ships `Gridster`/`GridsterItem` as standalone components — there is
   // no `GridsterModule` to import in this version, so they're imported directly like the other
   // standalone components already registered here (HighchartsChartComponent, etc.).
-  imports: [SharedModule, DashboardRoutingModule, HighchartsChartComponent, ActivityBreakdownComponent, ChartTypeIconComponent, Gridster, GridsterItem, DashboardBrandingComponent, DashboardBrandingEditorComponent, DashboardPreviewComponent, ScheduleDialogModule, AiExplainComponent],
+  imports: [SharedModule, DashboardRoutingModule, HighchartsChartComponent, ActivityBreakdownComponent, ChartTypeIconComponent, Gridster, GridsterItem, DashboardBrandingComponent, DashboardBrandingEditorComponent, DashboardPreviewComponent, InteractionConfigComponent, ScheduleDialogModule, AiExplainComponent],
 })
 export class DashboardModule {}

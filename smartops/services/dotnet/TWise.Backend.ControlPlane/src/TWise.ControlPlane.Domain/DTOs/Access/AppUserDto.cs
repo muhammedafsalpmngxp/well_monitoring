@@ -27,4 +27,5 @@ public record LoginRequest(string Email, string Password);
 public record RefreshRequest(string RefreshToken);
 /// <summary>Revokes the login session identified by a signed refresh token.</summary>
 public sealed record LogoutRequest([Required, MaxLength(4096)] string RefreshToken);
-public record LoginResponse(string Token, string RefreshToken, long UserId, string Email, string? DisplayName, string Role, long TenantId);
+/// <summary>Returns session tokens and the user profile, including the nullable employee ID, for login and refresh.</summary>
+public sealed record LoginResponse(string Token, string RefreshToken, long UserId, string Email, string? DisplayName, string Role, long TenantId, string? EmployeeId = null);

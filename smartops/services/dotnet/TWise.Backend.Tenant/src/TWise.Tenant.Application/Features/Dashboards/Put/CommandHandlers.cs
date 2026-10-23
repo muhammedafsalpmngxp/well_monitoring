@@ -139,8 +139,12 @@ public static class DashboardSharedCopy
 
         var copies = new Dictionary<long, long>();
         var visiting = new HashSet<long>();
-        var existingWidgets = await widgets.GetAllAsync(null, null, recipientId, false, ct);
-        var names = existingWidgets.Select(widget => $"{widget.Type}:{widget.Name}")
+        // The default listing hides inactive widgets, but the DB duplicate check still counts them.
+        var existingWidgets = (await widgets.GetAllAsync(null, null, recipientId, false, ct))
+            .Concat(await widgets.GetAllAsync("inactive", null, recipientId, false, ct));
+        // SQL name equality ignores trailing spaces, so the key must too.
+        static string NameKey(string type, string name) => $"{type}:{name.TrimEnd()}";
+        var names = existingWidgets.Select(widget => NameKey(widget.Type, widget.Name))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         async Task<long> CopyWidgetAsync(long widgetId)
@@ -159,7 +163,7 @@ public static class DashboardSharedCopy
             }
             var widgetName = widget.Name;
             var number = 2;
-            while (!names.Add($"{widget.Type}:{widgetName}")) widgetName = $"{widget.Name} ({number++})";
+            while (!names.Add(NameKey(widget.Type, widgetName))) widgetName = $"{widget.Name.TrimEnd()} ({number++})";
             var createdWidget = await widgets.CreateAsync(new CreateWidgetRequest(
                 widgetName, widget.Description, widget.Type, widget.LibraryId, widget.Source,
                 widget.SourceType, widget.SourceId, design.ToJsonString(), widget.CategoryId),

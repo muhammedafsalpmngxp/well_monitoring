@@ -1,3 +1,5 @@
+import { coerceNumberAllowPercent } from './percent-number.util';
+
 export const CONDITIONAL_FILTER_OPERATORS = [
   'contains',
   'starts with',
@@ -17,8 +19,8 @@ function toText(value: unknown): string {
 }
 
 function compareNumeric(cell: string, values: string[], keepGreater: boolean): boolean {
-  const cellNumber = Number(cell);
-  const bounds = values.map(Number).filter(Number.isFinite);
+  const cellNumber = coerceNumberAllowPercent(cell);
+  const bounds = values.map(coerceNumberAllowPercent).filter(Number.isFinite);
   if (!Number.isFinite(cellNumber) || !bounds.length) {
     // fall back to lexicographic comparison so non-numeric columns still behave predictably
     const bound = values[0] ?? '';

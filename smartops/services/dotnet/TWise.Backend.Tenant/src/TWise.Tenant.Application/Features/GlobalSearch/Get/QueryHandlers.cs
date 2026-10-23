@@ -27,6 +27,9 @@ public sealed class GlobalSearchHandler(
         // one after another — cuts wall time to roughly the slowest single query, not the sum.
         var (dashboards, widgets, reports) = await searchRepo.SearchAllAsync(term, dashboardUserId, userId, ct);
 
+        // Results open the detail (view) page with the same list context the WIP/Standard pages pass.
+        static string From(string? status) => string.Equals(status, "published", StringComparison.OrdinalIgnoreCase) ? "standard" : "wip";
+
         var dashboardResults = dashboards.Select(d => new GlobalSearchResultItem(
             "dashboard",
             d.DashboardId.ToString(),
@@ -35,9 +38,7 @@ public sealed class GlobalSearchHandler(
             d.Status,
             DashboardKind.Of(d.ConfigJson) == DashboardKind.Canvas
                 ? $"/canvas/{d.DashboardId}"
-                : d.Status is DashboardStatus.Draft or DashboardStatus.Completed
-                    ? $"/dashboard/builder/{d.DashboardId}"
-                    : $"/dashboard/operations-dashboard/{d.DashboardId}"));
+                : $"/dashboard/operations-dashboard/{d.DashboardId}?from={From(d.Status)}"));
 
         var widgetResults = widgets.Select(w => new GlobalSearchResultItem(
             w.Type.ToLowerInvariant(),
@@ -45,7 +46,7 @@ public sealed class GlobalSearchHandler(
             w.Name,
             w.Category?.CategoryName,
             w.Status,
-            $"/charts-tiles/view/{w.Id}"));
+            $"/charts-tiles/view/{w.Id}?type={w.Type.ToLowerInvariant()}&from={From(w.Status)}"));
 
         var reportResults = reports.Select(r => new GlobalSearchResultItem(
             "report",
@@ -53,7 +54,7 @@ public sealed class GlobalSearchHandler(
             r.ReportName,
             r.Category?.CategoryName,
             r.Status,
-            $"/reports/view/{r.Id}"));
+            $"/reports/view/{r.Id}?from={From(r.Status)}"));
 
         var results = dashboardResults.Concat(widgetResults).Concat(reportResults)
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)

@@ -1,21 +1,20 @@
 SET NOCOUNT ON;
-DROP TABLE IF EXISTS #CrewRosterLatestRows;
-DECLARE @sharedLatestRows nvarchar(max) = NULL;
-/* __SHARED_LATEST_ROWS__ */
+DROP TABLE IF EXISTS #CrewRosterLatestKeys;
+DROP TABLE IF EXISTS #CrewRosterLatestActivities;
 
 ;WITH CrewTypes AS (
-    SELECT LTRIM(RTRIM(ID)) AS TypeId,
-           MAX(NULLIF(LTRIM(RTRIM(Code)), '')) AS Code,
-           MAX(NULLIF(LTRIM(RTRIM(Description)), '')) AS Description
-    FROM dbo.CrewType
-    GROUP BY LTRIM(RTRIM(ID))
+        SELECT crew_type_id AS TypeId,
+            MAX(NULLIF(LTRIM(RTRIM(crew_type_code)), '')) AS Code,
+            MAX(NULLIF(LTRIM(RTRIM(crew_type_name)), '')) AS Description
+        FROM AlTasnimBI.ref.crew_type
+        GROUP BY crew_type_id
 ), Members AS (
     SELECT LTRIM(RTRIM(crews.Code)) AS CrewUid,
            COALESCE(NULLIF(LTRIM(RTRIM(crews.Composition)), ''), types.Code) AS CrewTypeCode,
            types.Code AS GroupCode,
            types.Description AS GroupName
-    FROM dbo.crews crews
-    LEFT JOIN CrewTypes types ON types.TypeId = LTRIM(RTRIM(crews.CrewType))
+    FROM AlTasnimBI.ref.crew crews
+    INNER JOIN CrewTypes types ON types.TypeId = crews.crew_type_id
     WHERE NULLIF(LTRIM(RTRIM(crews.Code)), '') IS NOT NULL
 ), Derived AS (
     SELECT CrewUid, CrewTypeCode, GroupName,
@@ -31,39 +30,34 @@ FROM Derived
 WHERE NULLIF(GroupCode, '') IS NOT NULL AND GroupCode <> 'UNKNOWN'
 ORDER BY GroupCode, CrewUid;
 
-CREATE TABLE #CrewRosterLatestRows (row_id bigint NOT NULL PRIMARY KEY);
+SELECT DISTINCT project_id, task_code, well_id
+INTO #CrewRosterLatestKeys
+FROM AlTasnimBI.dbo.activity_task_plan
+OPTION (HASH GROUP, RECOMPILE);
 
-IF @sharedLatestRows IS NOT NULL
-BEGIN
-    INSERT #CrewRosterLatestRows (row_id)
-    SELECT row_id FROM OPENJSON(@sharedLatestRows) WITH (row_id bigint '$');
-END
-ELSE
-BEGIN
-;WITH LatestRows AS (
-    SELECT row_id,
-           ROW_NUMBER() OVER (
-               PARTITION BY project_id, code, Well_ID
-               ORDER BY updated_at DESC, schedule_id DESC, row_id DESC
-           ) AS RowRank
-    FROM dbo.ActivityTaskPlan
-)
-INSERT #CrewRosterLatestRows (row_id)
-SELECT row_id
-FROM LatestRows
-WHERE RowRank = 1
-OPTION (MAXDOP 1);
-END;
+SELECT LTRIM(RTRIM(activity.crew_uid)) AS CrewUid,
+             activity.project_id AS ProjectId,
+             CASE WHEN YEAR(activity.target_start_date) > 1900 THEN activity.target_start_date END AS PlannedStart,
+             CASE WHEN YEAR(activity.target_end_date) > 1900 THEN activity.target_end_date END AS PlannedEnd,
+             CASE WHEN YEAR(activity.actual_start_date) > 1900 THEN activity.actual_start_date END AS ActualStart,
+             CASE WHEN YEAR(activity.actual_end_date) > 1900 THEN activity.actual_end_date END AS ActualEnd
+INTO #CrewRosterLatestActivities
+FROM #CrewRosterLatestKeys AS latest
+CROSS APPLY (
+        SELECT TOP (1) detail.crew_uid, detail.project_id,
+                     detail.target_start_date, detail.target_end_date, detail.actual_start_date, detail.actual_end_date
+        FROM AlTasnimBI.dbo.activity_task_plan AS detail
+        WHERE detail.well_id IS NOT DISTINCT FROM latest.well_id
+            AND detail.task_code IS NOT DISTINCT FROM latest.task_code
+            AND detail.project_id IS NOT DISTINCT FROM latest.project_id
+        ORDER BY detail.updated_at DESC, detail.schedule_id DESC, detail.row_id DESC,
+                         detail.created_at DESC, detail.activity_task_plan_id DESC
+) AS activity
+OPTION (RECOMPILE);
 
-;WITH Ranked AS (
-    SELECT LTRIM(RTRIM(crew_uid)) AS CrewUid,
-           CASE WHEN YEAR(target_start) > 1900 THEN target_start END AS PlannedStart,
-           CASE WHEN YEAR(target_end) > 1900 THEN target_end END AS PlannedEnd,
-           CASE WHEN YEAR(actual_start) > 1900 THEN actual_start END AS ActualStart,
-           CASE WHEN YEAR(actual_end) > 1900 THEN actual_end END AS ActualEnd
-    FROM dbo.ActivityTaskPlan atp
-    INNER JOIN #CrewRosterLatestRows latest ON latest.row_id = atp.row_id
-), Bookings AS (
+DROP TABLE #CrewRosterLatestKeys;
+
+;WITH Bookings AS (
     SELECT CrewUid,
              CASE WHEN ActualStart < PlannedStart THEN ActualStart
                  ELSE COALESCE(PlannedStart, ActualStart, @fromDate) END AS PlannedStart,
@@ -71,7 +65,7 @@ END;
                 THEN CASE WHEN PlannedEnd > @toDate THEN PlannedEnd ELSE @toDate END
              WHEN ActualEnd > PlannedEnd THEN ActualEnd
                 ELSE COALESCE(PlannedEnd, ActualEnd, @toDate) END AS PlannedEnd
-    FROM Ranked
+    FROM #CrewRosterLatestActivities
     WHERE NULLIF(CrewUid, '') IS NOT NULL
 ), SafeBookings AS (
     SELECT CrewUid,
@@ -86,17 +80,17 @@ FROM SafeBookings
 WHERE PlannedStart <= @toDate AND PlannedEnd >= @fromDate
   AND PlannedEnd >= PlannedStart;
 
-DROP TABLE #CrewRosterLatestRows;
-
 SELECT DISTINCT LTRIM(RTRIM(crew.Code)) AS CrewUid,
-             LTRIM(RTRIM(task.Project_id)) AS ProjectId,
-             NULLIF(LTRIM(RTRIM(project.Code)), '') AS ProjectCode,
-             NULLIF(LTRIM(RTRIM(project.Cluster)), '') AS Cluster
-FROM dbo.crews AS crew
-LEFT JOIN dbo.TaskCrew AS task
-        ON LTRIM(RTRIM(task.Crew)) = LTRIM(RTRIM(crew.ID))
-LEFT JOIN dbo.ProjectIDs AS project
-        ON TRY_CONVERT(uniqueidentifier, task.Project_id) = TRY_CONVERT(uniqueidentifier, project.ID)
+         CONVERT(nvarchar(50), activity.ProjectId) AS ProjectId,
+         NULLIF(LTRIM(RTRIM(project.project_code)), '') AS ProjectCode,
+         NULLIF(LTRIM(RTRIM(project.cluster)), '') AS Cluster
+FROM AlTasnimBI.ref.crew AS crew
+INNER JOIN #CrewRosterLatestActivities AS activity
+    ON activity.CrewUid = LTRIM(RTRIM(crew.code))
+LEFT JOIN AlTasnimBI.project.project_mstr AS project
+    ON project.project_id = activity.ProjectId
 WHERE NULLIF(LTRIM(RTRIM(crew.Code)), '') IS NOT NULL
-    AND NULLIF(LTRIM(RTRIM(task.Project_id)), '') IS NOT NULL
+    AND activity.ProjectId IS NOT NULL
 ORDER BY CrewUid, ProjectId, ProjectCode, Cluster;
+
+DROP TABLE #CrewRosterLatestActivities;

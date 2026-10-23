@@ -1,7 +1,9 @@
+import '@angular/compiler';
 import { of, Subject, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
+import type { ChangeDetectorRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, provideRouter, Router } from '@angular/router';
 import { ActivityBreakdownComponent } from './activity-breakdown.component';
 import { bookedDaysInWindow, buildCrewCalendarPlan, uncoveredBookings } from './crew-calendar-planning';
 import { buildCrewUtilizationReport, crewReportStatus } from './crew-utilization';
@@ -35,9 +37,62 @@ describe('Crew calendar planning', () => {
     expect(JSON.stringify(data)).toBe(snapshot);
   });
 
+  it('reports 200% for two full-range activities without duplicating the same activity or its roster reservation', () => {
+    const data = calendar([]);
+    data.roster = roster();
+    const first = activity('FIRST', '2026-09-01', '2026-09-30',
+      { actualStart: '2026-09-01', actualEnd: '2026-09-30' });
+    const second = activity('SECOND', '2026-09-01', '2026-09-30',
+      { actualStart: '2026-09-01', actualEnd: '2026-09-30' });
+    const booking = { plannedStart: '2026-09-01', plannedEnd: '2026-09-30' };
+    data.groups[0].crews = [
+      { crewCode: 'Crew 1', activities: [first, second], bookings: [booking] },
+      { crewCode: ' crew 1 ', activities: [{ ...first }], bookings: [booking] },
+    ];
+    const snapshot = JSON.stringify(data);
+    for (const basis of ['planned', 'actual'] as const) {
+      const report = buildCrewUtilizationReport(data, '2026-09-01', '2026-09-30', '2026-09-30', basis);
+      expect(report.groups[0].crews).toHaveLength(1);
+      expect(report.groups[0].crews[0]).toMatchObject({
+        availableDays: 30, plannedDays: 60, actualAssignedDays: 60, idleDays: 0,
+        utilization: 200, status: 'Fully utilized',
+      });
+      expect(report.totals).toMatchObject({ availableDays: 30, plannedDays: 60,
+        actualAssignedDays: 60, idleDays: 0, utilization: 200 });
+      expect(report.summary).toMatchObject({ averagePlannedUtilization: 200, averageUtilization: 200 });
+    }
+    expect(JSON.stringify(data)).toBe(snapshot);
+  });
+
+  it('exports 200% as numeric percentages in the planned and actual Excel sheets', async () => {
+    const data = calendar([]);
+    data.roster = roster();
+    data.groups[0].crews = [{ crewCode: 'Crew 1', activities: [
+      activity('FIRST', '2026-09-01', '2026-09-30',
+        { actualStart: '2026-09-01', actualEnd: '2026-09-30' }),
+      activity('SECOND', '2026-09-01', '2026-09-30',
+        { actualStart: '2026-09-01', actualEnd: '2026-09-30' }),
+    ] }];
+    const component = new CrewUtilizationReportComponent({ markForCheck: vi.fn() } as any);
+    component.plannedReport = buildCrewUtilizationReport(data, '2026-09-01', '2026-09-30', '2026-09-30', 'planned');
+    component.actualReport = buildCrewUtilizationReport(data, '2026-09-01', '2026-09-30', '2026-09-30', 'actual');
+    component.report = component.plannedReport;
+    component.ngOnChanges();
+    const workbook = await component.createWorkbook();
+    for (const view of ['Planned', 'Actual']) {
+      const sheet = workbook.getWorksheet(view)!;
+      expect(sheet.getCell('C5').value).toBe(2);
+      expect(sheet.getCell('D8').value).toBe(60);
+      expect(sheet.getCell('E8').value).toBe(0);
+      expect(sheet.getCell('F8').value).toBe(2);
+      expect(sheet.getCell('F8').numFmt).toBe('0.0%');
+      expect(sheet.getCell('G8').value).toBe('Fully utilized');
+    }
+  });
+
   it.each([
     [0, 'Not utilized'], [0.01, 'Partially utilized'], [50, 'Partially utilized'],
-    [99.99, 'Partially utilized'], [100, 'Fully utilized'], [null, 'N/A'],
+    [99.99, 'Partially utilized'], [100, 'Fully utilized'], [200, 'Fully utilized'], [null, 'N/A'],
   ])('uses the requested report status at %s percent', (value, expected) => {
     expect(crewReportStatus(value as number | null)).toBe(expected);
   });
@@ -605,6 +660,9 @@ describe('Crew calendar planning', () => {
   it('refreshes cluster metadata on retained preview allocations without changing their crew or dates', () => {
     const source = calendar([activity('PLAN', '2026-09-01', '2026-09-03', { cluster: 'Nimr' })]);
     const members = roster();
+    members.groups[0].crews.find(crew => crew.crewUid === 'Crew 1')!.projects = [
+      { projectId: 'P1', projectCode: 'NM1', cluster: 'Nimr' },
+    ];
     const retained = buildCrewCalendarPlan(source, members).groups;
     const previousCrew = retained[0].crews.find(crew => crew.activities.length)!;
     delete previousCrew.activities[0].cluster;
@@ -615,7 +673,36 @@ describe('Crew calendar planning', () => {
       plannedStart: '2026-09-01', plannedEnd: '2026-09-03' });
   });
 
-  it('builds utilization from distinct calendar days without changing the plan or counting historical-only actual evidence', () => {
+  it('shows each planning preview only under its activity cluster for a multi-cluster crew', () => {
+    const component = new ActivityBreakdownComponent(
+      {} as ActivatedRoute, {} as Router, {} as ChangeDetectorRef, {} as LayoutStateService,
+      {} as CommonApiService, {} as CrewCalendarService, {} as AuthService,
+    );
+    component.timelineStart = new Date(2026, 8, 1);
+    component['selectedFrom'] = '2026-09-01';
+    component['selectedTo'] = '2026-09-30';
+    const data = calendar([
+      activity('NIMR', '2026-09-01', '2026-09-03', { cluster: 'Nimr' }),
+      activity('MARMUL', '2026-09-08', '2026-09-10', { cluster: 'Marmul' }),
+    ]);
+    data.roster = roster();
+    data.roster.groups[0].crews.forEach(crew => {
+      crew.projects = (crew.crewUid === 'Crew 1' ? ['Nimr', 'Marmul'] :
+        crew.crewUid === 'Crew 2' ? ['Nimr'] : ['Marmul']).map(cluster => ({
+        projectId: cluster, projectCode: null, cluster,
+      }));
+    });
+    component['applyCalendarData'](data);
+    const nimr = component.ganttClusters.find(cluster => cluster.name === 'Nimr')!.groups[0];
+    const marmul = component.ganttClusters.find(cluster => cluster.name === 'Marmul')!.groups[0];
+    expect(nimr.wells.find(crew => crew.id === 'Crew 1')!.activities.map(row => row.bar.label)).toEqual(['NIMR']);
+    expect(marmul.wells.find(crew => crew.id === 'Crew 1')!.activities.map(row => row.bar.label)).toEqual(['MARMUL']);
+    expect(nimr.wells.find(crew => crew.id === 'Crew 2')!.noActivities).toBe(true);
+    expect(marmul.wells.find(crew => crew.id === 'Crew 3')!.noActivities).toBe(true);
+    expect(component['calendarData']!.groups[0].crews[0].activities).toHaveLength(2);
+  });
+
+  it('counts overlapping activities separately but counts shared reservations once without adding historical-only actual evidence', () => {
     const data = calendar([]);
     data.roster = roster();
     data.groups[0].crews = [{ crewCode: 'Crew 1', activities: [
@@ -626,11 +713,11 @@ describe('Crew calendar planning', () => {
     data.actualCrewWork = [{ crewGroupCode: 'G1', crewCode: 'Crew 2', actualStart: '2026-09-01', actualEnd: null }];
     const before = JSON.stringify(data);
     const report = buildCrewUtilizationReport(data, '2026-09-01', '2026-09-30', '2026-09-21');
-    expect(report.groups[0].crews[0]).toMatchObject({ availableDays: 30, plannedDays: 17, actualAssignedDays: 8, idleDays: 22, status: 'Partially utilized' });
+    expect(report.groups[0].crews[0]).toMatchObject({ availableDays: 30, plannedDays: 20, actualAssignedDays: 10, idleDays: 20, status: 'Partially utilized' });
     expect(report.groups[0].crews[1].actualAssignedDays).toBe(0);
-    expect(report.totals).toMatchObject({ availableDays: 60, plannedDays: 17, actualAssignedDays: 8, idleDays: 52 });
+    expect(report.totals).toMatchObject({ availableDays: 60, plannedDays: 20, actualAssignedDays: 10, idleDays: 50 });
     expect(report.summary).toMatchObject({ crewGroups: 1, actualCrews: 2, unknownCapacity: 0 });
-    expect(report.summary.averagePlannedUtilization).toBe(17 / 60 * 100);
+    expect(report.summary.averagePlannedUtilization).toBe(20 / 60 * 100);
     expect(JSON.stringify(data)).toBe(before);
   });
 
@@ -850,6 +937,7 @@ describe('Crew calendar planning', () => {
     component.selectFilterOption('businessUnit', 'Energy');
     component.selectFilterOption('division', 'Oilfield Projects');
     expect(component.filterClusterOptions).toEqual(['Amal', 'Nimr']);
+    component.clearGlobalFilterSelection('cluster', new MouseEvent('click'));
     component.selectFilterOption('cluster', 'Nimr');
     expect(component.filterPlant).toBe('Nimr ODC');
     component.timeUnit = 'day';
@@ -858,6 +946,7 @@ describe('Crew calendar planning', () => {
     component.applyDashboardFilters();
     expect(component.loading).toBe(true);
     expect(service.getCalendar).toHaveBeenLastCalledWith(expect.objectContaining({ cluster: 'Nimr', site: '3522', from: '2026-09-01', to: '2026-09-10' }));
+    component.clearGlobalFilterSelection('cluster', new MouseEvent('click'));
     component.selectFilterOption('cluster', 'Amal');
     component.applyDashboardFilters();
     expect(service.getCalendar).toHaveBeenLastCalledWith(expect.objectContaining({ cluster: 'Amal', site: '100' }));
@@ -1609,22 +1698,45 @@ describe('Crew calendar planning', () => {
     }
   });
 
-  it('restores cached real crew choices and revalidates them against newly saved reservations', () => {
+  it('replans cached proposals onto the first currently free crew when roster or bookings change', () => {
     const members = roster();
     const data = { ...calendar([activity('REAL', '2026-09-01', '2026-09-02')]), roster: members };
     const retained = buildCrewCalendarPlan(data, members);
     const changed = roster();
     changed.groups[0].crews.push({ crewUid: 'Crew 0', crewTypeCode: 'G1', bookings: [] });
     const result = buildCrewCalendarPlan({ ...data, roster: changed }, changed, retained.groups);
-    const first = result.groups[0].crews.find(crew => crew.crewCode === 'Crew 1')!;
-    expect(first.activities).toEqual(retained.groups[0].crews[0].activities);
-    changed.groups[0].crews[2].bookings = [{ plannedStart: '2026-09-01', plannedEnd: '2026-09-02' }];
+    expect(result.groups[0].crews.find(crew => crew.crewCode === 'Crew 0')?.activities)
+      .toEqual(retained.groups[0].crews[0].activities);
+    expect(result.groups[0].crews.find(crew => crew.crewCode === 'Crew 1')?.activities).toEqual([]);
+    changed.groups[0].crews.find(crew => crew.crewUid === 'Crew 0')!.bookings =
+      [{ plannedStart: '2026-09-01', plannedEnd: '2026-09-02' }];
     const refreshed = buildCrewCalendarPlan({ ...data, roster: changed }, changed, retained.groups);
-    expect(refreshed.groups[0].crews.find(crew => crew.crewCode === 'Crew 1')?.activities).toEqual([]);
-    expect(refreshed.groups[0].crews.find(crew => crew.crewCode === 'Crew 0')?.activities[0]).toMatchObject({
+    expect(refreshed.groups[0].crews.find(crew => crew.crewCode === 'Crew 0')?.activities).toEqual([]);
+    expect(refreshed.groups[0].crews.find(crew => crew.crewCode === 'Crew 1')?.activities[0]).toMatchObject({
       activityCode: 'REAL', plannedStart: '2026-09-01', plannedEnd: '2026-09-02',
     });
-    expect(refreshed.totalActivities).toBe(1);
+    changed.groups[0].crews.find(crew => crew.crewUid === 'Crew 1')!.bookings =
+      [{ plannedStart: '2026-09-01', plannedEnd: '2026-09-02' }];
+    const next = buildCrewCalendarPlan({ ...data, roster: changed }, changed, retained.groups);
+    expect(next.groups[0].crews.find(crew => crew.crewCode === 'Crew 2')?.activities[0]).toMatchObject({
+      activityCode: 'REAL', proposed: true,
+    });
+    expect(next.totalActivities).toBe(1);
+  });
+
+  it('gives a newly added earlier activity priority over a later cached preview', () => {
+    const members = roster();
+    const retained = buildCrewCalendarPlan(calendar([
+      activity('LATE', '2026-09-10', '2026-09-20'),
+    ]), members);
+    const updated = calendar([
+      activity('LATE', '2026-09-10', '2026-09-20'),
+      activity('EARLY', '2026-09-01', '2026-09-15'),
+    ]);
+    const result = buildCrewCalendarPlan(updated, members, retained.groups);
+    expect(result.groups[0].crews.map(crew => crew.activities.map(item => item.activityCode)))
+      .toEqual([['EARLY'], ['LATE'], []]);
+    expect(result.groups[0].crews[0].activities[0].proposed).toBe(true);
   });
 
   it('does not restore a cached proposal when the same activity has since been saved to another crew', () => {
@@ -1667,8 +1779,9 @@ describe('Crew calendar planning', () => {
     let response: CrewCalendarData | undefined;
     service.getCalendar(scope).subscribe(result => response = result);
     expect(api.get).toHaveBeenCalledOnce();
-    expect(api.get).toHaveBeenCalledWith('/legacy-crews/calendar', expect.anything());
-    expect(response).toMatchObject({ ...data, planningScope: scope, retainedPlan: [] });
+    expect(api.get).toHaveBeenCalledWith('/crews/calendar', expect.anything());
+    expect(response).toMatchObject({ ...data, groups: [], totalGroups: 0, actualGroups: data.groups,
+      planningScope: scope, retainedPlan: [] });
   });
 
   it('keeps September 9-10 free when the only nearby activity also requires the occupied September 8', () => {
@@ -1698,11 +1811,13 @@ describe('Crew calendar planning', () => {
     expect(result.groups[0].crews[2].activities[0]).toMatchObject({ activityCode: 'NEW', proposed: true });
   });
 
-  it('leaves excess demand and missing actual crew IDs unallocated rather than inventing capacity', () => {
+  it('starts another planning round for excess demand but leaves missing-crew actual work unallocated', () => {
     const data = calendar(['A', 'B', 'C', 'D'].map(code => activity(code, '2026-09-01', '2026-09-30')));
     data.groups[0].crews[0].activities.push(activity('ACTUAL', '2026-09-01', '2026-09-02', { actualStart: '2026-09-01' }));
     const result = buildCrewCalendarPlan(data, roster());
-    expect(result.groups[0].crews.find(crew => !crew.crewCode)?.activities.map(item => item.activityCode)).toEqual(['ACTUAL', 'D']);
+    expect(result.groups[0].crews.find(crew => !crew.crewCode)?.activities.map(item => item.activityCode)).toEqual(['ACTUAL']);
+    expect(result.groups[0].crews.find(crew => crew.crewCode === 'Crew 1')?.activities.map(item => item.activityCode))
+      .toEqual(['A', 'D']);
     expect(result.totalActivities).toBe(5);
   });
 
@@ -1798,7 +1913,7 @@ describe('Crew calendar planning', () => {
   });
 
   it.each([
-    { mode: 'month', from: '2026-09-01', to: '2026-09-30', booked: 22, capacity: 90 },
+    { mode: 'month', from: '2026-09-01', to: '2026-09-30', booked: 25, capacity: 90 },
     { mode: 'week', from: '2026-09-01', to: '2026-09-30', booked: 12, capacity: 21 },
     { mode: 'day', from: '2026-09-01', to: '2026-09-30', booked: 2, capacity: 3 },
     { mode: 'week', from: '2026-09-29', to: '2026-09-30', booked: 2, capacity: 6 },
@@ -1806,7 +1921,7 @@ describe('Crew calendar planning', () => {
     { mode: 'day', from: '2026-09-30', to: '2026-09-30', booked: 1, capacity: 3 },
     { mode: 'month', from: '2026-09-21', to: '2026-09-28', booked: 0, capacity: 24 },
     { mode: 'month', from: '2028-02-01', to: '2028-02-29', booked: 0, capacity: 87 },
-  ] as const)('calculates roster utilization for $mode from $from to $to without double counting', ({ mode, from, to, booked, capacity }) => {
+  ] as const)('calculates roster utilization for $mode from $from to $to without duplicating covered reservations', ({ mode, from, to, booked, capacity }) => {
     const component = new ActivityBreakdownComponent(
       {} as any, {} as any, { detectChanges: vi.fn() } as any,
       {} as any, {} as any, {} as any, {} as any,
@@ -1935,12 +2050,12 @@ describe('Crew calendar planning', () => {
         expect(component.visibleCalendarSummary).toEqual([
           { label: 'Total crew groups', count: 1 },
           { label: 'Total actual crews', count: 1 },
-          { label: 'Avg Actual Utilization', count: 6 / (3 * 61) * 100, unit: '%' },
+          { label: 'Avg Actual Utilization', count: 8 / (3 * 61) * 100, unit: '%' },
         ]);
         expect(component.ganttGroups.flatMap(group => component.visibleCrews(group))).toHaveLength(3);
       }
       component.navigateTimeline(1);
-      expect(component.visibleCalendarSummary.at(-1)?.count).toBeCloseTo(6 / (3 * 61) * 100, 10);
+      expect(component.visibleCalendarSummary.at(-1)?.count).toBeCloseTo(8 / (3 * 61) * 100, 10);
       expect(rangeGroups).toHaveBeenCalledTimes(1);
       component.setScheduleFilter('planned');
       component.setTimeUnit('month');
@@ -1951,7 +2066,7 @@ describe('Crew calendar planning', () => {
       (component as any).setCalendarDateRange('2026-09-01', '2026-09-30');
       expect(component.visibleCalendarSummary.at(-1)?.count).toBeCloseTo(2 / 90 * 100, 10);
       (component as any).setCalendarDateRange('2026-10-01', '2026-10-31');
-      expect(component.visibleCalendarSummary.at(-1)?.count).toBeCloseTo(4 / 93 * 100, 10);
+      expect(component.visibleCalendarSummary.at(-1)?.count).toBeCloseTo(6 / 93 * 100, 10);
       (component as any).setCalendarDateRange('2035-01-01', '2035-01-07');
       expect(component.visibleCalendarSummary.map(metric => metric.count)).toEqual([0, 0, 0]);
     } finally {
@@ -2415,7 +2530,7 @@ describe('Crew calendar planning', () => {
     expect(JSON.stringify((component as any).calendarData)).toBe(before);
   });
 
-  it('unions actual days for master-crew utilization filtering without adding unknown crew rows', () => {
+  it('counts overlapping actual engagements for master-crew utilization filtering without adding unknown crew rows', () => {
     const component = new ActivityBreakdownComponent(
       {} as any, {} as any, { detectChanges: vi.fn() } as any,
       {} as any, {} as any, {} as any, {} as any,
@@ -2438,11 +2553,11 @@ describe('Crew calendar planning', () => {
     (component as any).rebuildBars();
     const group = component.crewGroups[0];
     const before = JSON.stringify((component as any).calendarData);
-    expect(component.calendarSummary.map(metric => metric.count)).toEqual([1, 3, 20 / 60 * 100, 20]);
+    expect(component.calendarSummary.map(metric => metric.count)).toEqual([1, 3, 40 / 60 * 100, 16 / 60 * 100]);
     component.utilizationBasis = 'actual';
-    component.utilizationFilter = 'Underutilized';
+    component.utilizationFilter = 'Well-Utilized';
     expect(component.visibleCrews(group).map(crew => crew.id)).toEqual(['Crew 1']);
-    expect(component.calendarSummary.map(metric => metric.count)).toEqual([1, 1, 100, 60]);
+    expect(component.calendarSummary.map(metric => metric.count)).toEqual([1, 1, 200, 80]);
     expect(component.visibleBars(group).flatMap(bar => bar.activities!.map(activity => activity.activityCode)).sort())
       .toEqual(['FIRST', 'OVERLAP']);
     component.rowFilterSelected = new Set(['Crew 2']);
@@ -2628,11 +2743,50 @@ describe('Crew calendar planning', () => {
     const crews = component.crewGroups[0].wells;
     expect(crews[0].bars.map(bar => bar.lane)).toEqual([0, 1]);
     expect(crews[0].rowHeight).toBe(96);
-    expect(crews[0].percent).toBe(50);
+    expect(crews[0].percent).toBe(60);
     expect(crews[1].activities).toHaveLength(0);
     expect(crews[1].bars[0].reserved).toBe(true);
     expect(crews[1].noActivities).toBe(false);
     expect(crews[1].percent).toBe(17);
+  });
+
+  it('shows overlapping 200% engagements in calendar badges, utilization filters and both report views', () => {
+    const component = new ActivityBreakdownComponent(
+      {} as any, {} as any, { detectChanges: vi.fn() } as any,
+      {} as any, {} as any, {} as any, {} as any,
+    );
+    component.timelineStart = new Date(2026, 8, 1);
+    (component as any).selectedFrom = '2026-09-01';
+    (component as any).selectedTo = '2026-09-30';
+    const data = calendar([]);
+    const members = roster();
+    members.groups[0].crews.find(crew => crew.crewUid === 'Crew 1')!.bookings =
+      [{ plannedStart: '2026-09-01', plannedEnd: '2026-09-30' }];
+    data.groups[0].crews = [{ crewCode: 'Crew 1', activities: [
+      activity('FIRST', '2026-09-01', '2026-09-30',
+        { actualStart: '2026-09-01', actualEnd: '2026-09-30' }),
+      activity('SECOND', '2026-09-01', '2026-09-30',
+        { actualStart: '2026-09-01', actualEnd: '2026-09-30' }),
+    ] }];
+    (component as any).applyCalendarData({ ...data, roster: members });
+    component.today = new Date(2026, 8, 30);
+    (component as any).rebuildBars();
+    const group = component.crewGroups[0];
+    const first = group.wells.find(crew => crew.id === 'Crew 1')!;
+    expect(first).toMatchObject({ bookedDays: 60, actualDays: 60, percent: 200 });
+    expect(component.crewUtilization(group, first, 'planned')).toBe(200);
+    expect(component.crewUtilization(group, first, 'actual')).toBe(200);
+    component.utilizationFilter = 'Scarce';
+    expect(component.visibleCrews(group).map(crew => crew.id)).toEqual(['Crew 1']);
+    component.openUtilizationReport(true);
+    expect(component.utilizationReport?.groups[0].crews[0]).toMatchObject({
+      plannedDays: 60, actualAssignedDays: 60, utilization: 200, status: 'Fully utilized',
+    });
+    expect(component.utilizationReport?.totals).toMatchObject({ availableDays: 30, utilization: 200, idleDays: 0 });
+    component.setUtilizationReportView('actual');
+    expect(component.utilizationReport?.groups[0].crews[0]).toMatchObject({
+      actualAssignedDays: 60, utilization: 200, status: 'Fully utilized',
+    });
   });
 });
 
@@ -2735,6 +2889,114 @@ describe('ActivityBreakdownComponent', () => {
     expect((component as any).calendarScope).toEqual({ cluster: cluster || undefined, site: code });
     expect(component.filterPlant).toBe(plant);
     expect(component.filterCluster).toBe(cluster);
+  });
+
+  it('cascades options from any selected parent and keeps a remaining scalar selection scalar', () => {
+    const component = new ActivityBreakdownComponent(
+      {} as any, {} as any, { detectChanges: vi.fn() } as any,
+      {} as any, {} as any, {} as any, {} as any,
+    );
+    (component as any).allPlants = [
+      { country: 'UAE', sector: 'Industrial' },
+      { country: 'Oman', sector: 'Residential' },
+      { country: 'Saudi Arabia', sector: 'Commercial' },
+    ];
+    component.filterCountry = ['UAE', 'Oman'];
+
+    (component as any).rebuildCascadingOptions();
+
+    expect(component.filterSectorOptions).toEqual(['Industrial', 'Residential']);
+    component.selectFilterOption('country', 'UAE');
+    expect(component.filterCountry).toBe('Oman');
+    expect(component.filterSectorOptions).toEqual(['Residential']);
+  });
+
+  it('applies OR within a multi-cluster selection and AND across hierarchy fields', () => {
+    const component = new ActivityBreakdownComponent(
+      {} as any, {} as any, { detectChanges: vi.fn() } as any,
+      {} as any, {} as any, {} as any, {} as any,
+    );
+    (component as any).allPlants = [
+      { country: 'Oman', cluster: 'Amal', plantDescription: 'Amal ODC', plantCode: 100 },
+      { country: 'UAE', cluster: 'Nimr', plantDescription: 'Nimr ODC', plantCode: 3522 },
+      { country: 'Oman', cluster: 'Marmul', plantDescription: 'Marmul ODC', plantCode: 3524 },
+    ];
+    component.filterCountry = 'Oman';
+    component.filterCluster = ['Amal', 'Nimr'];
+    const makeActivity = (wellId: string, plantCode: number): CalendarActivity => ({
+      activityCode: wellId, activityName: wellId, wellId, plantCode, category: null,
+      plannedStart: '2026-09-01', plannedEnd: '2026-09-02',
+      actualStart: '2026-09-01', actualEnd: '2026-09-02', progress: 0, status: 'planned', isMilestone: false,
+      rigOnDate: null, expectedRigOnDate: null, normsPerDay: null, productivityPct: null,
+    });
+    const data: CrewCalendarData = {
+      totalGroups: 1, totalCrews: 4, totalActivities: 4, totalMilestones: 2,
+      fromDate: '2026-09-01', toDate: '2026-09-30', milestones: [],
+      groups: [{
+        crewGroupCode: 'G1', activityCount: 4, completionPct: 0,
+        crews: [
+          { crewCode: 'Amal', activities: [makeActivity('28721', 100)] },
+          { crewCode: 'Nimr', activities: [makeActivity('28736', 3522)] },
+          { crewCode: 'Marmul', activities: [makeActivity('28690', 3524)] },
+          { crewCode: 'Unmapped', activities: [{ ...makeActivity('100', 0), plantCode: null }] },
+        ],
+      }],
+    };
+    data.actualGroups = data.groups;
+    data.retainedPlan = data.groups;
+    data.milestones = [makeActivity('28721', 100), makeActivity('28736', 3522)]
+      .map(activity => ({ ...activity, isMilestone: true }));
+    const source = JSON.stringify(data);
+
+    const filtered = (component as any).filterCalendarDataByGlobalSelection(data) as CrewCalendarData;
+
+    expect(filtered.groups[0].crews.map(crew => crew.crewCode)).toEqual(['Amal']);
+    expect(filtered.actualGroups?.[0].crews.map(crew => crew.crewCode)).toEqual(['Amal']);
+    expect(filtered.retainedPlan?.[0].crews.map(crew => crew.crewCode)).toEqual(['Amal']);
+    expect(filtered.milestones.map(activity => activity.wellId)).toEqual(['28721']);
+    expect([filtered.totalGroups, filtered.totalCrews, filtered.totalActivities, filtered.totalMilestones]).toEqual([1, 1, 1, 1]);
+    expect(JSON.stringify(data)).toBe(source);
+  });
+
+  it('preserves planned and actual well activities when default hierarchy selections cover all plants', () => {
+    const component = new ActivityBreakdownComponent(
+      {} as any, {} as any, { detectChanges: vi.fn() } as any,
+      {} as any, {} as any, {} as any, {} as any,
+    );
+    (component as any).allPlants = [
+      { country: 'Oman', sector: 'Energy', businessUnit: 'Operations', division: 'Oilfield Projects',
+        cluster: 'Nimr', plantDescription: 'Nimr ODC', plantCode: 3522 },
+      { country: 'Oman', sector: 'Energy', businessUnit: 'Operations', division: 'Oilfield Projects',
+        cluster: 'Marmul', plantDescription: 'Marmul ODC', plantCode: 3524 },
+    ];
+    component.filterCountry = 'Oman';
+    component.filterSector = 'Energy';
+    component.filterBusinessUnit = 'Operations';
+    component.filterDivision = 'Oilfield Projects';
+    component.filterCluster = 'All';
+    component.filterPlant = 'All';
+    const planned: CalendarActivity = {
+      activityCode: 'PLAN', activityName: 'Plan', wellId: '28721', category: null,
+      plannedStart: '2026-09-01', plannedEnd: '2026-09-03', actualStart: null, actualEnd: null,
+      progress: 0, status: 'planned', isMilestone: false, rigOnDate: null,
+      expectedRigOnDate: null, normsPerDay: null, productivityPct: null,
+    };
+    const data: CrewCalendarData = {
+      totalGroups: 1, totalCrews: 1, totalActivities: 1, totalMilestones: 0,
+      fromDate: '2026-09-01', toDate: '2026-09-30', milestones: [],
+      groups: [{ crewGroupCode: 'G1', activityCount: 1, completionPct: 0,
+        crews: [{ crewCode: 'Crew 1', activities: [planned] }] }],
+    };
+    data.actualGroups = [{ ...data.groups[0], crews: [{ crewCode: 'Crew 1', activities: [
+      { ...planned, activityCode: 'ACTUAL', wellId: '28736', actualStart: '2026-09-01', actualEnd: '2026-09-03' },
+    ] }] }];
+    const source = JSON.stringify(data);
+
+    const filtered = (component as any).filterCalendarDataByGlobalSelection(data) as CrewCalendarData;
+
+    expect(filtered).toBe(data);
+    expect(filtered.actualGroups?.[0].crews[0].activities[0].activityCode).toBe('ACTUAL');
+    expect(JSON.stringify(data)).toBe(source);
   });
 
   it.each([
@@ -3095,6 +3357,107 @@ describe('ActivityBreakdownComponent', () => {
     component.navigateTimeline(-1);
     expect(component.timelineStart).toEqual(new Date(2026, 8, 22));
     expect(component.totalDays).toBe(7);
+  });
+
+  it('renders only the crew rows near the visible part of an expanded calendar and keeps the scroll height', () => {
+    const component = new ActivityBreakdownComponent(
+      {} as any, {} as any, { detectChanges: vi.fn() } as any,
+      {} as any, {} as any, {} as any, {} as any,
+    );
+    const crews = (prefix: string) => Array.from({ length: 100 }, (_, index) =>
+      ({ id: `${prefix}-${index}`, name: `${prefix}-${index}`, activities: [], bars: [] }) as any);
+    const groups = ['G1', 'G2'].map(name => ({ id: name, name, expanded: true, wells: crews(name) }) as any);
+    const clusters = [{ id: 'C1', name: 'Nimr', expanded: true, groups }];
+    vi.spyOn(component, 'ganttClusters', 'get').mockReturnValue(clusters);
+    const list = { clientHeight: 500, scrollTop: 0 };
+    (component as any).leftRows = { nativeElement: list };
+    const total = 100 * 56;
+
+    // Cluster row 40 px, then G1 header 56 px; G1 crews start at 96 px. Window = 0..(500 + 400 + 1200) px.
+    let first = component.crewWindow(groups[0]);
+    let second = component.crewWindow(groups[1]);
+    expect(first.start).toBe(0);
+    expect(first.crews.map(crew => crew.id)).toEqual(groups[0].wells.slice(0, 36).map((crew: any) => crew.id));
+    expect(first.before + first.crews.length * 56 + first.after).toBe(total);
+    expect(second.crews).toHaveLength(0);
+    expect(second.before + second.after).toBe(total);
+    expect(component.crewWindow(groups[0])).toBe(first);
+
+    list.scrollTop = 6000;
+    first = component.crewWindow(groups[0]);
+    second = component.crewWindow(groups[1]);
+    expect(first.crews.length).toBeGreaterThan(0);
+    expect(first.start).toBeGreaterThan(0);
+    expect(first.before).toBe(first.start * 56);
+    expect(first.before + first.crews.length * 56 + first.after).toBe(total);
+    expect(second.start).toBe(0);
+    expect(second.crews.length).toBeGreaterThan(0);
+    expect(second.crews.length).toBeLessThan(100);
+    expect(second.before + second.crews.length * 56 + second.after).toBe(total);
+
+    list.clientHeight = 0;
+    expect(component.crewWindow(groups[0]).crews).toHaveLength(100);
+    expect(component.crewWindow(groups[1]).crews).toHaveLength(100);
+
+    // Crew planning rows use their own heights; spacers must add up to the same total.
+    (component as any).calendarData = { groups: [], milestones: [], roster: { groups: [] } };
+    groups[0].wells.forEach((crew: any, index: number) => { crew.rowHeight = index % 3 ? 56 : 98; });
+    const planningClusters = [{ ...clusters[0], groups: [...groups] }];
+    vi.spyOn(component, 'ganttClusters', 'get').mockReturnValue(planningClusters);
+    list.clientHeight = 500;
+    list.scrollTop = 3000;
+    const planned = component.crewWindow(groups[0]);
+    const heights = groups[0].wells.map((crew: any) => crew.rowHeight);
+    const sum = (values: number[]) => values.reduce((total: number, value: number) => total + value, 0);
+    expect(planned.crews.length).toBeGreaterThan(0);
+    expect(planned.before).toBe(sum(heights.slice(0, planned.start)));
+    expect(planned.before + sum(planned.crews.map((crew: any) => crew.rowHeight)) + planned.after).toBe(sum(heights));
+  });
+
+  it('applies the crew search once typing pauses and clears a pending search with All', () => {
+    vi.useFakeTimers();
+    try {
+      const detectChanges = vi.fn();
+      const component = new ActivityBreakdownComponent(
+        {} as any, {} as any, { detectChanges } as any,
+        {} as any, {} as any, {} as any, {} as any,
+      );
+      for (const value of ['F', 'FB', 'FBB']) {
+        component.onSearchInput(value);
+        vi.advanceTimersByTime(100);
+      }
+      expect(component.searchInput).toBe('FBB');
+      expect(component.searchTerm).toBe('');
+      expect(detectChanges).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(300);
+      expect(component.searchTerm).toBe('FBB');
+      expect(detectChanges).toHaveBeenCalledOnce();
+
+      component.onSearchInput('FBB-05');
+      const box = document.createElement('input');
+      box.value = 'FBB-05';
+      component.crewSearchInput = { nativeElement: box } as any;
+      component.clearRowFilter();
+      vi.advanceTimersByTime(1000);
+      expect(box.value).toBe('');
+      expect(component.searchInput).toBe('');
+      expect(component.searchTerm).toBe('');
+      expect(detectChanges).toHaveBeenCalledOnce();
+
+      box.value = 'G2';
+      box.dispatchEvent(new Event('input'));
+      expect(component.searchInput).toBe('G2');
+      vi.advanceTimersByTime(300);
+      expect(component.searchTerm).toBe('G2');
+
+      component.ngOnDestroy();
+      box.value = 'ignored';
+      box.dispatchEvent(new Event('input'));
+      expect(component.searchInput).toBe('G2');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('restores all rows and summary counts when All clears search and row selections', () => {

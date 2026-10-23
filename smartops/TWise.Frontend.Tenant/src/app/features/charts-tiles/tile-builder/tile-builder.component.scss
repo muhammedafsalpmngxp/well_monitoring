@@ -1,4 +1,6 @@
-﻿:host {
+﻿@use '../../../../styles/tile-layout' as tile-layout;
+
+:host {
   text-transform: capitalize;
   // Fills the app shell's scroll box so only .builder-page (not the header/
   // filter bar above it) ends up scrollable.
@@ -120,7 +122,7 @@
     max-height: 260px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   &__recent-label {
@@ -305,6 +307,7 @@
 }
 
 .chart-global-filter-bar {
+  position: relative;
   z-index: 21;
   display: grid;
   flex-shrink: 0;
@@ -317,6 +320,48 @@
   border-radius: 10px;
   background: #FFF;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+
+  // Hidden on desktop — this is only the off-canvas drawer's header, see the
+  // @media (max-width: 1199px) block below.
+  &__mobile-header {
+    display: none;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 10px;
+    margin: 0 0 2px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #101828;
+    font-family: var(--font-family-base);
+    border-bottom: 1px solid #E7ECF3;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--color-bg-app);
+      color: var(--color-text-primary);
+    }
+  }
+
+  // On desktop the wrapper is transparent to layout — its field children
+  // participate directly in the grid above, unchanged.
+  &__scroll {
+    display: contents;
+  }
 
   .chart-global-filter-field {
     display: flex;
@@ -412,7 +457,9 @@
   }
 
   .chart-global-filter-option {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
     padding: 8px 10px;
     border: 0;
@@ -423,6 +470,25 @@
     font-size: 13px;
     white-space: nowrap;
     cursor: pointer;
+
+    &.global-filter-option[role='checkbox'] {
+      position: relative;
+      min-height: 36px;
+      padding: 8px 10px 8px 42px;
+      overflow: hidden;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__check {
+      display: inline-flex;
+      flex: 0 0 14px;
+      width: 14px;
+      height: 14px;
+      align-items: center;
+      justify-content: center;
+    }
 
     &:hover {
       background: #F9FAFB;
@@ -624,6 +690,18 @@
   overflow: hidden;
   padding: 0;
 
+  > .helpHeaderPopupMain {
+    flex-shrink: 0;
+  }
+
+  .paddingSpaceallMain1 {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   &__header {
     display: flex;
     align-items: center;
@@ -734,13 +812,28 @@
 
   &__articles {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
-    overflow-y: auto;
+    overflow-y: scroll;
     min-height: 0;
     border: 1px #E7ECF3 solid;
     border-radius: 8px;
+    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: #21409A transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border-radius: 30px;
+      background: #21409A;
+    }
   }
 
   &__footer {
@@ -772,10 +865,40 @@
       background: var(--color-bg-app);
       color: var(--color-text-primary);
     }
+
+    &.active {
+      background: #EAF1FF;
+      color: #21409A;
+    }
+  }
+
+  &__feedback {
+    color: var(--color-text-secondary);
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+
+    button {
+      border: 0;
+      background: transparent;
+      color: #21409A;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      white-space: nowrap;
+    }
   }
 }
 
 .help-article {
+  flex-shrink: 0;
   border-bottom: 1px solid var(--color-border);
 
   &:last-child {
@@ -1425,7 +1548,7 @@
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     li {
       display: flex;
@@ -1710,7 +1833,7 @@
   flex: 1 1 auto;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -1721,7 +1844,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -2599,6 +2722,66 @@
   }
 }
 
+// Optional-icon toggle + value font-styling controls (tile builder visual settings)
+.chart-setup__checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #344054;
+  user-select: none;
+
+  input { width: 16px; height: 16px; accent-color: #21409A; cursor: pointer; }
+}
+
+.chart-setup__font-styles { display: inline-flex; gap: 8px; }
+
+.chart-setup__font-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #D0D5DD;
+  border-radius: 8px;
+  background: #fff;
+  color: #344054;
+  font-size: 15px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+
+  &--italic { font-style: italic; }
+  &:hover { border-color: #21409A; }
+  &.active { border-color: #21409A; background: #EAF1FF; color: #21409A; }
+}
+
+.chart-setup__font-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  input[type="color"] {
+    width: 42px;
+    height: 34px;
+    padding: 2px;
+    border: 1px solid #D0D5DD;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+  }
+}
+
+.chart-setup__font-reset {
+  border: none;
+  background: none;
+  color: #21409A;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
 // overrides `.chart-setup__field label { align-items: center }`, which centres the stacked label + input
 .chart-setup__field.dax-model {
   .dax-model__control {
@@ -2626,7 +2809,7 @@
   // filter bar is shown or hidden.
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -2637,7 +2820,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -2775,7 +2958,7 @@
     flex: 1;
     min-height: 0;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
     position: relative;
     top: -8px;
 
@@ -2788,7 +2971,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -3718,14 +3901,14 @@
     overflow-x: auto;
     padding-bottom: 6px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       height: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -3872,6 +4055,43 @@
       &.active {
         border: 1px solid #DEE7FF;
         background: #EEF4FF;
+      }
+    }
+  }
+
+  &__axis-menu-search {
+    cursor: default !important;
+    padding: 0 0 10px !important;
+    margin-bottom: 4px !important;
+    border: none !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    border-radius: 0 !important;
+    gap: 6px;
+
+    &:hover {
+      background: transparent !important;
+    }
+
+    svg {
+      flex-shrink: 0;
+      color: var(--color-text-muted);
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      height: 32px;
+      padding: 0 10px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      outline: none;
+      background: var(--color-bg-card);
+      font-size: 13px;
+      font-family: var(--font-family-base);
+      color: var(--color-text-primary);
+
+      &::placeholder {
+        color: var(--color-text-muted);
       }
     }
   }
@@ -4333,7 +4553,37 @@
   min-height: 0;
 }
 
+.tile-layout-options {
+  border: 0;
+  padding: 0;
+  margin: 0;
+
+  legend {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+}
+
 .tile-kpi {
+  &.tile-layout--single-row {
+    min-width: 0;
+
+    .tile-kpi__header-text {
+      @include tile-layout.text-row('.tile-kpi__label', '.tile-kpi__value');
+    }
+
+    .tile-kpi__icon-wrap {
+      width: 48px;
+      height: 48px;
+
+      svg { width: 28px; height: 28px; }
+    }
+
+    .tile-kpi__label-text { font-size: 16px; }
+    .tile-kpi__value-text { font-size: 28px; }
+  }
+
   background: #fff;
   border: 1px solid #E2E7EF;
   border-radius: 18px;
@@ -4341,57 +4591,6 @@
   min-width: 200px;
   max-width: 398px;
   height: 184px;
-
-  // App-styled tooltip for truncated label/value (replaces native title tooltip)
-  [data-tooltip] {
-    position: relative;
-
-    &::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      left: 0;
-      bottom: calc(100% + 8px);
-      background: #101828;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 500;
-      line-height: 1.4;
-      padding: 6px 10px;
-      border-radius: 6px;
-      white-space: normal;
-      width: max-content;
-      max-width: 260px;
-      box-shadow: 0 4px 12px rgba(16, 24, 40, 0.18);
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(4px);
-      transition: opacity .15s ease, transform .15s ease;
-      z-index: 20;
-      pointer-events: none;
-    }
-
-    &::before {
-      content: '';
-      position: absolute;
-      left: 12px;
-      bottom: 100%;
-      border: 5px solid transparent;
-      border-top-color: #101828;
-      margin-bottom: 3px;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity .15s ease;
-      z-index: 20;
-      pointer-events: none;
-    }
-
-    &:hover::after,
-    &:hover::before {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
-  }
 
   &__header {
     display: flex;
@@ -4501,6 +4700,63 @@
 
   &__breakdown-value {
     font-weight: 600;
+  }
+}
+
+// Off-canvas filter panel — switches over at 1199px, same breakpoint/markup as
+// operations-dashboard's `.ops-dashboard__filter-bar` drawer.
+@media (max-width: 1199px) {
+  .chart-global-filter-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    width: min(85vw, 320px);
+    max-width: 320px;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: 4px 0 24px rgba(16, 24, 40, 0.18);
+    overflow: auto;
+
+    &__mobile-header {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      border-bottom: 1px solid #E2E7EF;
+    }
+
+    &__close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 8px;
+      background: var(--color-bg-app, #f3f4f6);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+    }
+
+    // Scrollable middle section — the filter fields + Clear filter button
+    &__scroll {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      overflow-y: auto;
+    }
   }
 }
 
@@ -4842,4 +5098,8 @@
       }
     }
   }
+}
+
+.discard-confirm {
+  text-transform: none;
 }

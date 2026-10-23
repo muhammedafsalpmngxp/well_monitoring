@@ -41,8 +41,14 @@ public sealed class JwtTokenService(IOptions<JwtSettings> options) : IJwtTokenSe
     public string Issue(string subject, string email, string role, string fullName, long tenantId, IEnumerable<string> permissions, IEnumerable<int>? plantCodes = null, string? securityStamp = null)
         => Issue(new JwtAccessTokenRequest
         {
-            Subject = subject, Email = email, Role = role, FullName = fullName,
-            TenantId = tenantId, Permissions = permissions, PlantCodes = plantCodes, SecurityStamp = securityStamp
+            Subject = subject,
+            Email = email,
+            Role = role,
+            FullName = fullName,
+            TenantId = tenantId,
+            Permissions = permissions,
+            PlantCodes = plantCodes,
+            SecurityStamp = securityStamp
         });
 
     public string Issue(JwtAccessTokenRequest request)

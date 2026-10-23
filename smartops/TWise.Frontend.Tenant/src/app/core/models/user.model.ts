@@ -1,5 +1,6 @@
 export interface User {
   userId: number;
+  employeeId?: string | null;
   email: string;
   displayName: string;
   role: string;
@@ -18,6 +19,7 @@ export interface LoginResponse {
   token: string;
   refreshToken: string;
   userId: number;
+  employeeId?: string | null;
   email: string;
   displayName: string;
   role: string;

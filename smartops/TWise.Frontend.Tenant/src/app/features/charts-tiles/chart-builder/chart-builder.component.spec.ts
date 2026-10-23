@@ -219,3 +219,50 @@ describe('ChartBuilderComponent table preview', () => {
     expect((component as any).lockedInteractiveFilterPayload()).toEqual([]);
   });
 });
+
+describe('ChartBuilderComponent advanced filter synchronization', () => {
+  it('mirrors matching advanced values into local filters and leaves unrelated filters unchanged', () => {
+    const component: ChartBuilderComponent = Object.assign(Object.create(ChartBuilderComponent.prototype), {
+      interactiveFilters: [
+        { id: 1, sourceColumn: 'Resource Type', controlType: 'MultiSelect', locked: false },
+        { id: 2, sourceColumn: 'Nationality', controlType: 'Dropdown', locked: false },
+        { id: 3, sourceColumn: 'Department', controlType: 'MultiSelect', locked: false },
+      ],
+      previewFilterMultiValues: { 1: ['Old resource'], 3: ['Finance'] },
+      previewFilterValues: { 2: 'Expat' },
+    });
+    vi.spyOn(component as any, 'reloadGlobalViewPreview').mockImplementation(() => {});
+
+    component.applyAdvancedFilter({
+      wellId: '',
+      hierarchy: {
+        'resource-type': ['ATNM', 'SubContractor'],
+        nationality: ['National'],
+      },
+    });
+
+    expect(component.previewFilterMultiValues[1]).toEqual(['ATNM', 'SubContractor']);
+    expect(component.previewFilterValues[2]).toBe('National');
+    expect(component.previewFilterMultiValues[3]).toEqual(['Finance']);
+  });
+
+  it('clears a matching local value for All and clears dropdowns that cannot represent multiple values', () => {
+    const component: ChartBuilderComponent = Object.assign(Object.create(ChartBuilderComponent.prototype), {
+      interactiveFilters: [
+        { id: 1, sourceColumn: 'resource_type', controlType: 'MultiSelect', locked: false },
+        { id: 2, sourceColumn: 'ResourceType', controlType: 'Dropdown', locked: false },
+      ],
+      previewFilterMultiValues: { 1: ['ATNM'] },
+      previewFilterValues: { 2: 'ATNM' },
+    });
+    vi.spyOn(component as any, 'reloadGlobalViewPreview').mockImplementation(() => {});
+
+    component.applyAdvancedFilter({ wellId: '', hierarchy: { 'resource-type': [] } });
+    expect(component.previewFilterMultiValues[1]).toEqual([]);
+    expect(component.previewFilterValues[2]).toBe('');
+
+    component.applyAdvancedFilter({ wellId: '', hierarchy: { 'resource-type': ['ATNM', 'SubContractor'] } });
+    expect(component.previewFilterMultiValues[1]).toEqual(['ATNM', 'SubContractor']);
+    expect(component.previewFilterValues[2]).toBe('');
+  });
+});

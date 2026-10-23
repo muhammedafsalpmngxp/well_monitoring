@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DaxMeasureConfig } from './dax-evaluator.util';
-import { evaluateDaxMeasure, evaluateDaxMeasureForRow, validateDaxExpression, daxSummaryCells, renameDaxColumn, getActiveDaxMeasures } from './dax-evaluator.util';
+import { evaluateDaxMeasure, evaluateDaxMeasureForRow, validateDaxExpression, daxSummaryCells, renameDaxColumn, getActiveDaxMeasures, evaluateTileDaxValue } from './dax-evaluator.util';
 
 describe('DAX evaluator row scope', () => {
   const rows = [
@@ -148,5 +148,24 @@ describe('DAX table summary and saved-view helpers', () => {
     const measures = [{ id: 'm', name: 'm', expression: 'SUM([Mobile])' }];
     expect(getActiveDaxMeasures({ daxModel: { schemaVersion: 1, enabled: false, measures } })).toEqual([]);
     expect(getActiveDaxMeasures({ daxModel: { schemaVersion: 1, enabled: true, measures } }).length).toBe(1);
+  });
+});
+
+describe('Tile DAX value (DFCT0010748)', () => {
+  const rows = [{ Actual: 30, Target: 40 }, { Actual: 10, Target: 40 }];
+  const measures = [{ id: 'm', name: 'Achieved', expression: 'PERCENTAGE(SUM([Actual]), SUM([Target]))' }];
+
+  it('uses the selected active measure as the tile value', () => {
+    const otherMeasure = { id: 'other', name: 'Actual', expression: 'SUM([Actual])' };
+    expect(evaluateTileDaxValue(rows, { schemaVersion: 1, enabled: true, selectedMeasureId: 'm', measures: [otherMeasure, ...measures] })).toBe(50);
+  });
+
+  it('falls back to the tile aggregation when DAX is off or not configured', () => {
+    expect(evaluateTileDaxValue(rows, { schemaVersion: 1, enabled: false, measures })).toBeUndefined();
+    expect(evaluateTileDaxValue(rows, undefined)).toBeUndefined();
+  });
+
+  it('rejects an enabled model without a valid selected measure', () => {
+    expect(() => evaluateTileDaxValue(rows, { schemaVersion: 1, enabled: true, measures })).toThrow('Select a valid DAX measure for this tile.');
   });
 });

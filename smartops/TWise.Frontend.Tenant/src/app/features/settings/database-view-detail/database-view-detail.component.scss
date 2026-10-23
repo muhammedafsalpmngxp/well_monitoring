@@ -422,7 +422,7 @@ height: calc(100dvh - 315px);
   flex-direction: column;
   gap: 10px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -433,7 +433,7 @@ height: calc(100dvh - 315px);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }

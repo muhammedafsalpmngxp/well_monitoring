@@ -68,3 +68,51 @@ describe('ChartCardPreviewComponent circular value labels', () => {
     expect(preview.options?.tooltip?.pointFormat).toContain('{point.y}');
   });
 });
+
+describe('ChartCardPreviewComponent color rules', () => {
+  function buildMulti(preview: PreviewHarness, type: string, rows: Record<string, unknown>[]): void {
+    const build = Reflect.get(preview, 'buildMultiSeriesChart') as (
+      type: string, xAxis: string, yAxis: string, cols: string[], rows: Record<string, unknown>[]
+    ) => void;
+    build.call(preview, type, 'Month', 'Sum (F)', ['Drilled', 'Completed'], rows);
+  }
+  const rows = [
+    { Month: 'Jan', Drilled: 116, Completed: 47 },
+    { Month: 'Feb', Drilled: 169, Completed: 97 },
+  ];
+
+  it('colors a grouped series by its Category rule, including the legend color', () => {
+    const preview = createPreview();
+    preview.cachedDesign = { colorRules: [{ field: 'Category', categories: ['Completed'], color: '#ff0000' }] };
+    buildMulti(preview, 'grouped', rows);
+    const completed = (preview.options?.series as any[]).find(s => s.name === 'Completed');
+    expect(completed.color).toBe('#ff0000');
+    const drilled = (preview.options?.series as any[]).find(s => s.name === 'Drilled');
+    expect(drilled.color).not.toBe('#ff0000');
+  });
+
+  it('colors grouped points matched by a value rule', () => {
+    const preview = createPreview();
+    preview.cachedDesign = { colorRules: [{ field: 'Drilled', operator: '>', value: '150', color: '#00aa00' }] };
+    buildMulti(preview, 'grouped', rows);
+    const drilled = (preview.options?.series as any[]).find(s => s.name === 'Drilled');
+    expect(drilled.data).toEqual([116, { y: 169, color: '#00aa00' }]);
+    const completed = (preview.options?.series as any[]).find(s => s.name === 'Completed');
+    expect(completed.data).toEqual([47, 97]);
+  });
+
+  it('keeps stack totals numeric when points carry rule colors', () => {
+    const preview = createPreview();
+    preview.cachedDesign = { colorRules: [{ field: 'Drilled', operator: '>', value: '150', color: '#00aa00' }] };
+    buildMulti(preview, 'stacked', rows);
+    const total = (preview.options?.series as any[]).find(s => s.name === 'Total');
+    expect(total.data).toEqual([163, 266]);
+  });
+
+  it('applies value rules to single-series bar previews', () => {
+    const preview = createPreview();
+    preview.cachedDesign = { colorRules: [{ field: 'Value', operator: '>=', value: '100', color: '#abcdef' }] };
+    preview.build('bar', ['A', 'B'], [50, 120]);
+    expect((preview.options?.series?.[0] as any).data).toEqual([50, { y: 120, color: '#abcdef' }]);
+  });
+});

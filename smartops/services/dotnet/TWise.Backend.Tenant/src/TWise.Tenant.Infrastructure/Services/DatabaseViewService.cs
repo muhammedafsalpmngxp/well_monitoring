@@ -474,6 +474,21 @@ public sealed class DatabaseViewService(
         PreviewDatabaseViewRequest request, long tenantId, CancellationToken cancellationToken = default)
     {
         var (connectionId, sql) = await ResolvePreviewSourceAsync(request, tenantId, cancellationToken);
+        var hasAdvancedHierarchy = request.Filters?.Any(filter =>
+            filter.AdvancedHierarchy is not null && ViewFilterHelper.IsActive(filter)) == true;
+
+        IReadOnlyList<ViewFilterParamValue>? filterParameters = null;
+        if (request.Filters is { Count: > 0 })
+        {
+            var filterResult = ViewFilterHelper.ApplyViewFilters(sql, request.Filters);
+            if (filterResult.IsEmptyResult)
+            {
+                logger.LogWarning("Additional preview filter has no usable placeholder in view; returning empty preview");
+                return new PreviewDatabaseViewResponse([], [], 0);
+            }
+            sql = filterResult.Sql;
+            filterParameters = filterResult.Parameters;
+        }
 
         sql = StripCreateViewPrefix(sql);
         ValidatePreviewSql(sql);
@@ -489,9 +504,10 @@ public sealed class DatabaseViewService(
         PreviewDatabaseViewResponse result;
         try
         {
-            result = await ExecutePreviewAsync(provider, conn, sql, maxRows, cancellationToken);
+            result = await ExecutePreviewAsync(provider, conn, sql, maxRows, filterParameters, cancellationToken);
         }
-        catch (Exception ex) when (provider.IsTransportException(ex) || ex is TimeoutException or OperationCanceledException)
+        catch (Exception ex) when (!hasAdvancedHierarchy &&
+            (provider.IsTransportException(ex) || ex is TimeoutException or OperationCanceledException))
         {
             var cached = await TryGetCachedPreviewAsync(request.ViewId, tenantId, ex, cancellationToken);
             if (cached is not null) return cached;
@@ -500,7 +516,7 @@ public sealed class DatabaseViewService(
 
         // Small samples (builder 100 rows, shared value 1 row) would replace the stored preview the
         // view page shows first; only full-size runs refresh it.
-        if (maxRows >= SnapshotMinRows)
+        if (maxRows >= SnapshotMinRows && !hasAdvancedHierarchy)
             await CachePreviewAsync(request.ViewId, tenantId, result, cancellationToken);
         return result;
     }
@@ -953,7 +969,8 @@ public sealed class DatabaseViewService(
     }
 
     private async Task<PreviewDatabaseViewResponse> ExecutePreviewAsync(
-        ISqlDialectProvider provider, DatabaseConnection conn, string sql, int maxRows, CancellationToken cancellationToken)
+        ISqlDialectProvider provider, DatabaseConnection conn, string sql, int maxRows,
+        IReadOnlyList<ViewFilterParamValue>? parameters, CancellationToken cancellationToken)
     {
         var connectionString = provider.BuildConnectionString(conn, CommandTimeoutSeconds);
 
@@ -987,6 +1004,17 @@ public sealed class DatabaseViewService(
             cmd.Transaction = transaction;
             cmd.CommandText = string.Concat(preamble.Select(s => s + ";")) + sql;
             cmd.CommandTimeout = CommandTimeoutSeconds;
+
+            if (parameters is { Count: > 0 })
+            {
+                foreach (var p in parameters)
+                {
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Name;
+                    param.Value = p.Value ?? DBNull.Value;
+                    cmd.Parameters.Add(param);
+                }
+            }
 
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 

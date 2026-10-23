@@ -69,7 +69,15 @@ export class ReliabilityDetailsDialogComponent implements OnChanges {
   openRule(ruleId: string): void {
     if (this.shareContext) return;
     const returnUrl = this.router.url;
-    const queryParams: Record<string, string> = { viewRuleId: ruleId, returnUrl };
+    const queryParams: Record<string, string> = {
+      viewRuleId: ruleId,
+      returnUrl,
+      reliabilitySource: JSON.stringify({
+        sourceLabel: this.sourceLabel,
+        tableName: this.tableName,
+        viewId: this.viewId,
+      }),
+    };
     if (this.boardFrom && this.boardId != null && this.boardTitle.trim() && this.boardParentLabel.trim()) {
       queryParams['boardFrom'] = this.boardFrom;
       queryParams['boardId'] = String(this.boardId);

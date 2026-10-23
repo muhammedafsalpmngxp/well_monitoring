@@ -7,9 +7,9 @@ using TWise.Backend.ControlPlane.Domain.DTOs;
 
 namespace TWise.Backend.ControlPlane.API.Controllers;
 
-/// <summary>Widget Library — master chart/tile templates shared across tenants.</summary>
+/// <summary>Widget Library ï¿½ master chart/tile templates shared across tenants.</summary>
 [ApiController]
-[Authorize(Policy = "Admin")]
+[Authorize]
 [Route("widget-library")]
 [Tags("Widget Library")]
 public sealed class WidgetLibraryController(ISender sender) : ControllerBase
@@ -28,6 +28,7 @@ public sealed class WidgetLibraryController(ISender sender) : ControllerBase
     }
 
     /// <summary>Create a new widget library entry</summary>
+    [Authorize(Policy = "Admin")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateWidgetLibraryRequest request, CancellationToken ct)
     {
@@ -37,6 +38,7 @@ public sealed class WidgetLibraryController(ISender sender) : ControllerBase
     }
 
     /// <summary>Update a widget library entry</summary>
+    [Authorize(Policy = "Admin")]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateWidgetLibraryRequest request, CancellationToken ct)
     {
@@ -45,6 +47,7 @@ public sealed class WidgetLibraryController(ISender sender) : ControllerBase
     }
 
     /// <summary>Soft-delete a widget library entry</summary>
+    [Authorize(Policy = "Admin")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
         => await sender.Send(new DeleteWidgetLibraryCommand(id), ct) ? NoContent() : NotFound();

@@ -19,9 +19,10 @@ interface TooltipBox {
   width: number;
 }
 
-const TOOLTIP_WIDTH = 260;
+const TOOLTIP_WIDTH = 300;
 const TOOLTIP_GAP = 22;
 const PANEL_CLEARANCE = 340;
+const TOOLTIP_MAX_HEIGHT = 280;
 const MAX_LOCATE_ATTEMPTS = 40;
 
 @Component({
@@ -37,6 +38,7 @@ export class ProductTourComponent implements OnInit, OnDestroy {
 
   private sub!: Subscription;
   private raf = 0;
+  private listScrollRaf = 0;
 
   constructor(
     private readonly tour: ProductTourService,
@@ -48,7 +50,10 @@ export class ProductTourComponent implements OnInit, OnDestroy {
     this.sub = this.tour.state$.subscribe((next) => {
       const stepChanged = next.currentIndex !== this.state.currentIndex || next.active !== this.state.active;
       this.state = next;
-      if (next.active && stepChanged) this.locateCurrentTarget();
+      if (next.active && stepChanged) {
+        this.locateCurrentTarget();
+        this.scrollCurrentStepIntoView();
+      }
       if (!next.active) this.targetRect = null;
       this.cdr.markForCheck();
     });
@@ -57,6 +62,7 @@ export class ProductTourComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.sub?.unsubscribe();
     cancelAnimationFrame(this.raf);
+    cancelAnimationFrame(this.listScrollRaf);
   }
 
   get currentStep(): TourStep | null {
@@ -65,6 +71,10 @@ export class ProductTourComponent implements OnInit, OnDestroy {
 
   get isLastStep(): boolean {
     return this.state.currentIndex >= this.state.steps.length - 1;
+  }
+
+  get progressPercent(): number {
+    return this.state.steps.length ? ((this.state.currentIndex + 1) / this.state.steps.length) * 100 : 0;
   }
 
   next(): void {
@@ -95,6 +105,13 @@ export class ProductTourComponent implements OnInit, OnDestroy {
     this.pollForTarget(step, MAX_LOCATE_ATTEMPTS);
   }
 
+  private scrollCurrentStepIntoView(): void {
+    cancelAnimationFrame(this.listScrollRaf);
+    this.listScrollRaf = requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('.product-tour__list li.active')?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
   private pollForTarget(step: TourStep, attemptsLeft: number): void {
     if (!step.targetSelector) {
       this.targetRect = null;
@@ -109,11 +126,36 @@ export class ProductTourComponent implements OnInit, OnDestroy {
       return;
     }
     if (attemptsLeft <= 0) {
-      this.targetRect = null;
+      const fallbackSelector = step.route ? this.moduleTargetForRoute(step.route) : null;
+      const fallback = fallbackSelector ? document.querySelector<HTMLElement>(fallbackSelector) : null;
+      if (fallback) {
+        const r = fallback.getBoundingClientRect();
+        this.targetRect = { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+      } else {
+        this.targetRect = null;
+      }
       this.cdr.markForCheck();
       return;
     }
     this.raf = requestAnimationFrame(() => this.pollForTarget(step, attemptsLeft - 1));
+  }
+
+  private moduleTargetForRoute(route: string): string | null {
+    const moduleTargets: Record<string, string> = {
+      dashboard: 'tour-dashboard',
+      'charts-tiles': 'tour-charts-tiles',
+      reports: 'tour-reports',
+      'data-quality': 'tour-data-quality',
+      'user-role-management': 'tour-user-role-management',
+      settings: 'tour-settings',
+      canvas: 'tour-bi-canvas',
+      'model-studio': 'tour-model-studio',
+      'smart-alerts': 'tour-smart-alerts',
+      'agentic-ai': 'tour-ai-assistant',
+    };
+    const module = route.split('/').filter(Boolean)[0];
+    const target = module ? moduleTargets[module] : null;
+    return target ? `[data-tour="${target}"]` : null;
   }
 
   // ─── Layout math ────────────────────────────────────────────────────────
@@ -180,7 +222,7 @@ export class ProductTourComponent implements OnInit, OnDestroy {
 
     const maxLeft = window.innerWidth - TOOLTIP_WIDTH - PANEL_CLEARANCE;
     left = Math.max(16, Math.min(left, maxLeft));
-    top = Math.max(16, top);
+    top = Math.max(16, Math.min(top, window.innerHeight - TOOLTIP_MAX_HEIGHT - 16));
     return { top, left, width: TOOLTIP_WIDTH };
   }
 }

@@ -5,8 +5,7 @@ namespace TWise.Tenant.Application.Common;
 /// <summary>
 /// Reads the module permissions the control plane puts in the access token: one "perm" claim per
 /// module, written "code:flags", where flags holds any of v (view), c (create), m (modify), a (admin).
-/// A role claim of "admin" passes every check, the same bypass the frontend PermissionService applies;
-/// the control plane issues that role string for every admin role code.
+/// Every role, admin included, passes a check only through its ticked module permissions.
 /// </summary>
 public static class ModulePermission
 {
@@ -32,10 +31,6 @@ public static class ModulePermission
 
     public static bool Has(ClaimsPrincipal user, string moduleCode, char action)
     {
-        if (user.FindAll(ClaimTypes.Role).Concat(user.FindAll("role"))
-            .Any(c => string.Equals(c.Value, "admin", StringComparison.OrdinalIgnoreCase)))
-            return true;
-
         return user.FindAll("perm").Any(c =>
         {
             var colon = c.Value.IndexOf(':');

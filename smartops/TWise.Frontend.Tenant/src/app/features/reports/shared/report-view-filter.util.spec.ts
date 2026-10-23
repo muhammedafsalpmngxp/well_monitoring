@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { firstValueFrom, of, Subject, throwError } from 'rxjs';
 import type { PreviewViewRequest } from '../../../core/services/common-api.service';
 import { applyReportViewParameters, previewReportView } from './report-view-filter.util';
+import { advancedHierarchyFilters } from '../../../core/utils/advanced-hierarchy-filter.util';
 
 describe('report view global filters', () => {
   const sql = `
@@ -25,6 +26,41 @@ WHERE (@cluster IS NULL OR Cluster = @cluster)
     expect(request?.sql).toContain("DECLARE @plant NVARCHAR(100) = N'Nimr ODC';");
     expect(request?.sql).toContain("DECLARE @start_date DATE = '2026-09-01';");
     expect(request?.sql).toContain("DECLARE @end_date DATE = '2026-09-30';");
+  });
+
+  it('forwards Advanced Filters for report previews and exports without embedding values in SQL', async () => {
+    const api = { getDatabaseViewById: vi.fn(() => of(view)), previewView: vi.fn((_request: PreviewViewRequest) => of(summary)) };
+    const advanced = advancedHierarchyFilters({ 'resource-type': ["O'Brien, SubContractor"] });
+    await firstValueFrom(previewReportView(api, 12, { cluster: ['Nimr', 'Rima'] }, '', '', advanced));
+    const request = api.previewView.mock.calls[0][0];
+    expect(request.filters).toEqual([
+      expect.objectContaining({ sourceColumn: 'cluster', values: ['Nimr', 'Rima'] }),
+      expect.objectContaining({ advancedHierarchy: 'resource-type', values: ["O'Brien, SubContractor"] }),
+    ]);
+    expect(request.sql).not.toContain("O'Brien");
+    expect(request.maxRows).toBe(0);
+
+    await firstValueFrom(previewReportView(api, 12, {}, '', '', []));
+    expect(api.previewView.mock.calls[1][0].filters).toBeUndefined();
+  });
+
+  it('sends multi-select hierarchy values as structured filters, never as SQL scalars', async () => {
+    const api = {
+      getDatabaseViewById: vi.fn(() => of(view)),
+      previewView: vi.fn((_request: PreviewViewRequest) => of(summary)),
+    };
+    await firstValueFrom(previewReportView(api, 12, { cluster: ['Nimr', 'Rima'] }, '', ''));
+    const request = api.previewView.mock.calls[0]?.[0];
+    expect(request?.sql).toContain('DECLARE @cluster NVARCHAR(100) = NULL;');
+    expect(request?.sql).not.toContain("N'Nimr, Rima'");
+    expect(request?.filters).toEqual([{
+      sourceTable: 'cluster',
+      sourceColumn: 'cluster',
+      label: 'cluster',
+      controlType: 'MultiSelect',
+      value: '',
+      values: ['Nimr', 'Rima'],
+    }]);
   });
 
   it('uses fresh filter values and clears stored defaults for All', () => {

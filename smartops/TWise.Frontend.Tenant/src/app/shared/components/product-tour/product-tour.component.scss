@@ -58,6 +58,8 @@
   border-radius: 10px;
   padding: 12px 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.20);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 
   h4 {
     margin: 0 0 4px;
@@ -69,9 +71,9 @@
 
   p {
     margin: 0;
-    font-size: 12px;
+    font-size: 13px;
     color: #667085;
-    line-height: 1.4;
+    line-height: 1.45;
   }
 }
 
@@ -117,18 +119,18 @@
 }
 
 .product-tour__dots {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  height: 6px;
   margin-bottom: 14px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #E4E7EC;
 
   span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #E4E7EC;
-
-    &.active { background: #21409A; width: 16px; border-radius: 3px; }
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #21409A;
+    transition: width 0.2s ease;
   }
 }
 
@@ -142,7 +144,7 @@
   max-height: 380px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -153,7 +155,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 

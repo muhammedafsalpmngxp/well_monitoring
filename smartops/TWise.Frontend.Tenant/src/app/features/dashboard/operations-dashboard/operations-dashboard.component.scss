@@ -1,3 +1,5 @@
+@use '../../../../styles/tile-layout' as tile-layout;
+
 :host {
   text-transform: capitalize;
   // Fills the app shell's scroll box instead of growing with content, so only
@@ -42,7 +44,7 @@
   flex-direction: column;
   gap: 10px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -53,7 +55,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -68,17 +70,18 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 32px;
-    padding: 0 10px;
+    height: 28px;
+    padding: 0 8px;
     background: #fff;
     border: 1px solid #C9D3E2;
     border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 400;
     font-family: var(--font-family-base);
     color: #344054;
     cursor: pointer;
     white-space: nowrap;
+    margin-block: 5px;
 
     svg {
       flex-shrink: 0;
@@ -92,8 +95,8 @@
   }
 
   &__icon {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
   }
 
@@ -104,8 +107,8 @@
   &__menu {
     position: absolute;
     top: calc(100% + 4px);
-    left: -11px;
-    min-width: 125px;
+    right: 0;
+    min-width: 130px;
     background: #fff;
     border: 1px solid #E7ECF3;
     border-radius: 10px;
@@ -121,7 +124,7 @@
       gap: 8px;
       padding: 8px 12px;
       border-radius: 6px;
-      font-size: 14px;
+      font-size: 12px;
       font-family: var(--font-family-base);
       color: #344054;
       cursor: pointer;
@@ -190,6 +193,17 @@
   &__picker-list {
     max-height: 150px;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #C9D3E2 transparent;
+
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #C9D3E2;
+      border-radius: 30px;
+    }
   }
 
   &__picker-option {
@@ -241,7 +255,8 @@
     align-items: center;
     gap: 6px;
     height: 36px;
-    width: 166px;
+    width: fit-content;
+    min-width: 76px;
     padding: 0 10px;
     border-radius: 10px;
     border: 1px solid #21409A;
@@ -250,6 +265,7 @@
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
+    white-space: nowrap;
   }
 
   &__chevron {
@@ -958,7 +974,7 @@
     overflow-y: auto;
     padding: 4px 20px 12px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
@@ -969,7 +985,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -1851,14 +1867,14 @@
     max-height: 230px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -2453,7 +2469,7 @@
   // it, and .ops-dashboard__saved-layout below owns the actual inner scrollbar.
   overflow: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -2464,7 +2480,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -2477,6 +2493,17 @@
   // screen — matching the navbar+header's own actual rendered height at any zoom,
   // not just Medium (100%).
   // height: calc(100dvh / var(--app-zoom-factor, 1) - 200px);
+
+  // An interactive dashboard (interaction charts and tiles) is taller than the page: the whole
+  // board scrolls here instead of the inner saved-layout box, which would clip it.
+  &--interactions {
+    overflow-y: auto;
+
+    .ops-dashboard__saved-layout {
+      flex: 0 0 auto;
+      overflow: visible;
+    }
+  }
 
   &--purple {
     --accent: #7C3AED;
@@ -2538,6 +2565,12 @@
     z-index: 0;
     container-type: inline-size;
     container-name: ops-kpi;
+
+    &--clickable {
+      cursor: pointer;
+      .ops-dashboard__kpi-content { transition: box-shadow 0.15s ease, transform 0.15s ease; }
+      &:hover .ops-dashboard__kpi-content { box-shadow: 0 4px 14px rgba(33, 64, 154, 0.12); transform: translateY(-1px); }
+    }
 
     &:hover {
       z-index: 50;
@@ -2604,6 +2637,17 @@
   // (saved layout) scrolls here instead of spilling/clipping — kept off the outer `&__kpi` so
   // scrolling never clips that element's own overflowing tooltip (see note on `&__kpi` above).
   &__kpi-content {
+    &.tile-layout--single-row {
+      @include tile-layout.card-row('.ops-dashboard__kpi-icon', '.ops-dashboard__kpi-label', '.ops-dashboard__kpi-value-row');
+
+      .ops-dashboard__kpi-value {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+    }
+
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2615,7 +2659,8 @@
     justify-content: safe center;
     overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: #C9D3E2 transparent;
+    scrollbar-width: thin;
     gap: 4px;
 
     &::-webkit-scrollbar {
@@ -2627,7 +2672,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
@@ -2825,14 +2870,14 @@
   overflow-y: auto;
   overflow-x: hidden;
     scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 8px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #21409A;
+    background-color: var(--scrollbar-thumb);
     border-radius: 4px;
   }
 
@@ -2884,19 +2929,189 @@
   }
 }
 
+@media (min-width: 1025px) {
+  // .ops-dashboard__chart-grid later sets the card to a fixed 504px height/min-height with the
+  // same specificity as the saved-layout reset above and comes after it, so it won and every chart
+  // rendered taller than its saved grid area. The extra .ops-dashboard__chart-grid class makes the
+  // saved row span authoritative on desktop (tablet/phone keep the flowing fixed-height cards).
+  .ops-dashboard__saved-layout--active .ops-dashboard__chart-grid .ops-dashboard__card:not(.ops-dashboard__card--expanded) {
+    height: auto;
+    min-height: 0;
+  }
+
+  .ops-dashboard__saved-layout--active .ops-dashboard__kpi {
+    container-type: size;
+    padding: 0;
+  }
+
+  .ops-dashboard__saved-layout--active .ops-dashboard__kpi-content {
+    box-sizing: border-box;
+    padding: min(6cqi, 7.9cqb) min(5cqi, 6.6cqb);
+    gap: clamp(2px, min(2cqi, 2.63cqb), 10px);
+
+    .ops-dashboard__kpi-icon {
+      width: clamp(32px, min(20cqi, 32cqb), 72px);
+      height: clamp(32px, min(20cqi, 32cqb), 72px);
+
+      svg {
+        width: 56%;
+        height: 56%;
+      }
+    }
+
+    .ops-dashboard__kpi-label {
+      font-size: clamp(10px, min(6cqi, 7.9cqb), 22px);
+      line-height: 1.2;
+    }
+
+    .ops-dashboard__kpi-value {
+      font-size: clamp(16px, min(10cqi, 13.2cqb), 42px);
+      line-height: 1.15;
+    }
+
+    .ops-dashboard__kpi-value-suffix {
+      font-size: 0.7em;
+    }
+
+    .ops-dashboard__kpi-breakdown {
+      gap: clamp(3px, min(3cqi, 4cqb), 12px);
+    }
+
+    .ops-dashboard__kpi-breakdown-row {
+      font-size: clamp(10px, min(6cqi, 7.9cqb), 20px);
+    }
+
+    .ops-dashboard__kpi-footer {
+      font-size: clamp(9px, min(5cqi, 6.6cqb), 16px);
+      padding: 0.2em 0.8em;
+    }
+  }
+}
+
 // Dynamic chart grid
 .ops-dashboard__chart-grid {
+  // Match the builder's default chart height: 16 Gridster rows at 24px with 8px gaps.
+  --ops-dashboard-chart-card-height: 504px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-items: stretch;
 
-  .ops-dashboard__card {
+  .ops-dashboard__card:not(.ops-dashboard__card--expanded) {
+    height: var(--ops-dashboard-chart-card-height);
+    min-height: var(--ops-dashboard-chart-card-height);
+  }
 
+  .ops-dashboard__card {
     min-width: 0;
     justify-self: stretch;
+    scrollbar-width: thin;
+    scrollbar-color: #C9D3E2 transparent;
 
+    &::-webkit-scrollbar-thumb {
+      background: #C9D3E2;
+    }
+  }
 
+  .ops-dashboard__card .ops-dashboard__card-head {
+    gap: 6px;
+    // margin-bottom: 8px;
+  }
+
+  .ops-dashboard__card .ops-dashboard__card-title {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .ops-dashboard__card-title-text {
+    color: #172033;
+    font-size: 13px !important;
+    font-weight: 600;
+  }
+
+  .ops-dashboard__card .ops-dashboard__card-select {
+    width: auto;
+    min-width: 0;
+    height: 28px;
+    gap: 5px;
+    padding: 0 8px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+
+  .ops-dashboard__card .ops-dashboard__card-select-menu {
+    min-width: 130px;
+
+    li {
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+  }
+
+  // Not applied to the expanded card, which sizes the chart to fit without scrolling.
+  .ops-dashboard__card:not(.ops-dashboard__card--expanded) .ops-dashboard__chart-body {
+    gap: 0px;
+
+    .ops-dashboard__chart-visual {
+      display: flex;
+      flex: 1 0 auto;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+
+      highcharts-chart {
+        flex: 1 0 auto;
+        min-height: 180px;
+      }
+
+      app-advanced-chart {
+        flex: 1 0 auto;
+        min-height: 200px;
+      }
+    }
+  }
+
+  .ops-dashboard__card--expanded .ops-dashboard__chart-body .ops-dashboard__chart-visual {
+    overflow-y: hidden;
+
+    highcharts-chart,
+    app-advanced-chart {
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
+    .ops-dashboard__chart-legend {
+      flex-shrink: 0;
+      max-height: 30%;
+      overflow-y: auto;
+    }
+
+    // The expanded chart fits the card without scrolling, so a top/side legend layout must shrink with it.
+    .chart-legend-layout {
+      --chart-legend-layout-flex: 1 1 0;
+    }
+  }
+
+  .ops-dashboard__chart-legend {
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  .ops-dashboard__chart-legend-item {
+    gap: 5px;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  .ops-dashboard__chart-legend-dot {
+    width: 7px;
+    height: 7px;
+  }
+
+  .ops-dashboard__chart-legend-label {
+    font-size: 12px;
   }
 
   &--3 {
@@ -2924,7 +3139,7 @@
 .ops-dashboard__card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0px;
   padding: 12px;
   border-radius: 12px;
   border: 1px solid #DCE3ED;
@@ -2936,7 +3151,7 @@
   // The card is the widget's ONE scroll container: header, filters, chart, legend and inline data
   // table all scroll together. Nothing inside it may scroll on its own (see chart-body/data-table).
   overflow: auto;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 5px;
@@ -2948,7 +3163,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -3027,7 +3242,7 @@
     overflow-x: hidden;
     padding-top: 0;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
     justify-content: flex-start;
 
     &::-webkit-scrollbar {
@@ -3039,13 +3254,13 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
     .ops-dashboard__card-head,
     .ops-dashboard__card-inline-filter,
-    .ops-dashboard__card-stats,
+    .board-inline-tiles,
     .ops-dashboard__card-filters {
       flex-shrink: 0;
     }
@@ -3089,7 +3304,7 @@
         min-height: 0;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
+        scrollbar-color: var(--scrollbar-thumb) transparent;
       }
 
       highcharts-chart {
@@ -3116,7 +3331,7 @@
       overflow: auto;
       border-radius: 12px;
       scrollbar-width: thin;
-      scrollbar-color: #21409A transparent;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
 
       &::-webkit-scrollbar {
         width: 4px;
@@ -3128,7 +3343,7 @@
       }
 
       &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 30px;
       }
     }
@@ -3154,7 +3369,7 @@
   flex-wrap: wrap;
   gap: 10px;
   width: 100%;
-  margin-bottom: 10px;
+  // margin-bottom: 10px;
 }
 
 .ops-dashboard__card-reset {
@@ -3203,8 +3418,8 @@
   }
 
   select {
-    height: 36px;
-    padding: 8px 32px 8px 12px;
+    height: 28px;
+    padding: 0px 32px 0px 12px;
     background: var(--color-bg-card);
     border: 1px solid #C9D3E2;
     border-radius: 10px;
@@ -3347,7 +3562,7 @@ max-width: 123px;
   align-items: start;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  margin-bottom: 0px;
 }
 
 .ops-dashboard__card-filters {
@@ -3648,152 +3863,96 @@ max-width: 123px;
   text-overflow: ellipsis;
 }
 
-.ops-dashboard__card-stats {
+.board-inline-tiles {
   display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 5px 0px;
-}
-
-.ops-dashboard__card-stats-divider {
-  width: 1px;
-  height: 32px;
-  background: #E4E7EC;
-  flex-shrink: 0;
-}
-
-.ops-dashboard__card-stat {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-
-  // Dark tooltip — reveals the full tile name when the label is truncated with an ellipsis.
-  // Lives on this wrapper (not the label) because the label's own overflow:hidden would clip it.
-  &[data-tooltip]::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 0;
-    border-radius: 8px;
-    background: #172B4D;
-    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 400;
-    font-family: var(--font-family-base);
-    line-height: 1.5;
-    padding: 7px 12px;
-    white-space: normal;
-    // Clamp to the card's own width (see .ops-dashboard__card-title) so the bubble
-    // never extends past the card's right edge and gets clipped.
-    max-width: min(240px, calc(100cqw - 24px));
-    width: max-content;
-    text-align: left;
-    pointer-events: none;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.15s ease, visibility 0.15s ease;
-    z-index: 200;
-  }
-
-  &[data-tooltip]:hover::after {
-    opacity: 1;
-    visibility: visible;
-  }
-}
-
-.ops-dashboard__card-stat-icon {
-  display: flex;
-  width: 36px;
-  height: 36px;
-  padding: 8px;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  aspect-ratio: 1/1;
-  border-radius: 10px;
-
-  &--blue {
-    background: #EAF4FF;
-    color: #2563EB;
-  }
-
-  &--green {
-    background: #EAFBF1;
-    color: #0C804A;
-  }
-
-  &--red {
-    background: #FEECEC;
-    color: #CE2A1E;
-  }
-
-  &--purple {
-    background: #F3E8FF;
-    color: #7C3AED;
-  }
-
-  &--amber {
-    background: #FFFBEB;
-    color: #AD5F04;
-  }
-
-  &--teal {
-    background: #F0FDFA;
-    color: #0B7D73;
-  }
-}
-
-.ops-dashboard__card-stat-breakdown {
-  display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
-
-  &-sep {
-    color: #D0D5DD;
-  }
-
-  &-label {
-    font-size: 11px;
-    color: #667085;
-    font-family: var(--font-family-base);
-  }
-
-  &-value {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 10px;
-    font-family: var(--font-family-base);
-  }
+  align-items: stretch;
+  gap: 5px;
+  margin: 5px 0 5px 0;
 }
 
-.ops-dashboard__card-stat-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-
-  strong {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    line-height: 1.2;
-    font-family: var(--font-family-base);
+.board-inline-tile {
+  .board-inline-tile__info.tile-layout--single-row {
+    @include tile-layout.text-row('.board-inline-tile__label', '.board-inline-tile__value');
   }
 
-  span {
-    font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #E7ECF3;
+  border-radius: 8px;
+  background: #fff;
+  min-width: 0;
+
+  &--clickable {
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    &:hover { border-color: #21409A; box-shadow: 0 2px 8px rgba(33, 64, 154, 0.12); }
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    color: #2563EB;
+    background: #EFF4FF;
+
+    &--green { color: #16A34A; background: #ECFDF3; }
+    &--red { color: #DC2626; background: #FEF2F2; }
+    &--amber { color: #D97706; background: #FFFAEB; }
+    &--teal { color: #0D9488; background: #EFFCF9; }
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__label {
+    font-size: 11px;
     color: #667085;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-weight: 400;
-    font-family: var(--font-family-base);
+  }
+
+  &__value {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  &__breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  &__breakdown-sep { color: #D0D5DD; }
+
+  &__breakdown-label {
+    font-size: 10px;
+    color: #667085;
+  }
+
+  &__breakdown-value {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
   }
 }
 
@@ -5214,7 +5373,7 @@ max-width: 123px;
   overflow: auto;
   height: 280px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -5226,7 +5385,7 @@ max-width: 123px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -5346,7 +5505,7 @@ max-width: 123px;
   // overflow-y: auto;
   padding: 4px 0;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -5357,7 +5516,7 @@ max-width: 123px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -5442,6 +5601,15 @@ max-width: 123px;
   &[data-tooltip]:hover::before {
     opacity: 1;
     visibility: visible;
+  }
+}
+
+// A side legend scrolls, which would clip the bubble above a pill; those pills use a native title instead.
+.chart-legend-layout--left > .ops-dashboard__chart-legend,
+.chart-legend-layout--right > .ops-dashboard__chart-legend {
+  .ops-dashboard__chart-legend-item[data-tooltip]::after,
+  .ops-dashboard__chart-legend-item[data-tooltip]::before {
+    display: none;
   }
 }
 
@@ -5801,7 +5969,7 @@ max-width: 123px;
   flex-direction: column;
   gap: 10px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
   margin-top:10px;
 
   &::-webkit-scrollbar {
@@ -5813,7 +5981,7 @@ max-width: 123px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -5858,8 +6026,8 @@ max-height: 200px !important;
     }
 
     .ops-dashboard__card:not(.ops-dashboard__card--expanded) {
-      height: 400px;
-      min-height: 400px;
+      height: var(--ops-dashboard-chart-card-height);
+      min-height: var(--ops-dashboard-chart-card-height);
     }
   }
 }
@@ -5875,8 +6043,8 @@ max-height: 200px !important;
     }
 
     .ops-dashboard__card:not(.ops-dashboard__card--expanded) {
-      height: 380px;
-      min-height: 380px;
+      height: var(--ops-dashboard-chart-card-height);
+      min-height: var(--ops-dashboard-chart-card-height);
     }
   }
 }
@@ -5948,4 +6116,10 @@ max-height: 200px !important;
   &.open::before {
     display: none;
   }
+}
+
+// Saved Filter panel floats (appFloatingMenu) so it is never cut off at the screen edge;
+// it also must never be wider than the screen.
+.saved-filter-panel {
+  max-width: calc(100vw - 16px);
 }

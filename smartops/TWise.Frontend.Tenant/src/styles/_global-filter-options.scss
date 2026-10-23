@@ -1,0 +1,66 @@
+.global-filter-option.global-filter-option[role='checkbox'] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding-left: 34px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+
+  &::before {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    width: 14px;
+    height: 14px;
+    box-sizing: content-box;
+    border: 1px solid #98A2B3;
+    border-radius: 3px;
+    background: #FFF;
+    content: '';
+    transform: translateY(-50%);
+  }
+
+  &[aria-checked='true'] {
+    background: #EEF2FF;
+    color: #21409A;
+
+    &::before {
+      border-color: #21409A;
+      background: #21409A;
+    }
+
+    &::after {
+      position: absolute;
+      top: 50%;
+      left: 17px;
+      width: 4px;
+      height: 7px;
+      border: solid #FFF;
+      border-width: 0 2px 2px 0;
+      content: '';
+      transform: translateY(-65%) rotate(45deg);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid #21409A;
+    outline-offset: -2px;
+  }
+}
+
+.global-filter-clear-all.global-filter-clear-all {
+  color: #21409A;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #21409A;
+    outline-offset: -2px;
+  }
+}

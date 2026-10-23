@@ -171,14 +171,16 @@
     </div>
 
     <div class="navbar__right">
-      <div class="navbar__sync" title="Last synced">
+      <div class="navbar__sync" title="Last synced (Oman time, GMT+4)">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
             d="M17.0443 10.7441C16.8128 12.919 15.5805 14.9571 13.5413 16.1344C10.1534 18.0904 5.82131 16.9297 3.8653 13.5417L3.65696 13.1809M2.95506 9.256C3.18656 7.0811 4.41889 5.04301 6.45804 3.8657C9.84592 1.90969 14.1781 3.07047 16.1341 6.45837L16.3424 6.81922M2.91089 15.055L3.52094 12.7783L5.79765 13.3883M14.2018 6.61173L16.4785 7.22177L17.0885 4.94506M9.99967 6.25004V10.0001L12.083 11.2501"
             stroke="#16A34A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
-        <span>Synced &bull; {{ lastSyncedLabel }}</span>
-    
+        <span *ngIf="lastSyncedLabel; else syncFallback">Synced &bull; {{ lastSyncedLabel }}</span>
+        <ng-template #syncFallback>
+          <span>{{ syncTimeChecked ? 'Sync time unavailable' : 'Checking sync…' }}</span>
+        </ng-template>
       </div>
 
       <a class="navbar__icon-btn navbar__ai-btn" (click)="toggleAiAssistant()" title="Agentic AI">
@@ -365,7 +367,7 @@
                 </span>
                 <div class="navbar__profile-info-content">
                   <span class="navbar__profile-info-label">Employee</span>
-                  <span class="navbar__profile-info-value">{{ currentUser?.userId }}</span>
+                  <span class="navbar__profile-info-value">{{ currentUser?.employeeId || 'N/A' }}</span>
                 </div>
               </div>
               <div class="navbar__profile-info-divider"></div>

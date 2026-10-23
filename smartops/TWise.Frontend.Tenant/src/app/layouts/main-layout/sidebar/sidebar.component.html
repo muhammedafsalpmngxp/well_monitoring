@@ -117,6 +117,7 @@
                     <a
                       [routerLink]="child.route"
                       [class.active]="isChildActive(child.route)"
+                      [attr.data-tour-page]="child.hidden ? null : child.route"
                       class="sidebar__submenu-link"
                       (click)="closeMobile.emit()"
                     >
@@ -149,6 +150,7 @@
                     <a
                       [routerLink]="child.route"
                       [class.active]="isChildActive(child.route)"
+                      [attr.data-tour-page]="child.hidden ? null : child.route"
                       class="sidebar__submenu-link"
                       (click)="closeMobile.emit(); closeFlyout()"
                     >

@@ -10,7 +10,7 @@ namespace TWise.Tenant.API.Controllers;
 [Route("api/data-quality")]
 [Authorize]
 public class DataQualityController(IMediator mediator, ICurrentUserService currentUser,
-    IDashboardShareAccessService shareAccess) : BaseApiController
+    IDashboardShareAccessService shareAccess, IControlPlaneNotificationClient notifications) : BaseApiController
 {
     // ─── Rules CRUD ──────────────────────────────────────────────────────
 
@@ -49,6 +49,32 @@ public class DataQualityController(IMediator mediator, ICurrentUserService curre
     {
         if (!TryGetTenantId(out var tenantId)) return Unauthorized("TenantId not found in token.");
         return ToActionResult(await mediator.Send(new ExecuteValidationRuleCommand(ruleId, tenantId), ct));
+    }
+
+    /// <summary>Publishes the result of a completed validation-rule batch to the notification bell.</summary>
+    [HttpPost("rules/batch-completion")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> PublishRuleBatchCompletion(
+        [FromBody] PublishRuleBatchCompletionRequest request, CancellationToken ct)
+    {
+        if (!TryGetTenantId(out var tenantId)) return Unauthorized("TenantId not found in token.");
+        if (request.SuccessCount < 0 || request.FailedCount < 0)
+            return BadRequest("SuccessCount and FailedCount must be non-negative.");
+
+        var description = $"{request.SuccessCount} success and {request.FailedCount} failed.";
+        await notifications.PublishAsync(
+            tenantId,
+            "DataQualityRuleBatchCompleted",
+            "Rule batch execution completed",
+            description,
+            "/data-quality/error-log-rules",
+            Array.Empty<long>(),
+            "data-quality.error-log",
+            ct);
+
+        return NoContent();
     }
 
     [HttpDelete("rules/{ruleId}")]
@@ -117,6 +143,8 @@ public class DataQualityController(IMediator mediator, ICurrentUserService curre
         string? PrimaryField, string? Fields, string? RuleDesc, string? AdditionalCondition, string? SourceType, long? ViewId);
 
     public sealed record ToggleActiveRequest(string? ActiveYn);
+    /// <summary>Successful and failed rule totals for a completed validation-rule batch.</summary>
+    public sealed record PublishRuleBatchCompletionRequest(int SuccessCount, int FailedCount);
     public sealed record UpdateActionRequest(string? Action);
     public sealed record UpdateStatusRequest(string? Status);
 

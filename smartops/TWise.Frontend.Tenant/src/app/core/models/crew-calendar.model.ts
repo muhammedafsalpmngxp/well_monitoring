@@ -20,6 +20,7 @@ export interface CalendarActivity {
   proposed?: boolean;
   assignmentId?: number | null;
   cluster?: string | null;
+  plantCode?: number | null;
 }
 
 export interface CrewBooking {

@@ -1,4 +1,4 @@
-import { CalendarActivity, CalendarCrew, CalendarGroup, CrewBooking, CrewCalendarData, CrewRosterData } from '../../../core/models/crew-calendar.model';
+import { CalendarActivity, CalendarCrew, CalendarGroup, CrewBooking, CrewCalendarData, CrewProjectMapping, CrewRosterData } from '../../../core/models/crew-calendar.model';
 
 type Interval = { start: number; end: number };
 const dayMilliseconds = 86_400_000;
@@ -40,9 +40,28 @@ function firstPossibleInterval(bookings: Interval[], start: number): number {
   return lower;
 }
 
-function activityKey(activity: CalendarActivity): string {
+function availablePosition(bookings: Interval[], range: Interval): number | null {
+  const position = firstPossibleInterval(bookings, range.start);
+  return position < bookings.length && bookings[position].start <= range.end ? null : position;
+}
+
+export function activityKey(activity: CalendarActivity): string {
   return JSON.stringify([normalized(activity.activityCode), normalized(activity.wellId || ''),
     activity.plannedStart, activity.plannedEnd]);
+}
+
+export function activityClusterKey(activity: Pick<CalendarActivity, 'cluster'>): string {
+  return normalized(activity.cluster ?? '');
+}
+
+export function crewClusterNames(projects: CrewProjectMapping[] = []): Map<string, string> {
+  const clusters = new Map<string, string>();
+  for (const project of projects) {
+    const name = project.cluster?.trim();
+    if (name && !clusters.has(normalized(name))) clusters.set(normalized(name), name);
+  }
+  if (!clusters.size) clusters.set('', 'Unmapped');
+  return clusters;
 }
 
 export function bookedDaysInWindow(bookings: CrewBooking[], from: string, to: string): number {
@@ -84,6 +103,7 @@ interface PlanningState {
   eligible: Map<string, Set<string>>;
   crewLookup: Map<string, Map<string, CalendarCrew>>;
   reservations: Map<string, Interval[]>;
+  rounds: Map<string, Interval[]>[];
 }
 
 function getGroup(state: PlanningState, code: string, name?: string | null): CalendarGroup {
@@ -130,7 +150,7 @@ function loadRoster(state: PlanningState, roster: CrewRosterData): void {
       if (!member.crewUid.trim()) continue;
       const crew = getCrew(state, group, member.crewUid);
       crew.crewTypeCode = member.crewTypeCode;
-      crew.projects = member.projects ?? [];
+      crew.projects = [...(crew.projects ?? []), ...(member.projects ?? [])];
       crew.bookings!.push(...member.bookings);
       members.add(normalized(crew.crewCode));
       reserveBookings(state, crew.crewCode, member.bookings);
@@ -150,16 +170,24 @@ function loadAssignments(state: PlanningState, data: CrewCalendarData): void {
   }
 }
 
-function allocateCrew(crew: CalendarCrew, occupied: Interval[],
-  candidates: { activity: CalendarActivity; range: Interval | null }[], remaining: Set<CalendarActivity>): void {
-  for (const { activity, range } of candidates) {
-    if (!remaining.has(activity) || !range) continue;
-    const position = firstPossibleInterval(occupied, range.start);
-    if (position < occupied.length && occupied[position].start <= range.end) continue;
-    crew.activities.push({ ...activity, proposed: true });
-    occupied.splice(position, 0, range);
-    remaining.delete(activity);
+function allocateCrew(crew: CalendarCrew, occupied: Interval[], activity: CalendarActivity, range: Interval): boolean {
+  const position = availablePosition(occupied, range);
+  if (position === null) return false;
+  crew.activities.push({ ...activity, proposed: true });
+  occupied.splice(position, 0, range);
+  return true;
+}
+
+function allocateInRound(round: Map<string, Interval[]>, crews: CalendarCrew[],
+  activity: CalendarActivity, range: Interval): boolean {
+  for (const crew of crews) {
+    const key = normalized(crew.crewCode);
+    const occupied = round.get(key) ?? [];
+    if (!allocateCrew(crew, occupied, activity, range)) continue;
+    round.set(key, occupied);
+    return true;
   }
+  return false;
 }
 
 function allocateGroup(state: PlanningState, group: CalendarGroup): void {
@@ -178,54 +206,43 @@ function allocateGroup(state: PlanningState, group: CalendarGroup): void {
   const candidates = pending.filter(activity => !activity.actualStart && !activity.actualEnd && !activity.isMilestone
     && !activity.progress).map(activity => ({ activity, range: interval(activity) }));
   const members = state.eligible.get(normalized(group.crewGroupCode));
-  for (const crew of group.crews) {
-    if (!remaining.size) break;
-    const key = normalized(crew.crewCode);
-    if (members?.has(key)) allocateCrew(crew, state.reservations.get(key)!, candidates, remaining);
+  const crews = group.crews.filter(crew => members?.has(normalized(crew.crewCode)));
+  const crewsByCluster = new Map<string, CalendarCrew[]>();
+  for (const crew of crews) {
+    for (const cluster of crewClusterNames(crew.projects).keys()) {
+      const matching = crewsByCluster.get(cluster) ?? [];
+      matching.push(crew);
+      crewsByCluster.set(cluster, matching);
+    }
+  }
+  for (const { activity, range } of candidates) {
+    if (!range || !remaining.has(activity)) continue;
+    const available = (crewsByCluster.get(activityClusterKey(activity)) ?? []).filter(crew =>
+      availablePosition(state.reservations.get(normalized(crew.crewCode))!, range) !== null);
+    if (!available.length) continue;
+    let allocated = state.rounds.some(round => allocateInRound(round, available, activity, range));
+    if (!allocated) {
+      // A new round may overlap earlier rounds, but still fills crews in order before repeating.
+      const round = new Map<string, Interval[]>();
+      allocated = allocateInRound(round, available, activity, range);
+      if (allocated) state.rounds.push(round);
+    }
+    if (allocated) remaining.delete(activity);
   }
   if (unallocated) unallocated.activities = [...remaining];
   group.crews = group.crews.filter(crew => crew.crewCode || crew.activities.length);
   group.activityCount = group.crews.reduce((total, crew) => total + crew.activities.length, 0);
 }
 
-function restoreRetainedActivity(state: PlanningState, group: CalendarGroup, crew: CalendarCrew,
-  savedActivity: CalendarActivity): void {
-  if (savedActivity.source === 'draft') return;
-  const key = activityKey(savedActivity);
-  if (group.crews.some(member => member.crewCode && member.activities.some(activity => activityKey(activity) === key))) return;
-  const pendingCrew = group.crews.find(member => !member.crewCode);
-  const activity = pendingCrew?.activities.find(candidate => activityKey(candidate) === key);
-  if (!activity || activity.actualStart || activity.actualEnd || activity.progress || activity.isMilestone) return;
-  const range = interval(activity);
-  if (!range) return;
-  const occupied = state.reservations.get(normalized(crew.crewCode))!;
-  const position = firstPossibleInterval(occupied, range.start);
-  if (position < occupied.length && occupied[position].start <= range.end) return;
-  crew.activities.push({ ...activity, proposed: true });
-  occupied.splice(position, 0, range);
-  if (pendingCrew) pendingCrew.activities = pendingCrew.activities.filter(candidate => candidate !== activity);
-}
-
-function restoreRetainedPlan(state: PlanningState, retained: CalendarGroup[]): void {
-  for (const savedGroup of retained) {
-    const groupKey = normalized(savedGroup.crewGroupCode);
-    const group = state.groups.get(groupKey);
-    if (!group) continue;
-    for (const savedCrew of savedGroup.crews) {
-      if (!state.eligible.get(groupKey)?.has(normalized(savedCrew.crewCode))) continue;
-      const crew = getCrew(state, group, savedCrew.crewCode);
-      savedCrew.activities.forEach(activity => restoreRetainedActivity(state, group, crew, activity));
-    }
-  }
-}
-
 export function buildCrewCalendarPlan(data: CrewCalendarData, roster: CrewRosterData,
-  retained: CalendarGroup[] = []): CrewCalendarData {
-  const state: PlanningState = { groups: new Map(), eligible: new Map(), crewLookup: new Map(), reservations: new Map() };
+  _retained: CalendarGroup[] = []): CrewCalendarData {
+  const state: PlanningState = {
+    groups: new Map(), eligible: new Map(), crewLookup: new Map(), reservations: new Map(), rounds: [new Map()],
+  };
   loadRoster(state, roster);
   loadAssignments(state, data);
   for (const [key, occupied] of state.reservations) state.reservations.set(key, mergeIntervals(occupied));
-  restoreRetainedPlan(state, retained);
+  // Cached previews cannot override first-free ordering when current bookings or roster membership change.
   for (const group of state.groups.values()) allocateGroup(state, group);
   const result = [...state.groups.values()].sort((first, second) =>
     second.activityCount - first.activityCount || crewOrder.compare(first.crewGroupCode, second.crewGroupCode));
@@ -235,4 +252,3 @@ export function buildCrewCalendarPlan(data: CrewCalendarData, roster: CrewRoster
     totalActivities: result.reduce((total, group) => total + group.activityCount, 0),
   };
 }
-

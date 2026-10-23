@@ -25,6 +25,7 @@ interface RawNotificationsResponse {
 const TYPE_ICON_MAP: Readonly<Record<string, string>> = {
   DashboardShare: 'dashboard',
   DataQualityError: 'chart',
+  DataQualityRuleBatchCompleted: 'chart',
   RbacRoleChange: 'report',
   RbacPermissionChange: 'report',
 };

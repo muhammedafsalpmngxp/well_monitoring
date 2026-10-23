@@ -1,3 +1,5 @@
+@use '../../../../styles/tile-layout' as tile-layout;
+
 :host {
   text-transform: capitalize;
   // Fills the app shell's scroll box so only .builder-page (not the header/
@@ -7,7 +9,7 @@
   height: 100%;
   min-height: 0;
 
-  > app-page-header {
+  >app-page-header {
     flex-shrink: 0;
   }
 }
@@ -77,6 +79,7 @@
 }
 
 .chart-global-filter-bar {
+  position: relative;
   z-index: 21;
   display: grid;
   flex-shrink: 0;
@@ -89,6 +92,48 @@
   border-radius: 10px;
   background: #FFF;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+
+  // Hidden on desktop — this is only the off-canvas drawer's header, see the
+  // @media (max-width: 1199px) block below.
+  &__mobile-header {
+    display: none;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 10px;
+    margin: 0 0 2px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #101828;
+    font-family: var(--font-family-base);
+    border-bottom: 1px solid #E7ECF3;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--color-bg-app);
+      color: var(--color-text-primary);
+    }
+  }
+
+  // On desktop the wrapper is transparent to layout — its field children
+  // participate directly in the grid above, unchanged.
+  &__scroll {
+    display: contents;
+  }
 
   .chart-global-filter-field {
     display: flex;
@@ -170,21 +215,22 @@
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
-    right: 0;
-    z-index: 200;
     min-width: 100%;
-    width: 200px;
-    max-height: 136px;
-    overflow-y: auto;
-    padding: 4px;
-    border: 1px solid #C9D3E2;
     border-radius: 10px;
+    border: 1px solid #C9D3E2;
     background: #FFF;
-    box-shadow: 0 4px 14px rgba(16, 24, 40, 0.10);
+    box-shadow: 0 4px 14px 0 rgba(16, 24, 40, 0.1);
+    z-index: 200;
+    max-height: 160px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   .chart-global-filter-option {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
     padding: 8px 10px;
     border: 0;
@@ -195,6 +241,25 @@
     font-size: 13px;
     white-space: nowrap;
     cursor: pointer;
+
+    &.global-filter-option[role='checkbox'] {
+      position: relative;
+      min-height: 36px;
+      padding: 8px 10px 8px 42px;
+      overflow: hidden;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__check {
+      display: inline-flex;
+      flex: 0 0 14px;
+      width: 14px;
+      height: 14px;
+      align-items: center;
+      justify-content: center;
+    }
 
     &:hover {
       background: #F9FAFB;
@@ -590,15 +655,162 @@
   min-height: 0;
   height: 100%;
   margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
 
   &__grid {
     width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
     height: 100%;
 
     // Show values as stored: :host capitalises text, which hid Trim/Clean "lowercase" (DFCT0010333).
     ::ng-deep .ag-cell {
       text-transform: none;
     }
+  }
+}
+
+.cb-table-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  &__btn {
+    height: 30px;
+    padding: 0 12px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font-family-base);
+    color: var(--color-text-primary);
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-primary);
+    }
+
+    &--add {
+      align-self: flex-start;
+    }
+  }
+}
+
+.cb-table-cf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+
+  select,
+  input[type='text'] {
+    flex: 1 1 110px;
+    min-width: 0;
+  }
+
+  input[type='color'] {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+  }
+
+  &__style {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 100%;
+  }
+
+  &__remove {
+    margin-left: auto;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+      background: #FEE2E2;
+      color: #B91C1C;
+    }
+  }
+}
+
+// Drill to detail dialog
+.cb-drill-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
+}
+
+.cb-drill {
+  display: flex;
+  flex-direction: column;
+  width: 90vw;
+  max-width: 1100px;
+  height: 70vh;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 20px;
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  &__subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+
+  &__close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--color-text-muted);
+    cursor: pointer;
+
+    &:hover {
+      background: #F3F4F6;
+    }
+  }
+
+  &__grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
   }
 }
 
@@ -868,14 +1080,14 @@
     max-height: 260px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -1779,6 +1991,15 @@
       text-overflow: ellipsis;
     }
 
+    // Shows the default 'Chart Name' sentinel (set after Clear All / on a fresh chart) styled
+    // like a real placeholder instead of solid text indistinguishable from a saved name.
+    &--placeholder {
+      font-weight: 400;
+      font-style: italic;
+      color: #98A2B3;
+      font-size: 13px;
+    }
+
     // Tooltip — appears below, caret points up (matches dashboard-builder)
     &[data-tooltip]::after {
       content: attr(data-tooltip);
@@ -1831,19 +2052,34 @@
   }
 
   &__page-input {
+    width: 100%;
+    min-width: 160px;
+    max-width: 260px;
+    height: 36px;
+    box-sizing: border-box;
     font-size: 15px;
     font-weight: 700;
     color: var(--color-text-primary);
-    border: 1px solid var(--color-primary);
+    border: 1px solid #DCE3ED;
     border-radius: 10px;
-    padding: 2px 6px;
+    padding: 0 12px;
     font-family: var(--font-family-base);
+    background: var(--color-bg-card);
     outline: none;
+
+    &::placeholder {
+      font-weight: 400;
+      color: #98A2B3;
+    }
+
+    &:focus {
+      border-color: var(--color-primary);
+    }
   }
 
   &__validation-error {
     display: block;
-    font-size: 12px;
+    font-size: 14px;
     color: #DC2626;
     font-weight: 500;
     margin-top: 2px;
@@ -1987,7 +2223,7 @@
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     li {
       display: flex;
@@ -2107,6 +2343,14 @@
     display: flex;
     align-items: center;
     gap: 4px;
+  }
+
+  &__required {
+    flex-shrink: 0;
+    color: #D92D20;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   &__description-input {
@@ -2306,7 +2550,7 @@
   flex: 1 1 auto;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 5px;
@@ -2318,7 +2562,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -2519,7 +2763,7 @@
   margin-top: 12px;
   flex-shrink: 0;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   // Standalone table chart preview: fill the canvas width and a fixed height so the
   // table's bottom edge lines up the same way regardless of how many rows it has. The table IS
@@ -2543,7 +2787,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -2562,7 +2806,7 @@
     padding: 10px 14px;
     text-align: left;
     white-space: nowrap;
-    position: sticky;
+    // position: sticky;
     top: 0;
     font-size: 12px;
 
@@ -2689,7 +2933,7 @@
   // filter bar is shown or hidden — __body below (flex:1) fills the rest after __header.
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
@@ -2700,7 +2944,7 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -2852,7 +3096,7 @@
     flex: 1;
     min-height: 0;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
     position: relative;
     top: -8px;
 
@@ -2865,7 +3109,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -3173,6 +3417,15 @@
           background: #E3E8C6;
         }
       }
+    }
+
+    &:has(.chart-setup__step--11) {
+      border: 1px solid #FED7AA;
+      border-radius: 12px;
+      background: #FFF7ED;
+
+      .chart-setup__section-title { color: #C2410C; }
+      .chart-setup__step--11 { background: #C2410C; color: #fff; }
     }
 
     &:last-child {
@@ -3536,6 +3789,20 @@
     flex-wrap: wrap;
   }
 
+  &__legend-setting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    // Compact enough to sit beside the Show Legend checkbox (the full-width filter select's default).
+    .chart-setup__legend-position {
+      width: auto;
+      min-width: 96px;
+      height: 28px;
+      font-size: 13px;
+    }
+  }
+
   &__dr-radios {
     display: flex;
     align-items: center;
@@ -3853,14 +4120,14 @@
     overflow-x: auto;
     padding-bottom: 6px;
     // scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       height: 7px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -4005,7 +4272,14 @@
     border: 1px solid var(--color-border);
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
-    z-index: 10;
+    // Was 10 — too low next to other panel chrome (scrollbars/sticky headers around z-index
+    // 10-100), letting scrolled option rows peek out from behind neighboring elements. Matches
+    // the z-index already used by the near-identical search+checklist menu elsewhere in this file.
+    z-index: 150;
+    // Stops scrolling the list, once it hits its own top/bottom, from chaining into the
+    // ancestor `.chart-setup__body` scroll panel — that chained scroll was what moved the
+    // trigger out from under this absolutely-positioned menu mid-scroll.
+    overscroll-behavior: contain;
     max-height: 220px;
     overflow-y: auto;
 
@@ -4259,7 +4533,12 @@
   // Data Transformation rules: the parameters go on their own line under action and column, so
   // they stay visible at the default panel width instead of scrolling off the right edge.
   &__filter-table--rules {
-    table, thead, tbody { display: block; }
+
+    table,
+    thead,
+    tbody {
+      display: block;
+    }
 
     tr {
       display: grid;
@@ -4273,9 +4552,20 @@
       column-gap: 8px;
     }
 
-    th, td { min-width: 0; }
-    th:nth-child(4) { display: none; }
-    th:last-child { width: auto; text-align: center; padding: 9px 6px; }
+    th,
+    td {
+      min-width: 0;
+    }
+
+    th:nth-child(4) {
+      display: none;
+    }
+
+    th:last-child {
+      width: auto;
+      text-align: center;
+      padding: 9px 6px;
+    }
 
     td:nth-child(4) {
       grid-column: 2 / -1;
@@ -4283,11 +4573,21 @@
       padding-top: 0;
     }
 
-    td:nth-child(2), td:nth-child(3), td:nth-child(4) {
-      .chart-setup__filter-dd, .chart-setup__filter-dd-btn, .chart-setup__filter-select { min-width: 0; width: 100%; }
+    td:nth-child(2),
+    td:nth-child(3),
+    td:nth-child(4) {
+
+      .chart-setup__filter-dd,
+      .chart-setup__filter-dd-btn,
+      .chart-setup__filter-select {
+        min-width: 0;
+        width: 100%;
+      }
     }
 
-    .chart-setup__rule-message-row td { grid-column: 1 / -1; }
+    .chart-setup__rule-message-row td {
+      grid-column: 1 / -1;
+    }
   }
 
   &__rule-message-row td {
@@ -4295,7 +4595,9 @@
     border-top: 0;
   }
 
-  &__filter-select--empty { color: #98a2b3; }
+  &__filter-select--empty {
+    color: #98a2b3;
+  }
 
   // ── Interactive Filters ──────────────────────────────────────────────────
   &__filter-bar {
@@ -4393,7 +4695,7 @@
     overflow-x: auto;
     overflow-y: visible;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       height: 7px;
@@ -4404,7 +4706,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
@@ -5326,14 +5628,14 @@
   box-shadow: 0 6px 18px rgba(16, 24, 40, 0.12);
   padding: 4px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -5481,6 +5783,10 @@
 }
 
 .builder-canvas__inline-tile-info {
+  &.tile-layout--single-row {
+    @include tile-layout.text-row('.builder-canvas__inline-tile-label', '.builder-canvas__inline-tile-value');
+  }
+
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -6006,7 +6312,7 @@
       line-height: 1.5;
       padding: 7px 12px;
       white-space: pre-line;
-      width: 200px;
+      width: 270px;
       max-width: 200px;
       text-align: center;
       pointer-events: none;
@@ -6210,14 +6516,14 @@
     flex-direction: column;
     gap: 8px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -6365,14 +6671,14 @@
     margin: 16px 16px 16px 12px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -6517,7 +6823,7 @@
     }
 
     &--narrow {
-      width: 200px;
+      width: 270px;
     }
   }
 
@@ -6847,12 +7153,53 @@
 
   &__articles {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 0px;
     overflow-y: auto;
     min-height: 0;
     border: 1px #E7ECF3 solid;
     border-radius: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #21409A transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 30px;
+    }
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 16px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    text-align: center;
+
+    button {
+      border: 0;
+      padding: 4px 8px;
+      background: transparent;
+      color: var(--color-primary);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  }
+
+  &__feedback {
+    color: var(--color-text-secondary);
   }
 
   &__footer {
@@ -6964,6 +7311,10 @@
 
 .paddingSpaceallMain1 {
   padding: 16px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .helpLikeBtn {
@@ -7058,6 +7409,63 @@
 }
 
 // ─── Responsive ───────────────────────────────────────────────────────────────
+
+// Off-canvas filter panel — switches over at 1199px, same breakpoint/markup as
+// operations-dashboard's `.ops-dashboard__filter-bar` drawer.
+@media (max-width: 1199px) {
+  .chart-global-filter-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    width: min(85vw, 320px);
+    max-width: 320px;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: 4px 0 24px rgba(16, 24, 40, 0.18);
+    overflow: auto;
+
+    &__mobile-header {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      border-bottom: 1px solid #E2E7EF;
+    }
+
+    &__close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 8px;
+      background: var(--color-bg-app, #f3f4f6);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+    }
+
+    // Scrollable middle section — the filter fields + Clear/Advanced filter buttons
+    &__scroll {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      overflow-y: auto;
+    }
+  }
+}
 
 @media (max-width: 1024px) {
   .chart-setup {
@@ -7452,3 +7860,7 @@
   &:hover { background: #f5f7ff; border-color: #21409a; } &:focus-visible { outline: 2px solid #21409a; }
 }
 .dax-model__expression--invalid { border-color: #d92d20 !important; }
+
+.discard-confirm {
+  text-transform: none;
+}

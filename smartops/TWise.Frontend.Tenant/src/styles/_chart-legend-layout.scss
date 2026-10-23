@@ -1,0 +1,177 @@
+// ─── Chart legend position ───────────────────────────────────────────────────
+// Wraps a chart and its HTML legend pills (see core/utils/chart-legend-position.util.ts):
+//
+//   <div [class]="legendLayoutClass(position)">
+//     <highcharts-chart …> (or one element holding the chart and its overlays)
+//     <div class="xxx-legend chart-legend-layout__legend"> pills </div>
+//     <div class="chart-legend-layout__footer"> optional, always below both </div>
+//   </div>
+//
+// The legend always follows the chart in the DOM; top/left only move it visually (the chart itself holds no
+// focusable elements, so the tab order is unchanged).
+//
+// Bottom (and charts saved before the option existed) uses display: contents, so the chart and legend stay in the
+// host's own flow exactly as before. Top/left/right lay them out on a 3×3 grid with the chart in the middle cell:
+// empty tracks collapse to nothing, and the chart cell takes whatever width/height the legend leaves, which
+// Highcharts follows on its own (it reflows on its container's ResizeObserver).
+//
+// Hosts can tune:
+//   --chart-legend-layout-flex flex of the wrapper in the host's flex column (default 1 0 auto: fill, never shrink)
+//   --chart-legend-side-width  widest a left/right legend gets (default: 35% of the layout, 120–220px)
+//   --chart-legend-gap         space between the chart and the legend (default 12px)
+
+.chart-legend-layout {
+  display: contents;
+}
+
+.chart-legend-layout.chart-legend-layout--top,
+.chart-legend-layout.chart-legend-layout--left,
+.chart-legend-layout.chart-legend-layout--right {
+  container: chart-legend-layout / inline-size;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  flex: var(--chart-legend-layout-flex, 1 0 auto);
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  > * {
+    grid-area: 2 / 2;
+    min-width: 0;
+  }
+
+  > .chart-legend-layout__legend {
+    box-sizing: border-box;
+  }
+
+  // Extra content that stays under the chart and legend whatever the position (e.g. a DAX summary).
+  > .chart-legend-layout__footer {
+    grid-area: 4 / 1 / 5 / -1;
+  }
+}
+
+.chart-legend-layout.chart-legend-layout--top > .chart-legend-layout__legend {
+  grid-area: 1 / 2;
+  margin-bottom: var(--chart-legend-gap, 12px);
+}
+
+.chart-legend-layout.chart-legend-layout--left,
+.chart-legend-layout.chart-legend-layout--right {
+  > .chart-legend-layout__legend {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    // Vertically centred on the chart; `safe` keeps the first pills reachable once the list scrolls.
+    justify-content: center;
+    justify-content: safe center;
+    width: max-content;
+    max-width: var(--chart-legend-side-width, clamp(120px, 35cqi, 220px));
+    // Never taller than the chart: height 0 keeps the legend out of the row's sizing, min-height then stretches
+    // it to the chart's height, and a long list scrolls inside it instead of stretching the chart.
+    height: 0;
+    min-height: 100%;
+    max-height: none;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+
+    > * {
+      flex-shrink: 0;
+      max-width: 100%;
+    }
+  }
+}
+
+.chart-legend-layout.chart-legend-layout--left > .chart-legend-layout__legend {
+  grid-area: 2 / 1;
+  margin-right: var(--chart-legend-gap, 12px);
+}
+
+.chart-legend-layout.chart-legend-layout--right > .chart-legend-layout__legend {
+  grid-area: 2 / 3;
+  margin-left: var(--chart-legend-gap, 12px);
+}
+
+// Too narrow to give a side legend room without crushing the chart: fall back to the default bottom legend.
+// Only the display changes; the saved position is untouched. LegendPagerDirective reads the flex direction set
+// here to show every pill (unpaged) in this fallback.
+@container chart-legend-layout (max-width: 300px) {
+  .chart-legend-layout.chart-legend-layout--left > .chart-legend-layout__legend,
+  .chart-legend-layout.chart-legend-layout--right > .chart-legend-layout__legend {
+    grid-area: 3 / 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    margin: var(--chart-legend-gap, 12px) 0 0;
+    overflow: visible;
+  }
+}
+
+// ─── Side legend paging (shared/directives/legend-pager.directive.ts) ───────────
+// The directive pages a left/right legend's pills and adds the ‹ 1/3 › pager as the legend's last child.
+
+.chart-legend-pager__off {
+  display: none !important;
+}
+
+.chart-legend-pager {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #475467;
+  font-size: 11px;
+  line-height: 1;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.chart-legend-pager__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #E7ECF3;
+  border-radius: 50%;
+  background: #FFF;
+  color: #475467;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #7fb5ff;
+    outline-offset: 1px;
+  }
+}
+
+.chart-legend-pager__status {
+  min-width: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

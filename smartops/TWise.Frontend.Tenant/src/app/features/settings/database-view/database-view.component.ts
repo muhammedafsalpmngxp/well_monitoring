@@ -206,7 +206,14 @@ export class DatabaseViewComponent implements OnInit {
   }
 
   sourceFilter: 'all' | ViewSource = 'all';
-  searchQuery = '';
+  private _searchQuery = '';
+
+  /** Changing the search returns to page 1; a stale page number would slice past the end of the results. */
+  get searchQuery(): string { return this._searchQuery; }
+  set searchQuery(value: string) {
+    this._searchQuery = value;
+    this.currentPage = 1;
+  }
 
   allRows: DatabaseViewRow[] = [];
 

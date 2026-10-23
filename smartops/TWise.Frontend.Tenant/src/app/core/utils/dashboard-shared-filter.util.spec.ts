@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CustomDashboardFilter, mergeDashboardSharedFilters } from './dashboard-shared-filter.util';
+import { globalSelectionPayload } from './global-filter-selection.util';
 
 const shared: CustomDashboardFilter = {
   id: 'Plants::Plant_description', label: 'Plant', sourceTable: 'Plants',
@@ -40,7 +41,7 @@ describe('mergeDashboardSharedFilters', () => {
 
   const createAdditional = (filter: CustomDashboardFilter) => ({
     label: filter.label, sourceTable: filter.sourceTable, sourceColumn: filter.sourceColumn,
-    controlType: 'Dropdown', value: filter.value, locked: false, dashboardAdditional: true,
+    ...globalSelectionPayload(filter.value), locked: false, dashboardAdditional: true,
   });
 
   it('appends active additional fields for cross filtering without requiring a local filter', () => {
@@ -63,5 +64,21 @@ describe('mergeDashboardSharedFilters', () => {
       expect(mergeDashboardSharedFilters([filter], [{ ...shared, additional: true }], createAdditional))
         .toEqual([filter]);
     }
+  });
+
+  it('passes every selected value for matching and unmatched global filters', () => {
+    const multi = { ...shared, additional: true, value: ['Amal', 'Nimr'] };
+    const payload = { controlType: 'MultiSelect', value: '', values: ['Amal', 'Nimr'], dashboardAdditional: true };
+    expect(mergeDashboardSharedFilters([local], [multi], createAdditional))
+      .toEqual([{ ...local, ...payload }]);
+    expect(mergeDashboardSharedFilters([], [multi], createAdditional))
+      .toEqual([createAdditional(multi)]);
+    expect(createAdditional(multi)).toMatchObject({
+      controlType: 'MultiSelect',
+      value: '',
+      values: ['Amal', 'Nimr'],
+    });
+    expect(createAdditional(shared)).toMatchObject({ controlType: 'Dropdown', value: 'Amal' });
+    expect(local.value).toBe('Nimr');
   });
 });

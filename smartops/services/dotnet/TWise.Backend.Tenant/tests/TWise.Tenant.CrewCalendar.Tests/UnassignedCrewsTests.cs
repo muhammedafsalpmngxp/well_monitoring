@@ -30,9 +30,9 @@ public sealed class UnassignedCrewsTests
     private static LegacyCrewCalendarService CreateService(IMemoryCache cache,
         Mock<ICrewAssignmentRepository> repository)
     {
-        if (!cache.TryGetValue("legacy:crew-project-clusters", out _))
-            cache.Set("legacy:crew-project-clusters", new Dictionary<Guid, string>());
-        cache.Set("legacy:crew-group-names", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        if (!cache.TryGetValue("bi:crew-project-clusters:v1", out _))
+            cache.Set("bi:crew-project-clusters:v1", new Dictionary<Guid, string>());
+        cache.Set("bi:crew-group-names:v1", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["G1"] = "Earthworks",
             ["G2"] = "Pipe welding"
@@ -48,7 +48,7 @@ public sealed class UnassignedCrewsTests
         var roster = new CrewRosterResponse([new("G1", "Earthworks", [
             new("C1", "T1", [new("2026-09-15", "2026-09-16")], [new("P1", "NY0010", "Nimr")]), new("C2", "T1", [])
         ])]);
-        cache.Set($"legacy:crew-roster:{From:yyyyMMdd}:{To:yyyyMMdd}", roster);
+        cache.Set($"bi:crew-roster:v1:{From:yyyyMMdd}:{To:yyyyMMdd}", roster);
         var repository = new Mock<ICrewAssignmentRepository>(MockBehavior.Strict);
         repository.Setup(repo => repo.GetForScopeAsync(null, null,
                 From.ToDateTime(TimeOnly.MinValue), To.ToDateTime(TimeOnly.MaxValue),
@@ -81,8 +81,8 @@ public sealed class UnassignedCrewsTests
         foreach (var start in new[] { From, new DateOnly(2035, 1, 1) })
         {
             var end = start.AddDays(3);
-            cache.Set($"legacy:crew-roster:{start:yyyyMMdd}:{end:yyyyMMdd}", roster);
-            cache.Set($"legacy:crew-cal:::::{start:yyyyMMdd}:{end:yyyyMMdd}",
+            cache.Set($"bi:crew-roster:v1:{start:yyyyMMdd}:{end:yyyyMMdd}", roster);
+            cache.Set($"bi:crew-cal:v1:::::{start:yyyyMMdd}:{end:yyyyMMdd}",
                 new CrewCalendarResponse(0, 0, 0, 0, start.ToString("yyyy-MM-dd"), end.ToString("yyyy-MM-dd"), [], []));
 
             var result = await service.GetCrewRosterAsync(start, end, includeAssignments: false);
@@ -126,7 +126,7 @@ public sealed class UnassignedCrewsTests
             new("G1", 4, 25, [new("C1", [planned, ongoing]), new("HISTORICAL", [completed]), new("", [ongoing])]),
             new("G2", 1, 0, [new("C2", [outside])])
         ], []);
-        cache.Set($"legacy:crew-cal:::::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
+        cache.Set($"bi:crew-cal:v1:::::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
         var service = CreateService(cache, new Mock<ICrewAssignmentRepository>(MockBehavior.Strict));
         var result = await service.GetCrewCalendarAsync(null, null, null, null, From, To);
 
@@ -155,7 +155,7 @@ public sealed class UnassignedCrewsTests
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var actualOnly = new CrewCalendarActivityDto("ACTUAL", "Actual", "W1", null,
             "", "", null, "2026-09-16", 100, "completed", false, null, null);
-        cache.Set($"legacy:crew-cal:::::{From:yyyyMMdd}:{To:yyyyMMdd}", new CrewCalendarResponse(
+        cache.Set($"bi:crew-cal:v1:::::{From:yyyyMMdd}:{To:yyyyMMdd}", new CrewCalendarResponse(
             1, 1, 2, 0, "2026-09-15", "2026-09-18", [new("G1", 2, 100, [new("C1", [actualOnly, actualOnly])])], []));
         var result = await CreateService(cache, new Mock<ICrewAssignmentRepository>(MockBehavior.Strict))
             .GetCrewCalendarAsync(null, null, null, null, From, To);
@@ -176,7 +176,7 @@ public sealed class UnassignedCrewsTests
             "2026-09-15", "2026-09-18", null, null, 0, "planned", false, null, null);
         var legacy = new CrewCalendarResponse(1, 1, 1, 0, "2026-09-15", "2026-09-18",
             [new("G1", 1, 0, [new("C1", [legacyActivity])])], []);
-        cache.Set($"legacy:crew-cal:::::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
+        cache.Set($"bi:crew-cal:v1:::::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
         var first = new CrewActivityAssignment
         {
             Id = 41,
@@ -219,12 +219,12 @@ public sealed class UnassignedCrewsTests
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var projectId = Guid.Parse("8c9c6b42-7a12-4eb3-935b-fc0437e7f33f");
-        cache.Set("legacy:crew-project-clusters", new Dictionary<Guid, string> { [projectId] = "Nimr" });
+        cache.Set("bi:crew-project-clusters:v1", new Dictionary<Guid, string> { [projectId] = "Nimr" });
         var legacyActivity = new CrewCalendarActivityDto("LEGACY", "Legacy", "W1", null,
             "2026-09-15", "2026-09-18", null, null, 0, "planned", false, null, null, Cluster: "Marmul");
         var legacy = new CrewCalendarResponse(1, 1, 1, 0, "2026-09-15", "2026-09-18",
             [new("G1", 1, 0, [new("3522-C1", [legacyActivity])])], []);
-        cache.Set($"legacy:crew-cal:::::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
+        cache.Set($"bi:crew-cal:v1:::::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
         var projectIds = new string?[] { $" {projectId.ToString().ToUpperInvariant()} ", null,
             "unmapped-project", "c247e7b4-0751-414a-b59b-701b8bf05443" };
         var assignments = projectIds.Select((project, index) => new CrewActivityAssignment
@@ -267,9 +267,9 @@ public sealed class UnassignedCrewsTests
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var projectId = Guid.Parse("8c9c6b42-7a12-4eb3-935b-fc0437e7f33f");
-        cache.Set($"legacy:crew-scope:{cluster?.Trim()}:{site?.Trim()}", new HashSet<Guid> { projectId });
+        cache.Set($"bi:crew-scope:v1:{cluster?.Trim()}:{site?.Trim()}", new HashSet<Guid> { projectId });
         var legacy = new CrewCalendarResponse(0, 0, 0, 0, "2026-09-15", "2026-09-18", [], []);
-        cache.Set($"legacy:crew-cal:{cluster}:{site}:::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
+        cache.Set($"bi:crew-cal:v1:{cluster}:{site}:::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
         var repository = new Mock<ICrewAssignmentRepository>(MockBehavior.Strict);
         var projectIds = new string?[] { $" {projectId.ToString().ToUpperInvariant()} ", null, "",
             "c247e7b4-0751-414a-b59b-701b8bf05443", "unmapped-project" };
@@ -308,8 +308,8 @@ public sealed class UnassignedCrewsTests
     public async Task ScopeWithNoMatchingProjectsDoesNotLeakAssignments(string? cluster, string? site)
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        cache.Set($"legacy:crew-scope:{cluster}:{site}", new HashSet<Guid>());
-        cache.Set($"legacy:crew-cal:{cluster}:{site}:::{From:yyyyMMdd}:{To:yyyyMMdd}",
+        cache.Set($"bi:crew-scope:v1:{cluster}:{site}", new HashSet<Guid>());
+        cache.Set($"bi:crew-cal:v1:{cluster}:{site}:::{From:yyyyMMdd}:{To:yyyyMMdd}",
             new CrewCalendarResponse(0, 0, 0, 0, "2026-09-15", "2026-09-18", [], []));
         var repository = new Mock<ICrewAssignmentRepository>(MockBehavior.Strict);
         repository.Setup(repo => repo.GetForScopeAsync(null, null,
@@ -353,7 +353,7 @@ public sealed class UnassignedCrewsTests
     public async Task RosterTreatsUndatedAssignmentsAsReservedAndRefreshesTenantBookings()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        cache.Set($"legacy:crew-roster:{From:yyyyMMdd}:{To:yyyyMMdd}",
+        cache.Set($"bi:crew-roster:v1:{From:yyyyMMdd}:{To:yyyyMMdd}",
             new CrewRosterResponse([new("G1", null, [new("C1", null, [])])]));
         var repository = new Mock<ICrewAssignmentRepository>(MockBehavior.Strict);
         repository.SetupSequence(repo => repo.GetForScopeAsync(null, null,
@@ -396,7 +396,7 @@ public sealed class UnassignedCrewsTests
     public async Task RosterBlocksReversedBookingsInsteadOfTreatingTheCrewAsAvailable()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        cache.Set($"legacy:crew-roster:{From:yyyyMMdd}:{To:yyyyMMdd}",
+        cache.Set($"bi:crew-roster:v1:{From:yyyyMMdd}:{To:yyyyMMdd}",
             new CrewRosterResponse([new("G1", null, [new("C1", null, [])])]));
         var repository = new Mock<ICrewAssignmentRepository>(MockBehavior.Strict);
         repository.Setup(repo => repo.GetForScopeAsync(null, null,
@@ -448,7 +448,7 @@ public sealed class UnassignedCrewsTests
             "2026-09-15", "2026-09-18", null, null, 0, "planned", false, null, null);
         var legacy = new CrewCalendarResponse(1, 1, 1, 0, "2026-09-15", "2026-09-18",
             [new("G1", 1, 0, [new("C1", [activity])])], []);
-        cache.Set($"legacy:crew-cal:::::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
+        cache.Set($"bi:crew-cal:v1:::::{From:yyyyMMdd}:{To:yyyyMMdd}", legacy);
         var repository = new Mock<ICrewAssignmentRepository>(MockBehavior.Strict);
         if (includeAssignments)
         {
@@ -483,7 +483,7 @@ public sealed class UnassignedCrewsTests
     public async Task CalendarDoesNotCompleteMapsAssignmentsWithoutActualDates(int progress)
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        cache.Set($"legacy:crew-cal:::::{From:yyyyMMdd}:{To:yyyyMMdd}",
+        cache.Set($"bi:crew-cal:v1:::::{From:yyyyMMdd}:{To:yyyyMMdd}",
             new CrewCalendarResponse(0, 0, 0, 0, "2026-09-15", "2026-09-18", [], []));
         var repository = new Mock<ICrewAssignmentRepository>(MockBehavior.Strict);
         repository.Setup(repo => repo.GetForScopeAsync(null, null,
@@ -527,7 +527,7 @@ public sealed class UnassignedCrewsTests
         int? startOffset, int? endOffset, bool included)
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        cache.Set($"legacy:crew-cal:::::{From:yyyyMMdd}:{To:yyyyMMdd}",
+        cache.Set($"bi:crew-cal:v1:::::{From:yyyyMMdd}:{To:yyyyMMdd}",
             new CrewCalendarResponse(0, 0, 0, 0, "2026-09-15", "2026-09-18", [], []));
         var start = From.ToDateTime(TimeOnly.MinValue);
         var repository = new Mock<ICrewAssignmentRepository>(MockBehavior.Strict);

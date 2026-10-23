@@ -11,7 +11,7 @@ export const MENU_STRUCTURE: MenuGroup[] = [
         children: [
           { label: 'Standard Boards', icon: 'standard_boards', route: `/${ROUTES.DASHBOARD}/standard-boards`, moduleCode: 'dashboard.standard-boards' },
           { label: 'WIP Boards',      icon: 'my_boards',       route: `/${ROUTES.DASHBOARD}/wip-boards`,      moduleCode: 'dashboard.wip-boards' },
-          { label: 'Crew Calendar',   icon: 'view_column',     route: `/${ROUTES.DASHBOARD}/crew-calendar`,   moduleCode: 'dashboard.standard-boards' },
+          { label: 'Crew Calendar',   icon: 'view_column',     route: `/${ROUTES.DASHBOARD}/crew-calendar`,   moduleCode: 'dashboard.crew-calendar' },
         ],
       },
       {
@@ -79,6 +79,7 @@ export const MENU_STRUCTURE: MenuGroup[] = [
       {
         label: 'BI Canvas',
         icon: 'bi_canvas',
+        badge: 'BETA',
         children: [
           { label: 'Standard Canvases', icon: 'grid_view',   route: `/${ROUTES.CANVAS}/standard`, moduleCode: 'dashboard.standard-canvases' },
           { label: 'WIP Canvases',      icon: 'view_column', route: `/${ROUTES.CANVAS}/wip`,      moduleCode: 'dashboard.canvas' },

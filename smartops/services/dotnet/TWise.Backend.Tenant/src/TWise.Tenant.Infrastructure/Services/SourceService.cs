@@ -12,6 +12,9 @@ public sealed class SourceService(ISourceRepository repo) : ISourceService
     public Task<IReadOnlyList<SourceDto>> ListBITablesAsync(CancellationToken ct = default)
         => repo.ListBITablesAsync(ct);
 
+    public Task<SyncTimeResponse?> GetSyncTimeAsync(CancellationToken ct = default)
+        => repo.GetSyncTimeAsync(ct);
+
     public Task<TableDataDto?> GetTableDataAsync(string sourceName, string sourceType, CancellationToken ct = default)
         => repo.GetTableDataAsync(sourceName, sourceType, ct);
 

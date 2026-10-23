@@ -14,7 +14,7 @@
         <option *ngFor="let option of datasets" [value]="option.id" [selected]="option.id === datasetId">{{ option.name }}</option>
       </select>
       <p class="form-hint">Every chart, tile and table on this canvas uses this data model.</p>
-      <p *ngIf="!datasets.length" class="form-hint">No data models yet. Build one in Model Studio first.</p>
+      <p *ngIf="!datasets.length" class="form-hint">No Data Models Yet. Build one in Model Studio first.</p>
     </div>
 
     <app-loader *ngIf="loading" type="skeleton-table"></app-loader>

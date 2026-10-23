@@ -1,4 +1,7 @@
 ﻿<router-outlet />
+@if (routeLoading.isLoading()) {
+	<app-loader [overlay]="true" size="lg" role="status" aria-live="polite" />
+}
 <app-confirmation-dialog
 	[isOpen]="errorHandler.chunkLoadFailed()"
 	title="Unable to load this feature"

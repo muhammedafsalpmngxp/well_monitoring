@@ -22,7 +22,8 @@ public record WidgetDto(
     /// Tiles listed in the chart's DesignJson attachedTileIds, in that order, so the chart view
     /// needs no extra request per tile. Only set by GET /api/widgets/{id}; null elsewhere.
     /// </summary>
-    IReadOnlyList<WidgetDto>? AttachedTiles = null
+    IReadOnlyList<WidgetDto>? AttachedTiles = null,
+    string? CategoryDescription = null
 );
 
 public record CreateWidgetRequest(

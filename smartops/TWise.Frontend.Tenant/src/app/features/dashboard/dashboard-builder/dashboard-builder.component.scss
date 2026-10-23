@@ -1,3 +1,80 @@
+@use '../../../../styles/tile-layout' as tile-layout;
+
+// Long legend names: one line with an ellipsis (as on the operations dashboard).
+@mixin legend-pill-label {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+// Dark bubble above the pill with the full name; lives on the pill because the label's overflow would clip it.
+// A left/right legend scrolls and would clip it too, so those pills fall back to a native title instead.
+@mixin legend-pill-tooltip {
+  position: relative;
+
+  &[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 8px;
+    background: #172B4D;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 400;
+    font-family: var(--font-family-base);
+    line-height: 1.5;
+    padding: 6px 10px;
+    white-space: normal;
+    max-width: 240px;
+    width: max-content;
+    text-align: left;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 200;
+  }
+
+  &[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #172B4D;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 201;
+  }
+
+  &[data-tooltip]:hover::after,
+  &[data-tooltip]:hover::before {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .chart-legend-layout--left > .chart-legend-layout__legend > &,
+  .chart-legend-layout--right > .chart-legend-layout__legend > & {
+    &[data-tooltip]::after,
+    &[data-tooltip]::before {
+      display: none;
+    }
+  }
+}
+
 .chart-destination {
   width: 100%;
   min-width: 0;
@@ -9,21 +86,32 @@
   }
 
   button {
-    border: 1px solid #C9D3E2;
-    border-radius: 6px;
+    border-radius: 10px;
+    height: 36px;
+    border: 1px solid #DCE3ED;
     background: #fff;
-    color: #21409A;
+    color: #4D555B;
     padding: 9px 8px;
     font: inherit;
-    font-size: 13px;
+    font-size: 14px;
     cursor: pointer;
     overflow-wrap: anywhere;
 
-    &:hover:not(:disabled), &[aria-expanded='true'] { background: #EEF2F8; }
-    &:disabled { opacity: 0.6; cursor: default; }
+    // &:hover:not(:disabled),
+    // &[aria-expanded='true'] {
+    //   background: #EEF2F8;
+    // }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
   }
 
-  button.chart-destination__new { background: #1D2939; color: #fff; }
+  button.chart-destination__new {
+    background: #21409A;
+    color: #fff;
+  }
 
   &__picker {
     margin-top: 10px;
@@ -42,11 +130,28 @@
       font-size: 13px;
     }
 
-    ul { list-style: none; margin: 6px 0 0; padding: 0; max-height: min(200px, 30vh); overflow-y: auto; }
-    li button { width: 100%; border: 0; text-align: left; }
-    p { margin: 8px 0; font-size: 13px; color: #667085; }
+    ul {
+      list-style: none;
+      margin: 6px 0 0;
+      padding: 0;
+      max-height: min(200px, 30vh);
+      overflow-y: auto;
+    }
+
+    li button {
+      width: 100%;
+      border: 0;
+      text-align: left;
+    }
+
+    p {
+      margin: 8px 0;
+      font-size: 13px;
+      color: #667085;
+    }
   }
 }
+
 :host {
   text-transform: capitalize;
   // Fills the app shell's scroll box so only .builder-page (not the header/
@@ -56,11 +161,11 @@
   height: 100%;
   min-height: 0;
 
-  > app-page-header,
-  > app-dashboard-branding,
-  > app-loader,
-  > .board-toast,
-  > .board-filterbar {
+  >app-page-header,
+  >app-dashboard-branding,
+  >app-loader,
+  >.board-toast,
+  >.board-filterbar {
     flex-shrink: 0;
   }
 }
@@ -68,7 +173,7 @@
 .board-local-filters {
   display: flex;
   flex-wrap: wrap;
-  align-items:center;
+  align-items: center;
   gap: 12px;
   flex-shrink: 0;
   min-width: 0;
@@ -86,17 +191,20 @@
 
     select {
       width: 100%;
-      height: 34px;
+      height: 28px;
       border: 1px solid #D0D5DD;
       border-radius: 6px;
-      padding: 4px 10px;
+      padding: 0px 10px;
       background: #fff;
       color: #344054;
       font: inherit;
       text-overflow: ellipsis;
       max-width: 100px;
 
-      &:disabled { background: #F9FAFB; color: #667085; }
+      &:disabled {
+        background: #F9FAFB;
+        color: #667085;
+      }
     }
   }
 }
@@ -125,6 +233,7 @@
     color: #344054;
     cursor: pointer;
     white-space: nowrap;
+    margin-block: 5px;
 
     svg {
       flex-shrink: 0;
@@ -209,18 +318,14 @@
   min-height: 0;
   overflow: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -430,7 +535,17 @@
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 30px;
+    }
+
 
     li {
       display: flex;
@@ -562,18 +677,14 @@
   overflow: auto;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -587,26 +698,23 @@
   gap: 0px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
+
 }
 
 .builder-canvas {
   position: relative;
 
-  padding: 15px;
+  padding: 0px;
   background: var(--color-bg-card);
   // Fills .builder-canvas-wrap's available height instead of a viewport-relative
   // magic-number height, so it stays correct whether the filter bar is shown or hidden.
@@ -616,18 +724,14 @@
   transform-origin: top left;
   overflow: auto;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -997,18 +1101,14 @@
     max-height: 200px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
     }
 
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
@@ -1334,20 +1434,17 @@
   // variant below, which doesn't override height/overflow itself.
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
+
 
   &--collapsed {
     width: 44px;
@@ -1981,18 +2078,14 @@
   padding: 0px 16px 10px;
   background: transparent;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -2515,18 +2608,14 @@
     border: 1px #E7ECF3 solid;
     border-radius: 8px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
     }
 
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -2942,7 +3031,7 @@
   border: 1px solid #E2E7EF;
   background: #FFF;
   box-shadow: 0 1px 8px 0 rgba(0, 0, 0, 0.06);
-  grid-template-columns: repeat(11, 1fr);
+  grid-template-columns: repeat(10, 1fr);
   margin-bottom: 17px;
 
   &__field {
@@ -3235,500 +3324,500 @@
 
 // ─── Saved Filter dropdown ────────────────────────────────────────────
 .board-filterbar__saved-wrap {
-    position: relative;
+  position: relative;
 }
 
 .saved-filter-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 430px;
+  background: #fff;
+  border: 1px solid #E7ECF3;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
+  z-index: 300;
+  padding: 16px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  &__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 18px;
+    background: #EEF2FF;
+    color: #21409A;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    margin-left: auto;
+
+    &:hover {
+      background: #F2F4F7;
+    }
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+    margin-bottom: 10px;
+
+    svg {
+      flex-shrink: 0;
+      color: #667085;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      font-family: var(--font-family-base);
+      color: var(--color-text-primary);
+
+      &::placeholder {
+        color: #667085;
+      }
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 230px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 30px;
+    }
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: none;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-family-base);
+    transition: border-color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+      border-color: #B7C6EA;
+    }
+
+    &--default {
+      background: #F1F6FF;
+    }
+
+    &--active {
+      border: 1px solid #21409A;
+      background: #E8F0FF;
+    }
+  }
+
+  &__chevron {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: #667085;
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    flex-shrink: 0;
+
+    &--default {
+      background: #DCE8FF;
+      color: #235EDF;
+    }
+
+    &--purple {
+      background: #F3ECFF;
+      color: #7549F2;
+    }
+
+    &--green {
+      background: #E9F8F3;
+      color: #177E54;
+    }
+
+    &--orange {
+      background: #FFF1E8;
+      color: #9F5414;
+    }
+
+    &--yellow {
+      background: #FFF6DB;
+      color: #956800;
+    }
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__meta {
+    font-size: 12px;
+    color: #667085;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__star {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+  }
+
+  &__menu-wrap {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+  }
+
+  &__menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #667085;
+    cursor: pointer;
+
+    &:hover {
+      background: #F2F4F7;
+      color: #344054;
+    }
+  }
+
+  &__menu {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 4px);
     right: 0;
-    width: 430px;
+    min-width: 120px;
     background: #fff;
     border: 1px solid #E7ECF3;
-    border-radius: 14px;
-    box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
-    z-index: 300;
-    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.14);
+    z-index: 320;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
 
-    &__header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
+    button {
+      padding: 8px 10px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: left;
+      color: #344054;
+      cursor: pointer;
+
+      &:hover {
+        background: #F9FAFB;
+      }
     }
 
-    &__title {
-        font-size: 16px;
-        font-weight: 700;
-        color: var(--color-text-primary);
+    &-delete {
+      color: #D92D20 !important;
     }
+  }
 
-    &__count {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 24px;
-        height: 24px;
-        padding: 0 6px;
-        border-radius: 18px;
-        background: #EEF2FF;
-        color: #21409A;
-        font-size: 13px;
-        font-weight: 600;
-    }
-
-    &__close {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 26px;
-        height: 26px;
-        border: none;
-        border-radius: 50%;
-        background: transparent;
-        cursor: pointer;
-        margin-left: auto;
-
-        &:hover {
-            background: #F2F4F7;
-        }
-    }
-
-    &__search {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        height: 36px;
-        padding: 0 12px;
-        border-radius: 10px;
-        border: 1px solid #C9D3E2;
-        background: #FFF;
-        margin-bottom: 10px;
-
-        svg {
-            flex-shrink: 0;
-            color: #667085;
-        }
-
-        input {
-            flex: 1;
-            min-width: 0;
-            border: none;
-            outline: none;
-            font-size: 13px;
-            font-family: var(--font-family-base);
-            color: var(--color-text-primary);
-
-            &::placeholder {
-                color: #667085;
-            }
-        }
-    }
-
-    &__list {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        max-height: 230px;
-        overflow-y: auto;
-        scrollbar-width: thin;
-        scrollbar-color: #21409A transparent;
-
-        &::-webkit-scrollbar {
-            width: 3px;
-        }
-
-        &::-webkit-scrollbar-thumb {
-            background: #21409A;
-            border-radius: 30px;
-        }
-    }
-
-    &__item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px;
-        border: none;
-        border-radius: 12px;
-        background: #fff;
-        cursor: pointer;
-        text-align: left;
-        font-family: var(--font-family-base);
-        transition: border-color 0.15s ease, background 0.15s ease;
-
-        &:hover {
-            border-color: #B7C6EA;
-        }
-
-        &--default {
-            background: #F1F6FF;
-        }
-
-        &--active {
-            border: 1px solid #21409A;
-            background: #E8F0FF;
-        }
-    }
-
-    &__chevron {
-        margin-left: auto;
-        flex-shrink: 0;
-        color: #667085;
-    }
-
-    &__icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
-        flex-shrink: 0;
-
-        &--default {
-            background: #DCE8FF;
-            color: #235EDF;
-        }
-
-        &--purple {
-            background: #F3ECFF;
-            color: #7549F2;
-        }
-
-        &--green {
-            background: #E9F8F3;
-            color: #177E54;
-        }
-
-        &--orange {
-            background: #FFF1E8;
-            color: #9F5414;
-        }
-
-        &--yellow {
-            background: #FFF6DB;
-            color: #956800;
-        }
-    }
-
-    &__info {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        min-width: 0;
-    }
-
-    &__name {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--color-text-primary);
-    }
-
-    &__meta {
-        font-size: 12px;
-        color: #667085;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    &__star {
-        margin-left: auto;
-        flex-shrink: 0;
-        display: flex;
-    }
-
-    &__menu-wrap {
-        position: relative;
-        flex-shrink: 0;
-        display: flex;
-    }
-
-    &__menu-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
-        border: none;
-        border-radius: 6px;
-        background: transparent;
-        color: #667085;
-        cursor: pointer;
-
-        &:hover {
-            background: #F2F4F7;
-            color: #344054;
-        }
-    }
-
-    &__menu {
-        position: absolute;
-        top: calc(100% + 4px);
-        right: 0;
-        min-width: 120px;
-        background: #fff;
-        border: 1px solid #E7ECF3;
-        border-radius: 8px;
-        box-shadow: 0 8px 20px rgba(16, 24, 40, 0.14);
-        z-index: 320;
-        padding: 4px;
-        display: flex;
-        flex-direction: column;
-
-        button {
-            padding: 8px 10px;
-            border: none;
-            background: transparent;
-            border-radius: 6px;
-            font-size: 13px;
-            text-align: left;
-            color: #344054;
-            cursor: pointer;
-
-            &:hover {
-                background: #F9FAFB;
-            }
-        }
-
-        &-delete {
-            color: #D92D20 !important;
-        }
-    }
-
-    &__empty {
-        padding: 24px 8px;
-        text-align: center;
-        color: #98A2B3;
-        font-size: 13px;
-    }
+  &__empty {
+    padding: 24px 8px;
+    text-align: center;
+    color: #98A2B3;
+    font-size: 13px;
+  }
 }
 
 // ─── Save Filter modal ────────────────────────────────────────────────
 .save-filter-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(15, 23, 42, 0.45);
-    z-index: 1000;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
 }
 
 .save-filter-modal {
-    width: 100%;
-    max-width: 680px;
-    max-height: calc(100vh - 64px);
+  width: 100%;
+  max-width: 680px;
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(90deg, #0A2468 0%, #21409A 45%, #5E4A73 78%, #F58220 100%);
+  border-radius: 16px;
+  overflow: visible;
+  font-family: var(--font-family-base);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 24px;
+    border-radius: 20px 20px 0 0;
+  }
+
+  &__header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 8px;
+    border-radius: 10px;
+    background: #0F6CBD;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+
+  &__info {
+    display: inline-flex;
+    align-items: center;
+    cursor: default;
+    position: relative;
+
+    &[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      border-radius: 8px;
+      background: #172B4D;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.5;
+      padding: 7px 12px;
+      white-space: pre-line;
+      width: 200px;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 1100;
+    }
+
+    &[data-tooltip]:hover::after {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    margin-left: auto;
+    flex-shrink: 0;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  &__body {
+    background: #fff;
+    padding: 20px 24px;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(90deg, #0A2468 0%, #21409A 45%, #5E4A73 78%, #F58220 100%);
+    gap: 6px;
+    overflow-y: auto;
     border-radius: 16px;
-    overflow: visible;
-    font-family: var(--font-family-base);
+  }
 
-    &__header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 16px 24px;
-        border-radius: 20px 20px 0 0;
+  &__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #344054;
+    margin-top: 10px;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  &__form-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #BFCDF2;
+    background: linear-gradient(95deg, #D4DFFF 0%, #E3D6FF 42%, #FFDCC2 100%);
+
+    .save-filter-modal__label:first-child {
+      margin-top: 0;
+    }
+  }
+
+  &__required {
+    color: #E11D48;
+    margin-left: 2px;
+  }
+
+  &__info-i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 2px;
+    cursor: default;
+  }
+
+  &__input {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+    font-size: 14px;
+    color: #101828;
+    outline: none;
+    font-family: inherit;
+
+    &:focus {
+      border-color: #21409A;
     }
 
-    &__header-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        padding: 8px;
-        border-radius: 10px;
-        background: #0F6CBD;
-        flex-shrink: 0;
+    &::placeholder {
+      color: #667085;
     }
+  }
 
-    &__title {
-        font-size: 20px;
-        font-weight: 700;
-        color: #fff;
-        margin: 0;
+  &__chips-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #C9D3E2;
+    background: #FFF;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    height: 28px;
+    border-radius: 23px;
+    border: 1px solid #C8D1F3;
+    background: #EEF4FF;
+    font-weight: 400;
+    color: #21409A;
+    font-size: 13px;
+
+    strong {
+      font-weight: 500;
+      margin-left: 3px;
     }
+  }
 
-    &__info {
-        display: inline-flex;
-        align-items: center;
-        cursor: default;
-        position: relative;
+  &__hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: #21409A;
 
-        &[data-tooltip]::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            top: calc(100% + 10px);
-            left: 0;
-            border-radius: 8px;
-            background: #172B4D;
-            color: #fff;
-            font-size: 13px;
-            font-weight: 400;
-            line-height: 1.5;
-            padding: 7px 12px;
-            white-space: pre-line;
-            width: 200px;
-            pointer-events: none;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.15s ease, visibility 0.15s ease;
-            z-index: 1100;
-        }
-
-        &[data-tooltip]:hover::after {
-            opacity: 1;
-            visibility: visible;
-        }
+    svg {
+      flex-shrink: 0;
     }
+  }
 
-    &__close {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        border: none;
-        border-radius: 50%;
-        background: transparent;
-        color: rgba(255, 255, 255, 0.8);
-        cursor: pointer;
-        margin-left: auto;
-        flex-shrink: 0;
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
 
-        &:hover {
-            color: #fff;
-        }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 10px !important;
     }
-
-    &__body {
-        background: #fff;
-        padding: 20px 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        overflow-y: auto;
-        border-radius: 16px;
-    }
-
-    &__label {
-        font-size: 13px;
-        font-weight: 600;
-        color: #344054;
-        margin-top: 10px;
-
-        &:first-child {
-            margin-top: 0;
-        }
-    }
-
-    &__form-card {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 16px;
-        border-radius: 12px;
-        border: 1px solid #BFCDF2;
-        background: linear-gradient(95deg, #D4DFFF 0%, #E3D6FF 42%, #FFDCC2 100%);
-
-        .save-filter-modal__label:first-child {
-            margin-top: 0;
-        }
-    }
-
-    &__required {
-        color: #E11D48;
-        margin-left: 2px;
-    }
-
-    &__info-i {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-left: 2px;
-        cursor: default;
-    }
-
-    &__input {
-        height: 36px;
-        padding: 0 12px;
-        border-radius: 10px;
-        border: 1px solid #C9D3E2;
-        background: #FFF;
-        font-size: 14px;
-        color: #101828;
-        outline: none;
-        font-family: inherit;
-
-        &:focus {
-            border-color: #21409A;
-        }
-
-        &::placeholder {
-            color: #667085;
-        }
-    }
-
-    &__chips-box {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        padding: 14px;
-        border-radius: 10px;
-        border: 1px solid #C9D3E2;
-        background: #FFF;
-    }
-
-    &__chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 6px 12px;
-        height: 28px;
-        border-radius: 23px;
-        border: 1px solid #C8D1F3;
-        background: #EEF4FF;
-        font-weight: 400;
-        color: #21409A;
-        font-size: 13px;
-
-        strong {
-            font-weight: 500;
-            margin-left: 3px;
-        }
-    }
-
-    &__hint {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 14px;
-        font-size: 12px;
-        color: #21409A;
-
-        svg {
-            flex-shrink: 0;
-        }
-    }
-
-    &__footer {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-top: 4px;
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            border-radius: 10px !important;
-        }
-    }
+  }
 }
 
 
@@ -3859,7 +3948,17 @@
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 30px;
+    }
+
 
     li {
       padding: 10px 14px;
@@ -3997,25 +4096,21 @@
   gap: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
 
 .builder-canvas {
   position: relative;
-  padding: 15px;
+  padding: 0px;
   background: var(--color-bg-card);
   flex: 1;
   transform-origin: top left;
@@ -4024,18 +4119,14 @@
   flex-direction: column;
   gap: 12px;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -4163,6 +4254,10 @@
   background: transparent;
 }
 
+.board-gridster-item--tile {
+  container-type: size;
+}
+
 gridster-item {
   overflow: visible;
 
@@ -4183,6 +4278,7 @@ gridster-item {
 }
 
 @each $name, $color, $background in ('amber', #F59E0B, #FFFBEB), ('teal', #14B8A6, #F0FDFA), ('gray', #9CA3AF, #F3F4F6) {
+
   .board-kpi-slot__icon--#{$name},
   .add-tiles-modal__tile-icon--#{$name} {
     color: $color;
@@ -4191,6 +4287,10 @@ gridster-item {
 }
 
 .board-kpi-slot {
+  &.tile-layout--single-row {
+    @include tile-layout.card-row('.board-kpi-slot__icon', '.board-kpi-slot__title', '.board-kpi-slot__value');
+  }
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4410,8 +4510,8 @@ gridster-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
-    gap: 6px;
+    margin-bottom: 0px;
+    gap: 2px;
   }
 
   &__drag-handle {
@@ -4499,7 +4599,7 @@ gridster-item {
     padding: 8px;
   }
 
-  &__controls-popover-section + &__controls-popover-section {
+  &__controls-popover-section+&__controls-popover-section {
     border-top: 1px solid #F1F3F6;
     padding-top: 8px;
   }
@@ -4549,7 +4649,7 @@ gridster-item {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0px;
   }
 
   &__preview {
@@ -4578,13 +4678,7 @@ gridster-item {
     display: block;
     width: 100%;
     height: 100%;
-
-    ::ng-deep .highcharts-container,
-    ::ng-deep .highcharts-root {
-      width: 100% !important;
-      height: 100% !important;
-      overflow: hidden !important;
-    }
+    // Highcharts owns its internal SVG sizes, including the wider scrollable plot.
   }
 
   &__loading {
@@ -4595,6 +4689,13 @@ gridster-item {
     height: 100%;
     font-size: 12px;
     color: #98A2B3;
+  }
+
+  &__placeholder {
+    position: absolute;
+    inset: 0;
+    background: #f9fafb;
+    border-radius: 8px;
   }
 
   &__placeholder-img {
@@ -4797,7 +4898,9 @@ gridster-item {
       padding: 0;
       cursor: default;
 
-      &:hover { background: transparent; }
+      &:hover {
+        background: transparent;
+      }
     }
   }
 
@@ -4826,9 +4929,13 @@ gridster-item {
     border-radius: 6px;
     cursor: pointer;
 
-    &:hover { background: #F9FAFB; }
+    &:hover {
+      background: #F9FAFB;
+    }
 
-    > svg { flex-shrink: 0; }
+    >svg {
+      flex-shrink: 0;
+    }
   }
 
   &__submenu {
@@ -4847,7 +4954,10 @@ gridster-item {
       color: #475467;
       cursor: pointer;
 
-      &:hover { background: #EEF2F8; color: #21409A; }
+      &:hover {
+        background: #EEF2F8;
+        color: #21409A;
+      }
     }
   }
 
@@ -4855,7 +4965,10 @@ gridster-item {
     color: #98A2B3 !important;
     cursor: default !important;
 
-    &:hover { background: transparent !important; color: #98A2B3 !important; }
+    &:hover {
+      background: transparent !important;
+      color: #98A2B3 !important;
+    }
   }
 
   // Anchored to the (position:relative) parent `<li>` instead of fixed + JS-measured
@@ -4889,13 +5002,14 @@ gridster-item {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 8px;
+    gap: 5px;
     padding: 4px 0;
     pointer-events: auto;
     flex-shrink: 0;
   }
 
   &__legend-item {
+    @include legend-pill-tooltip;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -4903,6 +5017,7 @@ gridster-item {
     border-radius: 20px;
     background: #F6F7F9;
     max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     flex-shrink: 0;
   }
@@ -4915,11 +5030,9 @@ gridster-item {
   }
 
   &__legend-name {
-    min-width: 0;
+    @include legend-pill-label;
     font-size: 12px;
     color: #475467;
-    white-space: normal;
-    overflow-wrap: anywhere;
   }
 
   &__data-table {
@@ -4981,18 +5094,14 @@ gridster-item {
     border: 1px solid #E7ECF3;
     pointer-events: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
     }
 
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
@@ -5035,6 +5144,7 @@ gridster-item {
 // trend-period dropdown (above the chart) to sit side by side without wrapping/overlapping —
 // collapse both into the single combined-popover toggle instead (see .board-chart-slot above).
 @container chart-slot (max-width: 400px) {
+
   .board-chart-slot__type-dropdown,
   .board-trend-mode {
     display: none;
@@ -5069,10 +5179,46 @@ gridster-item {
     justify-content: safe center;
     overflow-y: auto;
     overflow-x: hidden;
+    padding: min(6cqi, 7.9cqb) min(5cqi, 6.6cqb);
+    gap: clamp(2px, min(2cqi, 2.63cqb), 10px);
 
     // Keep every row at its natural size in a short tile; the tile scrolls instead of squeezing them.
-    > * {
+    >* {
       flex-shrink: 0;
+    }
+
+    .board-kpi-slot__icon {
+      width: clamp(32px, min(20cqi, 32cqb), 72px);
+      height: clamp(32px, min(20cqi, 32cqb), 72px);
+      flex: 0 0 auto;
+
+      svg {
+        width: 56%;
+        height: 56%;
+      }
+    }
+
+    .board-kpi-slot__title {
+      font-size: clamp(10px, min(6cqi, 7.9cqb), 22px);
+      line-height: 1.2;
+    }
+
+    .board-kpi-slot__value {
+      font-size: clamp(16px, min(10cqi, 13.2cqb), 42px);
+      line-height: 1.15;
+    }
+
+    .board-kpi-slot__breakdown {
+      gap: clamp(3px, min(3cqi, 4cqb), 12px);
+    }
+
+    .board-kpi-slot__breakdown-row {
+      font-size: clamp(10px, min(6cqi, 7.9cqb), 20px);
+    }
+
+    .board-kpi-slot__badge {
+      font-size: clamp(9px, min(5cqi, 6.6cqb), 16px);
+      padding: 0.2em 0.8em;
     }
 
     scrollbar-width: thin;
@@ -5244,7 +5390,7 @@ gridster-item {
   }
 
   &__label {
-    font-size: 12px;
+    font-size: 9px;
     font-weight: 500;
     font-family: var(--font-family-base);
     color: #344054;
@@ -5260,21 +5406,13 @@ gridster-item {
   }
 
   // Widgets: no card chrome â€” transparent on the panel gradient
-  // It's a section heading with no associated panel content (unlike Tiles/Charts/Filters/Styling,
-  // which open a modal) — keep the existing button/click wiring intact, just stop it looking
-  // clickable (default cursor, no hover icon-fade affordance).
   &--blue {
     border: none;
     background: transparent;
     box-shadow: none;
-    cursor: default;
 
     &:hover {
       box-shadow: none;
-    }
-
-    &:hover .board-panel-btn__icon {
-      opacity: 1;
     }
 
     .board-panel-btn__icon {
@@ -5343,24 +5481,41 @@ gridster-item {
     }
   }
 
- &--pink {
-        border-radius: 12px;
-        border: 1px solid #F4BEB7;
-        background: #FFF6F4;
-        box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.06);
+  &--pink {
+    border-radius: 12px;
+    border: 1px solid #F4BEB7;
+    background: #FFF6F4;
+    box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.06);
 
-        .board-panel-btn__icon {
-            background: #C84B40;
-        }
-
-        .board-panel-btn__label {
-            color: #C84B40;
-        }
-
-        &.active {
-            border-color: #C84B40;
-        }
+    .board-panel-btn__icon {
+      background: #C84B40;
     }
+
+    .board-panel-btn__label {
+      color: #C84B40;
+    }
+
+    &.active {
+      border-color: #C84B40;
+    }
+  }
+
+  &--indigo {
+    border: 1px solid #C7D2FE;
+    background: #EEF2FF;
+
+    .board-panel-btn__icon {
+      background: #4F46E5;
+    }
+
+    .board-panel-btn__label {
+      color: #4338CA;
+    }
+
+    &.active {
+      border-color: #4F46E5;
+    }
+  }
 }
 
 .styling-modal {
@@ -6019,7 +6174,17 @@ gridster-item {
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+
+    &::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 30px;
+    }
+
 
     li {
       padding: 9px 12px;
@@ -6134,20 +6299,17 @@ gridster-item {
   gap: 12px;
   position: relative;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
+
 }
 
 // â”€â”€ Layout toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -6440,7 +6602,9 @@ gridster-item {
 
 .add-filters-modal {
   position: relative;
-  background: #fff;
+  // Gradient lives on the outer shell (not the header) so the white body card below can show
+  // its own rounded top corners against it — same layered look as the Styling popup.
+  background: linear-gradient(90deg, #0A2468 0%, #21409A 45%, #5E4A73 78%, #F58220 100%);
   border-radius: 16px;
   width: 92vw;
   max-width: 460px;
@@ -6455,7 +6619,7 @@ gridster-item {
     align-items: center;
     gap: 10px;
     padding: 16px;
-    background: linear-gradient(90deg, #0A2468 0%, #21409A 45%, #5E4A73 78%, #F58220 100%);
+    background: transparent;
     flex-shrink: 0;
   }
 
@@ -6498,10 +6662,13 @@ gridster-item {
   &__body {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    background: #fff;
+    border-radius: 16px;
   }
 
   &__hint {
@@ -6511,6 +6678,69 @@ gridster-item {
     line-height: 1.4;
   }
 
+  // The "Add additional filters +" form (source table/view, source column, label) — plain
+  // sibling label/select/input/p elements with no layout of their own, left to their native
+  // inline/inline-block display, made them visually cram onto the same line. Stack them.
+  &__additional {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 4px 0 8px;
+    padding: 14px;
+    border: 1px solid #E7ECF3;
+    border-radius: 10px;
+    background: var(--color-bg-app, #F9FAFB);
+
+    label {
+      display: block;
+      margin: 0 0 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #344054;
+    }
+
+    select,
+    input[type='text'] {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      height: 36px;
+      padding: 0 10px;
+      border: 1px solid #D0D5DD;
+      border-radius: 8px;
+      background: #fff;
+      color: #101828;
+      font-size: 13px;
+      font-family: var(--font-family-base);
+
+      &:focus {
+        outline: none;
+        border-color: var(--color-primary);
+      }
+
+      &:disabled {
+        background: #F2F4F7;
+        cursor: not-allowed;
+      }
+    }
+
+    > p {
+      margin: -4px 0 0;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+
+    .btn {
+      align-self: flex-start;
+    }
+  }
+
+  &__error {
+    margin: -4px 0 0;
+    font-size: 12px;
+    color: #B42318;
+  }
+
   &__empty {
     font-size: 13px;
     color: var(--color-text-secondary);
@@ -6518,44 +6748,18 @@ gridster-item {
     text-align: center;
   }
 
+  // Now a CHILD of __body (last element, after "Added to this dashboard"), not a sibling after
+  // it — matches the Styling popup, where footer sits inside .body and shares its rounded
+  // corners/scroll instead of looking like a separate floating box. Negative side/bottom margins
+  // cancel __body's own 12px padding so this still spans edge-to-edge like the reference.
   &__footer {
     display: flex;
     justify-content: flex-end;
+    margin: 0 -12px -12px;
     padding: 12px 16px;
+    background: #fff;
     border-top: 1px solid #E7ECF3;
     flex-shrink: 0;
-  }
-
-  &__additional {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    border: 1px solid #E7ECF3;
-    border-radius: 10px;
-
-    label {
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    select, input {
-      width: 100%;
-      min-height: 36px;
-      padding: 8px;
-      border: 1px solid #C8D7FF;
-      border-radius: 6px;
-      font: inherit;
-    }
-
-    p {
-      margin: 0;
-      font-size: 13px;
-    }
-  }
-
-  &__error {
-    color: #D92D20;
   }
 }
 
@@ -6568,6 +6772,16 @@ gridster-item {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.preview-filter-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 40px;
+  flex: 0 0 40px;
+  padding: 8px 22px;
 }
 
 .add-tiles-modal {
@@ -7011,20 +7225,17 @@ gridster-item {
     z-index: 1000;
     padding: 4px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
+      width: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
+
   }
 
   &__filter-menu-item {
@@ -7326,18 +7537,14 @@ gridster-item {
     overflow-y: auto;
     flex: 1;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
     }
 
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
@@ -7593,25 +7800,23 @@ gridster-item {
     justify-content: center;
     gap: 6px;
     padding: 8px 0 4px;
-    overflow-x: auto;
+    // Pills truncate to the legend's width, so nothing overflows; visible keeps their hover bubble unclipped.
+    overflow: visible;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
-      height: 3px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
+      width: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
 
   &__legend-item {
+    @include legend-pill-tooltip;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -7620,6 +7825,9 @@ gridster-item {
     background: #F6F7F9;
     border: 1px solid #E7ECF3;
     flex-shrink: 0;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   &__legend-dot {
@@ -7630,9 +7838,9 @@ gridster-item {
   }
 
   &__legend-name {
+    @include legend-pill-label;
     font-size: 11px;
     color: #344054;
-    white-space: nowrap;
   }
 
   &__legend-symbol {
@@ -7867,21 +8075,17 @@ gridster-item {
     border-radius: 8px;
     border: 1px solid #E7ECF3;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
-      height: 3px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
+
   }
 
   &__table {
@@ -8301,18 +8505,14 @@ gridster-item {
   border-radius: 8px;
   border: 1px solid #E7ECF3;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 }
@@ -8347,18 +8547,14 @@ gridster-item {
   max-height: 160px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #21409A transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 
   &::-webkit-scrollbar {
     width: 3px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   &::-webkit-scrollbar-thumb {
-    background: #21409A;
+    background: var(--scrollbar-thumb);
     border-radius: 30px;
   }
 
@@ -8453,19 +8649,24 @@ gridster-item {
 
 // --- Add-modal reusable dropdown (Category / Sort) -------------------
 
-::ng-deep .ag-menu{
-max-height: 200px !important;
+::ng-deep .ag-menu {
+  max-height: 200px !important;
 }
+
 // --- Attached KPI tile strip above chart cards (board slot + Add Charts modal) ---
 .board-inline-tiles {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  gap: 8px;
-  margin: 0 0 10px;
+  gap: 5px;
+  margin: 5px 0 5px 0;
 }
 
 .board-inline-tile {
+  .board-inline-tile__info.tile-layout--single-row {
+    @include tile-layout.text-row('.board-inline-tile__label', '.board-inline-tile__value');
+  }
+
   display: flex;
   align-items: center;
   gap: 8px;
@@ -8486,10 +8687,25 @@ max-height: 200px !important;
     color: #2563EB;
     background: #EFF4FF;
 
-    &--green { color: #16A34A; background: #ECFDF3; }
-    &--red   { color: #DC2626; background: #FEF2F2; }
-    &--amber { color: #D97706; background: #FFFAEB; }
-    &--teal  { color: #0D9488; background: #EFFCF9; }
+    &--green {
+      color: #16A34A;
+      background: #ECFDF3;
+    }
+
+    &--red {
+      color: #DC2626;
+      background: #FEF2F2;
+    }
+
+    &--amber {
+      color: #D97706;
+      background: #FFFAEB;
+    }
+
+    &--teal {
+      color: #0D9488;
+      background: #EFFCF9;
+    }
   }
 
   &__info {
@@ -8520,7 +8736,9 @@ max-height: 200px !important;
     margin-top: 2px;
   }
 
-  &__breakdown-sep { color: #D0D5DD; }
+  &__breakdown-sep {
+    color: #D0D5DD;
+  }
 
   &__breakdown-label {
     font-size: 10px;
@@ -8536,443 +8754,8 @@ max-height: 200px !important;
 }
 
 // --- Add-modal reusable dropdown (Category / Sort) -------------------
-
-
-// ─── Page header actions (Discard · Update · Update & Close · Hide Filter): responsive ───
-.builder-header-actions {
-    ::ng-deep .btn {
-        white-space: nowrap;
-    }
-
-    // Tablet: let the buttons wrap under each other instead of squeezing the title.
-    @media (max-width: 1100px) {
-        flex-shrink: 1;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        gap: 8px;
-    }
-
-    // Phone: full-width 2 x 2 button grid below the title.
-    @media (max-width: 768px) {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        width: 100%;
-
-        ::ng-deep app-button,
-        ::ng-deep .btn {
-            width: 100%;
-            justify-content: center;
-        }
-    }
-
-    @media (max-width: 360px) {
-        grid-template-columns: 1fr;
-    }
-}
-
-// Phone: let the long subtitle wrap instead of being cut off with an ellipsis.
-@media (max-width: 768px) {
-    :host ::ng-deep .page-header__subtitle-text {
-        white-space: normal;
-    }
-}
-
-// ─── Global filter bar (Country … To + action icons): responsive ───
-@media (max-width: 1280px) {
-    .board-filterbar {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-
-        &__actions {
-            grid-column: 1 / -1;
-            justify-content: flex-end;
-        }
-    }
-}
-
-@media (max-width: 768px) {
-    .board-filterbar {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        padding: 12px;
-    }
-}
-
-@media (max-width: 360px) {
-    .board-filterbar {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-// ─── Toolbar (name / category / description + Undo · Clear All · Help · Learn): responsive ───
-@media (max-width: 1200px) {
-    .builder-toolbar {
-        gap: 8px 16px;
-        padding: 8px 14px;
-
-        &__page {
-            flex-wrap: wrap;
-            row-gap: 8px;
-        }
-
-        &__category-btn,
-        &__category-menu {
-            width: 200px;
-        }
-    }
-}
-
-// Tablet: fields take the first row, actions move to their own row on the right.
-@media (max-width: 992px) {
-    .builder-toolbar {
-        &__page {
-            flex: 1 1 100%;
-        }
-
-        &__description {
-            max-width: none;
-        }
-
-        &__actions {
-            flex: 1 1 100%;
-            justify-content: flex-end;
-        }
-    }
-}
-
-// Phone: name, category and description stack full-width; actions spread across one row.
-@media (max-width: 768px) {
-    .builder-toolbar {
-        padding: 10px 12px;
-
-        &__page {
-            gap: 8px;
-        }
-
-        &__page-name {
-            flex: 1 1 auto;
-            min-width: 0;
-            max-width: calc(100% - 60px);
-        }
-
-        &__page-input {
-            flex: 1 1 auto;
-            min-width: 0;
-        }
-
-        &__category {
-            flex: 1 1 100%;
-        }
-
-        &__category-btn,
-        &__category-menu {
-            width: 100%;
-        }
-
-        &__description {
-            flex: 1 1 100%;
-            min-width: 0;
-        }
-
-        &__actions {
-            flex-wrap: nowrap;
-            justify-content: space-between;
-            border-top: 1px solid var(--color-border);
-            padding-top: 8px;
-        }
-
-        &__btn {
-            flex: 1 1 0;
-            justify-content: center;
-            padding: 0 6px;
-        }
-
-        &__divider {
-            margin: 0 2px;
-        }
-    }
-}
-
-@media (max-width: 380px) {
-    .builder-toolbar__btn {
-        gap: 4px;
-        font-size: 11px;
-        padding: 0 4px;
-    }
-}
-
-// ─── Right icon panel (Widgets / Tiles / Charts / Filters / Styling): responsive scroll ───
-// The panel scrolls on its own when the screen is too short for every button, instead of the
-// lower buttons being cut off.
-.builder-library.builder-library--icon-panel {
-    min-height: 0;
-    max-height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
-
-    &::-webkit-scrollbar {
-        width: 3px;
-        height: 3px;
-    }
-
-    &::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    &::-webkit-scrollbar-thumb {
-        background: #21409A;
-        border-radius: 30px;
-    }
-
-    .board-panel-group,
-    .board-panel-btn {
-        flex-shrink: 0;
-    }
-}
-
-// Short screens (e.g. laptops with large text, landscape tablets): tighter buttons.
-@media (max-height: 760px) {
-    .builder-library.builder-library--icon-panel {
-        gap: 6px;
-        padding: 8px 6px;
-
-        .board-panel-btn {
-            height: 72px;
-            gap: 4px;
-            padding: 8px 4px;
-        }
-    }
-}
-
-// Phone: the panel becomes a horizontal strip above the canvas that scrolls sideways,
-// so the canvas gets the full screen width.
-@media (max-width: 768px) {
-    .builder-body {
-        flex-direction: column;
-    }
-
-    .builder-canvas-wrap {
-        min-height: 360px;
-    }
-
-    .builder-library.builder-library--icon-panel {
-        order: -1;
-        width: 100%;
-        max-height: none;
-        flex-direction: row;
-        align-items: stretch;
-        gap: 8px;
-        padding: 8px 10px;
-        border-left: none;
-        border-bottom: 1px solid #E2E7EF;
-        border-radius: 0;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        scroll-snap-type: x proximity;
-
-        .board-panel-group {
-            flex-direction: row;
-            padding: 6px;
-            border-radius: 12px;
-            border: 1px solid #E2E7EF;
-        }
-
-        .board-panel-btn {
-            width: 64px;
-            height: 64px;
-            gap: 4px;
-            padding: 6px 4px;
-            scroll-snap-align: start;
-        }
-    }
-}
-
-// ─── Tablet / phone: one page scroll ───────────────────────────────────────
-// No pinned header/filter bar and no separate inner scroll areas: the header, toolbar,
-// panel strip and canvas all flow in one column and the whole page scrolls together.
-@media (max-width: 992px) {
-    :host {
-        height: auto;
-        min-height: 0;
-        display: block;
-    }
-
-    .builder-page,
-    .builder-card {
-        flex: none;
-        height: auto;
-        min-height: 0;
-        overflow: visible;
-    }
-
-    .builder-body,
-    .builder-canvas-wrap,
-    .builder-canvas {
-        flex: none;
-        height: auto;
-        overflow: visible;
-    }
-
-    // Tablet keeps the side column; it just grows with the page instead of scrolling itself.
-    .builder-library.builder-library--icon-panel {
-        max-height: none;
-        overflow-y: visible;
-    }
-}
-
-@media (max-width: 768px) {
-    .builder-canvas-wrap {
-        min-height: 0;
-    }
-
-    // The panel strip still swipes sideways; it is not a vertical scroll area.
-    .builder-library.builder-library--icon-panel {
-        overflow-x: auto;
-        overflow-y: hidden;
-    }
-}
-
-// ─── Add Charts / Add Tiles popups: responsive ─────────────────────────────
-// Both popups share the .add-tiles-modal shell (header, filter bar, tabs + search, card grid,
-// footer), so these rules cover both.
-.add-tiles-modal__filter-field label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-// Laptop / tablet landscape: filters flow into as many columns as fit instead of 10 fixed ones.
-@media (max-width: 1280px) {
-    .add-tiles-modal {
-        &__filterbar {
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        }
-
-        &__tabs-row {
-            flex-wrap: wrap;
-            row-gap: 10px;
-        }
-
-        &__toolbar {
-            flex: 1 1 360px;
-            justify-content: flex-end;
-            min-width: 0;
-        }
-
-        &__search {
-            flex: 1 1 auto;
-            width: auto;
-
-            input {
-                width: 100%;
-                min-width: 0;
-            }
-        }
-    }
-}
-
-@media (max-width: 1024px) {
-    .add-tiles-modal__grid,
-    .add-charts-modal__grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-// Phone: near full-screen popup; the whole body (filters, tabs, cards) scrolls as one,
-// with the Cancel / Add to Dashboard footer pinned at the bottom.
-@media (max-width: 768px) {
-    .add-tiles-backdrop {
-        align-items: flex-end;
-    }
-
-    .add-tiles-modal {
-        width: calc(100vw - 16px);
-        max-height: calc(100dvh - 16px);
-        margin: 8px;
-        border-radius: 14px;
-
-        &__header {
-            padding: 12px;
-        }
-
-        &__body {
-            overflow-y: auto;
-            border-radius: 14px;
-        }
-
-        &__filterbar {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            padding: 12px;
-        }
-
-        &__tabs-row {
-            padding: 10px 12px;
-        }
-
-        &__tabs {
-            flex: 1 1 100%;
-        }
-
-        &__tab {
-            flex: 1 1 0;
-            justify-content: center;
-        }
-
-        &__toolbar {
-            flex: 1 1 100%;
-            flex-wrap: wrap;
-        }
-
-        &__search {
-            flex: 1 1 100%;
-            min-width: 0;
-        }
-
-        &__filter-drop {
-            flex: 1 1 auto;
-        }
-
-        &__footer {
-            position: sticky;
-            bottom: 0;
-            z-index: 3;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding: 12px;
-        }
-
-        &__footer-left {
-            flex: 1 1 100%;
-        }
-
-        &__footer-actions {
-            flex: 1 1 100%;
-
-            > * {
-                flex: 1 1 0;
-                justify-content: center;
-            }
-        }
-    }
-
-    .add-tiles-modal__grid,
-    .add-charts-modal__grid {
-        flex: none;
-        overflow: visible;
-        padding: 12px;
-    }
-}
-
-@media (max-width: 560px) {
-    .add-tiles-modal__grid,
-    .add-charts-modal__grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-@media (max-width: 360px) {
-    .add-tiles-modal__filterbar {
-        grid-template-columns: minmax(0, 1fr);
-    }
+// Saved Filter panel floats (appFloatingMenu) so it is never cut off at the screen edge;
+// it also must never be wider than the screen.
+.saved-filter-panel {
+  max-width: calc(100vw - 16px);
 }

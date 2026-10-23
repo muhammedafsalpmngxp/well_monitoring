@@ -51,7 +51,7 @@ export const routes: Routes = [
       {
         path: ROUTES.USER_ROLE_MANAGEMENT,
         canActivate: [permissionGuard],
-        data: { permission: 'user-management' },
+        data: { permission: ['user-management.users', 'user-management.roles'] },
         loadChildren: () => import('./features/user-role-management/user-role-management.module').then(m => m.UserRoleManagementModule),
       },
       {

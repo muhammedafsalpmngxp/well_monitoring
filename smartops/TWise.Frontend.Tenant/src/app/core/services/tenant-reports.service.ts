@@ -9,6 +9,7 @@ export interface TenantReportDto {
   description?: string;
   categoryId: number;
   categoryName?: string;
+  categoryDescription?: string | null;
   sourceName: string;
   sourceType: string;
   reportJson?: string;

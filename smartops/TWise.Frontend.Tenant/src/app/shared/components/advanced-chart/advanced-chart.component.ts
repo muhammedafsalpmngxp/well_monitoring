@@ -9,6 +9,7 @@ import type Highcharts from 'highcharts';
 import { Observable, Subscription, shareReplay } from 'rxjs';
 import { buildAdvancedOptions, isAdvancedChart, MAP_CHART_TYPES, prepareAdvancedDax, readAdvancedConfig, validateAdvancedConfig } from '../../../core/utils/advanced-chart.util';
 import { DaxMeasureConfig, formatDaxValue } from '../../../core/utils/dax-evaluator.util';
+import { DEFAULT_LEGEND_POSITION, LegendPosition, highchartsLegendPosition } from '../../../core/utils/chart-legend-position.util';
 
 @Component({
   selector: 'app-advanced-chart',
@@ -16,7 +17,7 @@ import { DaxMeasureConfig, formatDaxValue } from '../../../core/utils/dax-evalua
   host: { '[style.height]': 'height' },
   imports: [CommonModule, HighchartsChartComponent, AgGridAngular],
   template: `
-    <div class="advanced-visual" [style.height]="height" [style.display]="daxSummaries.length ? 'flex' : null" [style.flex-direction]="daxSummaries.length ? 'column' : null">
+    <div class="advanced-visual" [style.height]="height" [style.overflow]="type === 'decompositiontree' ? 'auto' : null" [style.display]="daxSummaries.length ? 'flex' : null" [style.flex-direction]="daxSummaries.length ? 'column' : null">
       <div *ngIf="error" class="visual-state" role="status">{{ error }}</div>
       <div *ngIf="!error && !rows.length" class="visual-state" role="status">No data</div>
       <div *ngIf="loading && !error && rows.length" class="visual-state" role="status">Loading map...</div>
@@ -29,7 +30,7 @@ import { DaxMeasureConfig, formatDaxValue } from '../../../core/utils/dax-evalua
         <!-- Keyed on the options object so a new renderer gets a NEW chart. Updating in place merges
              options, which leaves a polar pane and old series behind when switching renderers. -->
         <ng-container *ngFor="let o of (options && !error && rows.length && !loading ? [options] : []); trackBy: byRef">
-          <highcharts-chart class="advanced-highchart"
+          <highcharts-chart class="advanced-highchart" [style.height.px]="contentHeight" [style.flex]="contentHeight ? 'none' : null"
             [constructorType]="map || o.mapView ? 'mapChart' : 'chart'" [options]="o" />
         </ng-container>
       </ng-container>
@@ -43,6 +44,8 @@ import { DaxMeasureConfig, formatDaxValue } from '../../../core/utils/dax-evalua
     :host { display: block; width: 100%; min-width: 0; height: 100%; }
     .advanced-visual { width: 100%; min-height: 200px; min-width: 0; overflow: hidden; }
     .advanced-highchart, .advanced-grid { display: block; width: 100%; height: 100%; flex: 1; min-height: 0; }
+    /* Tree links are Highcharts points drawn with a stroke attribute; dashboard cards hide point strokes with CSS. */
+    :host ::ng-deep .highcharts-treegraph-series .highcharts-point { stroke: var(--highcharts-neutral-color-60, #999999) !important; }
     .visual-state { display: flex; align-items: center; justify-content: center; height: 100%; padding: 16px; box-sizing: border-box; color: #667085; font-size: 13px; overflow-wrap: anywhere; text-align: center; flex: 1; min-height: 0; }
   `],
 })
@@ -52,6 +55,7 @@ export class AdvancedChartComponent implements OnChanges, OnDestroy {
   @Input() config: unknown;
   @Input() height = '100%';
   @Input() showLegend = true;
+  @Input() legendPosition: LegendPosition = DEFAULT_LEGEND_POSITION;
   /** A marker of a map visual was clicked: the label field and the marker's label (used to filter a dashboard). */
   @Output() pointClick = new EventEmitter<{ field: string; value: string }>();
   @Input() daxMeasures: DaxMeasureConfig[] = [];
@@ -81,6 +85,12 @@ export class AdvancedChartComponent implements OnChanges, OnDestroy {
   byRef = (_: number, o: Highcharts.Options) => o;
 
   get daxSummaryHeight(): number { return Math.min(this.daxSummaries.length * 28 + 2, 114); }
+
+  /** A tall decomposition tree keeps its real height so the host scrolls instead of clipping the lower nodes. */
+  get contentHeight(): number | null {
+    const height = this.type === 'decompositiontree' ? Number(this.options?.chart?.height) : NaN;
+    return Number.isFinite(height) && height > 0 ? height : null;
+  }
 
   ngOnChanges(): void {
     this.subscription?.unsubscribe();
@@ -147,7 +157,12 @@ export class AdvancedChartComponent implements OnChanges, OnDestroy {
   }
 
   private applyLegend(): void {
-    if (this.options && !this.showLegend) this.options.legend = { ...this.options.legend, enabled: false };
+    if (!this.options) return;
+    if (!this.showLegend) this.options.legend = { ...this.options.legend, enabled: false };
+    // Bottom leaves each visual's own legend options as they always were.
+    else if (this.legendPosition !== 'bottom') {
+      this.options.legend = { ...this.options.legend, ...highchartsLegendPosition(this.legendPosition) };
+    }
   }
 
   ngOnDestroy(): void { this.subscription?.unsubscribe(); }

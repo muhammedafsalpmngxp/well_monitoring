@@ -27,6 +27,7 @@
     <PackageReference Include="CsvHelper" Version="33.0.1" />
     <PackageReference Include="ExcelDataReader" Version="3.7.0" />
     <PackageReference Include="ExcelDataReader.DataSet" Version="3.7.0" />
+    <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="180.107.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -46,6 +47,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="TWise.Tenant.UnitTests" />
+    <InternalsVisibleTo Include="TWise.Tenant.CrewCalendar.Tests" />
   </ItemGroup>
 
 </Project>

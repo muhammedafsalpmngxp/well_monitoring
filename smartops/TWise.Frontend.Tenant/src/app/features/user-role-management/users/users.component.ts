@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, HostListener, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { ClientSideRowModelModule, ColDef, GetRowIdParams, ModuleRegistry, RowSelectionModule, RowSelectionOptions, SelectionColumnDef, themeQuartz } from 'ag-grid-community';
 import { EmployeeCellRendererComponent } from './cell-renderers/employee-cell-renderer.component';
 import { RoleCellRendererComponent } from './cell-renderers/role-cell-renderer.component';
@@ -7,6 +7,7 @@ import { ActionsCellRendererComponent } from './cell-renderers/actions-cell-rend
 import { AuthService } from '../../../core/services/auth.service';
 import { UserManagementService, TenantUserDto, PagedResult, RoleDto, EmployeePlantAccess } from '../../../core/services/user-management.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { NotificationHelper } from '../../../core/helpers/notification.helper';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule, RowSelectionModule]);
 
@@ -66,13 +67,22 @@ const rowSelection: RowSelectionOptions<UserRow> = {
   templateUrl: './users.component.html',
   styleUrls: ['./users.component.scss'],
 })
-export class UsersComponent implements OnInit {
+export class UsersComponent implements OnInit, OnDestroy {
+  private readonly notify: NotificationHelper;
+  get successMessage(): string { return this.notify.successMessage; }
+
   constructor(
     private readonly authService: AuthService,
     private readonly userManagementService: UserManagementService,
     private readonly toastService: ToastService,
     private readonly cdr: ChangeDetectorRef,
-  ) {}
+  ) {
+    this.notify = new NotificationHelper(cdr);
+  }
+
+  ngOnDestroy(): void {
+    this.notify.destroy();
+  }
 
   readonly stats: UserStat[] = [
     { label: 'Total Users', value: 0, icon: 'total', accent: 'blue' },
@@ -225,12 +235,14 @@ export class UsersComponent implements OnInit {
     this.showCreateUserModal = false;
     this.editingUser = null;
     this.refreshUsers(Math.ceil((this.totalCount + 1) / this.pageSize));
+    this.notify.showSuccess('User added successfully.');
   }
 
   onUserUpdated(_user: UserRow): void {
     this.showCreateUserModal = false;
     this.editingUser = null;
     this.refreshUsers();
+    this.notify.showSuccess('User updated successfully.');
   }
 
   showResetPasswordModal = false;
@@ -305,6 +317,7 @@ export class UsersComponent implements OnInit {
       next: () => {
         this.deletingUserId = null;
         this.refreshUsers();
+        this.notify.showSuccess('User deleted successfully.');
         this.cdr.detectChanges();
       },
       error: () => {
@@ -341,7 +354,7 @@ export class UsersComponent implements OnInit {
     { headerName: 'Employee ID', field: 'employeeId', minWidth: 130 },
     { headerName: 'Email', field: 'email', minWidth: 220 },
     { headerName: 'Role', field: 'role', cellRenderer: RoleCellRendererComponent, minWidth: 150,
-      autoHeight: true, wrapText: true, tooltipField: 'role' },
+      autoHeight: true, wrapText: true, tooltip: p => p.data?.role },
     { headerName: 'Plant Access', field: 'plantAccess',
       valueFormatter: p => {
         const codes: string[] = p.value ?? [];

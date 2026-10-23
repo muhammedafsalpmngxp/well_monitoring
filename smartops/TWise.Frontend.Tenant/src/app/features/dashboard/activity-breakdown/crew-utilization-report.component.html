@@ -96,7 +96,7 @@
       </div>
       <div
         *ngIf="view === 'planned'"
-        title="Average planned utilization for crews with known capacity, including reservations and preview allocations"
+        title="Average planned utilization for crews with known capacity, using only activities allocated within this plan"
       >
         <dt>
           <span class="cu-report__metric-icon" aria-hidden="true"
@@ -113,7 +113,7 @@
       </div>
       <div
         *ngIf="view === 'actual'"
-        title="Average of individual crew actual utilization rates with known capacity"
+        title="Average of individual crew actual utilization rates with known capacity; overlapping activities count separately"
       >
         <dt>
           <span class="cu-report__metric-icon" aria-hidden="true"

@@ -2,7 +2,7 @@ import {
   CalendarActivity, CalendarCrew, CrewBooking, CrewCalendarData, CrewUtilizationGroup,
   CrewUtilizationReport, CrewUtilizationRow, CrewUtilizationStatus, CrewUtilizationTotals, CrewReportStatus,
 } from '../../../core/models/crew-calendar.model';
-import { bookedDaysInWindow } from './crew-calendar-planning';
+import { activityKey, bookedDaysInWindow, uncoveredBookings } from './crew-calendar-planning';
 
 const normalize = (value: string): string => value.trim().toLowerCase();
 const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
@@ -22,7 +22,7 @@ export function crewUtilizationStatus(utilization: number | null): CrewUtilizati
 }
 
 export function crewReportStatus(utilization: number | null): CrewReportStatus {
-  if (utilization === 100) return 'Fully utilized';
+  if (utilization !== null && utilization >= 100) return 'Fully utilized';
   if (utilization === 0) return 'Not utilized';
   if (utilization !== null && utilization > 0 && utilization < 100) return 'Partially utilized';
   return 'N/A';
@@ -64,10 +64,30 @@ function actualBooking(activity: CalendarActivity, today: string): CrewBooking[]
   return start <= end ? [{ plannedStart: start, plannedEnd: end }] : [];
 }
 
+function engagementDaysInWindow(activities: CalendarActivity[], from: string, to: string,
+  bookingFor: (activity: CalendarActivity) => CrewBooking[]): number {
+  const byActivity = new Map<string, CrewBooking[]>();
+  for (const activity of activities) {
+    if (activity.isMilestone || activity.source === 'draft') continue;
+    const bookings = bookingFor(activity);
+    if (!bookings.length) continue;
+    const key = activityKey(activity);
+    const existing = byActivity.get(key);
+    if (existing) existing.push(...bookings);
+    else byActivity.set(key, bookings);
+  }
+  // Duplicate source rows describe one activity, but different overlapping activities each use a crew-day.
+  return [...byActivity.values()].reduce((total, bookings) => total + bookedDaysInWindow(bookings, from, to), 0);
+}
+
+export function plannedDaysInWindow(activities: CalendarActivity[], bookings: CrewBooking[], from: string, to: string): number {
+  const relevant = activities.filter(activity => !activity.isMilestone && activity.source !== 'draft');
+  return engagementDaysInWindow(relevant, from, to, activity => [activity]) +
+    bookedDaysInWindow(uncoveredBookings(bookings, relevant), from, to);
+}
+
 export function actualDaysInWindow(activities: CalendarActivity[], from: string, to: string, today: string): number {
-  return bookedDaysInWindow(activities
-    .filter(activity => !activity.isMilestone && activity.source !== 'draft')
-    .flatMap(activity => actualBooking(activity, today)), from, to);
+  return engagementDaysInWindow(activities, from, to, activity => actualBooking(activity, today));
 }
 
 export function buildCrewUtilizationReport(
@@ -105,7 +125,7 @@ export function buildCrewUtilizationReport(
   for (const [groupCode, source] of grouped) {
     const crews: CrewUtilizationRow[] = [...source.crews].map(([crewId, crew]) => {
       const activities = crew.activities.filter(activity => !activity.isMilestone && activity.source !== 'draft');
-      const plannedDays = bookedDaysInWindow([...activities, ...(crew.bookings ?? [])], from, to);
+      const plannedDays = plannedDaysInWindow(activities, crew.bookings ?? [], from, to);
       const actualAssignedDays = actualDaysInWindow(activities, from, to, today);
       return {
         crewId: crew.crewCode,

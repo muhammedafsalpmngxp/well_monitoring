@@ -61,6 +61,9 @@
 .avr-modal-footer {
     position: sticky;
     bottom: 0;
+    z-index: 10;
+    width: 100%;
+    box-sizing: border-box;
     background: #fff;
     border-top: 1px solid #E7ECF3;
     display: flex;

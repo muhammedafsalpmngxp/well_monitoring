@@ -4,6 +4,56 @@ import { ChartSelectorItem, DashboardBuilderComponent } from './dashboard-builde
 import { OperationsDashboardComponent } from './operations-dashboard/operations-dashboard.component';
 import { DashboardModule } from './dashboard.module';
 import { BoardBuilderComponent } from './board-builder/board-builder.component';
+import { BoardBuilderTestComponent } from './board-builder-test/board-builder-test.component';
+
+describe.each([
+  ['dashboard builder', DashboardBuilderComponent],
+  ['board builder', BoardBuilderComponent],
+  ['alternate board builder', BoardBuilderTestComponent],
+] as const)('%s global dropdown workflow', (_page, ComponentType) => {
+  function builder() {
+    const component: DashboardBuilderComponent | BoardBuilderComponent | BoardBuilderTestComponent =
+      Object.create(ComponentType.prototype);
+    Object.assign(component, {
+      country: 'Oman', sector: 'Construction', businessUnit: 'Energy', division: 'Oilfield',
+      cluster: 'Marmul', plant: 'Marmul ODC', openFilterName: 'plant',
+      allPlants: [{
+        plantCode: 1, plantDescription: 'Marmul ODC', cluster: 'Marmul',
+        country: 'Oman', sector: 'Construction', businessUnit: 'Energy', division: 'Oilfield',
+      }],
+      reloadPlacedPreviews: vi.fn(), persistFilterState: vi.fn(), cdr: { markForCheck: vi.fn() },
+    });
+    return component;
+  }
+
+  it.each(['All', 'Marmul ODC'])('keeps plant cleared after selecting %s with only one option', value => {
+    const component = builder();
+    component.selectFilterOption('plant', value);
+    expect(component.plant).toBe('All');
+    expect(component.cluster).toBe('Marmul');
+    expect(component.openFilterName).toBe('plant');
+  });
+
+  it('keeps All and downstream plants unrestricted without closing the cluster menu', () => {
+    const component = builder();
+    component.openFilterName = 'cluster';
+    component.selectFilterOption('cluster', 'All');
+    expect(component.cluster).toBe('All');
+    expect(component.plant).toBe('All');
+    expect(component.openFilterName).toBe('cluster');
+  });
+
+  it('toggles multiple plants through array, scalar, then All', () => {
+    const component = builder();
+    component.selectFilterOption('plant', 'Nimr ODC');
+    expect(component.plant).toEqual(['Marmul ODC', 'Nimr ODC']);
+    component.selectFilterOption('plant', 'Marmul ODC');
+    expect(component.plant).toBe('Nimr ODC');
+    component.selectFilterOption('plant', 'Nimr ODC');
+    expect(component.plant).toBe('All');
+    expect(component.openFilterName).toBe('plant');
+  });
+});
 
 const shared = {
   id: 'Plants::Plant_description', label: 'Plant', sourceTable: 'Plants',
@@ -57,6 +107,31 @@ describe('saved period chart category colors', () => {
     const builder: BoardBuilderComponent = Object.create(BoardBuilderComponent.prototype);
     expect(builder['categoryColorFor']('Oct 2026', design, 'Actual')).toBe('#123456');
     expect(builder['colorForRule']('Nov 2026', 3, design, 'Actual')).toBe('#123456');
+  });
+});
+
+describe('dashboard chart drill-down parameters', () => {
+  it('passes the clicked category and multi-series legend name to drill-down', () => {
+    const navigate = vi.fn();
+    const card: any = { sortOrder: 1, widgetId: 42, multiSeries: [], localFilters: [] };
+    const component: OperationsDashboardComponent = Object.assign(Object.create(OperationsDashboardComponent.prototype), {
+      chartCards: [card], router: { navigate }, route: { snapshot: { queryParamMap: { get: () => 'standard' } } },
+      filterCountry: 'All', filterSector: 'All',
+      filterBusinessUnit: 'All', filterDivision: 'All', filterCluster: 'All', filterPlant: 'All',
+      filterFrom: '', filterTo: '', currentDashboardId: 7,
+      board: { title: 'Operations' },
+    });
+    const options = component['injectDrillDownClick']({
+      series: [{ name: 'Plan' }, { name: 'Actual' }],
+    }, 42, undefined, card) as any;
+
+    options.plotOptions.series.events.click({
+      point: { category: 'May-26', series: { type: 'line', name: 'Actual' } },
+    });
+
+    expect(navigate).toHaveBeenCalledWith(['/charts-tiles/view', 42, 'drilldown'], expect.objectContaining({
+      queryParams: expect.objectContaining({ filter: 'May-26', series: 'Actual', boardFrom: 'standard' }),
+    }));
   });
 });
 
@@ -230,7 +305,7 @@ describe('dashboard shared filter requests', () => {
       widgetService: { getFilteredChartData }, customFilters: [shared],
       loadedChartPreviewIds: new Set(), chartPreviewGenerations: {}, chartPreviewLoading: {}, chartAdditionalFilterNoData: {},
       trendChartPreviews: {}, chartTrendModes: {}, chartLocalFilterValues: {},
-      slotPreviewFiltersCache: new WeakMap(), destroy$: new Subject(),
+      slotPreviewFiltersCache: new WeakMap(), destroy$: new Subject(), chartPreviewReload$: new Subject(),
       fromDate: '2026-01-01', toDate: '2026-09-22',
     });
     const chart: ChartSelectorItem = {
@@ -254,7 +329,7 @@ describe('dashboard shared filter requests', () => {
       widgetService: { getFilteredChartData }, customFilters: additional ? [{ ...shared, additional: true }] : [],
       loadedChartPreviewIds: new Set(), chartPreviewGenerations: {}, chartPreviewLoading: {}, chartAdditionalFilterNoData: {},
       trendChartPreviews: {}, chartTrendModes: {}, chartLocalFilterValues: {},
-      slotPreviewFiltersCache: new WeakMap(), destroy$: new Subject(),
+      slotPreviewFiltersCache: new WeakMap(), destroy$: new Subject(), chartPreviewReload$: new Subject(),
       fromDate: '2026-01-01', toDate: '2026-09-22', plant: 'Global Plant', cluster: 'Cluster A',
     });
     component.onChartVisible({
@@ -282,7 +357,7 @@ describe('dashboard shared filter requests', () => {
       widgetService: { getFilteredChartData }, customFilters: [{ ...shared, additional: true }],
       loadedChartPreviewIds: new Set(), chartPreviewGenerations: {}, chartPreviewLoading: {}, chartAdditionalFilterNoData: {},
       trendChartPreviews: {}, chartTrendModes: {}, chartLocalFilterValues: {},
-      slotPreviewFiltersCache: new WeakMap(), destroy$: new Subject(),
+      slotPreviewFiltersCache: new WeakMap(), destroy$: new Subject(), chartPreviewReload$: new Subject(),
       fromDate: '2026-01-01', toDate: '2026-09-22',
     });
     component.onChartVisible({
@@ -347,6 +422,155 @@ describe('dashboard shared filter requests', () => {
         dashboardAdditional: true,
       })],
     }), undefined);
+  });
+
+  it.each(['reload', 'trend', 'local'] as const)('sends all shared selections on viewer %s requests', action => {
+    const { component, getFilteredChartData } = viewer();
+    component.customFilters = [{ ...shared, additional: true, value: ['Amal', 'Nimr'] }];
+    component.filterCluster = ['North', 'South'];
+    component.chartCards[0].design = { source: 'Readiness', sourceType: 'View', dataSourceMode: 'view', viewId: 1 };
+    if (action === 'reload') component['reloadCardData$'](0);
+    else if (action === 'trend') component.setCardTrendMode(0, 'yearly');
+    else component.applyLocalFilter(0);
+    expect(getFilteredChartData).toHaveBeenCalledWith(expect.objectContaining({
+      filters: expect.arrayContaining([
+        expect.objectContaining({ sourceColumn: 'Plant_description', controlType: 'MultiSelect', values: ['Amal', 'Nimr'], dashboardAdditional: true }),
+        expect.objectContaining({ sourceColumn: 'cluster', controlType: 'MultiSelect', values: ['North', 'South'] }),
+      ]),
+    }), undefined);
+  });
+
+  it('toggles hierarchy selections without closing the dropdown and narrows children to any selected parent', () => {
+    const { component } = viewer();
+    Object.assign(component, {
+      filterCountry: 'Oman', filterSector: 'Construction', filterBusinessUnit: 'Energy', filterDivision: 'Oilfield',
+      filterCluster: 'All', filterPlant: 'All', openFilterName: 'cluster',
+      allPlants: [
+        { country: 'Oman', sector: 'Construction', businessUnit: 'Energy', division: 'Oilfield', cluster: 'North', plantDescription: 'Amal' },
+        { country: 'Oman', sector: 'Construction', businessUnit: 'Energy', division: 'Oilfield', cluster: 'South', plantDescription: 'Nimr' },
+        { country: 'Oman', sector: 'Construction', businessUnit: 'Energy', division: 'Oilfield', cluster: 'West', plantDescription: 'West Plant' },
+      ],
+      persistFilterState: vi.fn(), onClusterChange: vi.fn(),
+    });
+    component.selectFilterOption('cluster', 'North');
+    component.selectFilterOption('cluster', 'South');
+    expect(component.filterCluster).toEqual(['North', 'South']);
+    expect(component.filterPlantOptions).toEqual(['Amal', 'Nimr']);
+    expect(component.openFilterName).toBe('cluster');
+    component.selectFilterOption('cluster', 'North');
+    expect(component.filterCluster).toBe('South');
+    component.selectFilterOption('cluster', 'All');
+    expect(component.filterCluster).toBe('All');
+  });
+
+  it('matches any selected value within a hierarchy field and requires matches across fields', () => {
+    const { component } = viewer();
+    Object.assign(component, {
+      filterCountry: 'All', filterSector: 'All', filterBusinessUnit: 'All', filterDivision: 'All',
+      filterCluster: ['North', 'South'], filterPlant: ['Amal', 'Nimr'],
+    });
+    const rows = [
+      { Cluster: 'North', Plant: 'Amal' }, { Cluster: 'South', Plant: 'Nimr' },
+      { Cluster: 'West', Plant: 'Amal' }, { Cluster: 'North', Plant: 'West Plant' },
+    ];
+    expect(component['applyGlobalRowFilter'](rows)).toEqual(rows.slice(0, 2));
+  });
+
+  describe('legacy global filter compatibility', () => {
+    function legacyViewer() {
+      const { component } = viewer();
+      Object.assign(component, {
+        filterCountry: 'Oman', filterSector: 'Construction', filterBusinessUnit: 'Energy',
+        filterDivision: 'Oilfield', filterCluster: 'All', filterPlant: 'All',
+        allPlants: [], filterCountryOptions: [], customFilters: [],
+        persistFilterState: vi.fn(), onClusterChange: vi.fn(), onGlobalDateChange: vi.fn(),
+        cdr: { markForCheck: vi.fn() },
+      });
+      return component;
+    }
+
+    it('applies a single plant without selecting a cluster or changing parent filters', () => {
+      const component = legacyViewer();
+      component.selectFilterOption('plant', 'Marmul ODC');
+      expect(component.filterPlant).toBe('Marmul ODC');
+      expect(component.filterCluster).toBe('All');
+      expect(component.filterDivision).toBe('Oilfield');
+      expect(component['onClusterChange']).toHaveBeenCalledOnce();
+      const rows = [{ Plant: 'Marmul ODC' }, { Plant: 'Amal ODC' }];
+      expect(component['applyGlobalRowFilter'](rows)).toEqual([rows[0]]);
+    });
+
+    it('clears downstream selections, but not parents, when division changes', () => {
+      const component = legacyViewer();
+      component.filterDivision = 'All';
+      component.filterCluster = 'Marmul';
+      component.filterPlant = 'Marmul ODC';
+      component.selectFilterOption('division', 'Oilfield');
+      expect(component.filterCountry).toBe('Oman');
+      expect(component.filterBusinessUnit).toBe('Energy');
+      expect(component.filterDivision).toBe('Oilfield');
+      expect(component.filterCluster).toBe('All');
+      expect(component.filterPlant).toBe('All');
+    });
+
+    it.each(['cluster', 'plant'])('keeps an explicit %s All selection unrestricted even with one option', field => {
+      const component = legacyViewer();
+      component['allPlants'] = [{
+        plantCode: 1, plantDescription: 'Marmul ODC', cluster: 'Marmul',
+        country: 'Oman', sector: 'Construction', businessUnit: 'Energy', division: 'Oilfield',
+      }];
+      component.filterCluster = 'Marmul';
+      component.filterPlant = 'Marmul ODC';
+      component.selectFilterOption(field, 'All');
+      expect(component.filterPlant).toBe('All');
+      if (field === 'cluster') expect(component.filterCluster).toBe('All');
+    });
+
+    it('keeps quick ranges routed through the existing date change handler', () => {
+      const component = legacyViewer();
+      const applyQuickRange = vi.fn();
+      Object.assign(component, { applyQuickRange, openFilterName: 'quickRange' });
+      component.selectFilterOption('quickRange', 'Last Month');
+      expect(applyQuickRange).toHaveBeenCalledWith('Last Month');
+      expect(component['onGlobalDateChange']).toHaveBeenCalledOnce();
+      expect(component['onClusterChange']).not.toHaveBeenCalled();
+      expect(component.openFilterName).toBeNull();
+    });
+
+    it('restores legacy scalar presets, dates, and active preset state', () => {
+      const component = legacyViewer();
+      component.applySavedFilterPreset({
+        id: 7, name: 'Legacy', accent: 'purple', lastUsed: '', isFavorite: false,
+        country: 'Oman', sector: 'Construction',
+        businessUnit: 'Energy', division: 'Oilfield', cluster: 'All', plant: 'Marmul ODC',
+        quickRange: 'Custom', fromDate: '2026-01-01T00:00:00', toDate: '2026-09-08T00:00:00',
+      });
+      expect(component.filterPlant).toBe('Marmul ODC');
+      expect(component.filterCluster).toBe('All');
+      expect(component.filterFrom).toBe('2026-01-01');
+      expect(component.filterTo).toBe('2026-09-08');
+      expect(component.activePresetId).toBe(7);
+      expect(component['onClusterChange']).toHaveBeenCalledOnce();
+      expect(component['onGlobalDateChange']).toHaveBeenCalledOnce();
+      expect(component['persistFilterState']).toHaveBeenCalledOnce();
+    });
+
+    it('resets hierarchy, custom filters, dates, and preset without removing reloads', () => {
+      const component = legacyViewer();
+      Object.assign(component, {
+        filterCluster: ['Marmul', 'Nimr'], filterPlant: 'Marmul ODC',
+        customFilters: [{ ...shared }], activePresetId: 7, openFilterName: 'plant',
+      });
+      component.clearAllFilters();
+      expect([component.filterCountry, component.filterSector, component.filterBusinessUnit,
+        component.filterDivision, component.filterCluster, component.filterPlant]).toEqual(Array(6).fill('All'));
+      expect(component.customFilters[0].value).toBe('All');
+      expect(component.filterQuickRange).toBe('');
+      expect(component.activePresetId).toBeNull();
+      expect(component.openFilterName).toBeNull();
+      expect(component['onClusterChange']).toHaveBeenCalledOnce();
+      expect(component['onGlobalDateChange']).toHaveBeenCalledOnce();
+    });
   });
 
   describe('dashboard view additional-filter no-data state', () => {

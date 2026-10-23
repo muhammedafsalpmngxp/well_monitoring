@@ -92,6 +92,29 @@ public sealed partial class SourceRepository(TenantDbContext db, IConfiguration 
         return results;
     }
 
+    public async Task<SyncTimeResponse?> GetSyncTimeAsync(CancellationToken ct = default)
+    {
+        var cs = configuration.GetConnectionString("AlTasnimBI")
+            ?? throw new InvalidOperationException("ConnectionStrings:AlTasnimBI is not configured.");
+
+        await using var conn = new SqlConnection(cs);
+        await conn.OpenAsync(ct);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT TOP 1 DATEADD(HOUR, 4, success_timestamp) AS oman_timestamp
+            FROM [log].[MigrationSuccessLog]
+            ORDER BY success_timestamp DESC;
+            """;
+        cmd.CommandTimeout = 15;
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct) || await reader.IsDBNullAsync(0, ct))
+            return null;
+
+        return new SyncTimeResponse(new DateTimeOffset(reader.GetDateTime(0), TimeSpan.FromHours(4)));
+    }
+
     public async Task<TableDataDto?> GetTableDataAsync(
         string sourceName, string sourceType, CancellationToken ct = default)
     {
@@ -544,43 +567,20 @@ public sealed partial class SourceRepository(TenantDbContext db, IConfiguration 
 
             if (activeFilters.Count > 0 && request.ViewId.HasValue)
             {
-                if (!CanApplyAdditionalViewFilters(sql, activeFilters))
+                var filterResult = ViewFilterHelper.ApplyViewFilters(sql, activeFilters, baseParamIndex: parameters.Count);
+                if (filterResult.IsEmptyResult)
                 {
                     logger.LogWarning("Additional dashboard filter has no usable placeholder in view {ViewId}; returning no data",
                         request.ViewId);
                     return new TableDataDto([], []);
                 }
-                // View SQL declares placeholder variables (e.g. DECLARE @cluster ... = NULL) whose
-                // filter logic is already baked into the query. Override each placeholder that matches
-                // an interactive filter with the selected value — same idea as the global filters.
-                foreach (var filter in activeFilters)
+                sql = filterResult.Sql;
+                foreach (var p in filterResult.Parameters)
                 {
-                    // Placeholder is matched by the filter's control name (set to match the @variable),
-                    // falling back to source column/table for older filters. Filter labels/columns are
-                    // often typed with spaces (e.g. "Terrain Type") while the view declares a
-                    // snake_case placeholder (e.g. @terrain_type), so also try each candidate normalized.
-                    var placeholder = ResolveChartFilterPlaceholder(sql, filter);
-                    if (placeholder is null)
-                    {
-                        logger.LogWarning("No @placeholder matching filter '{Label}' ({Column}/{Table}) in view {ViewId} — filter ignored",
-                            filter.Label, filter.SourceColumn, filter.SourceTable, request.ViewId);
-                        continue;
-                    }
-
-                    var paramName = $"@p{parameters.Count}";
-                    var overridden = OverrideDeclaredPlaceholder(sql, placeholder, paramName);
-                    if (overridden == sql)
-                    {
-                        logger.LogWarning("Could not override @{Placeholder} in view {ViewId} — filter ignored",
-                            placeholder, request.ViewId);
-                        continue;
-                    }
-                    sql = overridden;
-
-                    var p = conn.CreateCommand().CreateParameter();
-                    p.ParameterName = paramName;
-                    p.Value = filter.Value;
-                    parameters.Add(p);
+                    var parameter = conn.CreateCommand().CreateParameter();
+                    parameter.ParameterName = p.Name;
+                    parameter.Value = p.Value ?? DBNull.Value;
+                    parameters.Add(parameter);
                 }
             }
             else if (activeFilters.Count > 0)
@@ -637,6 +637,14 @@ public sealed partial class SourceRepository(TenantDbContext db, IConfiguration 
                             filter.SourceTable, ct);
                         if (path is null || path.Count == 0)
                         {
+                            // Best-effort global filter (e.g. cluster/plant): if the source table has no
+                            // FK path to the filter table, skip it and leave the data unfiltered.
+                            if (filter.Optional)
+                            {
+                                logger.LogInformation("Optional filter table {FilterTable} has no FK path into {ChartSource} \u2014 filter skipped",
+                                    filter.SourceTable, request.ChartSource);
+                                continue;
+                            }
                             logger.LogWarning("Cannot join filter table {FilterTable} into table {ChartSource}; filtered request rejected",
                                 filter.SourceTable, request.ChartSource);
                             return null;
@@ -1192,57 +1200,23 @@ public sealed partial class SourceRepository(TenantDbContext db, IConfiguration 
     }
 
     private static string? ResolveChartFilterPlaceholder(string sql, ChartFilterParam filter) =>
-        FindDeclaredPlaceholder(sql, filter.Label)
-        ?? FindDeclaredPlaceholder(sql, NormalizePlaceholderName(filter.Label))
-        ?? FindDeclaredPlaceholder(sql, filter.SourceColumn)
-        ?? FindDeclaredPlaceholder(sql, NormalizePlaceholderName(filter.SourceColumn))
-        ?? FindDeclaredPlaceholder(sql, filter.SourceTable)
-        ?? FindDeclaredPlaceholder(sql, NormalizePlaceholderName(filter.SourceTable));
+        ViewFilterHelper.ResolveChartFilterPlaceholder(sql, filter);
 
     private static bool CanApplyAdditionalViewFilters(string sql, IReadOnlyList<ChartFilterParam> filters) =>
-        filters.Where(filter => filter.DashboardAdditional).All(filter =>
-            ResolveChartFilterPlaceholder(sql, filter) is { } placeholder &&
-            OverrideDeclaredPlaceholder(sql, placeholder, "@pAdditional") != sql);
+        ViewFilterHelper.CanApplyAdditionalFilters(sql, filters);
 
-    /// Converts a display-style name (e.g. "Terrain Type") to a snake_case placeholder candidate
-    /// (e.g. "Terrain_Type") so it can match a view's DECLARE @terrain_type variable.
     private static string? NormalizePlaceholderName(string? name) =>
-        string.IsNullOrWhiteSpace(name) ? null : System.Text.RegularExpressions.Regex.Replace(name.Trim(), @"[\s-]+", "_");
+        ViewFilterHelper.NormalizePlaceholderName(name);
 
     private static bool ShouldPreserveFutureDateRange(string sql, ChartFilteredDataRequest request) =>
         request.ViewId.HasValue && request.PreserveFutureDateRange &&
         FindDeclaredPlaceholder(sql, "future_date") is not null;
 
-    /// Returns the actual declared variable name if the view SQL declares "DECLARE @name ..." (case-insensitive).
-    private static string? FindDeclaredPlaceholder(string sql, string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return null;
-        var m = System.Text.RegularExpressions.Regex.Match(
-            sql, $@"DECLARE\s+@({System.Text.RegularExpressions.Regex.Escape(name)})\b",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        return m.Success ? m.Groups[1].Value : null;
-    }
+    private static string? FindDeclaredPlaceholder(string sql, string? name) =>
+        ViewFilterHelper.FindDeclaredPlaceholder(sql, name);
 
-    /// Rewrites a single-line "DECLARE @placeholder <type> = <default>" declaration so the variable
-    /// is initialised from paramName. The terminating semicolon is optional in generated view SQL.
-    private static string OverrideDeclaredPlaceholder(string sql, string placeholder, string paramName)
-    {
-        var assignmentPattern =
-            $@"\bSET\s+@{System.Text.RegularExpressions.Regex.Escape(placeholder)}\b\s*=\s*[^;]+;";
-        var assignedSql = System.Text.RegularExpressions.Regex.Replace(
-            sql,
-            assignmentPattern,
-            $"SET @{placeholder} = {paramName};",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline,
-            TimeSpan.FromSeconds(1));
-        if (assignedSql != sql) return assignedSql;
-
-        return System.Text.RegularExpressions.Regex.Replace(
-            sql,
-            $@"(DECLARE\s+@{System.Text.RegularExpressions.Regex.Escape(placeholder)}\b[^=;\r\n]*=\s*)([^;\r\n]+)(;?)",
-            $"$1{paramName}$3",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-    }
+    private static string OverrideDeclaredPlaceholder(string sql, string placeholder, string paramName) =>
+        ViewFilterHelper.OverrideDeclaredPlaceholder(sql, placeholder, paramName);
 
     private static async Task<string?> ResolveSchemaAsync(
         System.Data.Common.DbConnection conn, string name, string sourceType, CancellationToken ct)
@@ -1385,7 +1359,30 @@ public sealed partial class SourceRepository(TenantDbContext db, IConfiguration 
                 }
             }
 
-            return new AdvancedFilterDataDto(orgRows, companies);
+            await using var resourceCmd = conn.CreateCommand();
+            resourceCmd.CommandText = """
+                SELECT DISTINCT LTRIM(RTRIM([resource])) AS [resource]
+                FROM [ref].[local_filters]
+                WHERE NULLIF(LTRIM(RTRIM([resource])), '') IS NOT NULL
+                ORDER BY [resource]
+                """;
+            resourceCmd.CommandTimeout = 30;
+            var resourceTypes = new List<string>();
+            string? resourceTypesError = null;
+            try
+            {
+                await using var resourceReader = await resourceCmd.ExecuteReaderAsync(ct);
+                while (await resourceReader.ReadAsync(ct))
+                    resourceTypes.Add(resourceReader.GetString(0));
+            }
+            catch (SqlException ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogError(ex, "Failed to load Advanced Filter resource options from ref.local_filters.");
+                resourceTypes.Clear();
+                resourceTypesError = "Unable to load Resource Type options. Contact your administrator.";
+            }
+
+            return new AdvancedFilterDataDto(orgRows, companies, resourceTypes, resourceTypesError);
         }
     }
 

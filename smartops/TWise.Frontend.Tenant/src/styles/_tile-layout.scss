@@ -1,0 +1,51 @@
+@mixin text-row($label, $value) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+
+  > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  > #{$label}, > #{$value} {
+    grid-row: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0;
+  }
+
+  > #{$label} {
+    grid-column: 1;
+    text-align: left;
+  }
+
+  > #{$value} {
+    grid-column: 2;
+    text-align: right;
+  }
+}
+
+@mixin card-row($icon, $label, $value) {
+  @include text-row($label, $value);
+  align-content: center;
+  align-content: safe center;
+
+  // Cards without an icon use the same two-column row as compact inline tiles.
+  &:has(> #{$icon}) {
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+
+    > #{$icon} {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    > #{$label} { grid-column: 2; }
+    > #{$value} { grid-column: 3; }
+  }
+}

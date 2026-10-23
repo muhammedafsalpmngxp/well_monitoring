@@ -4,7 +4,18 @@ import { of, Subject } from 'rxjs';
 import { catchError, switchMap, takeUntil } from 'rxjs/operators';
 import { ColDef, GridApi, ModuleRegistry, ClientSideRowModelModule, TextFilterModule, PaginationModule } from 'ag-grid-community';
 import { WidgetService } from '../../../core/services/widget.service';
+import { advancedHierarchyFilters } from '../../../core/utils/advanced-hierarchy-filter.util';
+import type { AdvancedFilterValue } from '../../../shared/components/advanced-filter/advanced-filter.component';
 import { getViewDateRangeDefaults, replaceViewDateRangeParameters } from '../../../core/utils/view-date-parameters.util';
+import {
+  GlobalFilterSelection,
+  globalSelectionLabel,
+  globalSelectionPayload,
+  hasGlobalSelection,
+  matchesGlobalSelection,
+  parseGlobalSelection,
+  isGlobalFilterOptionChecked, GlobalFilterClearState, toggleGlobalSelection,
+} from '../../../core/utils/global-filter-selection.util';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule, TextFilterModule, PaginationModule]);
 import { CommonApiService, PlantFilterDto } from '../../../core/services/common-api.service';
@@ -49,8 +60,37 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
     { key: 'cluster', label: 'Cluster', options: [] as string[] },
     { key: 'plant', label: 'Plant', options: [] as string[] },
   ];
-  filterValues: Record<string, string> = { country: 'All', sector: 'All', businessUnit: 'All', division: 'All', cluster: 'All', plant: 'All' };
-  openFilterName: string | null = null;
+  filterValues: Record<string, GlobalFilterSelection> = { country: 'All', sector: 'All', businessUnit: 'All', division: 'All', cluster: 'All', plant: 'All' };
+  private globalFilterClearState?: GlobalFilterClearState;
+
+  get globalFilterClear(): GlobalFilterClearState {
+    return this.globalFilterClearState ??= new GlobalFilterClearState();
+  }
+  private openFilterNameValue: string | null = null;
+
+  get openFilterName(): string | null {
+    return this.openFilterNameValue;
+  }
+
+  set openFilterName(name: string | null) {
+    this.openFilterNameValue = name;
+    // Closing a dropdown left in the "Clear all" state reverts that filter to All.
+    const abandoned = this.globalFilterClear.release(name);
+    if (abandoned) this.revertClearedGlobalFilter(abandoned.key);
+  }
+
+  clearGlobalFilterSelection(key: unknown, event: Event): void {
+    event.stopPropagation();
+    this.globalFilterClear.clear(key, this.openFilterName);
+  }
+
+  isGlobalFilterCleared(key: unknown): boolean {
+    return this.globalFilterClear.isCleared(key);
+  }
+
+  private revertClearedGlobalFilter(key: unknown): void {
+    if (hasGlobalSelection(this.filterValues[String(key)])) this.selectFilterOption(String(key), 'All');
+  }
   fromDate = '';
   toDate = '';
   quickRange = '';
@@ -102,11 +142,13 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
         { label: 'Drill Down' },
       ];
     }
-    const wipLabel = this.isAdmin ? 'WIP Charts' : 'My Charts';
+    const from = this.route.snapshot.queryParamMap.get('from') ?? 'wip';
+    const isStandard = from === 'standard';
+    const chartListLabel = isStandard ? 'Standard Charts' : (this.isAdmin ? 'WIP Charts' : 'My Charts');
     return [
       { label: 'Charts & Tiles', route: '/charts-tiles' },
-      { label: wipLabel, route: '/charts-tiles/wip-charts' },
-      { label: this.chartTitle, route: `/charts-tiles/view/${this.chartId}` },
+      { label: chartListLabel, route: isStandard ? '/charts-tiles/standard-charts' : '/charts-tiles/wip-charts' },
+      { label: this.chartTitle, route: `/charts-tiles/view/${this.chartId}`, queryParams: { from } },
       { label: 'Drill Down' },
     ];
   }
@@ -145,7 +187,15 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
     // had active on the chart so the drilldown shows a consistent slice of data.
     for (const key of ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant']) {
       const value = this.route.snapshot.queryParamMap.get(key);
-      if (value) this.filterValues[key] = value;
+      if (value) {
+        try {
+          this.filterValues[key] = parseGlobalSelection(value);
+        } catch {
+          this.error = 'Invalid global filter selection.';
+          this.loading = false;
+          return;
+        }
+      }
     }
     const fromParam = this.route.snapshot.queryParamMap.get('fromDate') ?? '';
     const toParam = this.route.snapshot.queryParamMap.get('toDate') ?? '';
@@ -175,7 +225,13 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
         if (this.inheritedFromDate) this.fromDate = this.inheritedFromDate;
         if (this.inheritedToDate) this.toDate = this.inheritedToDate;
         // 0 = no cap; drill-down grids must show the full result set (some views exceed 10k rows).
-        return this.commonApi.previewView({ connectionId: view.connectionId, sql: this.injectDateParams(view.generatedSql), viewId: view.id, maxRows: 0 });
+        return this.commonApi.previewView({
+          connectionId: view.connectionId,
+          sql: this.injectDateParams(view.generatedSql),
+          viewId: view.id,
+          maxRows: 0,
+          filters: this.globalHierarchyFilterPayload(),
+        });
       }),
     ).subscribe({
       next: (res) => {
@@ -204,6 +260,8 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
 
   toggleFilterDropdown(name: string, event: Event): void {
     event.stopPropagation();
+    const index = this.filterFields.findIndex(field => field.key === name);
+    if (index >= 0 && this.isGlobalFilterLocked(index)) return;
     this.openFilterName = this.openFilterName === name ? null : name;
   }
 
@@ -213,14 +271,36 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
       this.applyQuickRange(value);
       this.onDateChange();
     } else {
-      this.filterValues[name] = value || 'All';
+      const fieldIndex = this.filterFields.findIndex(field => field.key === name);
+      if (this.isGlobalFilterLocked(fieldIndex)) return;
+      this.filterValues[name] = value === 'All'
+        ? 'All'
+        : toggleGlobalSelection(this.filterValues[name] ?? 'All', value, this.filterFields.find(field => field.key === name)?.options, this.globalFilterClear.consume(name));
       const hierarchy = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
       const index = hierarchy.indexOf(name);
       for (let i = index + 1; i < hierarchy.length; i++) this.filterValues[hierarchy[i]] = 'All';
       this.rebuildGlobalFilterOptions();
-      if (name === 'cluster' || name === 'plant') this.applyGlobalFilter();
+      this.openFilterName = null;
+      this.applyGlobalFilter();
+      return;
     }
     this.openFilterName = null;
+  }
+
+  isGlobalFilterLocked(index: number): boolean {
+    return !this.isAdmin && (this.filterFields[index]?.options.length ?? 0) <= 1;
+  }
+
+  globalSelectionLabel(selection: GlobalFilterSelection | null | undefined): string {
+    return globalSelectionLabel(selection);
+  }
+
+  hasSelectedGlobalFilter(name: string): boolean {
+    return hasGlobalSelection(this.filterValues[name]);
+  }
+
+  isGlobalFilterOptionSelected(name: string, option: string): boolean {
+    return isGlobalFilterOptionChecked(this.filterValues[name], option);
   }
 
   onDateChange(): void {
@@ -257,7 +337,7 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
   }
 
   private autoSelectSingleOptions(): void {
-    const active = (value: string) => value && value !== 'All';
+    const active = (value: GlobalFilterSelection) => hasGlobalSelection(value);
     const keys = ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant'];
     const selectors: ((plant: PlantFilterDto) => string)[] = [
       plant => plant.country,
@@ -271,7 +351,7 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
     if (this.filterFields[0].options.length === 1) this.filterValues['country'] = this.filterFields[0].options[0];
     let plants = this.allPlants;
     for (let index = 0; index < keys.length - 1; index++) {
-      if (active(this.filterValues[keys[index]])) plants = plants.filter(plant => selectors[index](plant) === this.filterValues[keys[index]]);
+      if (active(this.filterValues[keys[index]])) plants = plants.filter(plant => matchesGlobalSelection(selectors[index](plant), this.filterValues[keys[index]]));
       const options = this.distinctPlant(plants, selectors[index + 1]);
       this.filterFields[index + 1].options = active(this.filterValues[keys[index]]) ? options : [];
       if (options.length === 1 && active(this.filterValues[keys[index]])) this.filterValues[keys[index + 1]] = options[0];
@@ -279,29 +359,51 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
   }
 
   private rebuildGlobalFilterOptions(): void {
-    const active = (value: string) => value && value !== 'All';
+    const active = (value: GlobalFilterSelection) => hasGlobalSelection(value);
     let plants = this.allPlants;
-    if (active(this.filterValues['country'])) plants = plants.filter(plant => plant.country === this.filterValues['country']);
+    if (active(this.filterValues['country'])) plants = plants.filter(plant => matchesGlobalSelection(plant.country, this.filterValues['country']));
     this.filterFields[1].options = active(this.filterValues['country']) ? this.distinctPlant(plants, plant => plant.sector) : [];
     // A country with a single sector/business unit/division should cascade automatically, otherwise cluster never gets populated.
     if (!active(this.filterValues['sector']) && this.filterFields[1].options.length === 1) this.filterValues['sector'] = this.filterFields[1].options[0];
-    if (active(this.filterValues['sector'])) plants = plants.filter(plant => plant.sector === this.filterValues['sector']);
+    if (active(this.filterValues['sector'])) plants = plants.filter(plant => matchesGlobalSelection(plant.sector, this.filterValues['sector']));
     this.filterFields[2].options = active(this.filterValues['sector']) ? this.distinctPlant(plants, plant => plant.businessUnit) : [];
     if (!active(this.filterValues['businessUnit']) && this.filterFields[2].options.length === 1) this.filterValues['businessUnit'] = this.filterFields[2].options[0];
-    if (active(this.filterValues['businessUnit'])) plants = plants.filter(plant => plant.businessUnit === this.filterValues['businessUnit']);
+    if (active(this.filterValues['businessUnit'])) plants = plants.filter(plant => matchesGlobalSelection(plant.businessUnit, this.filterValues['businessUnit']));
     this.filterFields[3].options = active(this.filterValues['businessUnit']) ? this.distinctPlant(plants, plant => plant.division) : [];
     if (!active(this.filterValues['division']) && this.filterFields[3].options.length === 1) this.filterValues['division'] = this.filterFields[3].options[0];
-    if (active(this.filterValues['division'])) plants = plants.filter(plant => plant.division === this.filterValues['division']);
+    if (active(this.filterValues['division'])) plants = plants.filter(plant => matchesGlobalSelection(plant.division, this.filterValues['division']));
     this.filterFields[4].options = active(this.filterValues['division']) ? this.distinctPlant(plants, plant => plant.cluster) : [];
     // Narrowing down to a single cluster/plant should auto-select it instead of leaving 'All' displayed.
     if (!active(this.filterValues['cluster']) && this.filterFields[4].options.length === 1) this.filterValues['cluster'] = this.filterFields[4].options[0];
-    if (active(this.filterValues['cluster'])) plants = plants.filter(plant => plant.cluster === this.filterValues['cluster']);
+    if (active(this.filterValues['cluster'])) plants = plants.filter(plant => matchesGlobalSelection(plant.cluster, this.filterValues['cluster']));
     this.filterFields[5].options = this.distinctPlant(plants, plant => plant.plantDescription);
     if (!active(this.filterValues['plant']) && this.filterFields[5].options.length === 1) this.filterValues['plant'] = this.filterFields[5].options[0];
   }
 
   private distinctPlant(plants: PlantFilterDto[], selector: (plant: PlantFilterDto) => string): string[] {
     return [...new Set(plants.map(selector).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  }
+
+  private advancedFilters: ReturnType<typeof advancedHierarchyFilters> = [];
+
+  applyAdvancedFilter(value: AdvancedFilterValue): void {
+    this.advancedFilters = advancedHierarchyFilters(value.hierarchy);
+    if (this.viewIdForPreview) this.applyGlobalFilter();
+  }
+
+  private globalHierarchyFilterPayload(): ReturnType<typeof advancedHierarchyFilters> {
+    const columns: Record<string, string> = {
+      country: 'country', sector: 'sector', businessUnit: 'business_unit', division: 'division',
+      cluster: 'cluster', plant: 'plant_description',
+    };
+    return [...Object.entries(columns)
+      .filter(([key]) => hasGlobalSelection(this.filterValues[key]))
+      .map(([key, column]) => ({
+        sourceTable: column,
+        sourceColumn: column,
+        ...globalSelectionPayload(this.filterValues[key]),
+        label: column,
+      })), ...(this.advancedFilters ?? [])];
   }
 
   private initDateParamsFromSql(sql: string): void {
@@ -327,7 +429,7 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
     }
     for (const name of ['country', 'sector', 'businessUnit', 'division', 'cluster', 'plant']) {
       const value = this.filterValues[name];
-      if (value && value !== 'All' && this.safeValuePattern.test(value)) {
+      if (typeof value === 'string' && value && value !== 'All' && this.safeValuePattern.test(value)) {
         sql = sql.replace(new RegExp(`DECLARE\\s+@${name}\\s+(\\w+(?:\\s*\\([^)]*\\))?)(?:\\s*=[^;]+)?;`, 'i'), `DECLARE @${name} $1 = '${value}';`);
       }
     }
@@ -355,7 +457,13 @@ export class ChartDrilldownComponent implements OnInit, OnDestroy {
     this.cancelGlobalFilter$.next();
     this.loading = true;
     // 0 = no cap; keep consistent with the initial load so filtered totals aren't truncated.
-    this.commonApi.previewView({ connectionId: this.viewConnectionId, sql: this.injectDateParams(this.viewSql), viewId: this.viewIdForPreview, maxRows: 0 }).pipe(
+    this.commonApi.previewView({
+      connectionId: this.viewConnectionId,
+      sql: this.injectDateParams(this.viewSql),
+      viewId: this.viewIdForPreview,
+      maxRows: 0,
+      filters: this.globalHierarchyFilterPayload(),
+    }).pipe(
       takeUntil(this.cancelGlobalFilter$), takeUntil(this.destroy$),
     ).subscribe({
       next: res => { this.allRows = res.rows ?? []; this.columnDefs = (res.columns ?? []).map(field => ({ field, headerName: field, valueFormatter: p => String(this.formatCellValue(p.value) ?? '') })); this.applyFilters(); this.loading = false; this.cdr.markForCheck(); },

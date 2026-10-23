@@ -1,3 +1,5 @@
+@use '../../../../styles/tile-layout' as tile-layout;
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -26,6 +28,44 @@
 
 .ops-export-wrap {
   position: relative;
+}
+
+.ops-export-progress {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 272px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px 0 rgba(16, 24, 40, 0.12), 0 2px 6px 0 rgba(16, 24, 40, 0.06);
+  z-index: 200;
+  padding: 14px 16px;
+
+  &__spinner {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #E7ECF3;
+    border-top-color: #21409A;
+    border-radius: 50%;
+    animation: ops-export-progress-spin 0.8s linear infinite;
+  }
+
+  &__text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #101828;
+    font-family: var(--font-family-base);
+  }
+}
+
+@keyframes ops-export-progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .wv-local-filters {
@@ -444,6 +484,49 @@
   box-shadow: 0 1px 8px 0 rgba(0, 0, 0, 0.06);
   grid-template-columns: repeat(10, 1fr);
   margin-bottom: 0;
+
+  // Hidden on desktop — this is only the off-canvas drawer's header. The
+  // media query below re-declares it as a real fixed (non-scrolling) header
+  // once the filter bar switches to that fixed drawer at <=1199px.
+  &__mobile-header {
+    display: none;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 10px;
+    margin: 0 0 2px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #101828;
+    font-family: var(--font-family-base);
+    border-bottom: 1px solid #E7ECF3;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--color-bg-app);
+      color: var(--color-text-primary);
+    }
+  }
+
+  // On desktop the wrapper is transparent to layout — its field children
+  // participate directly in the grid above, unchanged.
+  &__scroll {
+    display: contents;
+  }
 }
 
 .ops-dashboard__filter-field {
@@ -535,7 +618,7 @@
     max-height: 160px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 3px;
@@ -546,7 +629,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
@@ -1762,10 +1845,19 @@
   }
 
   .odc-inline-tile {
+    .odc-inline-tile__info.tile-layout--single-row {
+      @include tile-layout.text-row('.odc-inline-tile__label', '.odc-inline-tile__value');
+    }
+
     display: flex;
     align-items: center;
     gap: 12px;
     min-width: 0;
+
+    &--clickable {
+      cursor: pointer;
+      &:hover .odc-inline-tile__value { text-decoration: underline; }
+    }
 
     &__info {
       display: flex;
@@ -1892,7 +1984,7 @@
     flex: 1 1 auto;
     min-height: 0;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 5px;
@@ -1904,7 +1996,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
@@ -1917,7 +2009,7 @@
     // overflow-y: auto;
     // max-height: calc(100dvh - 333px);
 
-    // fullscreen: panel fills screen with no scroll
+    // The expanded panel owns scrolling, including its header and chart.
     &--expanded {
       position: fixed;
       top: 61px;
@@ -1926,7 +2018,7 @@
       bottom: 41px;
       height: auto; // overrides base wv-top-panel height so top/bottom edges control the size
       z-index: 1000;
-      overflow-y: hidden;
+      overflow-y: auto;
       border-radius: 12px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
       display: flex;
@@ -1934,10 +2026,8 @@
 
       .maxWidthmainall1 {
         max-width: 100%;
-        // Only .wv-chart-inner below should scroll; this wrapper scrolling too duplicated
-        // the scrollbar in expanded mode.
-        overflow: hidden;
-        flex: 1;
+        overflow: visible;
+        flex: 0 0 auto;
         min-height: 0;
         // Inset the scroll area so its vertical scrollbar clears the fixed Close (X) button.
         margin: 0 34px 0 0;
@@ -1945,11 +2035,9 @@
     }
   }
 
-  // Let the header/table stack stretch full-height instead of hugging its own content height,
-  // otherwise .wv-chart-inner's flex:1 below is a no-op (its ancestors never became flex columns).
   .wv-top-panel--expanded .wv-scenario-layout {
     align-items: stretch;
-    height: 100%;
+    height: auto;
     min-height: 0;
   }
 
@@ -1959,17 +2047,16 @@
     min-height: 0;
   }
 
-  // In expanded mode the chart inner fills the remaining space and is the ONE scroll container
-  // (both axes, so a wide data table scrolls with the chart instead of inside its own box).
+  // Let chart content grow so the expanded panel handles its overflow.
   .wv-top-panel--expanded .wv-chart-inner {
-    flex: 1;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow: auto;
+    overflow: visible;
     max-height: none;
     display: flex;
     flex-direction: column;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 5px;
@@ -1981,14 +2068,11 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
-    // Table-type widgets: stretch the ag-grid table (app-chart-table) to fill the card with
-    // no top/bottom gap, instead of the fixed 420px default. Flex sizing (not a fixed px
-    // height) also keeps the table's rendered height stable when the app font-zoom preset
-    // changes. The inner ag-grid-angular element grows to match via its own component styles.
+    // Preserve the grid's explicit height in the content-sized expanded chart.
     .odc-status__chart-card {
       flex: 1;
       min-height: 0;
@@ -1999,8 +2083,7 @@
     app-chart-table {
       flex: 1;
       min-height: 0;
-      display: flex;
-      flex-direction: column;
+      display: block;
     }
   }
 
@@ -2023,19 +2106,22 @@
     min-width: 0;
   }
 
+  // A side legend shares the row with the chart, so the chart must be allowed to narrow.
+  .chart-legend-layout--left > .odc-status__donut,
+  .chart-legend-layout--right > .odc-status__donut {
+    min-width: 0;
+  }
+
   .wv-top-panel--expanded .odc-status__chart-body {
     min-height: 0;
-    // Was `overflow: hidden`, which clipped the chart/table row before its overflow could ever
-    // reach .wv-chart-inner's scroll container above — visible lets the row grow past its
-    // allotted space so the ancestor's overflow:auto is the one that actually scrolls it.
     overflow: visible;
   }
 
   .wv-top-panel--expanded .wv-chart-visual {
     min-height: 0;
-    overflow-y: auto;
+    overflow-y: visible;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   .wv-top-panel--expanded .wv-chart-visual .odc-status__donut {
@@ -2053,7 +2139,7 @@
     overflow: auto;
     border-radius: 12px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 4px;
@@ -2065,14 +2151,16 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
   }
 
   // In expanded mode the table scrolls inside its pane rather than extending the panel.
+  // Capped to the same height as the donut chart (see .odc-status__donut-chart below) so the
+  // row doesn't stretch to fit every row — overflow (vertical + horizontal) scrolls internally.
   .wv-top-panel--expanded .wv-chart-table {
-    max-height: none;
+    max-height: calc(100dvh / var(--app-zoom-factor, 1) - 61px - 41px - 300px);
     min-height: 0;
   }
 
@@ -2089,10 +2177,6 @@
 
     .odc-status__chart-card .wv-chart-table {
       margin-top: 12px;
-    }
-
-    .wv-top-panel--expanded .odc-status__chart-body {
-      overflow-y: auto;
     }
 
     .wv-top-panel--expanded .wv-chart-table {
@@ -2115,10 +2199,11 @@
   // Custom chart legend — same design & behaviour as the dashboard
   .wv-chart-legend {
     display: flex;
-    flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
     gap: 8px;
+    width: 100%;
+    min-width: 0;
     padding: 8px 0 4px;
   }
 
@@ -2126,20 +2211,25 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    max-width: 100%;
+    min-width: 0;
     padding: 7px 8px;
+    border: 0;
     border-radius: 20px;
     background: #F6F7F9;
+    font: inherit;
     font-size: 12px;
     color: var(--color-text-primary);
     white-space: nowrap;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
     cursor: pointer;
     transition: opacity 0.2s ease;
 
     &:hover {
       opacity: 0.85;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
     }
 
     &--hidden {
@@ -2362,13 +2452,16 @@
     border: 1px solid #E7ECF3;
     border-radius: 12px;
     overflow: auto;
+    // Caps the table at the chart's rendered height so long row lists scroll internally
+    // instead of stretching the card and leaving empty space under a shorter chart.
+    max-height: 440px;
     margin: 0;
     flex: 35 1 0;
     width: auto;
     min-width: 0;
     max-width: none;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
       width: 4px;
@@ -2380,7 +2473,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #21409A;
+      background: var(--scrollbar-thumb);
       border-radius: 30px;
     }
 
@@ -2400,6 +2493,9 @@
       padding: 10px 14px;
       text-align: left;
       white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
 
       &.wv-cdt__val-hdr {
         text-align: right;
@@ -2474,9 +2570,9 @@
 
       select,
       input {
-        height: 34px;
+        height: 36px;
         border: 1px solid #D0D5DD;
-        border-radius: 6px;
+        border-radius: 10px;
         padding: 0 10px;
         font-size: 13px;
         color: #344054;
@@ -2564,6 +2660,10 @@
   }
 
   .kpi-card {
+    .kpi-card__text.tile-layout--single-row {
+      @include tile-layout.text-row('.kpi-card__label', '.kpi-card__value');
+    }
+
 
     padding: 18px 20px 20px;
     min-width: 240px;
@@ -2571,6 +2671,12 @@
     border-radius: 18px;
     border: 1px solid #E2E7EF;
     background: #FFF;
+
+    &--clickable {
+      cursor: pointer;
+      transition: box-shadow 0.15s ease, transform 0.15s ease;
+      &:hover { box-shadow: 0 4px 14px rgba(33, 64, 154, 0.12); transform: translateY(-1px); }
+    }
 
     &__header {
       display: flex;
@@ -2916,18 +3022,44 @@
 
   }
 
-  &__preview-btn {
-    display: flex;
+  &__preview-label {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
     gap: 5px;
     margin-left: auto;
-    padding: 6px 12px;
-    border-radius: 100px;
-    border: 1px solid #F7C79E;
-    background: #FFF1E6;
-    color: #F58220;
+    color: #9A4600;
     font-size: 12px;
     font-weight: 600;
-    cursor: pointer;
+  }
+}
+
+:host(.wv-builder-scenario-host) {
+  height: auto;
+  flex: none;
+}
+
+.wv-builder-scenario {
+  padding: 0;
+  overflow: visible;
+
+  .pannelDesignbg,
+  .wv-top-panel,
+  .maxWidthmainall1,
+  .wv-scenario-layout {
+    display: block;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+    min-height: 0;
+  }
+
+  .wv-scenario-panel {
+    width: 100%;
+    box-sizing: border-box;
+    contain: none;
+    overflow: visible;
   }
 }
 
@@ -2940,27 +3072,16 @@
   box-shadow: 0 10px 28px rgba(16, 24, 40, 0.08);
   padding: 16px 14px 12px;
   align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  // Let the chart set the grid row height, not the growing scenario item list.
+  contain: size;
+  overflow: hidden;
 
-  // In expanded mode the panel is stretched to the full row height (see
-  // .wv-top-panel--expanded .wv-scenario-layout); without its own scrollbar, controls below the
-  // slider overflowed past the bottom with no way to reach them.
-  .wv-top-panel--expanded & {
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
-
-    &::-webkit-scrollbar {
-      width: 5px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: #21409A;
-      border-radius: 30px;
-    }
+  &__header,
+  &__footer {
+    flex-shrink: 0;
   }
 
   &__header {
@@ -2999,13 +3120,60 @@
 
   }
 
-  &__close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    background: transparent;
+  &__info {
+    position: relative;
     cursor: pointer;
+
+    &[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 10px);
+      right: -8px;
+      left: auto;
+      width: max-content;
+      max-width: 220px;
+      border-radius: 8px;
+      background: #172B4D;
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.5;
+      padding: 7px 12px;
+      white-space: pre-line;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 200;
+    }
+
+    &[data-tooltip]::before {
+      content: '';
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 94px;
+      left: auto;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid #172B4D;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 201;
+    }
+
+    &[data-tooltip]:hover::after,
+    &[data-tooltip]:hover::before,
+    &[data-tooltip]:focus-visible::after,
+    &[data-tooltip]:focus-visible::before {
+      opacity: 1;
+      visibility: visible;
+    }
   }
 
   &__add {
@@ -3083,10 +3251,10 @@
 
   &__target-picker-select {
     width: 100%;
-    height: 34px;
+    height: 36px;
     padding: 0 8px;
     border: 1px solid #C8D7FF;
-    border-radius: 6px;
+    border-radius: 10px;
     background: #FFF;
     color: #101828;
     font-size: 12px;
@@ -3098,7 +3266,7 @@
   }
 
   &__item {
-    padding: 14px 0 0;
+    // padding: 14px 0 0;
 
     &--blue {
       --row-color: #21409A;
@@ -3114,12 +3282,6 @@
       --row-bg-track: rgba(245, 130, 32, 0.15);
     }
 
-    &--green {
-      --row-color: #1DBA70;
-      --row-bg: rgba(29, 186, 112, 0.08);
-      --row-border: rgba(29, 186, 112, 0.35);
-      --row-bg-track: rgba(29, 186, 112, 0.15);
-    }
   }
 
   &__adjustment-help {
@@ -3133,31 +3295,145 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 10px 0;
+    margin-bottom: 10px;
 
     label {
       flex: 0 0 auto;
-      color: #667085;
-      font-size: 11px;
+      color: #344054;
+      font-size: 13px;
       font-weight: 600;
     }
+  }
 
-    select {
-      min-width: 0;
+  &__dd {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__dd-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid #D0D5DD;
+    border-radius: 8px;
+    background: #FFF;
+    color: #101828;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font-family-base);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    span {
       flex: 1;
-      height: 28px;
-      padding: 0 7px;
-      border: 1px solid #D8E0ED;
-      border-radius: 6px;
-      background: #FFF;
-      color: #344054;
-      font-size: 11px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: left;
+    }
 
-      &:focus {
-        outline: 2px solid #21409A;
-        outline-offset: 1px;
+    svg {
+      flex-shrink: 0;
+      transition: transform 0.15s ease;
+    }
+
+    &:hover {
+      border-color: #98A2B3;
+    }
+
+    &.open {
+      border-color: #21409A;
+      box-shadow: 0 0 0 3px rgba(33, 64, 154, 0.12);
+    }
+  }
+
+  &__dd-panel {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    width: auto;
+    background: #FFF;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+    padding: 8px;
+  }
+
+  &__dd-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 10px;
+    margin-bottom: 8px;
+    border: 1px solid #D0D5DD;
+    border-radius: 8px;
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13px;
+      font-family: var(--font-family-base);
+      color: #101828;
+
+      &::placeholder {
+        color: #98A2B3;
       }
     }
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
+  &__dd-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  &__dd-item {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    font-size: 13px;
+    font-family: var(--font-family-base);
+    color: #101828;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &:hover {
+      background: #F9FAFB;
+    }
+
+    &.active {
+      background: #EEF2FF;
+      color: #21409A;
+      font-weight: 600;
+    }
+  }
+
+  &__dd-empty {
+    padding: 10px;
+    font-size: 12px;
+    color: #98A2B3;
+    text-align: center;
   }
 
   &__editable-label {
@@ -3183,14 +3459,30 @@
     }
   }
 
-  display: flex;
-  flex-direction: column;
-
   &__section {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
     border-radius: 12px;
     border: 1px solid #E6EBF2;
     background: #FFF;
     padding: 12px 12px 14px;
+
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 30px;
+    }
 
     &-header {
       display: flex;
@@ -3265,8 +3557,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 6px;
+    margin-bottom: 8px;
   }
 
   &__label-wrap {
@@ -3274,6 +3566,33 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  &__close,
+  &__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #4D555B;
+    cursor: pointer;
+
+    &:hover {
+      color: #B42318;
+      background: #FEF3F2;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #21409A;
+      outline-offset: 2px;
+    }
   }
 
   &__label {
@@ -3291,6 +3610,59 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    position: relative;
+    cursor: pointer;
+
+    &[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: 240px;
+      border-radius: 8px;
+      background: #172B4D;
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 0 2px 0 rgba(0, 0, 0, 0.1);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.5;
+      padding: 7px 12px;
+      white-space: normal;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 200;
+    }
+
+    &[data-tooltip]::before {
+      content: '';
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid #172B4D;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 201;
+    }
+
+    &[data-tooltip]:hover::after,
+    &[data-tooltip]:hover::before,
+    &[data-tooltip]:focus-visible::after,
+    &[data-tooltip]:focus-visible::before {
+      opacity: 1;
+      visibility: visible;
+    }
   }
 
   &__value-box {
@@ -3417,21 +3789,12 @@ max-height: 200px !important;
     min-width: 0;
     gap: 6px;
   }
-
-  .ops-dashboard__filter-bar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 480px) {
-  .ops-dashboard__filter-bar {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 // ─── Chart / Tile Details: header actions + global filter bar, tablet & laptop ───
-// The filter bar is 10 fixed columns down to 768px, which squeezed every field on tablets
-// and small laptops. Let it flow into as many columns as fit instead.
+// The filter bar is 10 fixed columns down to 1199px (where it becomes an off-canvas
+// drawer below), which squeezed every field on tablets/small laptops. Let it flow into
+// as many columns as fit instead.
 @media (max-width: 1280px) {
   .ops-dashboard__filter-bar {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -3456,28 +3819,74 @@ max-height: 200px !important;
   }
 }
 
+// Off-canvas filter panel — switches over at 1199px, same breakpoint/markup as
+// operations-dashboard's `.ops-dashboard__filter-bar` drawer.
+@media (max-width: 1199px) {
+  .ops-dashboard__filter-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    width: min(85vw, 320px);
+    max-width: 320px;
+    height: 100dvh;
+    margin-bottom: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: 4px 0 24px rgba(16, 24, 40, 0.18);
+    overflow: auto;
+
+    &__mobile-header {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      border-bottom: 1px solid #E2E7EF;
+    }
+
+    &__close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 8px;
+      background: var(--color-bg-app, #f3f4f6);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+    }
+
+    // Scrollable middle section — everything between the header and the Clear/Advanced
+    // filter buttons at the bottom of `.filterBtnDivMainAll`.
+    &__scroll {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      overflow-y: auto;
+    }
+  }
+
+  .filterBtnDivMainAll {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
 // Phone: actions take their own full row under the title.
 @media (max-width: 768px) {
   .odc-header-actions {
     width: 100%;
-  }
-
-  .ops-dashboard__filter-bar {
-    padding: 12px;
-    gap: 10px;
-  }
-}
-
-// Re-state the phone filter columns after the 1280px rule above so they still win.
-@media (max-width: 768px) {
-  .ops-dashboard__filter-bar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 480px) {
-  .ops-dashboard__filter-bar {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 

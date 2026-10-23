@@ -38,7 +38,7 @@
     overflow-y: auto;
     padding-right: 4px;
     scrollbar-width: thin;
-    scrollbar-color: #21409A transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 
     &::-webkit-scrollbar {
         width: 8px;
@@ -50,12 +50,12 @@
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #21409A;
+        background: var(--scrollbar-thumb);
         border-radius: 999px;
         border: 2px solid #fff;
 
         &:hover {
-            background: var(--drp-primary);
+            background: var(--scrollbar-thumb-hover);
         }
     }
 }

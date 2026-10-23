@@ -1,10 +1,11 @@
 import { Component, ChangeDetectorRef, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
-import { CommonModule, Location } from '@angular/common';
+import { CommonModule, Location, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { Observable, Subject, Subscription, interval, merge, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, switchMap, tap, timeout } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, startWith, switchMap, tap, timeout } from 'rxjs/operators';
 import { AuthService } from '../../../core/services/auth.service';
+import { CommonApiService } from '../../../core/services/common-api.service';
 import { BreadcrumbService } from '../../../core/services/breadcrumb.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { ROUTES } from '../../../core/constants/route.constants';
@@ -61,7 +62,13 @@ export class NavbarComponent implements OnInit, OnDestroy {
   isUserMenuOpen = false;
   isFontSizeMenuOpen = false;
   isNotificationsOpen = false;
-  lastSyncedLabel = '2026-10-13, 20:05 PM';
+  // MM-DD-YYYY, hh.mm AM/PM in Oman time; null until the first successful load.
+  lastSyncedLabel: string | null = null;
+  syncTimeChecked = false;
+
+  private static readonly SYNC_POLL_MS = 5 * 60 * 1000;
+  private static readonly OMAN_UTC_OFFSET = '+0400';
+  private syncSub?: Subscription;
 
   notifications: DisplayNotification[] = [];
 
@@ -136,6 +143,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     private readonly controlPlaneNotifications: ControlPlaneNotificationsService,
     private readonly notificationRefreshService: NotificationRefreshService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly commonApi: CommonApiService,
     readonly fontSizeService: FontSizeService,
     readonly askAi: AskAiPanelService,
     private readonly aiService: AiService,
@@ -179,11 +187,30 @@ export class NavbarComponent implements OnInit, OnDestroy {
     // bell updates immediately for the acting user instead of waiting for the next tick.
     this.notifSub = merge(interval(NavbarComponent.NOTIF_POLL_MS), this.notificationRefreshService.refreshRequested$)
       .subscribe(() => this.pollShareNotifications());
+
+    // A failed poll keeps the last known sync time rather than blanking the badge.
+    this.syncSub = interval(NavbarComponent.SYNC_POLL_MS)
+      .pipe(
+        startWith(0),
+        switchMap(() => this.commonApi.getSyncTime().pipe(
+          timeout(15000),
+          catchError(() => of(null)),
+        )),
+      )
+      .subscribe(response => {
+        if (response?.omanTimestamp) {
+          this.lastSyncedLabel = formatDate(
+            response.omanTimestamp, 'MM-dd-yyyy, hh.mm a', 'en-US', NavbarComponent.OMAN_UTC_OFFSET);
+        }
+        this.syncTimeChecked = true;
+        this.cdr.markForCheck();
+      });
   }
 
   ngOnDestroy(): void {
     this.searchSub.unsubscribe();
     this.notifSub?.unsubscribe();
+    this.syncSub?.unsubscribe();
   }
 
   get currentUser() { return this.authService.getCurrentUser(); }
@@ -407,6 +434,13 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   selectSearchResult(result: GlobalSearchResult): void {
     this.clearSearch();
+    const pathOf = (url: string) => url.split(/[?#]/)[0].split('/').slice(0, -1).join('/');
+    // Detail pages read their id once, so moving from one detail page to another of the same kind
+    // passes through a blank route to rebuild the page for the new item.
+    if (pathOf(this.router.url) === pathOf(result.url)) {
+      this.router.navigateByUrl('/', { skipLocationChange: true }).then(() => this.router.navigateByUrl(result.url));
+      return;
+    }
     this.router.navigateByUrl(result.url);
   }
 

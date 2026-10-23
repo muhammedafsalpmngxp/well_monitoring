@@ -1,26 +1,36 @@
-import { Component, HostListener, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnInit, ChangeDetectorRef, ElementRef, ViewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ArrowLeft, createElement } from 'lucide';
 import type Highcharts from 'highcharts';
 import { forkJoin } from 'rxjs';
 import {
   ClientSideRowModelModule,
   ColDef,
+  GetRowIdParams,
   ModuleRegistry,
+  RowSelectionModule,
+  RowSelectionOptions,
+  SelectionChangedEvent,
+  SelectionColumnDef,
   themeQuartz,
   PaginationModule
 } from 'ag-grid-community';
 import { DataQualityService } from '../../../core/services/data-quality.service';
+import type { ValidationRuleBatchState, ValidationRuleExecutionStatus } from '../../../core/services/data-quality.service';
 import { CommonApiService, DatabaseViewListItem } from '../../../core/services/common-api.service';
 import { Breadcrumb } from '../../../core/models/breadcrumb.model';
 import { PermissionService } from '../../../core/services/permission.service';
 import { NotificationRefreshService } from '../../../core/services/notification-refresh.service';
 import { NotificationHelper } from '../../../core/helpers/notification.helper';
+import { ToastService } from '../../../core/services/toast.service';
 import { VrActionsRendererComponent } from './cell-renderers/vr-actions-renderer.component';
 import { VrRuleIdRendererComponent } from './cell-renderers/vr-ruleid-renderer.component';
 import { SeverityRendererComponent } from './cell-renderers/severity-renderer.component';
 import { positionReportPaginationPopup } from '../../reports/shared/report-grid-popup.util';
+import { decodeReliabilitySource, ReliabilitySource } from '../../../shared/components/reliability-details/reliability-navigation';
 
-ModuleRegistry.registerModules([ClientSideRowModelModule,PaginationModule]);
+ModuleRegistry.registerModules([ClientSideRowModelModule, PaginationModule, RowSelectionModule]);
 
 export interface ErrorSummaryCard {
   icon: 'critical' | 'errors' | 'warnings' | 'info' | 'sla-breached' | 'sla-due';
@@ -65,6 +75,7 @@ export interface ValidationRuleRow {
   status: string;
   triggeredOn: string;
   generatedSql: string;
+  executionStatus?: ValidationRuleExecutionStatus;
 }
 
 type DashboardBreadcrumbContext = {
@@ -104,6 +115,8 @@ export class ErrorLogRulesComponent implements OnInit {
     private readonly cdr: ChangeDetectorRef,
     private readonly permissionService: PermissionService,
     private readonly notificationRefreshService: NotificationRefreshService,
+    private readonly destroyRef: DestroyRef,
+    private readonly toastService: ToastService,
   ) {
     this.notify = new NotificationHelper(cdr);
   }
@@ -244,14 +257,32 @@ export class ErrorLogRulesComponent implements OnInit {
     { headerName: 'Severity',     field: 'severity',    minWidth: 120,
       cellRenderer: SeverityRendererComponent },
     { headerName: 'Triggered on', field: 'triggeredOn', minWidth: 150, ...this.truncatedCell },
-    { headerName: 'Actions', sortable: false, filter: false, minWidth: 140, maxWidth: 240,
+    { headerName: 'Actions', sortable: false, filter: false, minWidth: 170, maxWidth: 240,
       cellRenderer: VrActionsRendererComponent },
   ];
+
+  readonly validationRuleRowSelection: RowSelectionOptions<ValidationRuleRow> = {
+    mode: 'multiRow',
+    checkboxes: true,
+    headerCheckbox: true,
+    enableClickSelection: false,
+  };
+
+  readonly validationRuleSelectionColumnDef: SelectionColumnDef = {
+    width: 48,
+    minWidth: 48,
+    maxWidth: 48,
+    suppressHeaderMenuButton: true,
+    suppressMovable: true,
+  };
+
+  readonly getValidationRuleRowId = (params: GetRowIdParams<ValidationRuleRow>): string => params.data.ruleId;
 
   readonly defaultColDef: ColDef = { sortable: true, resizable: true, flex: 1, wrapText: true, autoHeight: true };
 
   readonly vrGridContext = {
     canModify: () => this.canModify,
+    isBatchRunning: () => this.isBatchRunning,
     onTrigger: (row: ValidationRuleRow) => this.triggerRule(row),
     onEdit: (row: ValidationRuleRow) => this.editRule(row),
     onDelete: (row: ValidationRuleRow) => this.deleteRule(row),
@@ -261,6 +292,7 @@ export class ErrorLogRulesComponent implements OnInit {
   errorLogRows: ErrorLogRow[] = [];
   validationRulesRows: ValidationRuleRow[] = [];
   selectedErrorLog: ErrorLogRow | null = null;
+  selectedValidationRuleIds: string[] = [];
 
   openErrorLogDetails(row: ErrorLogRow): void {
     this.selectedErrorLog = row;
@@ -385,8 +417,26 @@ export class ErrorLogRulesComponent implements OnInit {
 
   private pendingErrorRuleId: string | null = null;
   private dashboardBreadcrumbContext: DashboardBreadcrumbContext | null = null;
+  private lastBatchCompletionId = 0;
+  showBatchCompletePopup = false;
+  batchSuccessCount = 0;
+  batchFailedCount = 0;
+  batchProgressCompleted = 0;
+  batchProgressTotal = 0;
+
+  get batchCompleteMessage(): string {
+    return `Rule batch execution completed with ${this.batchSuccessCount} success and ${this.batchFailedCount} failed`;
+  }
 
   ngOnInit(): void {
+    const initialBatchState = this.dataQualityService.validationRuleBatchState;
+    this.lastBatchCompletionId = initialBatchState.completionId;
+    const pendingNotification = this.toastService.consume();
+    if (pendingNotification) this.showBatchNotification(pendingNotification, initialBatchState.failedCount);
+    this.dataQualityService.validationRuleBatchState$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(state => this.applyBatchState(state));
+
     this.loadValidationRules();
     this.loadErrorLogs();
     this.commonApi.getDatabaseViews('view').subscribe({
@@ -395,6 +445,7 @@ export class ErrorLogRulesComponent implements OnInit {
 
     const params = this.route.snapshot.queryParamMap;
     this.returnUrl = this.safeReturnUrl(params.get('returnUrl'));
+    this.reliabilitySource = decodeReliabilitySource(params.get('reliabilitySource'));
     this.dashboardBreadcrumbContext = this.readDashboardBreadcrumbContext(params);
     const viewRuleId = params.get('viewRuleId');
     this.pendingErrorRuleId = params.get('errorRuleId');
@@ -479,6 +530,7 @@ export class ErrorLogRulesComponent implements OnInit {
             generatedSql: r.query ?? '',
           }))
           .sort((first, second) => this.ruleIdNumber(second.ruleId) - this.ruleIdNumber(first.ruleId));
+        this.validationRulesRows = this.applyBatchStateToRows(this.validationRulesRows, this.dataQualityService.validationRuleBatchState);
         this.applyFilters();
         this.validationRulesLoaded = true;
         this.checkInitialLoadComplete();
@@ -908,14 +960,34 @@ export class ErrorLogRulesComponent implements OnInit {
   private ruleViewReturnTab: 'error-log' | 'validation-rules' = 'validation-rules';
   /** Set when the page was opened from another page's reliability popup. */
   private returnUrl: string | null = null;
+  private reliabilitySource: ReliabilitySource | null = null;
+
+  get canGoBackToReliability(): boolean {
+    return !!this.viewingRuleId && !!this.returnUrl && !!this.reliabilitySource;
+  }
+
+  @ViewChild('reliabilityBackIcon') set reliabilityBackIcon(element: ElementRef<HTMLElement> | undefined) {
+    element?.nativeElement.replaceChildren(createElement(ArrowLeft, { width: 20, height: 20, 'aria-hidden': 'true' }));
+  }
+
+  backToReliability(): void {
+    if (!this.canGoBackToReliability || !this.returnUrl) return;
+    this.router.navigateByUrl(this.returnUrl, {
+      state: {
+        reliabilityReturn: { url: this.returnUrl, source: JSON.stringify(this.reliabilitySource) },
+      },
+    });
+  }
 
   goToAddRule(): void {
+    if (this.isBatchRunning) return;
     this.editingRuleId = null;
     this.viewingRuleId = null;
     this.showAddRuleModal = true;
   }
 
   editRule(row: ValidationRuleRow): void {
+    if (this.isBatchRunning) return;
     this.editingRuleId = row.ruleId;
     this.viewingRuleId = null;
     this.showAddRuleModal = true;
@@ -951,6 +1023,11 @@ export class ErrorLogRulesComponent implements OnInit {
   showTriggerConfirm = false;
   pendingTriggerRow: ValidationRuleRow | null = null;
   isTriggering = false;
+  isBatchRunning = false;
+  isSingleRuleTriggering = false;
+  showRunAllConfirm = false;
+  showRunSelectedConfirm = false;
+  pendingBatchRuleIds: string[] = [];
 
   showDeleteConfirm = false;
   pendingDeleteRow: ValidationRuleRow | null = null;
@@ -967,6 +1044,82 @@ export class ErrorLogRulesComponent implements OnInit {
     this.pendingTriggerRow = null;
   }
 
+  openRunAllConfirm(): void {
+    if (!this.canModify || this.isTriggering || this.validationRulesRows.length === 0) return;
+    this.showRunAllConfirm = true;
+  }
+
+  onValidationRuleSelectionChanged(event: SelectionChangedEvent<ValidationRuleRow>): void {
+    this.selectedValidationRuleIds = event.api.getSelectedRows().map(row => row.ruleId);
+  }
+
+  openRunSelectedConfirm(): void {
+    if (!this.canModify || this.isTriggering || this.selectedValidationRuleIds.length === 0) return;
+    this.pendingBatchRuleIds = [...this.selectedValidationRuleIds];
+    this.showRunSelectedConfirm = true;
+  }
+
+  cancelRunSelected(): void {
+    this.showRunSelectedConfirm = false;
+    this.pendingBatchRuleIds = [];
+  }
+
+  confirmRunSelected(): void {
+    const ruleIds = [...this.pendingBatchRuleIds];
+    this.cancelRunSelected();
+    if (!this.canModify || this.isTriggering || ruleIds.length === 0) return;
+    this.dataQualityService.runRulesSequentially(ruleIds);
+  }
+
+  cancelRunAll(): void {
+    this.showRunAllConfirm = false;
+  }
+
+  confirmRunAll(): void {
+    this.showRunAllConfirm = false;
+    if (!this.canModify || this.isTriggering || this.validationRulesRows.length === 0) return;
+    this.isTriggering = true;
+    this.dataQualityService.runRulesSequentially(this.validationRulesRows.map(row => row.ruleId));
+  }
+
+  private applyBatchState(state: ValidationRuleBatchState): void {
+    this.isTriggering = state.isRunning || Object.values(state.statuses).includes('loading') || this.isSingleRuleTriggering;
+    this.isBatchRunning = state.isRunning;
+    const ruleStatuses = Object.values(state.statuses);
+    this.batchProgressTotal = ruleStatuses.length;
+    this.batchProgressCompleted = ruleStatuses.filter(status => status !== 'loading').length;
+    this.showBatchCompletePopup = state.completionPending;
+    this.batchSuccessCount = state.successCount;
+    this.batchFailedCount = state.failedCount;
+    this.validationRulesRows = this.applyBatchStateToRows(this.validationRulesRows, state);
+    this.applyFilters();
+    this.cdr.detectChanges();
+
+    if (state.completionId > this.lastBatchCompletionId) {
+      this.lastBatchCompletionId = state.completionId;
+      const message = this.toastService.consume() || this.batchCompleteMessage;
+      this.showBatchNotification(message, state.failedCount);
+      this.loadErrorLogs();
+    }
+  }
+
+  private showBatchNotification(message: string, failedCount: number): void {
+    if (failedCount > 0) this.notify.showError(message);
+    else this.notify.showSuccess(message);
+  }
+
+  acknowledgeBatchCompletion(): void {
+    this.dataQualityService.acknowledgeValidationRuleBatchCompletion();
+  }
+
+  private applyBatchStateToRows(rows: ValidationRuleRow[], state: ValidationRuleBatchState): ValidationRuleRow[] {
+    return rows.map(row => ({
+      ...row,
+      executionStatus: state.statuses[row.ruleId],
+      ...(state.triggeredOnByRule[row.ruleId] ? { triggeredOn: state.triggeredOnByRule[row.ruleId] } : {}),
+    }));
+  }
+
   confirmTrigger(): void {
     const row = this.pendingTriggerRow;
     this.showTriggerConfirm = false;
@@ -974,9 +1127,12 @@ export class ErrorLogRulesComponent implements OnInit {
     if (!row) return;
 
     this.isTriggering = true;
-    this.dataQualityService.executeRule(row.ruleId).subscribe({
+    this.isSingleRuleTriggering = true;
+    this.cdr.detectChanges();
+    this.dataQualityService.executeRuleWithStatus(row.ruleId).subscribe({
       next: (res) => {
         this.isTriggering = false;
+        this.isSingleRuleTriggering = false;
         const msg = res.data?.message ?? 'Rule executed.';
         row.triggeredOn = new Date().toISOString().slice(0, 16).replace('T', ' ');
         this.validationRulesRows = [...this.validationRulesRows];
@@ -990,6 +1146,7 @@ export class ErrorLogRulesComponent implements OnInit {
       },
       error: (err) => {
         this.isTriggering = false;
+        this.isSingleRuleTriggering = false;
         this.notify.showError(err?.error?.message || 'Failed to execute rule.');
         this.cdr.detectChanges();
       },
@@ -1006,7 +1163,7 @@ export class ErrorLogRulesComponent implements OnInit {
 
   deleteRule(row: ValidationRuleRow): void {
 
-    if (this.isDeleting) return;
+    if (this.isDeleting || this.isBatchRunning) return;
     this.pendingDeleteRow = row;
     this.showDeleteConfirm = true;    
   }

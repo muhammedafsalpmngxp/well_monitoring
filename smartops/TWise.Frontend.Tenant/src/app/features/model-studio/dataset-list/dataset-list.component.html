@@ -2,7 +2,7 @@
   [subtitle]="mode === 'standard' ? 'Published data models that canvases read.' : 'Connect tables once and define measures once, then reuse them in every report.'"
   [breadcrumbs]="[{ label: 'Home' }, { label: 'Model Studio' }, { label: mode === 'standard' ? 'Standard Data Models' : mode === 'wip' ? 'WIP Data Models' : 'Data Models' }]">
   <span page-header-icon class="dataset-list__icon"><app-icon name="database_view" aria-hidden="true"></app-icon></span>
-  <app-button *ngIf="canCreate && mode !== 'standard'" variant="primary" (clicked)="openCreate()">New data model</app-button>
+  <app-button *ngIf="canCreate && mode !== 'standard'" variant="primary" (clicked)="openCreate()">New Data Model</app-button>
 </app-page-header>
 
 <div *ngIf="toast" class="dataset-list__toast" [class.dataset-list__toast--error]="toast.kind === 'error'" role="status">
@@ -13,9 +13,9 @@
 <p *ngIf="!loading && error" class="dataset-list__error" role="alert">{{ error }}</p>
 
 <app-empty-state *ngIf="!loading && !error && shown.length === 0" appIcon="database_view"
-  [title]="mode === 'standard' ? 'No published data models yet' : 'No data models yet'"
-  [description]="mode === 'standard' ? 'Data models appear here once they are published.' : 'A data model joins your tables once, so anyone can build reports from them without writing SQL.'">
-  <app-button *ngIf="canCreate && mode !== 'standard'" variant="primary" (clicked)="openCreate()">New data model</app-button>
+  [title]="mode === 'standard' ? 'No Published Data Models Yet' : 'No Data Models Yet'"
+  [description]="mode === 'standard' ? 'Published Data Models appear here once they are published.' : 'A Data Model joins your tables once, so anyone can build reports from them without writing SQL.'">
+  <app-button *ngIf="canCreate && mode !== 'standard'" variant="primary" (clicked)="openCreate()">New Data Model</app-button>
 </app-empty-state>
 
 <div *ngIf="!loading && shown.length > 0" class="dataset-list__grid">
@@ -34,7 +34,7 @@
 <div *ngIf="createOpen" class="dataset-list__overlay" (click)="createOpen = false">
   <form appDialog (dialogClose)="createOpen = false" class="dataset-list__modal" role="dialog" aria-modal="true" aria-labelledby="new-dataset-title"
     (click)="$event.stopPropagation()" (ngSubmit)="create()">
-    <h2 id="new-dataset-title" class="dataset-list__modal-title">New data model</h2>
+    <h2 id="new-dataset-title" class="dataset-list__modal-title">New Data Model</h2>
     <div class="form-group">
       <label for="dataset-name">Name</label>
       <input id="dataset-name" class="form-control" name="name" maxlength="128" required [(ngModel)]="form.name" />

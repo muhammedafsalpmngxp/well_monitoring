@@ -87,6 +87,7 @@ describe('Chart Clear Filter action', () => {
     const refresh = vi.fn();
     const component: ChartBuilderComponent = Object.assign(Object.create(ChartBuilderComponent.prototype), {
       ...filterState(), dataSourceMode: 'import',
+      attachedTileIds: [], availableTiles: [],
       refreshPreview: refresh, persistEditorDraft: vi.fn(),
     });
     component.clearAllFilters();
@@ -119,20 +120,21 @@ describe('Chart Clear Filter action', () => {
     expect(reloadTrend).toHaveBeenCalledExactlyOnceWith();
   });
 
-  it('reloads Chart Details view SQL once with the reset date range', () => {
-    const previewView = vi.fn(() => new Subject());
+  it('reloads Chart Details through the editor endpoint once with the reset date range', () => {
+    const getFilteredChartData = vi.fn(() => new Subject());
     const component: WidgetViewComponent = Object.assign(Object.create(WidgetViewComponent.prototype), {
-      ...filterState(), design: {}, viewConnectionId: 7, viewIdForPreview: 12,
+      ...filterState(), design: { source: 'Supervisor view' }, viewConnectionId: 7, viewIdForPreview: 12,
+      filters: [], advancedFilters: [],
       viewSql: "DECLARE @start_date DATE = '2025-04-01'; DECLARE @end_date DATE = '2025-04-30'; SELECT 1;",
       safeValuePattern: /^[A-Za-z0-9\s\-_.,()]+$/,
       cancelGlobalFilter$: new Subject<void>(), destroy$: new Subject<void>(),
-      commonApi: { previewView }, cdr: { markForCheck: vi.fn() },
+      widgetService: { getFilteredChartData }, cdr: { markForCheck: vi.fn() },
     });
     component.clearAllFilters();
-    expect(previewView).toHaveBeenCalledTimes(1);
-    expect(previewView).toHaveBeenCalledWith({
-      connectionId: 7, viewId: 12, maxRows: 1000,
-      sql: "DECLARE @start_date DATE = '2026-01-01'; DECLARE @end_date DATE = '2026-10-06'; SELECT 1;",
+    expect(getFilteredChartData).toHaveBeenCalledTimes(1);
+    expect(getFilteredChartData).toHaveBeenCalledWith({
+      chartSource: 'Supervisor view', chartSourceType: 'View', viewId: 12,
+      filters: [], fromDate: '2026-01-01', toDate: '2026-10-06', mode: undefined,
     });
   });
 });

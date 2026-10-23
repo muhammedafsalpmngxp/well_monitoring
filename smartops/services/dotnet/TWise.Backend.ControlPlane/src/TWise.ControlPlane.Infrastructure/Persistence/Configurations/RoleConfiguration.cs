@@ -21,7 +21,8 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
         e.Property(x => x.ModifiedAt).HasColumnName("modified_at");
         e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
         e.Property(x => x.DeletedAt).HasColumnName("deleted_at");
-        e.HasIndex(x => new { x.RoleCode, x.TenantId }).IsUnique();
+        e.HasIndex(x => new { x.RoleCode, x.TenantId }).IsUnique()
+            .HasFilter("[tenant_id] IS NOT NULL AND [is_deleted] = 0");
         e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).IsRequired(false);
     }
 }

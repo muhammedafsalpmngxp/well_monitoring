@@ -17,12 +17,13 @@ import { LayoutStateService } from '../../../core/services/layout-state.service'
 import { ChartSource, WidgetService } from '../../../core/services/widget.service';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
+import { DateInputComponent } from '../../../shared/components/date-input/date-input.component';
 import { ChartNoDataComponent } from '../../../shared/components/chart-no-data/chart-no-data.component';
 import { PieChartEmptyPipe } from '../../../shared/pipes/pie-chart-empty.pipe';
 import { OperationsDashboardComponent } from '../operations-dashboard/operations-dashboard.component';
 import { Board as StandardBoard, StandardBoardsComponent } from '../standard-boards/standard-boards.component';
 import { Board as WipBoard, WipBoardsComponent } from '../wip-boards/wip-boards.component';
-import { ChartSelectorItem, DashboardBuilderComponent } from './dashboard-builder.component';
+import { ChartSelectorItem, DashboardBuilderComponent, TileSelectorItem } from './dashboard-builder.component';
 
 describe('dashboard builder loading', () => {
   afterEach(() => TestBed.resetTestingModule());
@@ -41,7 +42,7 @@ describe('dashboard builder loading', () => {
     const createDashboard = vi.fn(() => NEVER);
     const testBed = TestBed.configureTestingModule({
       imports: [CommonModule, FormsModule],
-      declarations: [DashboardBuilderComponent, LoaderComponent, ButtonComponent, PieChartEmptyPipe, ChartNoDataComponent],
+      declarations: [DashboardBuilderComponent, LoaderComponent, DateInputComponent, ButtonComponent, PieChartEmptyPipe, ChartNoDataComponent],
       schemas: [NO_ERRORS_SCHEMA],
       providers: [
         { provide: ActivatedRoute, useValue: { snapshot: {
@@ -86,6 +87,192 @@ describe('dashboard builder loading', () => {
     });
     dashboard.complete();
   }
+
+  it.each(['standard', 'my'] as const)('refreshes loaded Add Charts and Add Tiles %s cards when hierarchy filters change', tab => {
+    const { component } = setup();
+    Object.assign(component, {
+      country: 'Oman', cluster: 'North', plant: 'Plant A',
+      rebuildCascadingOptions: vi.fn(), persistFilterState: vi.fn(),
+    });
+    const tile: TileSelectorItem = {
+      id: 'tile-1', title: 'Tile', value: '-', accent: 'blue', icon: 'well',
+      active: 0, inactive: 0, activeLabel: 'Active', inactiveLabel: 'Inactive',
+      designJson: JSON.stringify({ source: 'Wells', sourceType: 'Table', aggregation: 'count' }),
+    };
+    const chart: ChartSelectorItem = {
+      id: 'chart-1', title: 'Chart', description: '', chartType: 'line',
+      source: 'WellView', sourceType: 'View',
+      designJson: JSON.stringify({
+        source: 'WellView', sourceType: 'View', dataSourceMode: 'view', viewId: 3,
+        chartType: 'line', xAxis: 'Period', yAxis: 'Sum (F)', yAggColumn: 'Plan',
+      }),
+    };
+    component.standardTiles = tab === 'standard' ? [tile] : [];
+    component.myTiles = tab === 'my' ? [tile] : [];
+    component.standardCharts = tab === 'standard' ? [chart] : [];
+    component.myCharts = tab === 'my' ? [chart] : [];
+    const pending = new Subject<{ columns: string[]; rows: Record<string, unknown>[] }>();
+    const getFilteredChartData = vi.spyOn(TestBed.inject(WidgetService), 'getFilteredChartData')
+      .mockReturnValue(pending);
+    component.onTileVisible(tile);
+    component.onChartVisible(chart);
+    expect(getFilteredChartData).toHaveBeenCalledTimes(2);
+
+    component.selectFilterOption('plant', 'Plant B');
+
+    expect(getFilteredChartData).toHaveBeenCalledTimes(4);
+    const requests = getFilteredChartData.mock.calls.slice(2).map(([request]) => request);
+    expect(requests).toContainEqual(expect.objectContaining({
+      chartSource: 'WellView', viewId: 3, mode: 'monthly',
+      fromDate: component.fromDate, toDate: component.toDate,
+      filters: expect.arrayContaining([expect.objectContaining({ sourceColumn: 'plant', values: ['Plant A', 'Plant B'] })]),
+    }));
+    expect(requests).toContainEqual(expect.objectContaining({
+      chartSource: 'Wells', aggregation: 'count',
+      filters: expect.arrayContaining([expect.objectContaining({ values: ['Plant A', 'Plant B'] })]),
+    }));
+    expect(component.tileSlots.every(slot => slot === null)).toBe(true);
+    expect(component.chartSlotsData).toEqual([]);
+  });
+
+  it('invalidates library previews on date changes, cancels old requests, and leaves unseen cards lazy', () => {
+    const { component } = setup();
+    Object.assign(component, {
+      cluster: 'North', plant: 'Plant A', persistFilterState: vi.fn(),
+    });
+    const tile: TileSelectorItem = {
+      id: 'tile-1', title: 'Tile', value: '-', accent: 'blue', icon: 'well',
+      active: 0, inactive: 0, activeLabel: 'Active', inactiveLabel: 'Inactive',
+      designJson: JSON.stringify({ source: 'Wells', sourceType: 'Table', aggregation: 'count' }),
+    };
+    const chart: ChartSelectorItem = {
+      id: 'chart-1', title: 'Chart', description: '', chartType: 'line',
+      source: 'WellView', sourceType: 'View',
+      designJson: JSON.stringify({ source: 'WellView', sourceType: 'View', dataSourceMode: 'view', viewId: 3, chartType: 'line' }),
+    };
+    component.standardTiles = [tile, { ...tile, id: 'unseen-tile' }];
+    component.standardCharts = [chart, { ...chart, id: 'unseen-chart' }];
+    const oldRequests = new Subject<{ columns: string[]; rows: Record<string, unknown>[] }>();
+    const newRequests = new Subject<{ columns: string[]; rows: Record<string, unknown>[] }>();
+    const getFilteredChartData = vi.spyOn(TestBed.inject(WidgetService), 'getFilteredChartData')
+      .mockReturnValue(oldRequests);
+    component.onTileVisible(tile);
+    component.onChartVisible(chart);
+    expect(oldRequests.observed).toBe(true);
+    getFilteredChartData.mockReturnValue(newRequests);
+    component.fromDate = '2026-02-01';
+    component.toDate = '2026-06-30';
+
+    component.onGlobalDateChange();
+
+    expect(oldRequests.observed).toBe(false);
+    expect(newRequests.observed).toBe(true);
+    expect(getFilteredChartData).toHaveBeenCalledTimes(4);
+    expect(getFilteredChartData).toHaveBeenLastCalledWith(expect.objectContaining({
+      fromDate: '2026-02-01', toDate: '2026-06-30',
+    }));
+    expect(component['loadedChartPreviewIds'].has('unseen-chart')).toBe(false);
+    expect(component['tilePreviewRequests'].has(JSON.stringify(['unseen-tile', tile.designJson]))).toBe(false);
+  });
+
+  it('updates both placed and library tile objects when they refer to the same widget', () => {
+    const { component } = setup();
+    Object.assign(component, { cluster: 'North', plant: 'Plant A', persistFilterState: vi.fn() });
+    const tile: TileSelectorItem = {
+      id: 'tile-1', title: 'Tile', value: '-', accent: 'blue', icon: 'well',
+      active: 0, inactive: 0, activeLabel: 'Active', inactiveLabel: 'Inactive',
+      designJson: JSON.stringify({ source: 'Wells', sourceType: 'Table', aggregation: 'count' }),
+    };
+    const placed = { ...tile };
+    component.standardTiles = [tile];
+    component.tileSlots = [placed];
+    const getFilteredChartData = vi.spyOn(TestBed.inject(WidgetService), 'getFilteredChartData')
+      .mockReturnValue(of({ columns: ['Value'], rows: [{ Value: 10 }] }));
+    component.onTileVisible(tile);
+    getFilteredChartData.mockReturnValue(of({ columns: ['Value'], rows: [{ Value: 20 }] }));
+
+    component.onGlobalDateChange();
+
+    expect(tile.value).toBe('20');
+    expect(placed.value).toBe('20');
+    expect(getFilteredChartData).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['complete', 'error'] as const)('keeps the filter loading indication until tiles and charts finish (%s)', outcome => {
+    const { component } = setup();
+    Object.assign(component, { cluster: 'North', plant: 'Plant A' });
+    const tile: TileSelectorItem = {
+      id: 'tile-1', title: 'Tile', value: '-', accent: 'blue', icon: 'well',
+      active: 0, inactive: 0, activeLabel: 'Active', inactiveLabel: 'Inactive',
+      designJson: JSON.stringify({ source: 'Wells', sourceType: 'Table', aggregation: 'count' }),
+    };
+    const chart: ChartSelectorItem = {
+      id: 'chart-1', title: 'Chart', description: '', chartType: 'line',
+      source: 'WellView', sourceType: 'View',
+      designJson: JSON.stringify({ source: 'WellView', sourceType: 'View', dataSourceMode: 'view', viewId: 3, chartType: 'line' }),
+    };
+    const tileRequest = new Subject<{ columns: string[]; rows: Record<string, unknown>[] }>();
+    const chartRequest = new Subject<{ columns: string[]; rows: Record<string, unknown>[] }>();
+    vi.spyOn(TestBed.inject(WidgetService), 'getFilteredChartData')
+      .mockImplementation(request => request.chartSource === 'Wells' ? tileRequest : chartRequest);
+    expect(component.isRefreshingPreviews).toBe(false);
+    component.onTileVisible(tile);
+    component.onChartVisible(chart);
+    expect(component.isRefreshingPreviews).toBe(true);
+    if (outcome === 'error') tileRequest.error(new Error('Failed to load tile'));
+    else tileRequest.complete();
+    expect(component.isRefreshingPreviews).toBe(true);
+    if (outcome === 'error') chartRequest.error(new Error('Failed to load chart'));
+    else chartRequest.complete();
+    expect(component.isRefreshingPreviews).toBe(false);
+  });
+
+  it.each(['tiles', 'charts'] as const)('shows an accessible filter loading status in the Add %s dialog', dialog => {
+    const { component, fixture } = setup({}, {}, true);
+    component.selectPanel(dialog);
+    component['pendingTilePreviews'].add('pending-preview');
+    fixture.detectChanges();
+    const status = fixture.debugElement.query(By.css('.preview-filter-loading'));
+    expect(status.attributes['role']).toBe('status');
+    expect(status.attributes['aria-label']).toBe('Updating filtered previews');
+    expect(status.nativeElement.textContent).not.toContain('Applying filters and updating previews');
+    expect(status.query(By.directive(LoaderComponent)).componentInstance.size).toBe('sm');
+    component['pendingTilePreviews'].clear();
+    component['cdr'].markForCheck();
+    fixture.detectChanges();
+    expect(fixture.debugElement.query(By.css('.preview-filter-loading'))).toBeNull();
+  });
+
+  it('clears every checkbox, applies only the next pick, and reverts to All when closed unpicked', () => {
+    const { component } = setup();
+    const reload = vi.spyOn(component as any, 'reloadPlacedPreviews').mockImplementation(() => undefined);
+    Object.assign(component, { clusterOptions: ['Amal', 'GB', 'Nimr'], cluster: ['Amal', 'GB'] });
+    component.openFilterName = 'tm_cluster';
+
+    component.clearGlobalFilterSelection('cluster', new MouseEvent('click'));
+    expect(component.isGlobalFilterCleared('cluster')).toBe(true);
+    expect(component.cluster).toEqual(['Amal', 'GB']);
+    expect(reload).not.toHaveBeenCalled();
+
+    component.selectFilterOption('cluster', 'Nimr');
+    expect(component.cluster).toBe('Nimr');
+    expect(component.isGlobalFilterCleared('cluster')).toBe(false);
+
+    component.openFilterName = 'tm_cluster';
+    component.clearGlobalFilterSelection('cluster', new MouseEvent('click'));
+    component.openFilterName = null;
+    expect(component.cluster).toBe('All');
+    expect(component.isGlobalFilterCleared('cluster')).toBe(false);
+  });
+
+  it('does not leave loading active when a chart has invalid saved JSON', () => {
+    const { component } = setup();
+    component.onChartVisible({
+      id: 'bad-chart', title: 'Chart', description: '', chartType: 'line',
+      source: 'WellView', sourceType: 'View', designJson: '{',
+    });
+    expect(component.isRefreshingPreviews).toBe(false);
+  });
 
   it.each([
     [{ dashboardId: '42', name: 'Production & Safety' }, {}],

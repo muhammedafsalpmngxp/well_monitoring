@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ReportFilter, TopNSpec } from '../utils/report-filter.util';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { catchError, defer, Observable, of, retry, switchMap, throwError } from 'rxjs';
+import { catchError, defer, map, Observable, of, retry, switchMap, throwError } from 'rxjs';
 import { shareReplay } from 'rxjs/operators';
 import { ApiService } from './api.service';
 import { API_ENDPOINTS } from '../constants/api.constants';
@@ -13,6 +13,19 @@ export interface ChartSource {
   sourceType: string;  // 'Table' or 'View'
   schemaName: string;
   columnCount: number;
+}
+
+export interface WidgetDataFilter {
+  sourceTable: string;
+  sourceColumn: string;
+  controlType: string;
+  value: string;
+  values?: string[];
+  label?: string;
+  dashboardAdditional?: boolean;
+  globalHierarchy?: boolean;
+  optional?: boolean;
+  advancedHierarchy?: string;
 }
 
 export interface WidgetLibraryItem {
@@ -55,6 +68,7 @@ export interface Widget {
   designJson: string;
   categoryId: number;
   categoryName?: string;
+  categoryDescription?: string | null;
   status: string;
   createdAt: string;
   createdBy: number;
@@ -228,28 +242,46 @@ export class WidgetService {
     return this.http.get<UserPreferenceDto[]>(`${this.prefUrl}/recently-viewed`, { params });
   }
 
-  getFilteredChartData(body: { chartSource: string; chartSourceType: string; viewId: number | null; filters: { sourceTable: string; sourceColumn: string; controlType: string; value: string; values?: string[]; label?: string; dashboardAdditional?: boolean }[]; fromDate?: string; toDate?: string; preserveFutureDateRange?: boolean; mode?: 'weekly' | 'monthly' | 'quarterly' | 'yearly'; reportFilters?: ReportFilter[]; topN?: TopNSpec; aggregation?: string; valueField?: string; daxModel?: DaxModelConfig }, shareContext?: DashboardShareContext, onUnsupportedAdditionalFilter?: () => void): Observable<{ columns: string[]; rows: Record<string, unknown>[] }> {
+  getFilteredChartData(body: { chartSource: string; chartSourceType: string; viewId: number | null; filters: WidgetDataFilter[]; fromDate?: string; toDate?: string; preserveFutureDateRange?: boolean; mode?: 'weekly' | 'monthly' | 'quarterly' | 'yearly'; reportFilters?: ReportFilter[]; topN?: TopNSpec; aggregation?: string; valueField?: string; daxModel?: DaxModelConfig }, shareContext?: DashboardShareContext, onUnsupportedAdditionalFilter?: () => void): Observable<{ columns: string[]; rows: Record<string, unknown>[] }> {
     let params = new HttpParams();
     if (shareContext) params = params.set('shareDashboardId', shareContext.dashboardId).set('shareToken', shareContext.token);
     const url = `${environment.tenantApiUrl}${API_ENDPOINTS.COMMON.FILTERED_CHART_DATA}`;
-    const filters = body.filters.map(({ dashboardAdditional, ...filter }) =>
-      dashboardAdditional ? { ...filter, dashboardAdditional: true } : filter);
+    const filters$ = !body.viewId && body.chartSourceType.toLowerCase() === 'table' &&
+        body.filters.some(filter => filter.globalHierarchy)
+      ? this.getTableData(body.chartSource, body.chartSourceType, shareContext).pipe(
+          map(metadata => {
+            const normalize = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
+              .replace(/^plant$/, 'plantdescription');
+            return body.filters.flatMap(filter => {
+              if (!filter.globalHierarchy) return [filter];
+              const column = metadata.columns.find(candidate => normalize(candidate) === normalize(filter.sourceColumn));
+              if (column) return [{ ...filter, sourceTable: body.chartSource, sourceColumn: column }];
+              console.warn(`Global filter ${filter.sourceColumn} is not applicable to table ${body.chartSource}; filter skipped.`);
+              return [];
+            });
+          }),
+        )
+      : of(body.filters);
     if (body.chartSourceType.toLowerCase() === 'import' && body.filters.some(filter => filter.dashboardAdditional)) {
       console.warn(`Additional dashboard filters cannot be applied to imported chart source ${body.chartSource}.`);
       return of({ columns: [], rows: [] });
     }
-    return defer(() => {
-      const { daxModel, ...request } = body;
-      const dax = getTileDaxRequest(daxModel);
-      return this.http.post<{ columns: string[]; rows: Record<string, unknown>[] }>(
-        url, { ...request, filters, ...(dax ? { dax } : {}) }, { params });
-    }).pipe(
-      catchError((error: unknown) => {
-        if (body.daxModel?.enabled || !(error instanceof HttpErrorResponse) || error.status !== 404 ||
-            !body.filters.some(filter => filter.dashboardAdditional)) return throwError(() => error);
-        console.warn(`Additional dashboard filters cannot be joined to ${body.chartSource}; showing no data.`, error);
-        return of({ columns: [], rows: [] });
-      }),
+    return filters$.pipe(
+      switchMap(resolvedFilters => defer(() => {
+        const { daxModel, ...request } = body;
+        const dax = getTileDaxRequest(daxModel);
+        const filters = resolvedFilters.map(({ globalHierarchy, dashboardAdditional, ...filter }) =>
+          dashboardAdditional ? { ...filter, dashboardAdditional: true } : filter);
+        return this.http.post<{ columns: string[]; rows: Record<string, unknown>[] }>(
+          url, { ...request, filters, ...(dax ? { dax } : {}) }, { params });
+      }).pipe(
+        catchError((error: unknown) => {
+          if (body.daxModel?.enabled || !(error instanceof HttpErrorResponse) || error.status !== 404 ||
+              !body.filters.some(filter => filter.dashboardAdditional)) return throwError(() => error);
+          console.warn(`Additional dashboard filters cannot be joined to ${body.chartSource}; showing no data.`, error);
+          return of({ columns: [], rows: [] });
+        }),
+      )),
     );
   }
 }

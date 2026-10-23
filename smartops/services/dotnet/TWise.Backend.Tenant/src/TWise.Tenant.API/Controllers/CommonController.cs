@@ -29,6 +29,23 @@ public class CommonController(ISender sender, IDashboardShareAccessService share
     public async Task<IActionResult> GetBISources(CancellationToken ct)
         => Ok(await sender.Send(new ListBISourcesQuery(), ct));
 
+    /// <summary>Get the latest AlTasnimBI migration sync time in Oman (UTC+04:00).</summary>
+    [HttpGet("sync-time")]
+    [ProducesResponseType(typeof(SyncTimeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<SyncTimeResponse>> GetSyncTime(CancellationToken ct)
+    {
+        var result = await sender.Send(new GetSyncTimeQuery(), ct);
+        if (result is null)
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Sync time not found",
+                detail: "No successful migration sync timestamp is available.");
+
+        return Ok(result);
+    }
+
     /// <summary>
     /// Get all rows and columns from a core schema table or view (max 500 rows).
     /// Used for live preview in the report builder, and by anonymous visitors of an

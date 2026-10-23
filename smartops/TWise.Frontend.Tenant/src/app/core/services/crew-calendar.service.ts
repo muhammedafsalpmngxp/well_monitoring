@@ -17,9 +17,9 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class CrewCalendarService {
-  private readonly path = '/legacy-crews/calendar';
-  private readonly unassignedPath = '/legacy-crews/unassigned';
-  private readonly activitiesPath = '/legacy-crews/assignable-activities';
+  private readonly path = '/crews/calendar';
+  private readonly unassignedPath = '/crews/unassigned';
+  private readonly activitiesPath = '/crews/assignable-activities';
   private readonly assignmentsPath = '/crew-assignments';
 
   constructor(private readonly api: ApiService, private readonly storage: StorageService) {}
@@ -38,8 +38,29 @@ export class CrewCalendarService {
       map(res => {
         const data = res.data;
         if (!filters?.includeRoster || !data.roster) return data;
+        const groups = data.groups.map(group => {
+          const crews = group.crews.filter(crew => !crew.crewCode.trim()).map(crew => ({
+            ...crew,
+            activities: crew.activities.filter(activity => !activity.actualStart && !activity.actualEnd &&
+              !activity.progress && !activity.isMilestone && activity.source !== 'draft'),
+          }));
+          return { ...group, crews, activityCount: crews.reduce((total, crew) => total + crew.activities.length, 0),
+            completionPct: 0 };
+        }).filter(group => group.activityCount > 0);
         return {
           ...data,
+          groups,
+          totalGroups: groups.length,
+          totalCrews: 0,
+          totalActivities: groups.reduce((total, group) => total + group.activityCount, 0),
+          actualGroups: data.actualGroups ?? data.groups,
+          // Planned is an independent scenario; recorded reservations must not consume its capacity.
+          roster: {
+            ...data.roster,
+            groups: data.roster.groups.map(group => ({ ...group,
+              crews: group.crews.map(crew => ({ ...crew, bookings: [] })),
+            })),
+          },
           planningScope: { ...filters, from: data.fromDate, to: data.toDate },
           retainedPlan: this.getSessionPlan({ ...filters, from: data.fromDate, to: data.toDate }),
         };
