@@ -7,7 +7,7 @@ It runs on every draft, costs nothing and cannot be talked round:
   status code, as the date-validation status LATE does;
 * field-name leaks: a snake_case key of the evidence written into the prose is refused.
 
-The issue texts are the tenant's (dailyreport.verifier_issues); a failed draft goes back to the writer with them.
+The issue texts are the tenant's (messages prompt, section verifier_issues); a failed draft goes back to the writer with them.
 """
 from __future__ import annotations
 

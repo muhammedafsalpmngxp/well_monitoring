@@ -21,7 +21,9 @@ from tests.features.dailyreport.conftest import (
     activity_row,
     make_row,
     report_context,
+    prompts_with,
     seed_prompts,
+    seed_text,
     seed_settings,
 )
 
@@ -50,7 +52,7 @@ def world(fake_db):
 
 def _issue(kind, **values):
     from app.features.common.text import fill
-    return fill(parse_entries(seed_prompts()["dailyreport.verifier_issues"])[kind], **values)
+    return fill(parse_entries(seed_text("verifier_issues"))[kind], **values)
 
 
 def _verify(draft, evidence, question=""):
@@ -131,6 +133,35 @@ class TestTools:
         assert result.result["open_work_past_overdue_deadline"] == []      # well 101 has no open work
         assert "within 7 day(s)" in result.result["rule"]
 
+    def test_a_well_with_two_overdue_deadlines_is_one_well_and_two_deadline_records(self, world):
+        """The brief once read "open_work_past_overdue_deadline_count: 241" as 241 wells. The count is of deadline
+        records (a well and a milestone each); the evidence must also carry the number of wells, under its own name."""
+        world.set(data.WELL_ACTIVITY, [
+            activity_row(well_id=QUIET_WELL, logical_task_count=5, completed_task_count=2, open_task_count=3,
+                         incomplete_task_count=1, ongoing_task_count=2, not_started_task_count=1,
+                         ended_not_completed_task_count=0, last_task_date=date(2026, 7, 20)),
+            activity_row(well_id=REPORTING_WELL, logical_task_count=2, completed_task_count=0, open_task_count=2,
+                         incomplete_task_count=2, ongoing_task_count=0, not_started_task_count=0,
+                         ended_not_completed_task_count=0, last_task_date=date(2026, 7, 20)),
+        ])
+        world.set(data.MILESTONES, [
+            {"well_id": QUIET_WELL, "milestone": "RIG_ON", "deadline_date": TODAY - timedelta(days=9)},
+            {"well_id": QUIET_WELL, "milestone": "RIG_OFF", "deadline_date": TODAY - timedelta(days=2)},
+            {"well_id": REPORTING_WELL, "milestone": "FLAF", "deadline_date": TODAY - timedelta(days=3)},
+            {"well_id": REPORTING_WELL, "milestone": "RIG_ON", "deadline_date": TODAY + timedelta(days=1)},
+            {"well_id": QUIET_WELL, "milestone": "PEGGING_SHEET", "deadline_date": TODAY + timedelta(days=2)},
+        ])
+        with report_context() as ctx:
+            pressure = tools.run_tool(_env(ctx), "deadline_pressure", {}).result
+            deadlines = tools.run_tool(_env(ctx), "milestones", {}).result
+        assert pressure["open_work_past_overdue_deadline_record_count"] == 3
+        assert pressure["open_work_past_overdue_deadline_well_count"] == 2
+        assert pressure["open_work_before_upcoming_deadline_record_count"] == 2
+        assert pressure["open_work_before_upcoming_deadline_well_count"] == 2
+        assert "open_work_past_overdue_deadline_count" not in pressure      # the ambiguous name is gone
+        assert deadlines["overdue_deadline_count"] == 3 and deadlines["overdue_well_count"] == 2
+        assert deadlines["upcoming_deadline_count"] == 2 and deadlines["upcoming_well_count"] == 2
+
     def test_milestones_are_evaluated_against_the_requests_today(self, world):
         with report_context() as ctx:
             result = tools.run_tool(_env(ctx), "milestones", {"window_days": 999})
@@ -149,7 +180,7 @@ class TestTools:
         assert [t["name"] for t in catalog] == list(tools.TOOLS)
         list_wells = next(t for t in catalog if t["name"] == "list_wells")
         assert list_wells["args"]["limit"] == "integer, default 15, max 50"
-        with report_context(prompts={"dailyreport.tool_day_overview": "Day.\n- sql: anything"}) as ctx:
+        with report_context(prompts=prompts_with(tool_day_overview="Day.\n- sql: anything")) as ctx:
             day = tools.catalog(ctx)[0]
         assert day == {"name": "day_overview", "description": "Day.", "args": {}}   # an argument it does not take
 
@@ -279,7 +310,7 @@ class TestBrief:
     def test_nothing_to_explain_is_not_sent_to_a_model(self, world, fake_model):
         result = _brief(scope="well", well_id=999999)
         assert not result["available"] and fake_model.count("writer") == 0
-        assert result["error"] == seed_prompts()["dailyreport.answer_nothing_to_explain"]
+        assert result["error"] == seed_text("answer_nothing_to_explain")
 
     def test_a_database_failure_is_reported_not_called_nothing(self, world, fake_model):
         world.failing.add(data.DAILY_DETAILS)
@@ -383,7 +414,7 @@ class TestSpeed:
         from app.features.dailyreport.agent.wording import plain
         words = load_settings(seed_settings()).status_word_map()
         assert plain("2 ENDED_NOT_COMPLETED, 3 COMPLETED, 4 NO_ACTUAL", words) == (
-            "2 ended, not completed, 3 completed, 4 no actual entered")
+            "2 ended, not completed, 3 completed, 4 nothing entered")
         assert plain("UNKNOWN_CODE stays", words) == "UNKNOWN_CODE stays"
         assert plain("5 ON_PLAN", {"ON_PLAN": "as planned"}) == "5 as planned"
 

@@ -23,6 +23,7 @@ from app.features.common.db import DatabaseUnavailable, QueryResult
 from app.features.common.models import FeatureRequest
 from app.features.dailyreport import data
 from app.features.dailyreport.context import FEATURE, ReportContext
+from app.features.dailyreport.texts import MESSAGE_TEMPLATES, SECTION_OF, parse_sections, serialize_sections
 from tests.features import _seed
 
 REPORT_DATE = date(2026, 8, 1)
@@ -35,6 +36,31 @@ LLM = {"provider": "openai", "baseUrl": "https://example.invalid/v1", "model": "
 
 def seed_prompts() -> Dict[str, str]:
     return _seed.prompts("dailyreport.")
+
+
+def seed_text(name: str) -> str:
+    """The seed text of one logical prompt, however it is stored: a message wrapper fixed in code, a section of a
+    merged prompt (see texts.LAYOUT), or a prompt of its own."""
+    if name in MESSAGE_TEMPLATES:
+        return MESSAGE_TEMPLATES[name]
+    merged = SECTION_OF.get(name)
+    prompts = seed_prompts()
+    return prompts["dailyreport." + name] if merged is None else parse_sections(prompts["dailyreport." + merged])[name]
+
+
+def prompts_with(**texts: str) -> Dict[str, str]:
+    """Prompt overrides for a request: each logical name given gets that text (inside its merged prompt, the other
+    sections unchanged), e.g. ``report_context(prompts=prompts_with(tool_day_overview="Day.\\n- sql: x"))``."""
+    out: Dict[str, str] = {}
+    for name, text in texts.items():
+        merged = SECTION_OF.get(name)
+        if merged is None:
+            out["dailyreport." + name] = text
+            continue
+        sections = parse_sections(out.get("dailyreport." + merged, seed_prompts()["dailyreport." + merged]))
+        sections[name] = text
+        out["dailyreport." + merged] = serialize_sections(sections)
+    return out
 
 
 def seed_settings() -> Dict[str, Any]:
@@ -60,9 +86,11 @@ def _seed_present():
 def _clean_caches():
     data.ROW_CACHE.clear()
     data.ANSWER_CACHE.clear()
+    data.FLIGHTS.clear()
     yield
     data.ROW_CACHE.clear()
     data.ANSWER_CACHE.clear()
+    data.FLIGHTS.clear()
 
 
 def body(*, prompts: Optional[Dict[str, str]] = None, settings: Optional[Dict[str, Any]] = None,

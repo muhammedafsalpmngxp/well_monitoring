@@ -1291,30 +1291,30 @@
             "ON_PLAN=on plan",
             "ABOVE_PLAN=above plan",
             "BELOW_PLAN=below plan",
-            "NO_ACTUAL=no actual entered",
-            "NOT_VALIDATED=not validated",
+            "NO_ACTUAL=nothing entered",
+            "NOT_VALIDATED=no plan to compare",
             "ON_TIME=on time",
             "EARLY=early",
             "LATE=late",
-            "MATCHED=matched",
-            "MISMATCHED=mismatched",
-            "NOT_COMPARABLE=not comparable",
+            "MATCHED=same as planned",
+            "MISMATCHED=different from planned",
+            "NOT_COMPARABLE=cannot be compared",
             "COMPLETED=completed",
             "ONGOING=ongoing",
             "NOT_STARTED=not started",
             "ENDED_NOT_COMPLETED=ended, not completed",
-            "UNMAPPED_ACTIVITY=unmapped activity",
-            "UNMAPPED_DESCRIPTION=unmapped activity description",
-            "UNMAPPED_WBS=unmapped WBS",
-            "UNMAPPED_CREW=unmapped crew",
-            "MISSING_UOM=missing unit of measure",
-            "INVALID_DAILY_JSON=unreadable daily entry",
-            "UNPARSEABLE_ACTUAL_QUANTITY=unreadable actual quantity",
-            "DUPLICATE_ACTUAL_ENTRY=duplicate actual entry",
-            "MULTIPLE_TASK_ROWS=multiple task rows",
-            "MISSING_PLANNED=missing planned quantity",
-            "MALFORMED_TASK_CODE=malformed task code",
-            "INVALID_DATE_SEQUENCE=actual end before actual start"
+            "UNMAPPED_ACTIVITY=activity name missing",
+            "UNMAPPED_DESCRIPTION=description missing",
+            "UNMAPPED_WBS=WBS missing",
+            "UNMAPPED_CREW=crew missing",
+            "MISSING_UOM=unit missing",
+            "INVALID_DAILY_JSON=unreadable entry",
+            "UNPARSEABLE_ACTUAL_QUANTITY=unreadable amount",
+            "DUPLICATE_ACTUAL_ENTRY=amount entered twice",
+            "MULTIPLE_TASK_ROWS=task on several rows",
+            "MISSING_PLANNED=planned amount missing",
+            "MALFORMED_TASK_CODE=task code looks wrong",
+            "INVALID_DATE_SEQUENCE=end date before start date"
           ]
         },
         {
@@ -1546,38 +1546,36 @@
           "allowEmpty": false
         },
         {
-          "key": "dailyreport.planner_user",
-          "name": "Daily Report: planner message",
-          "description": "The planner's user message. {REPORT_DATE} the report date, {TOOLS} the tool catalogue (JSON built from the dailyreport.tool_* prompts), {QUESTION} the user's question.",
-          "text": "Report date: {REPORT_DATE}\n\nTools:\n{TOOLS}\n\nQuestion: {QUESTION}",
+          "key": "dailyreport.tools",
+          "name": "Daily Report: tools the planner can pick",
+          "description": "What each read-only tool does and which arguments it takes, shown to the planner when it chooses tools for a question. One section per tool (## tool_name): keep the headings and the '- argument:' lines. {DEFAULT_LIMIT} and {MAX_LIMIT} become the tool's row limits.",
+          "text": "## tool_day_overview\nThe whole day: what was reported on the date and where every live well's open work stands as of it.\n\n## tool_well_overview\nOne well: its tasks on the date (if any) and its open, incomplete and ongoing work as of the date.\n- well_id: integer well id\n\n## tool_task_detail\nOne reported task on the date, with its crew evidence.\n- task_daily_id: integer\n- well_id: integer, optional\n\n## tool_list_wells\nWells with their figures, busiest first.\n- filter: reported | open_work | no_report_with_open_work | all\n- status: optional: ON_PLAN | ABOVE_PLAN | BELOW_PLAN | NO_ACTUAL | NOT_VALIDATED\n- limit: integer, default {DEFAULT_LIMIT}, max {MAX_LIMIT}\n\n## tool_milestones\nPegging / FLAF / rig-on / rig-off deadlines, evaluated against today.\n- window_days: integer, optional\n- well_id: integer, optional\n- limit: integer, optional\n\n## tool_deadline_pressure\nWells that still have open tasks with a milestone deadline coming up or already passed.\n- limit: integer, optional\n\n## tool_crew_options\nCrew evidence for one task: the crew on it and, when SQL found one, a crew with a proven history on the same activity. Advisory only.\n- task_daily_id: integer\n\n## tool_data_quality\nThe day's data-quality flags, grouped by flag and activity.\n- limit: integer, optional",
           "replyKeys": [],
-          "allowEmpty": false
+          "allowEmpty": false,
+          "mergedFrom": [
+            "dailyreport.tool_day_overview",
+            "dailyreport.tool_well_overview",
+            "dailyreport.tool_task_detail",
+            "dailyreport.tool_list_wells",
+            "dailyreport.tool_milestones",
+            "dailyreport.tool_deadline_pressure",
+            "dailyreport.tool_crew_options",
+            "dailyreport.tool_data_quality"
+          ]
         },
         {
-          "key": "dailyreport.writer_user",
-          "name": "Daily Report: writer message",
-          "description": "The writer's user message. {REPORT_DATE} the report date, {QUESTION} the question (a line holding {QUESTION} is left out for a dashboard brief, which has none), {TOOL_RESULTS} the tool results as JSON.",
-          "text": "Report date: {REPORT_DATE}\nQuestion: {QUESTION}\n\nTool results (authoritative):\n{TOOL_RESULTS}",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.writer_revision",
-          "name": "Daily Report: revision request",
-          "description": "Appended to the writer message when the verifier rejected a draft. {ISSUES} the issues as '- ' bullet lines, {DRAFT} the rejected draft.",
-          "text": "Your previous draft was rejected by the verifier for these reasons:\n{ISSUES}\n\nPrevious draft:\n{DRAFT}\n\nWrite a corrected answer that fixes every issue.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.writer_patch",
-          "name": "Daily Report: fix only the rejected sentences",
-          "description": "Appended to the writer message when the verifier rejected only some sentences of a draft (setting \"Fix only the faulty sentences\"): the model rewrites those sentences, code puts them back and the whole draft is checked again. {ISSUES} the issues as '- ' bullet lines, {DRAFT} the whole draft, {COUNT} how many sentences to return, {SENTENCES} the rejected sentences, numbered. The reply must be JSON with a \"sentences\" list.",
-          "text": "The verifier accepted your draft except for the sentences below, for these reasons:\n{ISSUES}\n\nYour whole draft, for context:\n{DRAFT}\n\nRewrite ONLY these {COUNT} sentence(s), in the same order. Keep each one's place and purpose in the draft, and use only values the tool results give: correct a figure, date or word the verifier named, or leave it out. Write each as one plain sentence, in the same style as the draft.\n\nSentences to rewrite:\n{SENTENCES}\n\nReturn ONLY a JSON object: {\"sentences\": [\"<rewritten sentence 1>\", ...]} with exactly {COUNT} sentence(s).",
+          "key": "dailyreport.writer_fix",
+          "name": "Daily Report: asking the writer to fix a rejected draft",
+          "description": "Two sections. ## writer_revision is appended to the writer's message when the checker rejected a draft ({ISSUES} one '- ' line per issue, {DRAFT} the rejected draft). ## writer_patch asks for only the faulty sentences ({COUNT} how many, {SENTENCES} numbered, {ISSUES}, {DRAFT}); the reply must be JSON with a \"sentences\" list.",
+          "text": "## writer_revision\nYour previous draft was rejected by the verifier for these reasons:\n{ISSUES}\n\nPrevious draft:\n{DRAFT}\n\nWrite a corrected answer that fixes every issue.\n\n## writer_patch\nThe verifier accepted your draft except for the sentences below, for these reasons:\n{ISSUES}\n\nYour whole draft, for context:\n{DRAFT}\n\nRewrite ONLY these {COUNT} sentence(s), in the same order. Keep each one's place and purpose in the draft, and use only values the tool results give: correct a figure, date or word the verifier named, or leave it out. Write each as one plain sentence, in the same style as the draft.\n\nSentences to rewrite:\n{SENTENCES}\n\nReturn ONLY a JSON object: {\"sentences\": [\"<rewritten sentence 1>\", ...]} with exactly {COUNT} sentence(s).",
           "replyKeys": [
             "sentences"
           ],
-          "allowEmpty": false
+          "allowEmpty": false,
+          "mergedFrom": [
+            "dailyreport.writer_revision",
+            "dailyreport.writer_patch"
+          ]
         },
         {
           "key": "dailyreport.verifier_system",
@@ -1591,260 +1589,67 @@
           "allowEmpty": false
         },
         {
-          "key": "dailyreport.verifier_user",
-          "name": "Daily Report: AI verifier message",
-          "description": "The AI verifier's user message. {TOOL_RESULTS} the tool results as JSON, {DRAFT} the draft answer.",
-          "text": "Tool results:\n{TOOL_RESULTS}\n\nDraft:\n{DRAFT}",
+          "key": "dailyreport.definitions",
+          "name": "Daily Report: definitions the AI is given",
+          "description": "What each status, crew match, date status, task state and activity figure means. Sent inside the evidence so the AI uses the company's own words. One section per list (## name), one 'CODE: meaning' line per entry.",
+          "text": "## evidence_status_definitions\nON_PLAN: The reported actual quantity equals the planned quantity.\nABOVE_PLAN: The reported actual quantity is above the planned quantity. This is not an error.\nBELOW_PLAN: The reported actual quantity is below the planned quantity. This is not, on its own, an error.\nNO_ACTUAL: No actual quantity was reported for the task on this date.\nNOT_VALIDATED: An actual quantity was reported but no planned quantity exists to compare it against.\n\n## evidence_crew_match_definitions\nMATCHED: The crew type actually assigned to the task matches the crew the WBS/activity mapping expects.\nMISMATCHED: The crew type actually assigned to the task does not match the crew the WBS/activity mapping expects.\nNOT_COMPARABLE: No crew is recorded on the task, or no WBS crew is mapped, so no comparison could be made.\n\n## evidence_date_status_definitions\nON_TIME: The reported actual date equals the planned date.\nEARLY: The reported actual date is before the planned date. This is not an error.\nLATE: The reported actual date is after the planned date. This is not, on its own, an error.\nNO_ACTUAL: No actual date has been reported yet.\nNOT_VALIDATED: An actual date was reported but no planned date exists to compare it against.\n\n## task_state_definitions\nCOMPLETED: Recorded as completed.\nONGOING: Not completed; an actual start is recorded and no actual end is.\nNOT_STARTED: Not completed; no actual start is recorded.\nENDED_NOT_COMPLETED: Not completed, yet an actual end date is recorded. The records say both; no rule resolves the two, so it is reported exactly as it stands.\n\n## well_activity_definitions\nlogical_task: One task is one (well_id, schedule_id, task_code); its state is the latest daily record for it on or before the report date. The same task_code under two schedule_ids is two tasks, not a duplicate.\ntoday_reported_task_count: Logical tasks this well reported on the report date itself. Zero means no task was recorded for the well on that date.\nopen_task_count: Every task whose latest recorded state is not completed. It is exactly incomplete_task_count + ongoing_task_count, which do not overlap.\nincomplete_task_count: Open tasks that are NOT ongoing: no recorded actual start, or an actual end recorded without completion. Never includes an ongoing task.\nongoing_task_count: Open tasks that have a recorded actual start and no recorded actual end.\nlast_task_date: The latest date on which this well appeared in the task-daily data, on or before the report date. It is NOT a completion date and says nothing about what was finished.\n\n## day_activity_definitions\nscope: Every live well with a task record on or before the report date, not only the wells that reported something on it.\nopen_task_count: Tasks whose latest recorded state is not completed. It is exactly incomplete_task_count + ongoing_task_count, which do not overlap.\nincomplete_task_count: Open tasks that are NOT ongoing: no recorded actual start, or an actual end recorded without completion.\nongoing_task_count: Open tasks with a recorded actual start and no recorded actual end.\nno_task_on_report_date: Wells with no task recorded on the report date itself. That is all it means: no entry for that day.\nlast_task_date: The latest date a well appeared in the task-daily data. It is NOT a completion date.",
           "replyKeys": [],
-          "allowEmpty": false
+          "allowEmpty": false,
+          "mergedFrom": [
+            "dailyreport.evidence_status_definitions",
+            "dailyreport.evidence_crew_match_definitions",
+            "dailyreport.evidence_date_status_definitions",
+            "dailyreport.task_state_definitions",
+            "dailyreport.well_activity_definitions",
+            "dailyreport.day_activity_definitions"
+          ]
         },
         {
-          "key": "dailyreport.verifier_issues",
-          "name": "Daily Report: number-check issues",
-          "description": "What the deterministic verifier tells the writer when a draft fails, one 'kind: text' line each: date ({DATE}), figure ({FIGURE}), judgement ({PHRASE}), field_name ({FIELD}).",
-          "text": "date: the date {DATE} is not in the evidence\nfigure: the figure {FIGURE} is not in the evidence\njudgement: \"{PHRASE}\" is a judgement no rule defines; state the facts instead\nfield_name: the field name {FIELD} is written into the text; use plain words",
+          "key": "dailyreport.data_limits",
+          "name": "Daily Report: what the data does not say",
+          "description": "Rules about what the AI must not claim (quantity tolerance, unit conversion, progress, delays, causes, responsibility). Sent inside the evidence. One section per scope (## name).",
+          "text": "## evidence_constraints\nquantity_tolerance: not defined in the business rules\nuom_conversion: not defined in the business rules; never convert between units\nprogress_unit: not defined in the business rules; report the progress value as given and do not describe it as a percentage or as a degree of completion\ncause_of_difference: not recorded anywhere in this evidence\nresponsibility: not recorded anywhere in this evidence\n\n## well_activity_constraints\nprogress: The recorded progress value is not used anywhere in these figures and must never be read as a degree of completion.\ndelay: No rule in this system defines when a task is late, so never describe one as delayed, overdue or behind schedule.\ncause: Why a task is in its state is not recorded anywhere here.\n\n## day_activity_constraints\nprogress: The recorded progress value is not used in any of these figures and must never be read as a degree of completion.\ndelay: No rule in this system defines when a task or a well is late, so never describe one as delayed, overdue or behind schedule.",
           "replyKeys": [],
-          "allowEmpty": false
+          "allowEmpty": false,
+          "mergedFrom": [
+            "dailyreport.evidence_constraints",
+            "dailyreport.well_activity_constraints",
+            "dailyreport.day_activity_constraints"
+          ]
         },
         {
-          "key": "dailyreport.tool_day_overview",
-          "name": "Daily Report: tool day_overview",
-          "description": "What the planner is told about the day_overview tool: the first line(s) describe it, each '- argument: meaning' line describes one argument (an argument the tool does not take is not shown). {DEFAULT_LIMIT} / {MAX_LIMIT}: the tool's limit settings.",
-          "text": "The whole day: what was reported on the date and where every live well's open work stands as of it.",
+          "key": "dailyreport.notes",
+          "name": "Daily Report: short notes shown with the figures",
+          "description": "Short notes added to the evidence when something is missing, cut or withheld, and the deadline rule. One section per note (## name); {WINDOW_DAYS} is the deadline window in days.",
+          "text": "## evidence_no_daily_entry_note\nNo daily task entry was recorded in this selection on this report date. This is an absence of any entry, not a zero quantity, and there is no quantity, status or count to report for the date itself. It says nothing about what the well's tasks are doing otherwise.\n\n## evidence_quantities_withheld\nThis scope spans more than one unit of measure. No conversion between units is defined, so quantities are not totalled.\n\n## evidence_data_quality_note\nData-quality conditions are reported separately from the quantity figures and do not change them.\n\n## evidence_tasks_truncated_note\nA representative sample spanning every status and as many distinct wells as possible is listed, not every task; the summary counts above cover all of them.\n\n## well_ongoing_truncated_note\nOnly the first tasks are listed individually; ongoing_task_count above covers all of them.\n\n## day_wells_truncated_note\nOnly the wells carrying the most open work are listed individually; the counts above cover every well in scope.\n\n## tool_unavailable_note\nNo daily task record or task activity for this selection.\n\n## tool_deadline_rule\nA well is listed when it has at least one open task and a milestone deadline within {WINDOW_DAYS} day(s) of today (or already passed). This is a statement of open work and a date, not a judgement about any task.\n\n## tool_data_quality_note\nData-quality flags never change a quantity or a status.",
           "replyKeys": [],
-          "allowEmpty": false
+          "allowEmpty": false,
+          "mergedFrom": [
+            "dailyreport.evidence_no_daily_entry_note",
+            "dailyreport.evidence_quantities_withheld",
+            "dailyreport.evidence_data_quality_note",
+            "dailyreport.evidence_tasks_truncated_note",
+            "dailyreport.well_ongoing_truncated_note",
+            "dailyreport.day_wells_truncated_note",
+            "dailyreport.tool_unavailable_note",
+            "dailyreport.tool_deadline_rule",
+            "dailyreport.tool_data_quality_note"
+          ]
         },
         {
-          "key": "dailyreport.tool_well_overview",
-          "name": "Daily Report: tool well_overview",
-          "description": "What the planner is told about the well_overview tool: the first line(s) describe it, each '- argument: meaning' line describes one argument (an argument the tool does not take is not shown). {DEFAULT_LIMIT} / {MAX_LIMIT}: the tool's limit settings.",
-          "text": "One well: its tasks on the date (if any) and its open, incomplete and ongoing work as of the date.\n- well_id: integer well id",
+          "key": "dailyreport.messages",
+          "name": "Daily Report: messages and wording of problems",
+          "description": "Texts shown to users or fed back to the AI: nothing to explain, a question that cannot be answered ({REASON} is the reason), why no crew was suggested, tool errors and the checker's wording of an issue. One section per list (## name).",
+          "text": "## answer_unanswerable\nThis question cannot be answered from the daily report's data: {REASON}\n\n## answer_nothing_to_explain\nThere is no daily task record or task activity in this selection to explain.\n\n## crew_no_suggestion_reasons\nunmapped_activity: This task's activity is not mapped to an activity code, so no historical comparison is available.\nno_history: No historical records show any crew completing this same activity on another well by the selected report date.\nall_busy: Crews with a completion history for this activity were found, but none of them is free of a current unfinished task in the available records.\n\n## tool_errors\nunknown_tool: unknown tool {TOOL}\nrequired: '{NAME}' is required\nwhole_number: '{NAME}' must be a whole number, got {VALUE}\none_of: '{NAME}' must be one of {OPTIONS}\nno_task: no task with task_daily_id {TASK_DAILY_ID} on {REPORT_DATE}\nfailed: the tool failed: {DETAIL}\n\n## verifier_issues\ndate: the date {DATE} is not in the evidence\nfigure: the figure {FIGURE} is not in the evidence\njudgement: \"{PHRASE}\" is a judgement no rule defines; state the facts instead\nfield_name: the field name {FIELD} is written into the text; use plain words",
           "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_task_detail",
-          "name": "Daily Report: tool task_detail",
-          "description": "What the planner is told about the task_detail tool: the first line(s) describe it, each '- argument: meaning' line describes one argument (an argument the tool does not take is not shown). {DEFAULT_LIMIT} / {MAX_LIMIT}: the tool's limit settings.",
-          "text": "One reported task on the date, with its crew evidence.\n- task_daily_id: integer\n- well_id: integer, optional",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_list_wells",
-          "name": "Daily Report: tool list_wells",
-          "description": "What the planner is told about the list_wells tool: the first line(s) describe it, each '- argument: meaning' line describes one argument (an argument the tool does not take is not shown). {DEFAULT_LIMIT} / {MAX_LIMIT}: the tool's limit settings.",
-          "text": "Wells with their figures, busiest first.\n- filter: reported | open_work | no_report_with_open_work | all\n- status: optional: ON_PLAN | ABOVE_PLAN | BELOW_PLAN | NO_ACTUAL | NOT_VALIDATED\n- limit: integer, default {DEFAULT_LIMIT}, max {MAX_LIMIT}",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_milestones",
-          "name": "Daily Report: tool milestones",
-          "description": "What the planner is told about the milestones tool: the first line(s) describe it, each '- argument: meaning' line describes one argument (an argument the tool does not take is not shown). {DEFAULT_LIMIT} / {MAX_LIMIT}: the tool's limit settings.",
-          "text": "Pegging / FLAF / rig-on / rig-off deadlines, evaluated against today.\n- window_days: integer, optional\n- well_id: integer, optional\n- limit: integer, optional",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_deadline_pressure",
-          "name": "Daily Report: tool deadline_pressure",
-          "description": "What the planner is told about the deadline_pressure tool: the first line(s) describe it, each '- argument: meaning' line describes one argument (an argument the tool does not take is not shown). {DEFAULT_LIMIT} / {MAX_LIMIT}: the tool's limit settings.",
-          "text": "Wells that still have open tasks with a milestone deadline coming up or already passed.\n- limit: integer, optional",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_crew_options",
-          "name": "Daily Report: tool crew_options",
-          "description": "What the planner is told about the crew_options tool: the first line(s) describe it, each '- argument: meaning' line describes one argument (an argument the tool does not take is not shown). {DEFAULT_LIMIT} / {MAX_LIMIT}: the tool's limit settings.",
-          "text": "Crew evidence for one task: the crew on it and, when SQL found one, a crew with a proven history on the same activity. Advisory only.\n- task_daily_id: integer",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_data_quality",
-          "name": "Daily Report: tool data_quality",
-          "description": "What the planner is told about the data_quality tool: the first line(s) describe it, each '- argument: meaning' line describes one argument (an argument the tool does not take is not shown). {DEFAULT_LIMIT} / {MAX_LIMIT}: the tool's limit settings.",
-          "text": "The day's data-quality flags, grouped by flag and activity.\n- limit: integer, optional",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_unavailable_note",
-          "name": "Daily Report: tool note, nothing to report",
-          "description": "Returned by the day / well / task tools when the selection has no daily task record or task activity.",
-          "text": "No daily task record or task activity for this selection.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_deadline_rule",
-          "name": "Daily Report: deadline pressure rule",
-          "description": "The rule the deadline_pressure tool states with its result. {WINDOW_DAYS}: setting deadlineWindowDays.",
-          "text": "A well is listed when it has at least one open task and a milestone deadline within {WINDOW_DAYS} day(s) of today (or already passed). This is a statement of open work and a date, not a judgement about any task.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_data_quality_note",
-          "name": "Daily Report: data quality tool note",
-          "description": "Returned with the data_quality tool's result.",
-          "text": "Data-quality flags never change a quantity or a status.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.tool_errors",
-          "name": "Daily Report: tool refusals",
-          "description": "What a tool returns to the agent when it is called outside its contract, one 'kind: text' line each. {TOOL} / {VALUE} / {OPTIONS} are shown as Python literals.",
-          "text": "unknown_tool: unknown tool {TOOL}\nrequired: '{NAME}' is required\nwhole_number: '{NAME}' must be a whole number, got {VALUE}\none_of: '{NAME}' must be one of {OPTIONS}\nno_task: no task with task_daily_id {TASK_DAILY_ID} on {REPORT_DATE}\nfailed: the tool failed: {DETAIL}",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.evidence_no_daily_entry_note",
-          "name": "Daily Report: evidence, no entry on the date",
-          "description": "The note in a scope's summary when nothing was recorded in the selection on the report date.",
-          "text": "No daily task entry was recorded in this selection on this report date. This is an absence of any entry, not a zero quantity, and there is no quantity, status or count to report for the date itself. It says nothing about what the well's tasks are doing otherwise.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.evidence_quantities_withheld",
-          "name": "Daily Report: evidence, quantities not totalled",
-          "description": "Why a scope spanning several units of measure carries no quantity totals.",
-          "text": "This scope spans more than one unit of measure. No conversion between units is defined, so quantities are not totalled.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.evidence_data_quality_note",
-          "name": "Daily Report: evidence, data quality note",
-          "description": "The note beside the data-quality flag counts.",
-          "text": "Data-quality conditions are reported separately from the quantity figures and do not change them.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.evidence_status_definitions",
-          "name": "Daily Report: evidence, quantity status definitions",
-          "description": "One 'STATUS: meaning' line per quantity status, in the order the dashboard shows them.",
-          "text": "ON_PLAN: The reported actual quantity equals the planned quantity.\nABOVE_PLAN: The reported actual quantity is above the planned quantity. This is not an error.\nBELOW_PLAN: The reported actual quantity is below the planned quantity. This is not, on its own, an error.\nNO_ACTUAL: No actual quantity was reported for the task on this date.\nNOT_VALIDATED: An actual quantity was reported but no planned quantity exists to compare it against.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.evidence_crew_match_definitions",
-          "name": "Daily Report: evidence, crew match definitions",
-          "description": "One 'STATUS: meaning' line per crew match status.",
-          "text": "MATCHED: The crew type actually assigned to the task matches the crew the WBS/activity mapping expects.\nMISMATCHED: The crew type actually assigned to the task does not match the crew the WBS/activity mapping expects.\nNOT_COMPARABLE: No crew is recorded on the task, or no WBS crew is mapped, so no comparison could be made.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.evidence_date_status_definitions",
-          "name": "Daily Report: evidence, date status definitions",
-          "description": "One 'STATUS: meaning' line per start / end date status.",
-          "text": "ON_TIME: The reported actual date equals the planned date.\nEARLY: The reported actual date is before the planned date. This is not an error.\nLATE: The reported actual date is after the planned date. This is not, on its own, an error.\nNO_ACTUAL: No actual date has been reported yet.\nNOT_VALIDATED: An actual date was reported but no planned date exists to compare it against.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.evidence_constraints",
-          "name": "Daily Report: evidence, constraints",
-          "description": "One 'name: text' line per thing the business rules do not define (tolerance, conversion, ...).",
-          "text": "quantity_tolerance: not defined in the business rules\nuom_conversion: not defined in the business rules; never convert between units\nprogress_unit: not defined in the business rules; report the progress value as given and do not describe it as a percentage or as a degree of completion\ncause_of_difference: not recorded anywhere in this evidence\nresponsibility: not recorded anywhere in this evidence",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.evidence_tasks_truncated_note",
-          "name": "Daily Report: evidence, task sample note",
-          "description": "The note when only a representative sample of the scope's tasks is listed.",
-          "text": "A representative sample spanning every status and as many distinct wells as possible is listed, not every task; the summary counts above cover all of them.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.well_activity_definitions",
-          "name": "Daily Report: well task activity definitions",
-          "description": "One 'figure: meaning' line per figure of one well's task activity.",
-          "text": "logical_task: One task is one (well_id, schedule_id, task_code); its state is the latest daily record for it on or before the report date. The same task_code under two schedule_ids is two tasks, not a duplicate.\ntoday_reported_task_count: Logical tasks this well reported on the report date itself. Zero means no task was recorded for the well on that date.\nopen_task_count: Every task whose latest recorded state is not completed. It is exactly incomplete_task_count + ongoing_task_count, which do not overlap.\nincomplete_task_count: Open tasks that are NOT ongoing: no recorded actual start, or an actual end recorded without completion. Never includes an ongoing task.\nongoing_task_count: Open tasks that have a recorded actual start and no recorded actual end.\nlast_task_date: The latest date on which this well appeared in the task-daily data, on or before the report date. It is NOT a completion date and says nothing about what was finished.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.task_state_definitions",
-          "name": "Daily Report: task state definitions",
-          "description": "One 'STATE: meaning' line per logical task state.",
-          "text": "COMPLETED: Recorded as completed.\nONGOING: Not completed; an actual start is recorded and no actual end is.\nNOT_STARTED: Not completed; no actual start is recorded.\nENDED_NOT_COMPLETED: Not completed, yet an actual end date is recorded. The records say both; no rule resolves the two, so it is reported exactly as it stands.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.well_activity_constraints",
-          "name": "Daily Report: well task activity constraints",
-          "description": "One 'name: text' line per constraint on reading one well's task activity.",
-          "text": "progress: The recorded progress value is not used anywhere in these figures and must never be read as a degree of completion.\ndelay: No rule in this system defines when a task is late, so never describe one as delayed, overdue or behind schedule.\ncause: Why a task is in its state is not recorded anywhere here.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.well_ongoing_truncated_note",
-          "name": "Daily Report: well ongoing task sample note",
-          "description": "The note when only the first ongoing tasks of a well are listed.",
-          "text": "Only the first tasks are listed individually; ongoing_task_count above covers all of them.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.day_activity_definitions",
-          "name": "Daily Report: live wells task activity definitions",
-          "description": "One 'figure: meaning' line per figure of the whole-day live well overview.",
-          "text": "scope: Every live well with a task record on or before the report date, not only the wells that reported something on it.\nopen_task_count: Tasks whose latest recorded state is not completed. It is exactly incomplete_task_count + ongoing_task_count, which do not overlap.\nincomplete_task_count: Open tasks that are NOT ongoing: no recorded actual start, or an actual end recorded without completion.\nongoing_task_count: Open tasks with a recorded actual start and no recorded actual end.\nno_task_on_report_date: Wells with no task recorded on the report date itself. That is all it means: no entry for that day.\nlast_task_date: The latest date a well appeared in the task-daily data. It is NOT a completion date.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.day_activity_constraints",
-          "name": "Daily Report: live wells task activity constraints",
-          "description": "One 'name: text' line per constraint on reading the live well overview.",
-          "text": "progress: The recorded progress value is not used in any of these figures and must never be read as a degree of completion.\ndelay: No rule in this system defines when a task or a well is late, so never describe one as delayed, overdue or behind schedule.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.day_wells_truncated_note",
-          "name": "Daily Report: live wells sample note",
-          "description": "The note when only the wells carrying the most open work are listed.",
-          "text": "Only the wells carrying the most open work are listed individually; the counts above cover every well in scope.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.crew_no_suggestion_reasons",
-          "name": "Daily Report: no crew suggestion reasons",
-          "description": "Why no alternative crew is suggested for an eligible task, one 'kind: text' line each: unmapped_activity, no_history, all_busy.",
-          "text": "unmapped_activity: This task's activity is not mapped to an activity code, so no historical comparison is available.\nno_history: No historical records show any crew completing this same activity on another well by the selected report date.\nall_busy: Crews with a completion history for this activity were found, but none of them is free of a current unfinished task in the available records.",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.answer_unanswerable",
-          "name": "Daily Report: answer, question outside the report",
-          "description": "The answer when the planner finds no tool can answer the question. {REASON}: the planner's reason.",
-          "text": "This question cannot be answered from the daily report's data: {REASON}",
-          "replyKeys": [],
-          "allowEmpty": false
-        },
-        {
-          "key": "dailyreport.answer_nothing_to_explain",
-          "name": "Daily Report: answer, nothing to explain",
-          "description": "Shown instead of a brief when the selection has no daily task record or task activity.",
-          "text": "There is no daily task record or task activity in this selection to explain.",
-          "replyKeys": [],
-          "allowEmpty": false
+          "allowEmpty": false,
+          "mergedFrom": [
+            "dailyreport.answer_unanswerable",
+            "dailyreport.answer_nothing_to_explain",
+            "dailyreport.crew_no_suggestion_reasons",
+            "dailyreport.tool_errors",
+            "dailyreport.verifier_issues"
+          ]
         }
       ],
       "rules": []
