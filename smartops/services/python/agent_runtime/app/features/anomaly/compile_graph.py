@@ -393,7 +393,34 @@ def validator_node(state: CompileState) -> dict:
 
 # ── executor (deterministic): both halves at compile time, capped at sample_rows + 1 ──
 
+# A connection the server or network drops while the SQL runs says nothing about the SQL: the SAME statement is run
+# again after these pauses, and when the link is still down the compile stops (DatabaseUnavailable) instead of
+# sending sound SQL back to the author or storing the rule as failed.
+LINK_RETRY_PAUSES: tuple[float, ...] = (2.0, 5.0)
+
+
 def executor_node(state: CompileState) -> dict:
+    for attempt in range(len(LINK_RETRY_PAUSES) + 1):
+        try:
+            return _execute(state)
+        except _LinkLost as lost:
+            if attempt == len(LINK_RETRY_PAUSES):
+                raise dbio.DatabaseUnavailable(
+                    f"The database connection dropped while testing {state.get('rule_id', 'a rule')} "
+                    f"({lost.message}). Compile again when the database is reachable.") from None
+            log.warning("anomaly exec [%s]: connection lost (%s); running the same SQL again",
+                        state.get("rule_id", ""), lost.message)
+            time.sleep(LINK_RETRY_PAUSES[attempt])
+    raise AssertionError("unreachable")
+
+
+class _LinkLost(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+def _execute(state: CompileState) -> dict:
     settings = cfg()
     summary_sql = state.get("summary_sql", "")
     detail_sql = state.get("detail_sql", "")
@@ -428,6 +455,8 @@ def executor_node(state: CompileState) -> dict:
     except (ReadOnlyViolation, AccessDenied) as exc:
         return {"exec_error": str(exc), "retry_count": state.get("retry_count", 0) + 1}
     except Exception as exc:  # noqa: BLE001 - the database's complaint is fed back for self-correction
+        if dbio.link_lost(exc):
+            raise _LinkLost(dbio.error_text(exc)[:300]) from None
         return {"exec_error": dbio.error_text(exc), "retry_count": state.get("retry_count", 0) + 1}
     finally:
         if conn is not None:

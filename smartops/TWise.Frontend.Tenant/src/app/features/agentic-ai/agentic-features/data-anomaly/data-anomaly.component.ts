@@ -5,9 +5,9 @@ import type Highcharts from 'highcharts';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { AgenticFeaturesService, AiFeatureJob, errorText, saveFile } from '../agentic-features.service';
 import {
-  AnomalyCheck, AnomalyOverview, AnomalyProposal, AnomalyRule, AnomalyRun, AnomalyRunSummary, Load, PROPOSAL_STATUSES, RULE_STATUSES,
-  RankedFinding, RunResult, SEVERITIES, SchemaInfo, TextBlock, asText, idle, jobActive, jobPercent, label, sevClass,
-  severityRank, statusTone, toBlocks,
+  AnomalyCheck, AnomalyOverview, AnomalyProposal, AnomalyRule, AnomalyRun, AnomalyRunSummary, Load, PROPOSAL_STATUSES,
+  RULE_STATUSES, RankedFinding, RuleForm, RunResult, SEVERITIES, SchemaInfo, TextBlock, asText, idle, jobActive,
+  jobPercent, joinRuleBody, label, sevClass, severityRank, similarRules, splitRuleBody, statusTone, toBlocks,
 } from './data-anomaly.models';
 
 type Tab = 'overview' | 'findings' | 'runs' | 'rules' | 'proposals' | 'schema';
@@ -16,6 +16,11 @@ type Format = 'xlsx' | 'docx';
 
 const MODULE = 'agentic-ai.data-anomaly';
 const POLL_MS = 3000;
+/** The schema features a default rule family repeats over, in plain words. */
+const EXPANDS_WORDS: Record<string, string> = {
+  foreign_key: 'link between tables', duplicate_key: 'value that must be unique', date_pair: 'start and finish date pair',
+  future_date: 'date that cannot be in the future', numeric_range: 'number with a valid range', text_numeric: 'number stored as text',
+};
 const SEVERITY_COLOURS: Record<string, string> = { critical: '#b42318', high: '#c4320a', medium: '#b54708', low: '#475467' };
 
 /**
@@ -103,6 +108,25 @@ export class DataAnomalyComponent implements OnInit {
   ruleSaving = false;
   ruleMessage = '';
   ruleError = '';
+  confirmReset: AnomalyRule | null = null;
+  confirmDelete: AnomalyRule | null = null;
+
+  // add / edit rule
+  ruleForm: RuleForm | null = null;
+  private formStart: RuleForm | null = null;
+  formSaving = false;
+  formError = '';
+  /** How an edited default rule checks (kept, not on the form), in plain words. */
+  formKept: string[] = [];
+  formOptional = false;
+  /** Rules that look like the one being saved: shown once, then saving again goes ahead. */
+  formDuplicates: AnomalyRule[] = [];
+  private formDuplicatesSeen = false;
+
+  /** Entities the rules already check, offered under "Checks each". */
+  get ruleEntities(): string[] {
+    return [...new Set((this.rules.data ?? []).map(r => r.definition?.entity).filter((e): e is string => !!e && e !== 'row'))].sort();
+  }
 
   // proposals
   proposalFilter = 'pending';
@@ -513,6 +537,231 @@ export class DataAnomalyComponent implements OnInit {
   }
 
   compileRule(r: AnomalyRule): void { this.startCompile([r.ruleId], true); }
+
+  /** True when the rule changed after its checks were compiled: runs use the old SQL until it is compiled again. */
+  needsCompile(r: AnomalyRule): boolean {
+    return (r.status === 'active' || r.status === 'probation') && !!r.compiledAt
+      && new Date(r.modifiedAt).getTime() > new Date(r.compiledAt).getTime();
+  }
+
+  // ── Add rule / Edit rule ─────────────────────────────────────────────────────────────────────────────────────
+
+  openAddRule(): void {
+    this.ruleForm = {
+      mode: 'add', ruleId: '', title: '', category: '', severity: 'medium', status: 'active', entity: '',
+      wrong: '', matters: '', detect: '', neverFlag: '', freeText: null, summarySql: '', detailSql: '',
+      family: false, expectedModifiedAt: null,
+    };
+    this.openForm([]);
+  }
+
+  openEditRule(r: AnomalyRule): void {
+    const d = r.definition ?? {};
+    const parts = splitRuleBody(d.body);
+    this.ruleForm = {
+      mode: 'edit', ruleId: r.ruleId, title: r.title, category: r.category ?? '', severity: r.severity, status: r.status,
+      entity: d.entity && d.entity !== 'row' ? d.entity : '',
+      wrong: parts?.wrong ?? '', matters: parts?.matters ?? '', detect: parts?.detect ?? '', neverFlag: parts?.neverFlag ?? '',
+      freeText: parts ? null : (d.body ?? ''),
+      summarySql: d.summarySql ?? '', detailSql: d.detailSql ?? '', family: !!asText(d.expandsOver),
+      expectedModifiedAt: r.modifiedAt,
+    };
+    // How a default rule checks (statistical, a rule family…) is not on the form: it is kept, and said in plain words.
+    const how = this.howItChecks(r);
+    this.openForm(how ? [how] : []);
+  }
+
+  private openForm(kept: string[]): void {
+    const f = this.ruleForm!;
+    this.formStart = { ...f };
+    this.formKept = kept;
+    this.formError = '';
+    this.formDuplicates = [];
+    this.formDuplicatesSeen = false;
+    this.formOptional = false;
+  }
+
+  /** How many optional details the form holds (shown on the closed "Optional details" link). */
+  get optionalFilled(): number {
+    const f = this.ruleForm;
+    return f ? [f.neverFlag, f.matters, f.mode === 'add' ? f.ruleId : '', f.summarySql].filter(v => v?.trim()).length : 0;
+  }
+
+  closeRuleForm(): void { if (!this.formSaving) this.ruleForm = null; }
+
+  /** compile: also compile the rule right away (when it runs and the AI is free), so the next run uses it. */
+  saveRuleForm(compile: boolean): void {
+    const f = this.ruleForm, start = this.formStart;
+    if (!f || !start || this.formSaving) return;
+    const changed = <K extends keyof RuleForm>(k: K) => f.mode === 'add' || f[k] !== start[k];
+    if (!f.title.trim()) { this.formError = 'Give the rule a title.'; return; }
+    let body: string | null;
+    if (f.freeText !== null) {
+      if (!f.freeText.trim()) { this.formError = 'Write the rule text.'; return; }
+      body = changed('freeText') ? f.freeText : null;
+    } else {
+      if (!f.wrong.trim() || !f.detect.trim()) { this.formError = 'Fill in what is wrong and how to find it.'; return; }
+      // Unchanged parts keep the stored text exactly (its line breaks), so saving without changes is not an edit.
+      const partsChanged = (['wrong', 'matters', 'detect', 'neverFlag'] as const).some(k => changed(k));
+      body = partsChanged ? joinRuleBody(f) : null;
+    }
+    const sqlChanged = changed('summarySql') || changed('detailSql');
+    if (sqlChanged && !!f.summarySql.trim() !== !!f.detailSql.trim()) {
+      this.formError = 'Give both the summary SQL and the detail SQL, or leave both empty (the AI then writes them).';
+      this.formOptional = true;
+      return;
+    }
+    if (f.mode === 'add' && f.ruleId.trim() && !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$/.test(f.ruleId.trim())) {
+      this.formError = 'A rule id is up to 60 letters, digits, "-", "_" or ".", starting with a letter or digit.';
+      this.formOptional = true;
+      return;
+    }
+    // A rule that looks like one already there is shown first; saving again goes ahead.
+    if (!this.formDuplicatesSeen && (changed('title') || changed('wrong'))) {
+      this.formDuplicatesSeen = true;
+      this.formDuplicates = similarRules(f, this.rules.data ?? []);
+      if (this.formDuplicates.length) { this.formError = ''; return; }
+    }
+
+    // Only what the form shows is sent: the API keeps every other setting of an edited rule (null = keep) and gives a
+    // new rule the defaults (the next DQ-U id, one check, the AI writes the SQL).
+    const request = {
+      ruleId: f.mode === 'add' ? f.ruleId.trim() || null : null,
+      title: f.title.trim(), category: f.category.trim(), severity: f.severity,
+      // An unchanged status is left as it is (a rejected rule stays rejected).
+      status: changed('status') ? f.status : null,
+      entity: changed('entity') ? f.entity.trim() : null,
+      body,
+      summarySql: sqlChanged ? f.summarySql.trim() : null,
+      detailSql: sqlChanged ? f.detailSql.trim() : null,
+      expectedModifiedAt: f.expectedModifiedAt,
+    };
+    this.formSaving = true;
+    this.formError = '';
+    const call = f.mode === 'add'
+      ? this.api.anomalyCreateRule<AnomalyRule>(request)
+      : this.api.anomalyUpdateRule<AnomalyRule>(f.ruleId, request);
+    call.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: saved => {
+        this.formSaving = false;
+        this.ruleForm = null;
+        const runs = saved.status === 'active' || saved.status === 'probation';
+        const what = f.mode === 'add' ? `Rule ${saved.ruleId} added.` : 'Rule saved.';
+        if (compile && runs && this.canStart('compile')) {
+          this.ruleSaved(saved, `${what} Compiling it now: the AI writes and tests its SQL (see Jobs above).`);
+          this.startCompile([saved.ruleId], false);
+        } else if (compile && runs) {
+          this.ruleSaved(saved, `${what} ${this.jobRunning
+            ? 'Another job is running: press Compile this rule when it finishes.'
+            : 'Compile it when the AI is available so runs can use it.'}`);
+        } else {
+          this.ruleSaved(saved, runs ? `${what} Press Compile this rule so runs use it.`
+            : `${what} It does not run while it is ${label(saved.status).toLowerCase()}.`);
+        }
+      },
+      error: err => {
+        this.formSaving = false;
+        this.formError = errorText(err, f.mode === 'add' ? 'The rule could not be added.' : 'The rule could not be saved.');
+        // Someone else changed the rule: load their version so the page (and a reopened form) shows it.
+        if (err?.status === 409 && f.mode === 'edit') this.loadRules();
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /** How a rule checks the data, in plain words (null for an ordinary one-check rule). */
+  howItChecks(r: AnomalyRule): string | null {
+    const d = r.definition ?? {};
+    const expands = asText(d.expandsOver);
+    if (expands) {
+      const what = EXPANDS_WORDS[expands] ?? label(expands).toLowerCase();
+      return `Checks every ${what} in the database${r.probes ? ` (${r.probes} checks)` : ''}.`;
+    }
+    if (d.method === 'statistical') return 'Flags values that are unusual compared with the rest of the data (no fixed limit).';
+    if (d.method === 'rollup') return 'Flags totals that do not match the parts they are made of.';
+    return null;
+  }
+
+  /** The outcome of the rule's last compile, in plain words, for the drawer. */
+  checkState(r: AnomalyRule): { tone: 'ok' | 'warn' | 'bad' | 'info'; text: string; retry: boolean } {
+    const runs = r.status === 'active' || r.status === 'probation';
+    if (this.job?.kind === 'compile') return { tone: 'info', text: 'A compile is running: see Jobs above.', retry: false };
+    if (!runs) return { tone: 'info', text: `It does not run while it is ${label(r.status).toLowerCase()}.`, retry: false };
+    if (!r.probeStatus) return { tone: 'warn', text: 'Not compiled yet: press Compile this rule so runs can use it.', retry: false };
+    if (this.needsCompile(r)) {
+      return { tone: 'warn', text: 'Changed since it was compiled: runs use the previous SQL until you compile it again.', retry: false };
+    }
+    const reason = r.probeError || this.checksOf(r.ruleId)?.data?.find(c => c.error)?.error || '';
+    if (r.probeStatus === 'failed') {
+      const some = r.probes > 1 ? `${r.failedProbes} of ${r.probes} checks failed` : 'Its check failed';
+      return { tone: 'bad', text: `${some}${reason ? ': ' + reason : '.'}`, retry: true };
+    }
+    if (r.probeStatus === 'not_applicable') {
+      return { tone: 'warn', text: `Could not be applied to this database${reason ? ': ' + reason : '.'}`, retry: true };
+    }
+    if (r.probeStatus === 'active') {
+      const passed = r.probes > 1 ? `its ${r.probes} checks passed` : 'its check passed';
+      return { tone: 'ok', text: `Ready: ${passed} the tests and run in the next run.`, retry: false };
+    }
+    return { tone: 'info', text: `Check: ${label(r.probeStatus)}.`, retry: false };
+  }
+
+  resetRule(): void {
+    const r = this.confirmReset;
+    if (!r) return;
+    this.ruleSaving = true;
+    this.api.anomalyResetRule<AnomalyRule>(r.ruleId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: saved => { this.ruleSaving = false; this.confirmReset = null; this.ruleSaved(saved, 'Rule reset to its default text.'); },
+      error: err => {
+        this.ruleSaving = false;
+        this.confirmReset = null;
+        this.ruleError = errorText(err, 'The rule could not be reset.');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  deleteRule(): void {
+    const r = this.confirmDelete;
+    if (!r) return;
+    this.ruleSaving = true;
+    this.api.anomalyDeleteRule(r.ruleId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.ruleSaving = false;
+        this.confirmDelete = null;
+        this.selectedRule = null;
+        this.loadRules();
+        this.loadOverview();
+      },
+      error: err => {
+        this.ruleSaving = false;
+        this.confirmDelete = null;
+        this.ruleError = errorText(err, 'The rule could not be deleted.');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  get resetMessage(): string {
+    return this.confirmReset ? `Put "${this.confirmReset.title}" back to its default text? Your changes to it are replaced; its status stays.` : '';
+  }
+
+  get deleteMessage(): string {
+    return this.confirmDelete ? `Delete rule ${this.confirmDelete.ruleId} "${this.confirmDelete.title}" and its compiled checks? Past runs keep their findings.` : '';
+  }
+
+  /** Shows a saved rule in the list and opens it. */
+  private ruleSaved(saved: AnomalyRule, message: string): void {
+    const list = this.rules.data ?? [];
+    const i = list.findIndex(x => x.ruleId === saved.ruleId);
+    if (i >= 0) list[i] = saved; else list.push(saved);
+    this.ruleCategories = [...new Set(list.map(r => r.category).filter((c): c is string => !!c))].sort();
+    this.filterRules();
+    this.selectRule(saved);
+    this.ruleMessage = message;
+    this.loadOverview();
+    this.cdr.markForCheck();
+  }
 
   trackRule(_: number, r: AnomalyRule): string { return r.ruleId; }
 

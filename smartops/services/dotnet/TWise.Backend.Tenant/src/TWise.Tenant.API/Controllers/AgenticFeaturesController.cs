@@ -355,6 +355,46 @@ public sealed class DataAnomalyController(IDataAnomalyService anomaly, IAgenticF
     public Task<IActionResult> SetRuleStatus(string ruleId, [FromBody] SetAnomalyRuleStatusRequest request, CancellationToken ct) =>
         FeatureAsync(async t => Ok(await anomaly.SetRuleStatusAsync(t, ruleId, request.Status, UserName(), ct)));
 
+    /// <summary>Adds a rule (it runs once compiled).</summary>
+    [HttpPost("rules")]
+    [RequireModulePermission(Module, ModulePermission.Modify)]
+    [ProducesResponseType(typeof(AnomalyRuleDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CreateRule([FromBody] SaveAnomalyRuleRequest request, CancellationToken ct) =>
+        FeatureAsync(async t => Ok(await anomaly.CreateRuleAsync(t, request, UserName(), ct)));
+
+    /// <summary>Edits a rule's definition (compile the rule to use the change).</summary>
+    [HttpPut("rules/{ruleId}")]
+    [RequireModulePermission(Module, ModulePermission.Modify)]
+    [ProducesResponseType(typeof(AnomalyRuleDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> UpdateRule(string ruleId, [FromBody] SaveAnomalyRuleRequest request, CancellationToken ct) =>
+        FeatureAsync(async t => Ok(await anomaly.UpdateRuleAsync(t, ruleId, request, UserName(), ct)));
+
+    /// <summary>A default rule back to its default text.</summary>
+    [HttpPost("rules/{ruleId}/reset")]
+    [RequireModulePermission(Module, ModulePermission.Modify)]
+    [ProducesResponseType(typeof(AnomalyRuleDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> ResetRule(string ruleId, CancellationToken ct) =>
+        FeatureAsync(async t => Ok(await anomaly.ResetRuleAsync(t, ruleId, UserName(), ct)));
+
+    /// <summary>Deletes a rule added here (default rules can only be disabled).</summary>
+    [HttpDelete("rules/{ruleId}")]
+    [RequireModulePermission(Module, ModulePermission.Modify)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> DeleteRule(string ruleId, CancellationToken ct) =>
+        FeatureAsync(async t =>
+        {
+            await anomaly.DeleteRuleAsync(t, ruleId, ct);
+            return NoContent();
+        });
+
     [HttpGet("runs")]
     [RequireModulePermission(Module, ModulePermission.View)]
     [ProducesResponseType(typeof(IReadOnlyList<AnomalyRunSummaryDto>), StatusCodes.Status200OK)]

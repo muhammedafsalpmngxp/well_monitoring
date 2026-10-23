@@ -44,6 +44,84 @@ export interface AnomalyRule {
   ruleId: string; title: string; category: string | null; severity: string; status: string; source: string;
   definition: RuleDefinition | null; probeStatus: string | null; probes: number; failedProbes: number; probeError: string | null;
   compiledAt: string | null; edited: boolean; modifiedBy: string; modifiedAt: string;
+  /** A default rule (can be reset to its default text, not deleted). */
+  original: boolean;
+}
+
+/** The Add rule / Edit form. The rule text is written as four parts (what is wrong and how to find it required); a text
+ * that does not follow that layout is edited as one block (freeText). How a default rule checks (statistical, a rule
+ * family…) is not on the form: the API keeps it. family: the rule repeats over the schema, so it cannot carry its own
+ * SQL. expectedModifiedAt: the rule's modifiedAt when the form was opened (edit), so a later change by someone else is
+ * not overwritten. */
+export interface RuleForm {
+  mode: 'add' | 'edit';
+  ruleId: string; title: string; category: string; severity: string; status: string; entity: string;
+  wrong: string; matters: string; detect: string; neverFlag: string;
+  freeText: string | null;
+  summarySql: string; detailSql: string;
+  family: boolean;
+  expectedModifiedAt: string | null;
+}
+
+const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'that', 'this', 'from', 'are', 'was', 'has', 'have', 'not', 'but',
+  'its', 'when', 'than', 'into', 'any', 'every', 'there', 'their', 'what', 'which', 'flag', 'record', 'records']);
+
+function words(text: string | null | undefined): Set<string> {
+  return new Set((text ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2 && !STOP_WORDS.has(w)));
+}
+
+function overlap(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let shared = 0;
+  a.forEach(w => { if (b.has(w)) shared++; });
+  return shared / (a.size + b.size - shared);
+}
+
+/** Rules (other than the one being edited) whose title or "what is wrong" reads much like the form's: up to 3, most
+ * alike first. A hint for the person saving, not a block. */
+export function similarRules(f: Pick<RuleForm, 'ruleId' | 'mode' | 'title' | 'wrong'>, rules: AnomalyRule[]): AnomalyRule[] {
+  const title = words(f.title), wrong = words(f.wrong);
+  return rules
+    .filter(r => f.mode === 'add' || r.ruleId !== f.ruleId)
+    .map(r => {
+      const sameTitle = r.title.trim().toLowerCase() === f.title.trim().toLowerCase() ? 1 : 0;
+      const score = Math.max(sameTitle, overlap(title, words(r.title)), overlap(wrong, words(splitRuleBody(r.definition?.body)?.wrong)));
+      return { r, score };
+    })
+    .filter(x => x.score >= 0.6)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(x => x.r);
+}
+
+const BODY_PARTS: [keyof Pick<RuleForm, 'wrong' | 'matters' | 'detect' | 'neverFlag'>, string][] =
+  [['wrong', 'Wrong'], ['matters', 'Matters'], ['detect', 'Detect'], ['neverFlag', 'Never flag']];
+
+/** The four parts of a rule text ("Wrong: … Matters: … Detect: … Never flag: …", continuation lines indented), or null
+ * when the text has another layout. */
+export function splitRuleBody(body: string | null | undefined): Pick<RuleForm, 'wrong' | 'matters' | 'detect' | 'neverFlag'> | null {
+  const text = (body ?? '').trim();
+  const out = { wrong: '', matters: '', detect: '', neverFlag: '' };
+  if (!text) return out;
+  const re = /^(Wrong|Matters|Detect|Never flag):[ \t]*/gm;
+  const marks: { key: keyof typeof out; start: number; end: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const key = BODY_PARTS.find(([, l]) => l === m![1])![0];
+    if (marks.some(x => x.key === key)) return null;
+    marks.push({ key, start: m.index, end: m.index + m[0].length });
+  }
+  if (!marks.length || marks[0].start !== 0) return null;
+  marks.forEach((x, i) => {
+    out[x.key] = text.slice(x.end, i + 1 < marks.length ? marks[i + 1].start : text.length).replace(/\n[ \t]+/g, ' ').trim();
+  });
+  return out;
+}
+
+/** The rule text from its four parts (empty parts left out). */
+export function joinRuleBody(f: Pick<RuleForm, 'wrong' | 'matters' | 'detect' | 'neverFlag'>): string {
+  return BODY_PARTS.map(([key, l]) => [l, f[key].trim().replace(/\s*\n\s*/g, ' ')] as const)
+    .filter(([, v]) => v).map(([l, v]) => `${l}: ${v}`).join('\n');
 }
 
 /** One compiled check of a rule: DetailSql lists the flagged records, SummarySql counts them. */
