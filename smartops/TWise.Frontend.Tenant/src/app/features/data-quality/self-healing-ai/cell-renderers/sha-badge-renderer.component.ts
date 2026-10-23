@@ -11,6 +11,8 @@ const BADGE_MAP: Record<string, { bg: string; color: string; border: string }> =
   'Anomalous':      { bg: '#F0FDFA', color: '#0F766E', border: '#A7F3D0' },
   'Pending PO':     { bg: '#FFF8E1', color: '#D89B00', border: '#E9DBB8' },
   'Completed':      { bg: '#ECFDF5', color: '#16A34A', border: '#A7F3D0' },
+  'Failed':         { bg: '#FEF2F2', color: '#D92D20', border: '#FECACA' },
+  'Slow':           { bg: '#FFF8E1', color: '#8C6400', border: '#E9DBB8' },
 };
 
 @Component({

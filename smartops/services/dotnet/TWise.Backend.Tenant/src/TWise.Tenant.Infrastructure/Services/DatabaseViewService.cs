@@ -21,6 +21,8 @@ public sealed class DatabaseViewService(
     IReliabilityRepository reliabilityRepo,
     IConfiguration configuration,
     AiSqlReviewOptions sqlReview,
+    IViewRunRecorder runs,
+    ICurrentUserService user,
     ILogger<DatabaseViewService> logger) : IDatabaseViewService
 {
     /// <summary>
@@ -470,8 +472,24 @@ public sealed class DatabaseViewService(
 
     private sealed record BuilderTable(string? Id, string? Name, string? Alias);
 
+    /// <summary>A saved view run as saved (no SQL sent) is timed for the run log; builder previews of edited SQL are not.</summary>
     public async Task<PreviewDatabaseViewResponse?> PreviewAsync(
         PreviewDatabaseViewRequest request, long tenantId, CancellationToken cancellationToken = default)
+    {
+        if (request.ViewId is not > 0 || !string.IsNullOrWhiteSpace(request.Sql))
+            return await RunPreviewAsync(request, tenantId, null, cancellationToken);
+        var run = new ViewRun
+        {
+            ViewId = request.ViewId, SourceName = await viewRepo.GetNameAsync(request.ViewId.Value, tenantId, cancellationToken) ?? $"View {request.ViewId}",
+            SourceType = "View", Caller = ViewRunCallers.Preview, UserId = ViewRunTiming.UserIdOf(user),
+        };
+        return await runs.TimeAsync(run, () => RunPreviewAsync(request, tenantId, run, cancellationToken),
+            r => r is null ? (null, ViewRunTiming.NoResult) : (r.Rows.Count, run.Error));
+    }
+
+    /// <param name="run">When the source fails and the stored preview is served instead, the failure is kept on it.</param>
+    private async Task<PreviewDatabaseViewResponse?> RunPreviewAsync(
+        PreviewDatabaseViewRequest request, long tenantId, ViewRun? run, CancellationToken cancellationToken)
     {
         var (connectionId, sql) = await ResolvePreviewSourceAsync(request, tenantId, cancellationToken);
         var hasAdvancedHierarchy = request.Filters?.Any(filter =>
@@ -510,7 +528,11 @@ public sealed class DatabaseViewService(
             (provider.IsTransportException(ex) || ex is TimeoutException or OperationCanceledException))
         {
             var cached = await TryGetCachedPreviewAsync(request.ViewId, tenantId, ex, cancellationToken);
-            if (cached is not null) return cached;
+            if (cached is not null)
+            {
+                if (run is not null) run.Error = $"Served the stored preview: {ex.Message}";
+                return cached;
+            }
             throw;
         }
 

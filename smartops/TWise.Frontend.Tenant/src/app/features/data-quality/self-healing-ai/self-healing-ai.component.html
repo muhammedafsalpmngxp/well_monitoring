@@ -50,8 +50,7 @@
           </svg>
         </button>
         <ul class="sha-dropdown__menu" *ngIf="showTimeTypeMenu">
-          <li appKeyClick *ngFor="let t of timeTypeOptions" (click)="selectTimeType(t)" [class.active]="t===selectedTimeType">{{ t
-            }}</li>
+          <li appKeyClick *ngFor="let d of dayOptions" (click)="selectDays(d)" [class.active]="d===days">Last {{ d }} Days</li>
         </ul>
       </div>
       <button class="sha-toolbar__sort-btn">
@@ -67,7 +66,7 @@
       </button>
     </div>
     <div class="sha-toolbar__right">
-      <button class="sha-toolbar__scan-btn">
+      <button class="sha-toolbar__scan-btn" (click)="load()" [disabled]="loading" title="Scan the run log and the data loads again">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path
             d="M8.66675 1.33325L2.72904 8.45852C2.4965 8.73752 2.38024 8.87705 2.37846 8.99492C2.37691 9.09732 2.42256 9.19478 2.50224 9.25918C2.5939 9.33325 2.77552 9.33325 3.13876 9.33325H8.00008L7.33342 14.6666L13.2711 7.54132C13.5036 7.26232 13.6199 7.12278 13.6217 7.00492C13.6232 6.90252 13.5776 6.80505 13.4979 6.74065C13.4062 6.66658 13.2246 6.66658 12.8614 6.66658H8.00008L8.66675 1.33325Z"
@@ -75,7 +74,7 @@
         </svg>
         Run Healing Scan
       </button>
-      <button class="sha-toolbar__refresh-btn">
+      <button class="sha-toolbar__refresh-btn" (click)="load()" [disabled]="loading">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path
             d="M1.3335 9.33333C1.3335 9.33333 1.41438 9.89947 3.75752 12.2427C6.10067 14.5858 9.89963 14.5858 12.2428 12.2427C13.073 11.4125 13.609 10.3995 13.851 9.33333M5.3335 9.33333H1.3335V13.3333M14.6668 6.66667C14.6668 6.66667 14.586 6.10051 12.2428 3.75736C9.89963 1.41421 6.10067 1.41421 3.75752 3.75736C2.92734 4.58754 2.39129 5.60048 2.14938 6.66667M10.6668 6.66667H14.6668V2.66667"
@@ -85,6 +84,11 @@
       </button>
     </div>
   </div>
+
+  <p class="sha-note sha-note--error" *ngIf="error" role="alert">{{ error }}</p>
+  <p class="sha-note" *ngIf="loading">Scanning…</p>
+  <p class="sha-note" *ngIf="overview && !overview.recordingOn">Chart and view loads are not being recorded (SelfHealing:RecordRuns is off), so only data loads are scanned.</p>
+  <p class="sha-note" *ngIf="overview?.recordingOn && !overview?.kpis?.runs && !loading">No chart or view loads recorded in this period yet. Open a few charts, dashboards or views, then run the scan again.</p>
 
   <!-- ─── KPI Cards ─────────────────────────────────────────────────────────── -->
   <div class="sha-kpis">
@@ -145,7 +149,7 @@
         </span>
         <div class="sha-kpi__text">
           <span class="sha-kpi__label">{{ k.label }}</span>
-          <div class="sha-kpi__value">{{ k.value }}</div>
+          <div class="sha-kpi__value">{{ k.value }}{{ k.suffix }}</div>
         </div>
       </div>
       <div class="sha-kpi__desc">{{ k.description }}</div>
@@ -157,8 +161,8 @@
     <div class="sha-card">
       <div class="sha-card__head">
         <div style="flex: 1; min-width: 0;">
-          <span class="sha-card__title">Completeness Score by Field</span>
-          <p class="sha-card__subtitle">Multi-value, non-monitored records, target 100%</p>
+          <span class="sha-card__title">Slowest Views</span>
+          <p class="sha-card__subtitle">Sources with a load of {{ (overview?.slowMs ?? 0) / 1000 }} s or longer: average and longest load</p>
         </div>
         <div class="sha-card__controls">
           <button class="sha-card__icon-btn" title="More">
@@ -177,14 +181,14 @@
           </button>
         </div>
       </div>
-      <div class="sha-card__body"><highcharts-chart [options]="completenessOptions"
-          class="sha-chart"></highcharts-chart></div>
+      <div class="sha-card__body"><highcharts-chart *ngIf="overview?.slowViews?.length; else noChartslowViews" [options]="slowViewsOptions" [oneToOne]="true" class="sha-chart"></highcharts-chart>
+        <ng-template #noChartslowViews><p class="sha-chart-empty">{{ loading ? 'Scanning…' : 'No slow loads in this period.' }}</p></ng-template></div>
     </div>
     <div class="sha-card">
       <div class="sha-card__head">
         <div>
-          <span class="sha-card__title">Error Classification Breakdown</span>
-          <p class="sha-card__subtitle">Missing · Inconsistent · Date Sequence · Out-of-Range · Anomalous</p>
+          <span class="sha-card__title">Failed Loads by Source</span>
+          <p class="sha-card__subtitle">Sources whose loads failed or returned nothing</p>
         </div>
         <div class="sha-card__controls">
           <button class="sha-card__icon-btn" title="More">
@@ -203,8 +207,8 @@
           </button>
         </div>
       </div>
-      <div class="sha-card__body"><highcharts-chart [options]="errorBreakdownOptions"
-          class="sha-chart"></highcharts-chart></div>
+      <div class="sha-card__body"><highcharts-chart *ngIf="overview?.failingViews?.length; else noChartfailures" [options]="failuresOptions" [oneToOne]="true" class="sha-chart"></highcharts-chart>
+        <ng-template #noChartfailures><p class="sha-chart-empty">{{ loading ? 'Scanning…' : 'No failed loads in this period.' }}</p></ng-template></div>
     </div>
   </div>
 
@@ -215,8 +219,8 @@
     <div class="sha-card">
       <div class="sha-card__head">
         <div style="flex: 1; min-width: 0;">
-          <span class="sha-card__title">Auto-Heal Queue</span>
-          <p class="sha-card__subtitle">Eight Week Rolling Target</p>
+          <span class="sha-card__title">Health Check</span>
+          <p class="sha-card__subtitle">Sources that failed in this period</p>
         </div>
         <div class="sha-card__controls">
           <button class="sha-card__icon-btn" title="More">
@@ -237,7 +241,7 @@
       </div>
       <div class="sha-card__body sha-heal-body">
         <div class="sha-heal-illustration">
-          <div class="sha-heal-check">
+          <div class="sha-heal-check" *ngIf="healthy">
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="113" height="106"
               viewBox="0 0 113 106" fill="none">
               <rect width="113" height="106" fill="url(#pattern0_1111_10927)" />
@@ -250,8 +254,8 @@
               </defs>
             </svg>
           </div>
-          <p class="sha-heal-title">All auto-repair applied</p>
-          <p class="sha-heal-sub">No Pending Auto-heal Item</p>
+          <p class="sha-heal-title" [class.sha-heal-title--warn]="!healthy">{{ healthy ? 'Everything is loading' : 'Some sources need attention' }}</p>
+          <p class="sha-heal-sub">{{ healthy ? 'No source or data load is failing now' : 'See Needs Attention' }}</p>
         </div>
         <div class="sha-heal-stats">
           <!-- Applied today — calendar icon -->
@@ -292,10 +296,10 @@
     <div class="sha-card">
       <div class="sha-card__head">
         <div style="flex: 1; min-width: 0;">
-          <span class="sha-card__title">Human Review Queue <span class="sha-badge sha-badge--blue">({{
+          <span class="sha-card__title">Needs Attention <span class="sha-badge sha-badge--blue">({{
               reviewItems.length
               }} items)</span></span>
-          <p class="sha-card__subtitle">Confidence limit reached — suggest correction — approve / reject</p>
+          <p class="sha-card__subtitle">Sources still failing, failed or stale data loads, then sources that recovered</p>
         </div>
         <div class="sha-card__controls">
           <button class="sha-card__icon-btn" title="More">
@@ -315,7 +319,8 @@
         </div>
       </div>
       <div class="sha-card__body sha-review-body">
-        <div class="sha-review-item" *ngFor="let r of reviewItems">
+        <p class="sha-note" *ngIf="!reviewItems.length && !loading">Nothing needs attention.</p>
+        <div class="sha-review-item" *ngFor="let r of reviewItems; trackBy: trackItem">
           <div class="sha-review-item__top">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
               <rect width="32" height="32" rx="6" fill="#FFF8E1" />
@@ -323,7 +328,7 @@
                 d="M17.6668 7.89111V11.3332C17.6668 11.7999 17.6668 12.0333 17.7577 12.2116C17.8376 12.3684 17.965 12.4958 18.1218 12.5757C18.3001 12.6666 18.5334 12.6666 19.0002 12.6666H22.4422M17.6668 20.1665H12.6668M19.3335 16.8332H12.6668M22.6668 14.3234V20.3332C22.6668 21.7333 22.6668 22.4333 22.3943 22.9682C22.1547 23.4386 21.7722 23.821 21.3018 24.0607C20.767 24.3332 20.067 24.3332 18.6668 24.3332H13.3335C11.9334 24.3332 11.2333 24.3332 10.6985 24.0607C10.2281 23.821 9.84566 23.4386 9.60598 22.9682C9.3335 22.4333 9.3335 21.7333 9.3335 20.3332V11.6665C9.3335 10.2664 9.3335 9.5663 9.60598 9.03153C9.84566 8.56112 10.2281 8.17867 10.6985 7.93899C11.2333 7.6665 11.9334 7.6665 13.3335 7.6665H16.01C16.6214 7.6665 16.9272 7.6665 17.2149 7.73558C17.47 7.79682 17.7138 7.89783 17.9376 8.0349C18.1898 8.1895 18.406 8.4057 18.8384 8.83808L21.4952 11.4949C21.9277 11.9273 22.1438 12.1435 22.2984 12.3958C22.4355 12.6195 22.5365 12.8633 22.5977 13.1184C22.6668 13.4061 22.6668 13.7119 22.6668 14.3234Z"
                 stroke="#D89B00" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            <span class="sha-review-item__id">{{ r.wellName }}</span>
+            <span class="sha-review-item__id">{{ r.name }}</span>
             <span class="sha-badge sha-badge--{{ r.badgeAccent }}">{{ r.badge }}</span>
             <span class="sha-review-item__detail">{{ r.detail }}</span>
           </div>
@@ -333,47 +338,10 @@
                 d="M8.00016 5.3335V8.00016M8.00016 10.6668H8.00683M14.6668 8.00016C14.6668 11.682 11.682 14.6668 8.00016 14.6668C4.31826 14.6668 1.3335 11.682 1.3335 8.00016C1.3335 4.31826 4.31826 1.3335 8.00016 1.3335C11.682 1.3335 14.6668 4.31826 14.6668 8.00016Z"
                 stroke="#21409A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            <span>{{ r.method }}</span>
+            <span>{{ r.error || 'No error message' }}</span>
           </div>
-          <div class="sha-review-item__conf">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M8.00049 10C9.10503 10 10.0005 9.1046 10.0005 8C10.0005 6.8954 9.10503 6 8.00049 6C6.89589 6 6.00049 6.8954 6.00049 8C6.00049 9.1046 6.89589 10 8.00049 10Z"
-                stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-              <path
-                d="M6.19288 12.9142L6.58252 13.7906C6.69837 14.0514 6.88737 14.273 7.12664 14.4286C7.36597 14.5841 7.64524 14.6669 7.93064 14.6668C8.2161 14.6669 8.49537 14.5841 8.73464 14.4286C8.97397 14.273 9.16297 14.0514 9.27884 13.7906L9.66844 12.9142C9.80717 12.6033 10.0404 12.3441 10.3351 12.1735C10.6316 12.0024 10.9746 11.9296 11.3151 11.9654L12.2684 12.0668C12.5522 12.0968 12.8386 12.0439 13.0929 11.9144C13.3472 11.7849 13.5584 11.5844 13.701 11.3372C13.8438 11.0902 13.9118 10.807 13.8968 10.5221C13.8818 10.2372 13.7845 9.9627 13.6166 9.73203L13.0522 8.95643C12.8512 8.67823 12.7438 8.34336 12.7455 8.00016C12.7454 7.6579 12.8538 7.32443 13.0551 7.04756L13.6196 6.27202C13.7874 6.04133 13.8848 5.76688 13.8998 5.48194C13.9148 5.19702 13.8468 4.91386 13.704 4.66683C13.5614 4.41965 13.3502 4.21916 13.0958 4.08965C12.8416 3.96014 12.5552 3.90718 12.2714 3.9372L11.3181 4.03868C10.9776 4.07444 10.6346 4.00158 10.3381 3.83054C10.0428 3.659 9.80944 3.3984 9.67144 3.08609L9.27884 2.20979C9.16297 1.94894 8.97397 1.72731 8.73464 1.57176C8.49537 1.41622 8.2161 1.33345 7.93064 1.3335C7.64524 1.33345 7.36597 1.41622 7.12664 1.57176C6.88737 1.72731 6.69837 1.94894 6.58252 2.20979L6.19288 3.08609C6.05484 3.3984 5.82147 3.659 5.52622 3.83054C5.2297 4.00158 4.88666 4.07444 4.54622 4.03868L3.58992 3.9372C3.30614 3.90718 3.01975 3.96014 2.76546 4.08965C2.51118 4.21916 2.29993 4.41965 2.15733 4.66683C2.01454 4.91386 1.94652 5.19702 1.96151 5.48194C1.9765 5.76688 2.07386 6.04133 2.24178 6.27202L2.80622 7.04756C3.00751 7.32443 3.11591 7.6579 3.11585 8.00016C3.11591 8.34243 3.00751 8.67596 2.80622 8.95276L2.24178 9.7283C2.07386 9.95896 1.9765 10.2334 1.96151 10.5184C1.94652 10.8033 2.01454 11.0865 2.15733 11.3335C2.30008 11.5806 2.51135 11.781 2.7656 11.9104C3.01984 12.0399 3.30616 12.093 3.58992 12.0631L4.54326 11.9616C4.8837 11.9259 5.22673 11.9988 5.52326 12.1698C5.81961 12.3408 6.05406 12.6015 6.19288 12.9142Z"
-                stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <span>Method: rule</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M7.5345 14.4096C7.6821 14.4958 7.7559 14.5388 7.86004 14.5612C7.9409 14.5785 8.05877 14.5785 8.13964 14.5612C8.24377 14.5388 8.31757 14.4958 8.46517 14.4096C9.76384 13.652 13.3332 11.272 13.3332 7.99977V4.81149C13.3332 4.27848 13.3332 4.01197 13.246 3.78289C13.169 3.58051 13.0438 3.39994 12.8814 3.25677C12.6975 3.09471 12.448 3.00114 11.9489 2.81399L8.37437 1.47353C8.23577 1.42156 8.1665 1.39557 8.09517 1.38527C8.03197 1.37613 7.9677 1.37613 7.9045 1.38527C7.83317 1.39557 7.7639 1.42156 7.6253 1.47353L4.05077 2.81399C3.5517 3.00114 3.30217 3.09471 3.11828 3.25677C2.95582 3.39994 2.83068 3.58051 2.75368 3.78289C2.6665 4.01197 2.6665 4.27848 2.6665 4.81149V7.99977C2.6665 11.272 6.23581 13.652 7.5345 14.4096Z"
-                stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <span>Confidence: {{ r.confidence }}%</span>
-          </div>
-          <div class="sha-review-item__actions">
-            <button class="sha-review-btn sha-review-btn--approve">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M13.3332 4L5.99984 11.3333L2.6665 8" stroke="#66BB6A" stroke-width="1.6" stroke-linecap="round"
-                  stroke-linejoin="round" />
-              </svg>
-              Approve
-            </button>
-            <button class="sha-review-btn sha-review-btn--reject">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M12 4L4 12M4 4L12 12" stroke="#EF5350" stroke-width="1.6" stroke-linecap="round"
-                  stroke-linejoin="round" />
-              </svg>
-              Reject
-            </button>
-            <button class="sha-review-btn sha-review-btn--escalate">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 13.3332V2.6665M12 6.6665L8 2.6665L4 6.6665" stroke="#21409A" stroke-width="1.6"
-                  stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              Escalate
-            </button>
+          <div class="sha-review-item__conf" *ngIf="r.when">
+            <span>{{ r.when }}</span>
           </div>
         </div>
       </div>
@@ -384,7 +352,7 @@
   <div class="sha-two-col">
     <div class="sha-card">
       <div class="sha-card__head">
-        <span class="sha-card__title" style="flex:1;min-width:0">Repair Confidence Distribution</span>
+        <span class="sha-card__title" style="flex:1;min-width:0">Loads per Day</span>
         <div class="sha-card__controls">
           <button class="sha-card__icon-btn" title="More">
             <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30" fill="none">
@@ -402,12 +370,13 @@
           </button>
         </div>
       </div>
-      <div class="sha-card__body"><highcharts-chart [options]="confidenceOptions" class="sha-chart"></highcharts-chart>
+      <div class="sha-card__body"><highcharts-chart *ngIf="overview?.daily?.length; else noChartdailyRuns" [options]="dailyRunsOptions" [oneToOne]="true" class="sha-chart"></highcharts-chart>
+        <ng-template #noChartdailyRuns><p class="sha-chart-empty">{{ loading ? 'Scanning…' : 'No loads recorded in this period.' }}</p></ng-template>
       </div>
     </div>
     <div class="sha-card">
       <div class="sha-card__head">
-        <span class="sha-card__title" style="flex:1;min-width:0">Data Quality Score Trend (8 Weeks)</span>
+        <span class="sha-card__title" style="flex:1;min-width:0">Average Load Time per Day</span>
         <div class="sha-card__controls">
           <button class="sha-card__icon-btn" title="More">
             <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30" fill="none">
@@ -425,7 +394,8 @@
           </button>
         </div>
       </div>
-      <div class="sha-card__body"><highcharts-chart [options]="dqTrendOptions" class="sha-chart"></highcharts-chart>
+      <div class="sha-card__body"><highcharts-chart *ngIf="overview?.daily?.length; else noChartdailyTime" [options]="dailyTimeOptions" [oneToOne]="true" class="sha-chart"></highcharts-chart>
+        <ng-template #noChartdailyTime><p class="sha-chart-empty">{{ loading ? 'Scanning…' : 'No loads recorded in this period.' }}</p></ng-template>
       </div>
     </div>
   </div>
@@ -434,8 +404,8 @@
   <div class="sha-card sha-card--full">
     <div class="sha-card__head sha-card__head--wrap">
       <div style="flex:1;min-width:0;">
-        <span class="sha-card__title">Full Repair Log &amp; Audit Trail</span>
-        <p class="sha-card__subtitle">22 Issues · 0 auto-healed</p>
+        <span class="sha-card__title">Run Log</span>
+        <p class="sha-card__subtitle">Failed and slow loads, newest first · {{ totalCount | number }} shown</p>
       </div>
       <div class="sha-card__controls">
         <button class="sha-card__icon-btn" title="More">
@@ -465,29 +435,21 @@
               d="M12.7 12.7002L9.80001 9.8002M11.3667 6.03353C11.3667 8.97906 8.97888 11.3669 6.03335 11.3669C3.08783 11.3669 0.700012 8.97906 0.700012 6.03353C0.700012 3.08801 3.08783 0.700195 6.03335 0.700195C8.97888 0.700195 11.3667 3.08801 11.3667 6.03353Z"
               stroke="#667085" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          <input type="text" placeholder="Search" [(ngModel)]="auditSearch" />
+          <input type="text" placeholder="Source or error" [(ngModel)]="auditSearch" (ngModelChange)="onAuditFilterChange()" />
         </div>
       </div>
       <div class="sha-filter-bar__field">
-        <label class="sha-filter-bar__label">Error Type</label>
-        <select class="sha-filter-bar__select" [(ngModel)]="auditErrorType">
-          <option value="" disabled selected hidden>Select</option>
-          <option *ngFor="let e of errorTypeOptions" [value]="e">{{ e }}</option>
+        <label class="sha-filter-bar__label">Used by</label>
+        <select class="sha-filter-bar__select" [(ngModel)]="auditCaller" (ngModelChange)="onAuditFilterChange()">
+          <option value="">All</option>
+          <option *ngFor="let c of callerOptions" [value]="c">{{ c }}</option>
         </select>
       </div>
       <div class="sha-filter-bar__field">
         <label class="sha-filter-bar__label">Status</label>
-        <select class="sha-filter-bar__select" [(ngModel)]="auditStatus">
-          <option value="" disabled selected hidden>Select</option>
+        <select class="sha-filter-bar__select" [(ngModel)]="auditStatus" (ngModelChange)="onAuditFilterChange()">
+          <option value="">All</option>
           <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
-        </select>
-      </div>
-      <div class="sha-filter-bar__field">
-        <label class="sha-filter-bar__label">Date Range</label>
-        <select class="sha-filter-bar__select" [(ngModel)]="auditDateRange">
-          <option value="" disabled selected hidden>Select</option>
-          <option>Feb 2026</option>
-          <option>Jan 2026</option>
         </select>
       </div>
       <button class="sha-filter-bar__settings" (click)="resetAuditFilters()" title="Reset">
@@ -509,7 +471,7 @@
     <!-- Grid + Pagination inside the same bordered wrapper -->
     <div class="sha-grid-wrapper">
       <ag-grid-angular class="sha-grid" [columnDefs]="auditColumns" [defaultColDef]="defaultColDef"
-        [rowData]="auditRows" [theme]="gridTheme" [animateRows]="true" suppressNoRowsOverlay="true">
+        [rowData]="auditRows" [theme]="gridTheme" [animateRows]="true" [tooltipShowDelay]="300">
       </ag-grid-angular>
 
       <!-- Pagination inside the bordered wrapper -->

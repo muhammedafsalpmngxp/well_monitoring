@@ -38,6 +38,8 @@ public static class DependencyInjection
         services.AddSingleton(sp => Features.Ai.AiDictionaryOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddSingleton(sp => Features.Ai.AiAlertOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddSingleton(sp => Features.Ai.AiSqlReviewOptions.From(sp.GetRequiredService<IConfiguration>()));
+        // View run log and the Self-Healing scan: the SelfHealing section.
+        services.AddSingleton(sp => Features.SelfHealing.SelfHealingOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddSingleton(sp => Features.Ai.AiAdminOptions.From(sp.GetRequiredService<IConfiguration>(), Features.Ai.Settings.AiMapping.ProviderKinds));
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 

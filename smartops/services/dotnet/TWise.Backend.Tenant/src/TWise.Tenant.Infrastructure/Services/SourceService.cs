@@ -1,10 +1,11 @@
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Domain.DTOs;
+using TWise.Tenant.Domain.Entities;
 
 namespace TWise.Tenant.Infrastructure.Services;
 
-public sealed class SourceService(ISourceRepository repo) : ISourceService
+public sealed class SourceService(ISourceRepository repo, IViewRunRecorder runs, ICurrentUserService user) : ISourceService
 {
     public Task<IReadOnlyList<SourceDto>> ListSourcesAsync(CancellationToken ct = default)
         => repo.ListSourcesAsync(ct);
@@ -21,8 +22,13 @@ public sealed class SourceService(ISourceRepository repo) : ISourceService
     public Task<AggregateResultDto?> GetAggregateAsync(AggregateRequestDto request, CancellationToken ct = default)
         => repo.GetAggregateAsync(request, ct);
 
+    /// <summary>Every chart, tile, dashboard and Ask AI load goes through here, so each one is timed for the run log.</summary>
     public Task<TableDataDto?> GetFilteredChartDataAsync(ChartFilteredDataRequest request, CancellationToken ct = default)
-        => repo.GetFilteredChartDataAsync(request, ct);
+        => runs.TimeAsync(
+            new ViewRun { ViewId = request.ViewId, SourceName = request.ChartSource, SourceType = request.ChartSourceType,
+                Caller = ViewRunCallers.Chart, UserId = ViewRunTiming.UserIdOf(user) },
+            () => repo.GetFilteredChartDataAsync(request, ct),
+            data => data is null ? (null, ViewRunTiming.NoResult) : (data.Rows.Count, null));
 
     public Task<IReadOnlyList<PlantFilterDto>> GetPlantFiltersAsync(CancellationToken ct = default)
         => repo.GetPlantFiltersAsync(ct);

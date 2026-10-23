@@ -90,7 +90,7 @@ public sealed class SyncTimeTests
         var repository = new Mock<ISourceRepository>(MockBehavior.Strict);
         repository.Setup(r => r.GetSyncTimeAsync(cancellation.Token)).ReturnsAsync(expected);
 
-        var result = await new SourceService(repository.Object).GetSyncTimeAsync(cancellation.Token);
+        var result = await new SourceService(repository.Object, Mock.Of<IViewRunRecorder>(), Mock.Of<ICurrentUserService>()).GetSyncTimeAsync(cancellation.Token);
 
         result.Should().BeSameAs(expected);
         repository.Verify(r => r.GetSyncTimeAsync(cancellation.Token), Times.Once);

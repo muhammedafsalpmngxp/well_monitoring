@@ -1593,6 +1593,26 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiSummaries_used'
 CREATE INDEX IX_core_AiSummaries_used ON core.AiSummaries (tenant_id, used_at);
 GO
 
+-- Chart and view loads for Data Quality → Self-Healing AI (add-view-run-log.sql); the app removes old rows.
+IF OBJECT_ID('core.ViewRunLog', 'U') IS NULL
+CREATE TABLE core.ViewRunLog (
+    id            bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_ViewRunLog PRIMARY KEY,
+    view_id       bigint         NULL,
+    source_name   nvarchar(256)  NOT NULL,
+    source_type   nvarchar(30)   NOT NULL,
+    caller        nvarchar(20)   NOT NULL,
+    duration_ms   int            NOT NULL,
+    row_count     int            NULL,
+    error         nvarchar(2000) NULL,
+    user_id       bigint         NULL,
+    created_at    datetime2      NOT NULL CONSTRAINT DF_core_ViewRunLog_created DEFAULT SYSUTCDATETIME()
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_ViewRunLog_created')
+CREATE INDEX IX_core_ViewRunLog_created ON core.ViewRunLog (created_at) INCLUDE (view_id, source_name, source_type, duration_ms, error);
+GO
+
 IF OBJECT_ID('core.AiMetrics', 'U') IS NULL
 CREATE TABLE core.AiMetrics (
     id            bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiMetrics PRIMARY KEY,

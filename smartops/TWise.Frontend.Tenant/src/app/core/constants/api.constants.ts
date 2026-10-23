@@ -71,6 +71,9 @@ export const API_ENDPOINTS = {
   GOVERNANCE: {
     BASE: '/governance',
   },
+  SELF_HEALING: {
+    BASE: '/self-healing',
+  },
   AGENTIC_AI: {
     BASE: '/agentic-ai',
   },

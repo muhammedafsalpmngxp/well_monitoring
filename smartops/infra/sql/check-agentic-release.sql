@@ -36,6 +36,7 @@ FROM (VALUES
     ('add-agentic-features.sql',     'core.AiSettings.askdata_included_tables', CASE WHEN COL_LENGTH('core.AiSettings', 'askdata_included_tables') IS NULL THEN 0 ELSE 1 END),
     ('add-ai-trace.sql',             'core.AiTraces.rejections_json',      CASE WHEN COL_LENGTH('core.AiTraces', 'rejections_json') IS NULL THEN 0 ELSE 1 END),
     ('add-ai-conversations.sql',     'core.AiChatMessages.answer_json',    CASE WHEN COL_LENGTH('core.AiChatMessages', 'answer_json') IS NULL THEN 0 ELSE 1 END),
+    ('add-view-run-log.sql',         'core.ViewRunLog',                    CASE WHEN OBJECT_ID('core.ViewRunLog', 'U') IS NULL THEN 0 ELSE 1 END),
     ('add-ai-agents.sql',            'core.AiAgents',                      CASE WHEN OBJECT_ID('core.AiAgents', 'U') IS NULL THEN 0 ELSE 1 END),
     ('add-ai-agents.sql',            'core.AiAgents.custom_tools_json',    CASE WHEN COL_LENGTH('core.AiAgents', 'custom_tools_json') IS NULL THEN 0 ELSE 1 END),
     ('add-ai-agents.sql',            'core.AiAgents.notes_json',           CASE WHEN COL_LENGTH('core.AiAgents', 'notes_json') IS NULL THEN 0 ELSE 1 END),

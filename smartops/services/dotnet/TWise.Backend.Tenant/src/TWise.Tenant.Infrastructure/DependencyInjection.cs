@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<IAiSummaryRepository, AiSummaryRepository>();
         services.AddScoped<IAiConversationRepository, AiConversationRepository>();
         services.AddScoped<IAiAlertRepository, AiAlertRepository>();
+        services.AddScoped<IViewRunRepository, ViewRunRepository>();
         services.AddScoped<IAiAgentRepository, AiAgentRepository>();
         services.AddScoped<IAiKnowledgeRepository, AiKnowledgeRepository>();
         services.AddScoped<IDataSourceConnectionRepository, DataSourceConnectionRepository>();
@@ -183,6 +184,10 @@ public static class DependencyInjection
         services.AddScoped<IAiAskService, AiAskService>();
         services.AddScoped<IAiAlertService, AiAlertService>();
         services.AddHostedService<AiAlertWorker>();
+        // View run log (Self-Healing): one queue shared by every request, written by the same instance in the background.
+        services.AddSingleton<ViewRunLog>();
+        services.AddSingleton<IViewRunRecorder>(sp => sp.GetRequiredService<ViewRunLog>());
+        services.AddHostedService(sp => sp.GetRequiredService<ViewRunLog>());
         // Agent triggers (Agentic AI → agent → Triggers): runs published agents on their schedules.
         services.AddScoped<TWise.Tenant.Application.Features.Agents.AgentScheduleRunner>();
         services.AddHostedService<AgentScheduleWorker>();

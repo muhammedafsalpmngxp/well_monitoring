@@ -57,6 +57,7 @@ public class TenantDbContext(DbContextOptions<TenantDbContext> options) : DbCont
     public DbSet<AiMetric> AiMetrics => Set<AiMetric>();
     public DbSet<AiTerm> AiTerms => Set<AiTerm>();
     public DbSet<AiSummary> AiSummaries => Set<AiSummary>();
+    public DbSet<ViewRun> ViewRuns => Set<ViewRun>();
     public DbSet<DataSourceConnection> DataSourceConnections => Set<DataSourceConnection>();
     public DbSet<ReportVersion> ReportVersions => Set<ReportVersion>();
     public DbSet<RefreshSchedule> RefreshSchedules => Set<RefreshSchedule>();
