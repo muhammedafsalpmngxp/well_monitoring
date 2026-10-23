@@ -12,6 +12,8 @@
     position: absolute; top: calc(100% + 8px); right: 0; z-index: 800; width: 380px; max-width: 90vw;
     background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; box-shadow: 0 12px 32px rgba(16, 24, 40, 0.14);
     padding: 12px 14px; display: grid; gap: 8px; font-size: 13px; color: #101828; text-align: left;
+    // The dashboard page capitalises every word (text-transform on its host); AI text keeps its own case.
+    text-transform: none;
   }
   &__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   &__cached { margin-left: 8px; font-size: 10px; font-weight: 500; color: #475467; background: #f2f4f7; border-radius: 999px; padding: 1px 6px; vertical-align: middle; }
