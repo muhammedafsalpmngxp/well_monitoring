@@ -255,6 +255,10 @@
           <strong>Recommendations</strong>
           <ul class="ask__insights" *ngIf="r.recommendations.length; else noRec"><li *ngFor="let f of r.recommendations">{{ f }}</li></ul>
           <ng-template #noRec><small class="ask__muted">Nothing stands out enough to recommend a check.</small></ng-template>
+          <!-- Built again at each run (fresh figures and recommendations) and written into the mail -->
+          <button type="button" class="ask__link" *ngIf="canSchedule && !t.reportScheduled" (click)="scheduleReport(t)"
+            title="E-mail this report on a schedule, for example every Monday at 8 AM">Email this report on a schedule</button>
+          <small class="ask__muted" *ngIf="t.reportScheduled" role="status">{{ t.reportScheduled }}</small>
         </div>
 
         <!-- Alert me: watch this answer and be notified when it crosses a limit or looks unusual -->
@@ -324,3 +328,4 @@
     <button type="button" class="btn btn-primary" [disabled]="!canAsk" (click)="ask()">{{ busy ? 'Working…' : 'Ask' }}</button>
   </footer>
 </aside>
+<app-schedule-dialog *ngIf="scheduleTarget" [target]="scheduleTarget" (closed)="scheduleClosed($event)"></app-schedule-dialog>

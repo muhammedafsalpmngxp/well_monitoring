@@ -512,6 +512,11 @@ export class AiService {
     return this.http.get<AiConversationDetail>(`${this.api}${API_ENDPOINTS.AI.CONVERSATION(id)}`);
   }
 
+  /** The chat that holds an answer (a scheduled insight mail links to the answer). */
+  conversationOfMessage(messageId: number): Observable<AiConversationDetail> {
+    return this.http.get<AiConversationDetail>(`${this.api}${API_ENDPOINTS.AI.MESSAGE_CONVERSATION(messageId)}`);
+  }
+
   deleteConversation(id: number): Observable<void> {
     return this.http.delete<void>(`${this.api}${API_ENDPOINTS.AI.CONVERSATION(id)}`);
   }

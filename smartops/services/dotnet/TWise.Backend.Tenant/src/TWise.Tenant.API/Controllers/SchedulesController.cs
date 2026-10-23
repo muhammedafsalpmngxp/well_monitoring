@@ -186,7 +186,7 @@ public sealed class SchedulesController(IScheduleStore store, DeliveryRunner run
     {
         if (ScheduleRules.Problem(request, now) is { } problem) return BadRequest(ApiEnvelope<object>.Fail(problem, 400));
         var kind = request.TargetType!.ToLowerInvariant();
-        if (!ScheduleRules.ViewModules[request.TargetType!].Any(code => ModulePermission.Has(User, code, ModulePermission.View)))
+        if (!ScheduleRules.CanView(request.TargetType!, code => ModulePermission.Has(User, code, ModulePermission.View)))
             return StatusCode(StatusCodes.Status403Forbidden, ApiEnvelope<object>.Fail($"You do not have permission to view this {kind}.", 403));
         var names = await store.TargetNamesAsync(tenantId, [(request.TargetType!, request.TargetId)], userId, ct);
         return names.Count == 0 ? BadRequest(ApiEnvelope<object>.Fail($"The {kind} was not found, or you cannot open it.", 400)) : null;

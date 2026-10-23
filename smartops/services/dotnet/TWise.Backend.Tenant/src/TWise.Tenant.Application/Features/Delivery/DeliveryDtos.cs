@@ -56,6 +56,8 @@ public static class DeliveryTerms
     public const string Report = "Report";
     public const string Dashboard = "Dashboard";
     public const string Canvas = "Canvas";
+    /// <summary>An Ask AI answer's insight report (TargetId = the assistant message), written into the mail.</summary>
+    public const string Insight = "Insight";
 
     public const string Link = "Link";
     public const string Xlsx = "Xlsx";

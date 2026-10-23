@@ -7,7 +7,8 @@ import { ApiResponse } from '../models/api-response.model';
 /** Permission module of schedules and their delivery log: view lists, create adds, modify edits, pauses, deletes and runs now. */
 export const SCHEDULES_MODULE = 'smart-alerts.schedules';
 
-export type TargetType = 'Report' | 'Dashboard' | 'Canvas';
+/** Insight: an Ask AI answer's insight report (target id = the answer), written into the mail. */
+export type TargetType = 'Report' | 'Dashboard' | 'Canvas' | 'Insight';
 export type DeliveryFormat = 'Link' | 'Xlsx' | 'Csv';
 export type RecipientKind = 'To' | 'Cc' | 'Bcc';
 export type RecipientType = 'User' | 'Role' | 'Group' | 'Email';
@@ -76,6 +77,7 @@ export const FORMATS_BY_TARGET: Record<TargetType, DeliveryFormat[]> = {
   Report: ['Xlsx', 'Csv', 'Link'],
   Canvas: ['Xlsx', 'Link'],
   Dashboard: ['Link'],
+  Insight: ['Link'],
 };
 
 /** Scheduled deliveries (api/schedules) and mail groups (api/mail-groups), unwrapped from the API envelope. */

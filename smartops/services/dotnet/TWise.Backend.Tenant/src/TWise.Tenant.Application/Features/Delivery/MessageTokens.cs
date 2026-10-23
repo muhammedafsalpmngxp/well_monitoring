@@ -4,8 +4,8 @@ using System.Text.RegularExpressions;
 namespace TWise.Tenant.Application.Features.Delivery;
 
 /// <summary>
-/// The tokens a subject and message may hold: {{name}}, {{item}}, {{run_date}}, {{run_time}}, {{link}} and {{owner}}.
-/// Unknown tokens stay as typed.
+/// The tokens a subject and message may hold: {{name}}, {{item}}, {{run_date}}, {{run_time}}, {{link}}, {{owner}} and
+/// {{report}} (an insight's report; empty for other items). Unknown tokens stay as typed.
 /// </summary>
 public static partial class MessageTokens
 {
@@ -17,7 +17,7 @@ public static partial class MessageTokens
 
     /// <summary>The token values of one run. The run date and time are read in the schedule's time zone.</summary>
     public static IReadOnlyDictionary<string, string> Values(
-        string scheduleName, string? item, DateTime runAtUtc, string timeZone, string link, string? owner)
+        string scheduleName, string? item, DateTime runAtUtc, string timeZone, string link, string? owner, string? report = null)
     {
         var local = TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out var zone)
             ? TimeZoneInfo.ConvertTimeFromUtc(Recurrence.AsUtc(runAtUtc), zone)
@@ -30,6 +30,7 @@ public static partial class MessageTokens
             ["run_time"] = local.ToString("HH:mm", CultureInfo.InvariantCulture),
             ["link"] = link,
             ["owner"] = owner ?? string.Empty,
+            ["report"] = report ?? string.Empty,
         };
     }
 }

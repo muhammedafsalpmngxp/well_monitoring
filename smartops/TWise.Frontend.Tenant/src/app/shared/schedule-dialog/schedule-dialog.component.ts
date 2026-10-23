@@ -19,7 +19,7 @@ export interface ScheduleTarget { type: TargetType; id: number; name: string; }
 
 interface Suggestion extends ScheduleRecipient { hint: string; }
 
-export const TARGET_LABELS: Record<TargetType, string> = { Report: 'Report', Dashboard: 'Dashboard', Canvas: 'BI Canvas' };
+export const TARGET_LABELS: Record<TargetType, string> = { Report: 'Report', Dashboard: 'Dashboard', Canvas: 'BI Canvas', Insight: 'Insight report' };
 
 const FORMAT_INFO: Record<DeliveryFormat, { label: string; hint: string }> = {
   Xlsx: { label: 'Excel workbook', hint: 'Attached as .xlsx' },
@@ -34,14 +34,18 @@ const TOKENS = [
   { token: '{{run_time}}', label: 'Run time' },
   { token: '{{link}}', label: 'Link' },
   { token: '{{owner}}', label: 'Owner' },
+  { token: '{{report}}', label: 'Insight report' },
 ];
 
 const DEFAULT_SUBJECT = '{{item}} for {{run_date}}';
 const DEFAULT_BODY = 'Hello,\n\nHere is {{item}} as of {{run_date}} {{run_time}}.\n\nOpen it in TWise: {{link}}\n\nRegards,\n{{owner}}';
+/** An insight's report is written into the mail at {{report}}. */
+const INSIGHT_BODY = 'Hello,\n\nHere is the insight report for "{{item}}" as of {{run_date}} {{run_time}}.\n\n{{report}}\n\nOpen the answer in TWise: {{link}}\n\nRegards,\n{{owner}}';
 
 /** The app path of an item, for the sample link. */
 function itemPath(type: TargetType, id: number): string {
-  return type === 'Report' ? `/reports/view/${id}` : type === 'Canvas' ? `/canvas/${id}` : `/dashboard/operations-dashboard/${id}`;
+  return type === 'Report' ? `/reports/view/${id}` : type === 'Canvas' ? `/canvas/${id}`
+    : type === 'Insight' ? `/ask-ai/answers/${id}` : `/dashboard/operations-dashboard/${id}`;
 }
 
 /** A list that failed to load reads as empty, so one refused list does not block the rest. */
@@ -175,6 +179,7 @@ export class ScheduleDialogComponent implements OnInit, OnDestroy {
       this.name = this.target.name;
       this.fixedTarget = true;
       this.format = this.formats[0];
+      if (this.targetType === 'Insight') this.body = INSIGHT_BODY;
     } else {
       this.loadItems();
     }

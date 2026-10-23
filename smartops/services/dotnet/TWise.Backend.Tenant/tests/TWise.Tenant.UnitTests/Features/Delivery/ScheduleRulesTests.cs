@@ -24,7 +24,7 @@ public class ScheduleRulesTests
     public void Name_has_at_most_120_characters() => Problem(Valid() with { Name = new string('a', 121) }).Should().Contain("120");
 
     [Fact]
-    public void Target_type_must_be_known() => Problem(Valid() with { TargetType = "Widget" }).Should().Contain("Report, Dashboard or Canvas");
+    public void Target_type_must_be_known() => Problem(Valid() with { TargetType = "Widget" }).Should().Contain("Report, Dashboard, Canvas or Ask AI answer");
 
     [Fact]
     public void Target_must_be_chosen() => Problem(Valid() with { TargetId = 0 }).Should().Contain("Choose");

@@ -65,7 +65,7 @@ public sealed class DeliveryRunner(
             throw new DeliveryException("The schedule's owner is inactive or no longer has access to this tenant.");
         if (!owner.CanView(ModulePermission.Schedules))
             throw new DeliveryException("The schedule's owner no longer has access to schedules.");
-        if (!ScheduleRules.ViewModules.TryGetValue(schedule.TargetType, out var modules) || !modules.Any(owner.CanView))
+        if (!ScheduleRules.CanView(schedule.TargetType, owner.CanView))
             throw new DeliveryException($"The schedule's owner can no longer view this {schedule.TargetType.ToLowerInvariant()}.");
         var renderer = renderers.FirstOrDefault(r => r.TargetType == schedule.TargetType)
             ?? throw new DeliveryException($"{schedule.TargetType} items cannot be sent.");
@@ -83,10 +83,13 @@ public sealed class DeliveryRunner(
         var (to, cc, bcc) = test ? ([owner.Email], new List<string>(), new List<string>()) : await RecipientsAsync(schedule, ct);
         if (to.Count + cc.Count + bcc.Count == 0) throw new DeliveryException("None of the recipients has an email address.");
 
-        var tokens = MessageTokens.Values(schedule.Name, rendered.TargetName, run.StartedAt, schedule.TimeZone, rendered.Link, owner.Name ?? owner.Email);
+        var tokens = MessageTokens.Values(schedule.Name, rendered.TargetName, run.StartedAt, schedule.TimeZone, rendered.Link, owner.Name ?? owner.Email, rendered.Text);
         // A token value could hold a line break; a subject must stay one line.
         var subject = MessageTokens.Apply(schedule.Subject, tokens).ReplaceLineEndings(" ");
         var body = MessageTokens.Apply(schedule.Body, tokens);
+        // A report written into the mail goes where {{report}} is, else after the message.
+        if (!string.IsNullOrEmpty(rendered.Text) && !schedule.Body.Contains("{{report}}", StringComparison.Ordinal))
+            body = $"{body}\n\n{rendered.Text}".TrimStart();
         if (!body.Contains(rendered.Link, StringComparison.Ordinal)) body = $"{body}\n\n{rendered.Link}".TrimStart();
         var envelope = new MailEnvelope(to, cc, bcc, subject, body, rendered.Attachments);
 

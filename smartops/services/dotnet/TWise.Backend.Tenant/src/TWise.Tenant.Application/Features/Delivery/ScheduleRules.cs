@@ -13,20 +13,28 @@ public static class ScheduleRules
     public const int MaxRecipientValue = 320;
     public const int MaxCron = 100;
 
-    /// <summary>The page modules that let a user view each kind of item; view on any one of them is enough.</summary>
+    /// <summary>The page modules that let a user view each kind of item; view on any one of them is enough.
+    /// An insight has none: it is the user's own Ask AI answer, and the report checks the Ask your data role access itself.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> ViewModules = new Dictionary<string, string[]>
     {
         [DeliveryTerms.Report] = ["reports.standard-reports", "reports.my-reports"],
         [DeliveryTerms.Dashboard] = ["dashboard.standard-boards", "dashboard.wip-boards"],
         [DeliveryTerms.Canvas] = [ModulePermission.Canvas, ModulePermission.StandardCanvases],
+        [DeliveryTerms.Insight] = [],
     };
 
-    /// <summary>The formats each kind of item can be sent in. Dashboards go as a link until they can be drawn on the server.</summary>
+    /// <summary>Whether a user with these view checks may view the kind of item.</summary>
+    public static bool CanView(string targetType, Func<string, bool> canView)
+        => ViewModules.TryGetValue(targetType, out var modules) && (modules.Length == 0 || modules.Any(canView));
+
+    /// <summary>The formats each kind of item can be sent in. Dashboards go as a link until they can be drawn on the server;
+    /// an insight's report is written into the mail, with a link to the answer.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Formats = new Dictionary<string, string[]>
     {
         [DeliveryTerms.Report] = [DeliveryTerms.Link, DeliveryTerms.Xlsx, DeliveryTerms.Csv],
         [DeliveryTerms.Canvas] = [DeliveryTerms.Link, DeliveryTerms.Xlsx],
         [DeliveryTerms.Dashboard] = [DeliveryTerms.Link],
+        [DeliveryTerms.Insight] = [DeliveryTerms.Link],
     };
 
     private static readonly string[] Kinds = ["To", "Cc", "Bcc"];
@@ -37,7 +45,7 @@ public static class ScheduleRules
         var name = r.Name?.Trim() ?? string.Empty;
         if (name.Length == 0) return "Give the schedule a name.";
         if (name.Length > MaxName) return $"A schedule name has at most {MaxName} characters.";
-        if (r.TargetType is null || !Formats.TryGetValue(r.TargetType, out var formats)) return "The item must be a Report, Dashboard or Canvas.";
+        if (r.TargetType is null || !Formats.TryGetValue(r.TargetType, out var formats)) return "The item must be a Report, Dashboard, Canvas or Ask AI answer.";
         if (r.TargetId <= 0) return "Choose the item to send.";
         if (r.Format is null || !formats.Contains(r.Format))
             return $"A {r.TargetType.ToLowerInvariant()} can be sent as {string.Join(" or ", formats)}.";

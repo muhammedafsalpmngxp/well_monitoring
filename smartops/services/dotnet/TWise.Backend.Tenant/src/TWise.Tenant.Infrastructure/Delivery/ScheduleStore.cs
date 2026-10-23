@@ -90,6 +90,23 @@ public sealed class ScheduleStore(TenantDbContext db) : IScheduleStore
             foreach (var target in targets.Where(t => t.Type is DeliveryTerms.Dashboard or DeliveryTerms.Canvas))
                 if (boards.FirstOrDefault(b => b.DashboardId == target.Id) is { } board) names[target] = board.DashboardName;
         }
+        // An insight is an assistant answer in one of the reader's own chats, named by the question it answered.
+        var answerIds = targets.Where(t => t.Type == DeliveryTerms.Insight).Select(t => t.Id).Distinct().ToList();
+        if (answerIds.Count > 0)
+        {
+            var reader = readerId?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var answers = await (from m in db.AiChatMessages.AsNoTracking()
+                                 join c in db.AiConversations.AsNoTracking() on m.ConversationId equals c.Id
+                                 where answerIds.Contains(m.Id) && m.Role == "assistant" && c.TenantId == tenantId && !c.IsDeleted
+                                       && (reader == null || c.UserId == reader)
+                                 select new
+                                 {
+                                     m.Id, c.Title,
+                                     Question = db.AiChatMessages.Where(u => u.ConversationId == m.ConversationId && u.Role == "user" && u.Id < m.Id)
+                                         .OrderByDescending(u => u.Id).Select(u => u.Content).FirstOrDefault(),
+                                 }).ToListAsync(ct);
+            foreach (var a in answers) names[(DeliveryTerms.Insight, a.Id)] = a.Question ?? a.Title;
+        }
         return names;
     }
 }

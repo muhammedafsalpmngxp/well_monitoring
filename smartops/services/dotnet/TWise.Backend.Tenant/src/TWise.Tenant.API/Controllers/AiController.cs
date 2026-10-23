@@ -183,6 +183,16 @@ public sealed class AiController(ISender sender, ICurrentUserService currentUser
         return await sender.Send(new GetAiConversationQuery(tenantId, userId, id), ct) is { } c ? Ok(c) : NotFound();
     }
 
+    /// <summary>The conversation holding an answer (a scheduled insight mail links to the answer).</summary>
+    [HttpGet("messages/{id:long}/conversation")]
+    [ProducesResponseType(typeof(AiConversationDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> MessageConversation(long id, CancellationToken ct)
+    {
+        if (!TryGetIds(out var tenantId, out var userId)) return Unauthorized();
+        return await sender.Send(new GetAiConversationByMessageQuery(tenantId, userId, id), ct) is { } c ? Ok(c) : NotFound();
+    }
+
     [HttpDelete("conversations/{id:long}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

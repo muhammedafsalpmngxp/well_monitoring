@@ -129,6 +129,7 @@ export const API_ENDPOINTS = {
     MESSAGE_DISLIKE: (id: number) => `/ai/messages/${id}/dislike`,
     MESSAGE_TRACE: (id: number) => `/ai/messages/${id}/trace`,
     MESSAGE_REPORT: (id: number) => `/ai/messages/${id}/report`,
+    MESSAGE_CONVERSATION: (id: number) => `/ai/messages/${id}/conversation`,
     ALERTS: '/ai/alerts',
     ALERT_OPTIONS: '/ai/alerts/options',
     ALERT: (id: number) => `/ai/alerts/${id}`,

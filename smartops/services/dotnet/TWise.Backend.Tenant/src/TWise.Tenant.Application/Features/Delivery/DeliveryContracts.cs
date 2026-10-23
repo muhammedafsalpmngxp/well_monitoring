@@ -43,8 +43,10 @@ public interface IMailSender
 }
 
 /// <summary>What a run sends: the item's name, its link, the files, and whether every table in them is empty.</summary>
-/// <summary>Note, when set, is logged on the run, for example the filters a saved view's rows are not filtered by.</summary>
-public sealed record RenderedDelivery(string TargetName, string Link, bool IsEmpty, IReadOnlyList<MailAttachment> Attachments, string? Note = null);
+/// <summary>Note, when set, is logged on the run, for example the filters a saved view's rows are not filtered by.
+/// Text, when set, is written into the mail: at {{report}} in the message, or after it.</summary>
+public sealed record RenderedDelivery(string TargetName, string Link, bool IsEmpty, IReadOnlyList<MailAttachment> Attachments, string? Note = null,
+    string? Text = null);
 
 /// <summary>
 /// Turns one kind of item into what a run sends. It runs inside RunAsScope, so the data is read as the schedule's owner.
@@ -70,6 +72,8 @@ public static class DeliveryLinks
         {
             DeliveryTerms.Report => $"reports/view/{targetId}",
             DeliveryTerms.Dashboard => $"dashboard/operations-dashboard/{targetId}",
+            // Opens the Ask AI panel on the chat that holds the answer.
+            DeliveryTerms.Insight => $"ask-ai/answers/{targetId}",
             _ => $"canvas/{targetId}",
         };
         return $"{(publicBaseUrl ?? string.Empty).TrimEnd('/')}/{path}";

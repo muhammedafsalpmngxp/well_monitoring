@@ -171,6 +171,7 @@ public static class DependencyInjection
         services.AddScoped<IDeliveryRenderer, ReportDeliveryRenderer>();
         services.AddScoped<IDeliveryRenderer, CanvasDeliveryRenderer>();
         services.AddScoped<IDeliveryRenderer, DashboardDeliveryRenderer>();
+        services.AddScoped<IDeliveryRenderer, InsightDeliveryRenderer>();
 
         // AI: one OpenAI-compatible transport; settings/quota/logging wrapper is IAiService.
         services.AddHttpClient<IAiChatClient, OpenAiCompatibleChatClient>((sp, c) =>

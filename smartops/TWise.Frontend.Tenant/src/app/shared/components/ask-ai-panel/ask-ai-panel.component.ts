@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
-import { AskDataChart, AiAskDataSql, AiClarification, AiClarifyOption, AiConversation, AiDataset, AiDatasetNote, AiFeatures, AiAlert, AiAlertKind, AiAlertOptions, AiInsightReport, AiPromptDto, AiExample, AiMetric, AiTraceStep, AiNoteProposal, AiTerm, AiQueryResult, AiQuerySpec, AiService } from '../../../core/services/ai.service';
+import { AskDataChart, AiAskDataSql, AiClarification, AiClarifyOption, AiConversation, AiConversationDetail, AiDataset, AiDatasetNote, AiFeatures, AiAlert, AiAlertKind, AiAlertOptions, AiInsightReport, AiPromptDto, AiExample, AiMetric, AiTraceStep, AiNoteProposal, AiTerm, AiQueryResult, AiQuerySpec, AiService } from '../../../core/services/ai.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AskAiPanelService } from '../../../core/services/ask-ai-panel.service';
 import { Router } from '@angular/router';
@@ -17,6 +17,9 @@ import { forkJoin } from 'rxjs';
 import { markdownToHtml } from '../../../core/utils/markdown.util';
 import { HighchartsChartComponent } from 'highcharts-angular';
 import { CommonApiService } from '../../../core/services/common-api.service';
+import { SCHEDULES_MODULE, ScheduleDto } from '../../../core/services/schedule.service';
+import { ScheduleDialogModule } from '../../schedule-dialog/schedule-dialog.module';
+import { ScheduleTarget } from '../../schedule-dialog/schedule-dialog.component';
 import type Highcharts from 'highcharts';
 
 /** One rendered turn: the question plus what came back while it streamed. */
@@ -59,6 +62,8 @@ interface Turn {
   alertForm?: { kind: AiAlertKind; threshold: number | null; everyHours: number; notifyEmails: string; saving?: boolean };
   /** Insight report built on demand for a grouped answer. */
   report?: AiInsightReport | null;
+  /** Set once the report is scheduled by e-mail. */
+  reportScheduled?: string;
   reportLoading?: boolean;
   reportError?: string;
   alertMessage?: string;
@@ -73,7 +78,7 @@ interface Turn {
 @Component({
   selector: 'app-ask-ai-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, HighchartsChartComponent],
+  imports: [CommonModule, FormsModule, HighchartsChartComponent, ScheduleDialogModule],
   templateUrl: './ask-ai-panel.component.html',
   styleUrls: ['./ask-ai-panel.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -93,6 +98,22 @@ export class AskAiPanelComponent implements OnInit {
   alertOptions: AiAlertOptions | null = null;
   /** The alert the bell opened, shown highlighted in the history. */
   focusedAlert: number | null = null;
+  /** A scheduled insight mail's link: open the chat that holds the answer. */
+  private readonly openAnswerFromLink = effect(() => {
+    const id = this.panel.focusAnswer();
+    if (id === null) return;
+    untracked(() => {
+      this.panel.focusAnswer.set(null);
+      this.showHistory = false;
+      this.ai.conversationOfMessage(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: d => this.showConversation(d),
+        error: () => { this.showHistory = true; this.cdr.markForCheck(); },
+      });
+    });
+  });
+  /** The insight report being scheduled by e-mail (the schedule dialog is open while set). */
+  scheduleTarget: ScheduleTarget | null = null;
+  get canSchedule(): boolean { return this.permissions.canCreate(SCHEDULES_MODULE); }
   private readonly openAlertFromBell = effect(() => {
     const id = this.panel.focusAlert();
     if (id === null) return;
@@ -252,31 +273,32 @@ export class AskAiPanelComponent implements OnInit {
 
   openConversation(c: AiConversation): void {
     this.showHistory = false;
-    this.ai.conversation(c.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: d => {
-        this.conversationId = d.conversation.id;
-        this.sourceName = d.conversation.sourceName;
-        this.selectedKey = `${d.conversation.sourceType}:${d.conversation.sourceId}`;
-        // Pair user/assistant messages into turns; a saved answer brings back its table, chart, findings, query and next questions.
-        this.turns = [];
-        const { sourceType, sourceId, sourceName } = d.conversation;
-        for (const m of d.messages) {
-          if (m.role === 'user') this.turns.push({ question: m.content, status: '', spec: null, result: null, answer: '', error: '', showQuery: false, chart: null, messageId: null, liked: false, disliked: false });
-          else if (this.turns.length) {
-            const t = this.turns[this.turns.length - 1];
-            t.answer = m.content; t.spec = m.querySpec ?? null; t.messageId = m.id;
-            const a = m.answer;
-            if (!a) continue;
-            t.result = a.result; t.sql = a.sql; t.insights = a.insights ?? undefined; t.followUps = a.followUps ?? undefined;
-            if (a.chart) { t.askChart = a.chart; t.askChartOptions = this.chartOptions(a.chart); }
-            if (t.spec && a.result && (sourceType === 'view' || sourceType === 'import'))
-              t.chart = this.presets.suggest(t.spec, a.result, t.question, sourceType, sourceId, sourceName);
-          }
-        }
-        this.cdr.markForCheck();
-        this.scrollToEnd();
-      },
-    });
+    this.ai.conversation(c.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: d => this.showConversation(d) });
+  }
+
+  /** Puts a stored chat back on screen, turn by turn. */
+  private showConversation(d: AiConversationDetail): void {
+    this.conversationId = d.conversation.id;
+    this.sourceName = d.conversation.sourceName;
+    this.selectedKey = `${d.conversation.sourceType}:${d.conversation.sourceId}`;
+    // Pair user/assistant messages into turns; a saved answer brings back its table, chart, findings, query and next questions.
+    this.turns = [];
+    const { sourceType, sourceId, sourceName } = d.conversation;
+    for (const m of d.messages) {
+      if (m.role === 'user') this.turns.push({ question: m.content, status: '', spec: null, result: null, answer: '', error: '', showQuery: false, chart: null, messageId: null, liked: false, disliked: false });
+      else if (this.turns.length) {
+        const t = this.turns[this.turns.length - 1];
+        t.answer = m.content; t.spec = m.querySpec ?? null; t.messageId = m.id;
+        const a = m.answer;
+        if (!a) continue;
+        t.result = a.result; t.sql = a.sql; t.insights = a.insights ?? undefined; t.followUps = a.followUps ?? undefined;
+        if (a.chart) { t.askChart = a.chart; t.askChartOptions = this.chartOptions(a.chart); }
+        if (t.spec && a.result && (sourceType === 'view' || sourceType === 'import'))
+          t.chart = this.presets.suggest(t.spec, a.result, t.question, sourceType, sourceId, sourceName);
+      }
+    }
+    this.cdr.markForCheck();
+    this.scrollToEnd();
   }
 
   deleteConversation(c: AiConversation, ev: Event): void {
@@ -347,6 +369,18 @@ export class AskAiPanelComponent implements OnInit {
       next: r => { t.report = r; t.reportLoading = false; this.cdr.markForCheck(); },
       error: err => { t.reportLoading = false; t.reportError = err?.error?.message ?? 'The report could not be built.'; this.cdr.markForCheck(); },
     });
+  }
+
+  /** Opens the schedule dialog on this answer's insight report: it is built again at each run and e-mailed. */
+  scheduleReport(t: Turn): void {
+    if (t.messageId) this.scheduleTarget = { type: 'Insight', id: t.messageId, name: t.question };
+  }
+
+  scheduleClosed(saved: ScheduleDto | null): void {
+    const turn = this.turns.find(t => t.messageId === this.scheduleTarget?.id);
+    if (saved && turn) turn.reportScheduled = `Scheduled as "${saved.name}". Manage it under Smart Alerts → Schedules.`;
+    this.scheduleTarget = null;
+    this.cdr.markForCheck();
   }
 
   /** Runs the option the user picked: its query exactly, labelled with the choice. */

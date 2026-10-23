@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { noAuthGuard } from './core/guards/no-auth.guard';
 import { permissionGuard } from './core/guards/permission.guard';
+import { askAiAnswerLinkGuard } from './core/guards/ask-ai-answer-link.guard';
 import { MainLayoutComponent } from './layouts/main-layout/main-layout.component';
 import { AuthLayoutComponent } from './layouts/auth-layout/auth-layout.component';
 import { ROUTES } from './core/constants/route.constants';
@@ -23,6 +24,8 @@ export const routes: Routes = [
     component: MainLayoutComponent,
     canActivate: [authGuard],
     children: [
+      // A scheduled insight mail's link: opens the Ask AI panel on that answer, over the dashboard.
+      { path: 'ask-ai/answers/:id', canActivate: [askAiAnswerLinkGuard], children: [] },
       {
         path: ROUTES.DASHBOARD,
         data: { preloadWhenIdle: true },
