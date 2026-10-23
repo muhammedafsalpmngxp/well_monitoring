@@ -9,6 +9,7 @@ using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Common;
 using TWise.Tenant.Application.Features.Ai;
 using TWise.Tenant.Domain.DTOs;
+using TWise.Tenant.Domain.Entities;
 using TWise.Tenant.Infrastructure.Persistence;
 
 namespace TWise.Tenant.Infrastructure.Services;
@@ -19,7 +20,8 @@ namespace TWise.Tenant.Infrastructure.Services;
 /// tables) runs as written and its rows are streamed through the in-memory engine, keeping only
 /// the columns the spec uses, up to a safety cap. Both run in a transaction that is rolled back.
 /// </summary>
-public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration configuration, ILogger<AiViewQueryRunner> logger) : IAiViewQueryRunner
+public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration configuration, IViewRunRecorder runs, ICurrentUserService user,
+    ILogger<AiViewQueryRunner> logger) : IAiViewQueryRunner
 {
     /// <summary>Rows a batch view may stream before the answer is marked partial.</summary>
     private const int MaxStreamRows = 500_000;
@@ -29,13 +31,19 @@ public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration
 
     private int TimeoutSeconds => configuration.GetValue<int?>("DatabaseView:PreviewCommandTimeoutSeconds") is int t and > 0 ? t : 300;
 
+    /// <summary>Timed for the run log (caller ai), like every chart and view load.</summary>
     public async Task<AiQueryResult?> RunAsync(long viewId, long tenantId, AiQuerySpec spec, IReadOnlyList<string> columns, CancellationToken ct = default)
     {
         var opened = await OpenAsync(viewId, tenantId, ct);
         if (opened is null) return null;
-        var (conn, viewSql) = opened.Value;
+        var (conn, viewSql, name) = opened.Value;
         await using var _ = conn;
+        var run = new ViewRun { ViewId = viewId, SourceName = name, SourceType = "View", Caller = ViewRunCallers.Ai, UserId = ViewRunTiming.UserIdOf(user) };
+        return await runs.TimeAsync(run, () => QueryAsync(conn, viewSql, viewId, spec, columns, ct), r => (r.TotalRows, null));
+    }
 
+    private async Task<AiQueryResult> QueryAsync(SqlConnection conn, string viewSql, long viewId, AiQuerySpec spec, IReadOnlyList<string> columns, CancellationToken ct)
+    {
         var pushed = QuerySpecSql.Build(viewSql, spec, columns);
         if (pushed is not null)
         {
@@ -54,7 +62,7 @@ public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration
     {
         var opened = await OpenAsync(viewId, tenantId, ct);
         if (opened is null) return null;
-        var (conn, viewSql) = opened.Value;
+        var (conn, viewSql, _) = opened.Value;
         await using var _ = conn;
         try
         {
@@ -75,7 +83,7 @@ public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration
     {
         var opened = await OpenAsync(viewId, tenantId, ct);
         if (opened is null) return null;
-        var (conn, viewSql) = opened.Value;
+        var (conn, viewSql, _) = opened.Value;
         await using var _ = conn;
         var sql = ProfileSql.Lookup(viewSql, textColumns, terms.Count, maxRows: 200);
         if (sql is null) return null;
@@ -103,12 +111,12 @@ public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration
     }
 
     /// <summary>The view's SQL (the hand-edited version when set, as Preview runs) and an open connection to its database.</summary>
-    private async Task<(SqlConnection Conn, string Sql)?> OpenAsync(long viewId, long tenantId, CancellationToken ct)
+    private async Task<(SqlConnection Conn, string Sql, string Name)?> OpenAsync(long viewId, long tenantId, CancellationToken ct)
     {
         // Only the SQL and the connection: a view row also carries its cached preview, which can be large.
         var view = await db.DatabaseViews.AsNoTracking()
             .Where(v => v.Id == viewId && v.TenantId == tenantId && !v.IsDeleted)
-            .Select(v => new { v.GeneratedSql, v.ManualSql, v.Connection })
+            .Select(v => new { v.ViewName, v.GeneratedSql, v.ManualSql, v.Connection })
             .FirstOrDefaultAsync(ct);
         if (view?.Connection is null || !string.Equals(view.Connection.Provider ?? "mssql", "mssql", StringComparison.OrdinalIgnoreCase)) return null;
         var viewSql = CreateViewPrefix().Replace(string.IsNullOrWhiteSpace(view.ManualSql) ? view.GeneratedSql : view.ManualSql, "").Trim();
@@ -117,7 +125,7 @@ public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration
         var conn = new SqlConnection(ConnectionPasswordHelper.BuildConnectionString(view.Connection));
         try { await conn.OpenAsync(ct); }
         catch (SqlException ex) { await conn.DisposeAsync(); throw new InvalidOperationException($"Could not connect to the dataset's database: {ex.Message}"); }
-        return (conn, viewSql);
+        return (conn, viewSql, view.ViewName);
     }
 
     /// <summary>Column types from the result metadata, without reading rows. Null for a batch view.</summary>
@@ -200,6 +208,7 @@ public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration
             cmd.Transaction = tx;
             cmd.CommandText = viewSql;
             cmd.CommandTimeout = TimeoutSeconds;
+            ViewRunTiming.NoteSql(viewSql);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             // The view's rows are the last result set with columns.
             ColumnProfiler profiler = new(columns);
@@ -240,6 +249,7 @@ public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration
             await using var cmd = conn.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = built.Sql;
+            ViewRunTiming.NoteSql(built.Sql);
             cmd.CommandTimeout = TimeoutSeconds; // on timeout SQL Server is told to cancel the query
             foreach (var (name, value) in built.Parameters) cmd.Parameters.Add(ToParameter(name, value));
 
@@ -280,6 +290,7 @@ public sealed partial class AiViewQueryRunner(TenantDbContext db, IConfiguration
             cmd.Transaction = tx;
             cmd.CommandText = viewSql;
             cmd.CommandTimeout = TimeoutSeconds;
+            ViewRunTiming.NoteSql(viewSql);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
 
             // A batch may return several result sets; the view's rows are the last one with columns.

@@ -49,7 +49,7 @@ public sealed class ViewRunRepository(TenantDbContext db) : IViewRunRepository
 
         var log = await runs.Where(r => r.Error != null || r.DurationMs >= slow)
             .OrderByDescending(r => r.CreatedAt).Take(options.LogRows)
-            .Select(r => new ViewRunDto(r.Id, r.ViewId, r.SourceName, r.SourceType, r.Caller, r.DurationMs, r.RowCount, r.Error, r.CreatedAt))
+            .Select(r => new ViewRunDto(r.Id, r.ViewId, r.SourceName, r.SourceType, r.Caller, r.DurationMs, r.RowCount, r.Error, r.CreatedAt, r.Sql))
             .ToListAsync(ct);
 
         var dataLoads = await DataLoadIssuesAsync(tenantId, now.AddDays(-options.StaleDays), ct);

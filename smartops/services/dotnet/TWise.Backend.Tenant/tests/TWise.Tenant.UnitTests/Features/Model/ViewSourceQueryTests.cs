@@ -123,7 +123,7 @@ public sealed class ViewSourceQueryTests
     }
 
     private Task<QueryResult> Query(QueryRequest request)
-        => new RunModelQueryHandler(_repo.Object, _runner.Object, _cache, User(admin: true))
+        => new RunModelQueryHandler(_repo.Object, _runner.Object, _cache, User(admin: true), Mock.Of<IViewRunRecorder>())
             .Handle(new RunModelQueryCommand(request, TenantId), default);
 
     private Task<QueryResult> Preview(SourcePreviewRequest request, bool admin = true)

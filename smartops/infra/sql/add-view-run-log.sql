@@ -4,7 +4,8 @@
 -- [core].[ViewRunLog]: one row per chart, tile, dashboard or Ask AI load and per
 -- saved view run, with its duration, rows or error. Data Quality → Self-Healing AI
 -- reads it to find failing and slow views. The app removes rows older than
--- SelfHealing:RetentionDays. Idempotent.
+-- SelfHealing:RetentionDays. sql keeps the query of failed and slow runs (added
+-- later: the ALTER below adds it to a table created before). Idempotent.
 --
 -- Usage:
 --   sqlcmd -S <server> -d <tenant database> -i add-view-run-log.sql
@@ -24,9 +25,13 @@ BEGIN
         duration_ms   INT            NOT NULL,
         row_count     INT            NULL,
         error         NVARCHAR(2000) NULL,       -- NULL when the load succeeded
+        sql           NVARCHAR(MAX)  NULL,       -- failed and slow runs only; parameter names, not values
         user_id       BIGINT         NULL,
         created_at    DATETIME2      NOT NULL CONSTRAINT DF_ViewRunLog_created DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_ViewRunLog PRIMARY KEY CLUSTERED (id)
     );
     CREATE INDEX IX_ViewRunLog_created ON core.ViewRunLog (created_at) INCLUDE (view_id, source_name, source_type, duration_ms, error);
 END
+
+IF COL_LENGTH('core.ViewRunLog', 'sql') IS NULL
+    ALTER TABLE core.ViewRunLog ADD sql NVARCHAR(MAX) NULL;

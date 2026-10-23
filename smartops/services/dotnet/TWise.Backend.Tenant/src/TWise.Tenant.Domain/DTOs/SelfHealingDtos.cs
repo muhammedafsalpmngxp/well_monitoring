@@ -27,5 +27,6 @@ public sealed record SlowViewDto(long? ViewId, string SourceName, string SourceT
 /// <summary>Issue: failed (the import itself), refresh_failed (its last refresh) or stale (not refreshed for SelfHealing:StaleDays).</summary>
 public sealed record DataLoadIssueDto(long ImportId, string Name, string Issue, string? Error, DateTime? At);
 
+/// <summary>Sql: what was sent to the database (parameter names, not values), when it was captured.</summary>
 public sealed record ViewRunDto(long Id, long? ViewId, string SourceName, string SourceType, string Caller,
-    int DurationMs, int? RowCount, string? Error, DateTime CreatedAt);
+    int DurationMs, int? RowCount, string? Error, DateTime CreatedAt, string? Sql);

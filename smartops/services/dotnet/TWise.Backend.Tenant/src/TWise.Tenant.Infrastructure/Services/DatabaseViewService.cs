@@ -510,6 +510,7 @@ public sealed class DatabaseViewService(
 
         sql = StripCreateViewPrefix(sql);
         ValidatePreviewSql(sql);
+        ViewRunTiming.NoteSql(sql);
 
         var conn = await connRepo.GetByIdAsync(connectionId, tenantId, cancellationToken);
         if (conn is null) return null;

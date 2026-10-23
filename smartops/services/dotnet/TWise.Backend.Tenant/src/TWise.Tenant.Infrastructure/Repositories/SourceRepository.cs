@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TWise.Tenant.Application.Abstractions;
+using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Domain.DTOs;
 using TWise.Tenant.Infrastructure.Persistence;
 using TWise.Tenant.Infrastructure.Services;
@@ -210,6 +211,7 @@ public sealed partial class SourceRepository(TenantDbContext db, IConfiguration 
             await using var dataCmd = conn.CreateCommand();
             dataCmd.CommandText = $"SELECT TOP 1000 * FROM [{schemaName}].[{sourceName.Replace("]", "]]")}]";
             dataCmd.CommandTimeout = 60;
+            ViewRunTiming.NoteSql(dataCmd.CommandText);
 
             await using var reader = await dataCmd.ExecuteReaderAsync(ct);
 
@@ -361,6 +363,7 @@ public sealed partial class SourceRepository(TenantDbContext db, IConfiguration 
                 foreach (var parameter in compiled.Parameters) dataCmd.Parameters.Add(parameter);
             }
             dataCmd.CommandTimeout = 60;
+            ViewRunTiming.NoteSql(dataCmd.CommandText);
 
             var scalar = await dataCmd.ExecuteScalarAsync(ct);
             var value = scalar is null or DBNull ? 0d : Convert.ToDouble(scalar);
@@ -793,6 +796,7 @@ public sealed partial class SourceRepository(TenantDbContext db, IConfiguration 
             cmd.CommandText = sql;
             cmd.CommandTimeout = 60;
             foreach (var p in parameters) cmd.Parameters.Add(p);
+            ViewRunTiming.NoteSql(sql);
 
             // SQL Server may raise a conversion error either on execute or on the first read,
             // depending on the plan — so both are covered by one guard.

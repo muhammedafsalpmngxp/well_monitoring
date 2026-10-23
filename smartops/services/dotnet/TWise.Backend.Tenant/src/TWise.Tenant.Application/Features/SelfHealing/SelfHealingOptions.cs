@@ -22,6 +22,8 @@ public sealed record SelfHealingOptions
     public int CleanupHours { get; init; }
     /// <summary>A load that takes at least this long counts as slow.</summary>
     public int SlowMs { get; init; }
+    /// <summary>Longest SQL kept on a failed or slow run (longer SQL is cut).</summary>
+    public int SqlLength { get; init; }
     /// <summary>The periods the page offers, in days; the first is the default.</summary>
     public int[] Days { get; init; } = [];
     /// <summary>Most failing views and slow views listed.</summary>
@@ -38,7 +40,7 @@ public sealed record SelfHealingOptions
         {
             RecordRuns = RequiredSettings.Flag(c, Section, nameof(RecordRuns)),
             QueueCapacity = Read(nameof(QueueCapacity)), BatchSize = Read(nameof(BatchSize)), FlushSeconds = Read(nameof(FlushSeconds)),
-            RetentionDays = Read(nameof(RetentionDays)), CleanupHours = Read(nameof(CleanupHours)), SlowMs = Read(nameof(SlowMs)),
+            RetentionDays = Read(nameof(RetentionDays)), CleanupHours = Read(nameof(CleanupHours)), SlowMs = Read(nameof(SlowMs)), SqlLength = Read(nameof(SqlLength)),
             Days = RequiredSettings.Ints(c, Section, nameof(Days)),
             TopViews = Read(nameof(TopViews)), LogRows = Read(nameof(LogRows)), StaleDays = Read(nameof(StaleDays)),
         };

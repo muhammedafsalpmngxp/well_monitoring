@@ -39,11 +39,13 @@ export interface ViewRun {
   viewId: number | null;
   sourceName: string;
   sourceType: string;
-  caller: 'chart' | 'preview';
+  caller: 'chart' | 'preview' | 'dataset' | 'ai';
   durationMs: number;
   rowCount: number | null;
   error: string | null;
   createdAt: string;
+  /** The query sent to the database (parameter names, not values); failed and slow runs only. */
+  sql: string | null;
 }
 
 export interface SelfHealingOverview {

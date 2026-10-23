@@ -4,6 +4,7 @@ using MediatR;
 using TWise.Tenant.Application.Abstractions;
 using TWise.Tenant.Application.Abstractions.Services;
 using TWise.Tenant.Application.Features.Model.Datasets;
+using TWise.Tenant.Domain.Entities;
 
 namespace TWise.Tenant.Application.Features.Model.Query;
 
@@ -18,7 +19,7 @@ public record RunModelQueryCommand(QueryRequest Request, long TenantId) : IReque
 /// </summary>
 // ponytail: two identical queries that miss at the same moment both run; add a per-key lock if that shows under load.
 public sealed class RunModelQueryHandler(
-    IDatasetRepository repo, IModelQueryService runner, ModelCache cache, ICurrentUserService currentUser)
+    IDatasetRepository repo, IModelQueryService runner, ModelCache cache, ICurrentUserService currentUser, IViewRunRecorder runs)
     : IRequestHandler<RunModelQueryCommand, QueryResult>
 {
     // Same list DashboardController authorises admin actions with.
@@ -40,7 +41,9 @@ public sealed class RunModelQueryHandler(
         var key = ResultKey.For(command.TenantId, snapshot, user, compiled);
         if (!request.Refresh && cache.Result(key) is { } cached) return cached with { FromCache = true, SkippedFilters = compiled.SkippedFilters };
 
-        var result = await runner.RunAsync(compiled, snapshot.Connection, command.TenantId, cancellationToken);
+        // Only a query that reaches the database is timed for the run log (cache hits are not loads).
+        var run = new ViewRun { SourceName = snapshot.Dataset.Name, SourceType = "Dataset", Caller = ViewRunCallers.Dataset, UserId = ViewRunTiming.UserIdOf(currentUser) };
+        var result = await runs.TimeAsync(run, () => runner.RunAsync(compiled, snapshot.Connection, command.TenantId, cancellationToken), r => (r.Rows.Count, null));
         if (!ReadsClock(compiled.Sql)) cache.SetResult(key, result);
         return result with { SkippedFilters = compiled.SkippedFilters };
     }

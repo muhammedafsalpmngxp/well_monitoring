@@ -471,7 +471,7 @@
     <!-- Grid + Pagination inside the same bordered wrapper -->
     <div class="sha-grid-wrapper">
       <ag-grid-angular class="sha-grid" [columnDefs]="auditColumns" [defaultColDef]="defaultColDef"
-        [rowData]="auditRows" [theme]="gridTheme" [animateRows]="true" [tooltipShowDelay]="300">
+        [rowData]="auditRows" [theme]="gridTheme" [animateRows]="true" [tooltipShowDelay]="300" (rowClicked)="selectRun($event.data)">
       </ag-grid-angular>
 
       <!-- Pagination inside the bordered wrapper -->
@@ -485,6 +485,16 @@
           <button (click)="goToLastPage()"  [disabled]="currentPage===totalPages" title="Last"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg></button>
         </div>
       </div>
+    </div>
+    <p class="sha-note" *ngIf="!selectedRun && totalCount">Click a run to see the query it sent.</p>
+    <div class="sha-sql" *ngIf="selectedRun">
+      <div class="sha-sql__head">
+        <span>{{ selectedRun.source }} · {{ selectedRun.when }} · {{ selectedRun.caller }}</span>
+        <button type="button" class="sha-sql__close" (click)="selectRun(undefined)" aria-label="Close the query">×</button>
+      </div>
+      <p class="sha-sql__error" *ngIf="selectedRun.error">{{ selectedRun.error }}</p>
+      <pre class="sha-sql__text" *ngIf="selectedRun.sql; else noSql">{{ selectedRun.sql }}</pre>
+      <ng-template #noSql><p class="sha-note">No query was captured for this run.</p></ng-template>
     </div>
   </div><!-- end audit card -->
 

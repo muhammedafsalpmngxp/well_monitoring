@@ -20,7 +20,7 @@ public sealed class ViewRunLogTests
     private static readonly SelfHealingOptions Options = new()
     {
         RecordRuns = true, QueueCapacity = 10, BatchSize = 10, FlushSeconds = 5, RetentionDays = 30, CleanupHours = 6,
-        SlowMs = 5000, Days = [7, 30, 90], TopViews = 10, LogRows = 500, StaleDays = 7,
+        SlowMs = 5000, SqlLength = 20, Days = [7, 30, 90], TopViews = 10, LogRows = 500, StaleDays = 7,
     };
 
     private static ViewRun Run() => new() { SourceName = "vw_wells", SourceType = "View", Caller = ViewRunCallers.Chart };
@@ -88,6 +88,47 @@ public sealed class ViewRunLogTests
     }
 
     [Fact]
+    public async Task The_sql_the_load_sends_is_kept_on_the_run()
+    {
+        var (recorder, recorded) = Recorder();
+        await recorder.Object.TimeAsync(Run(), () => { ViewRunTiming.NoteSql("SELECT * FROM v WHERE d >= @pFrom"); return Task.FromResult(1); }, _ => (1, null));
+        ViewRunTiming.NoteSql("SELECT 'outside a timed load'");
+
+        recorded.Single().Sql.Should().Be("SELECT * FROM v WHERE d >= @pFrom");
+    }
+
+    [Fact]
+    public async Task A_load_the_outcome_skips_is_not_recorded()
+    {
+        var (recorder, recorded) = Recorder();
+        await recorder.Object.TimeAsync<int?>(Run(), () => Task.FromResult<int?>(null), r => r is null ? null : (r, null));
+
+        recorded.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_wrapped_database_error_keeps_the_original_message()
+    {
+        var (recorder, recorded) = Recorder();
+        var load = () => recorder.Object.TimeAsync<int>(Run(),
+            () => throw new InvalidOperationException("A filter value does not match.", new FormatException("Conversion failed for 'abc'.")), _ => (null, null));
+
+        await load.Should().ThrowAsync<InvalidOperationException>();
+        recorded.Single().Error.Should().Be("A filter value does not match. (Conversion failed for 'abc'.)");
+    }
+
+    [Fact]
+    public void Sql_is_kept_only_for_failed_or_slow_runs_and_cut()
+    {
+        var log = new ViewRunLog(Mock.Of<IDbContextFactory<TenantDbContext>>(), Options, NullLogger<ViewRunLog>.Instance);
+        ViewRun With(string? error, int ms) { var r = Run(); r.Error = error; r.DurationMs = ms; r.Sql = new string('s', 30); log.Record(r); return r; }
+
+        With(null, 10).Sql.Should().BeNull();
+        With(null, Options.SlowMs).Sql.Should().HaveLength(Options.SqlLength);
+        With("boom", 10).Sql.Should().HaveLength(Options.SqlLength);
+    }
+
+    [Fact]
     public async Task Runs_are_written_in_batches_and_a_full_queue_drops_new_runs()
     {
         var dbs = new Mock<IDbContextFactory<TenantDbContext>>();
@@ -133,7 +174,7 @@ public sealed class ViewRunLogTests
         {
             ["SelfHealing:RecordRuns"] = "true", ["SelfHealing:QueueCapacity"] = "5000", ["SelfHealing:BatchSize"] = "200",
             ["SelfHealing:FlushSeconds"] = "5", ["SelfHealing:RetentionDays"] = "30", ["SelfHealing:CleanupHours"] = "6",
-            ["SelfHealing:SlowMs"] = "5000", ["SelfHealing:Days:0"] = "7", ["SelfHealing:Days:1"] = "30",
+            ["SelfHealing:SlowMs"] = "5000", ["SelfHealing:SqlLength"] = "20000", ["SelfHealing:Days:0"] = "7", ["SelfHealing:Days:1"] = "30",
             ["SelfHealing:TopViews"] = "10", ["SelfHealing:LogRows"] = "500",
         };
         var build = () => SelfHealingOptions.From(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());

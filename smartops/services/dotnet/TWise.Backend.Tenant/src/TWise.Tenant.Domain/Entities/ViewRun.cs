@@ -19,6 +19,8 @@ public class ViewRun
     public int? RowCount { get; set; }
     /// <summary>Null when the load succeeded.</summary>
     public string? Error { get; set; }
+    /// <summary>The SQL sent to the database (parameter names, not their values); kept only for failed and slow runs.</summary>
+    public string? Sql { get; set; }
     public long? UserId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
@@ -29,4 +31,8 @@ public static class ViewRunCallers
     public const string Chart = "chart";
     /// <summary>A saved view's preview or report run (IDatabaseViewService.PreviewAsync).</summary>
     public const string Preview = "preview";
+    /// <summary>A Model Studio data model query (charts and canvas objects built on a data model).</summary>
+    public const string Dataset = "dataset";
+    /// <summary>Ask AI answering over every row of a view in its database.</summary>
+    public const string Ai = "ai";
 }

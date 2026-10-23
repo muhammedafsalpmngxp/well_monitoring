@@ -25,6 +25,9 @@ public sealed class ViewRunLog(IDbContextFactory<TenantDbContext> dbs, SelfHeali
     {
         if (!options.RecordRuns) return;
         if (run.Error is { Length: > ViewRunConfiguration.ErrorLength } e) run.Error = e[..ViewRunConfiguration.ErrorLength];
+        // The SQL is only needed to look into a failed or slow load.
+        if (run.Error is null && run.DurationMs < options.SlowMs) run.Sql = null;
+        else if (run.Sql is { } sql && sql.Length > options.SqlLength) run.Sql = sql[..options.SqlLength];
         queue.Writer.TryWrite(run);
     }
 

@@ -48,6 +48,7 @@ export interface AuditRow {
   rows: number | null;
   status: string;
   error: string;
+  sql: string | null;
 }
 
 const SHA_GRID_THEME = themeQuartz.withParams({
@@ -67,7 +68,7 @@ const SHA_GRID_THEME = themeQuartz.withParams({
 const AXIS_LABELS = { style: { fontSize: '11px', color: '#667085' } };
 const LEGEND_ITEM = { fontSize: '12px', fontWeight: '500', color: '#667085' };
 const ISSUE_LABELS: Record<DataLoadIssue['issue'], string> = { failed: 'Load failed', refresh_failed: 'Refresh failed', stale: 'Stale' };
-const CALLER_LABELS: Record<ViewRun['caller'], string> = { chart: 'Chart / dashboard', preview: 'View run' };
+const CALLER_LABELS: Record<ViewRun['caller'], string> = { chart: 'Chart / dashboard', preview: 'View run', dataset: 'Data model', ai: 'Ask AI' };
 
 const seconds = (ms: number) => Math.round(ms / 100) / 10;
 const shortDate = (iso: string | null) => iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
@@ -135,6 +136,8 @@ export class SelfHealingAiComponent implements OnInit {
   readonly defaultColDef: ColDef<AuditRow> = { sortable: true, resizable: true, flex: 1 };
 
   private allRows: AuditRow[] = [];
+  /** The run whose SQL is shown under the grid. */
+  selectedRun: AuditRow | null = null;
 
   get filteredRows(): AuditRow[] {
     const q = this.auditSearch.trim().toLowerCase();
@@ -208,9 +211,10 @@ export class SelfHealingAiComponent implements OnInit {
 
     this.allRows = o.log.map(r => ({
       when: shortDate(r.createdAt), source: r.sourceName, type: r.sourceType, caller: CALLER_LABELS[r.caller] ?? r.caller,
-      seconds: seconds(r.durationMs), rows: r.rowCount, status: r.error ? 'Failed' : 'Slow', error: r.error ?? '',
+      seconds: seconds(r.durationMs), rows: r.rowCount, status: r.error ? 'Failed' : 'Slow', error: r.error ?? '', sql: r.sql,
     }));
     this.currentPage = 1;
+    this.selectedRun = null;
     this.buildCharts(o);
   }
 
@@ -307,6 +311,8 @@ export class SelfHealingAiComponent implements OnInit {
   }
 
   onAuditFilterChange(): void { this.currentPage = 1; }
+
+  selectRun(row: AuditRow | undefined): void { this.selectedRun = row ?? null; }
 
   resetAuditFilters(): void {
     this.auditSearch = '';

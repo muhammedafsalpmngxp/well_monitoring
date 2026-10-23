@@ -441,6 +441,49 @@
     color: #667085;
 }
 
+.sha-sql {
+    margin-top: 12px;
+    border: 1px solid #E7ECF3;
+    border-radius: 8px;
+    padding: 12px;
+
+    &__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: #344054;
+    }
+
+    &__close {
+        border: none;
+        background: none;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        color: #667085;
+    }
+
+    &__error {
+        margin: 8px 0 0;
+        font-size: 12px;
+        color: #CE2A1E;
+    }
+
+    &__text {
+        margin: 8px 0 0;
+        max-height: 320px;
+        overflow: auto;
+        padding: 10px;
+        background: #F9FAFB;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+}
+
 // ─── Auto-Heal Queue ──────────────────────────────────────────────────────────
 .sha-heal-body {
     display: flex;

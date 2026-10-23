@@ -1604,6 +1604,7 @@ CREATE TABLE core.ViewRunLog (
     duration_ms   int            NOT NULL,
     row_count     int            NULL,
     error         nvarchar(2000) NULL,
+    sql           nvarchar(max)  NULL,
     user_id       bigint         NULL,
     created_at    datetime2      NOT NULL CONSTRAINT DF_core_ViewRunLog_created DEFAULT SYSUTCDATETIME()
 );
@@ -1611,6 +1612,10 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_ViewRunLog_created')
 CREATE INDEX IX_core_ViewRunLog_created ON core.ViewRunLog (created_at) INCLUDE (view_id, source_name, source_type, duration_ms, error);
+GO
+
+IF COL_LENGTH('core.ViewRunLog', 'sql') IS NULL
+    ALTER TABLE core.ViewRunLog ADD sql nvarchar(max) NULL;
 GO
 
 IF OBJECT_ID('core.AiMetrics', 'U') IS NULL

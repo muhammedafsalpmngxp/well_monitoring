@@ -21,6 +21,7 @@ public sealed class ViewRunConfiguration : IEntityTypeConfiguration<ViewRun>
         b.Property(e => e.DurationMs).HasColumnName("duration_ms");
         b.Property(e => e.RowCount).HasColumnName("row_count");
         b.Property(e => e.Error).HasColumnName("error").HasMaxLength(ErrorLength);
+        b.Property(e => e.Sql).HasColumnName("sql");
         b.Property(e => e.UserId).HasColumnName("user_id");
         b.Property(e => e.CreatedAt).HasColumnName("created_at");
     }

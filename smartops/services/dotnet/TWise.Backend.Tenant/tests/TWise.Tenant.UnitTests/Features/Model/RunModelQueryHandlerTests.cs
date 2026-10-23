@@ -161,7 +161,7 @@ public sealed class RunModelQueryHandlerTests
     {
         var repo = Repo(NewDataset(), Parts(Tasks(), Measure(5, "Task Count", TaskCount),
             Calculated(20, "This month", new FunctionNode("month_start", [new FunctionNode("today", [])]))));
-        var handler = new RunModelQueryHandler(repo.Object, _runner.Object, _cache, User(admin: true));
+        var handler = new RunModelQueryHandler(repo.Object, _runner.Object, _cache, User(admin: true), Mock.Of<IViewRunRecorder>());
         var byMonth = new RunModelQueryCommand(new QueryRequest(1, ["TaskDaily.This month"], ["Task Count"]), TenantId);
 
         await handler.Handle(byMonth, default);
@@ -217,7 +217,7 @@ public sealed class RunModelQueryHandlerTests
     }
 
     private Task<QueryResult> Run(QueryRequest request, ICurrentUserService? user = null)
-        => new RunModelQueryHandler(_repo.Object, _runner.Object, _cache, user ?? User(admin: true))
+        => new RunModelQueryHandler(_repo.Object, _runner.Object, _cache, user ?? User(admin: true), Mock.Of<IViewRunRecorder>())
             .Handle(new RunModelQueryCommand(request, TenantId), default);
 
     private static ICurrentUserService User(bool admin, params int[] plants)

@@ -6,8 +6,15 @@
 
 | Captured at | Caller | What |
 |---|---|---|
-| `SourceService.GetFilteredChartDataAsync` | `chart` | every chart, tile, dashboard, delivery and Ask AI load (`ViewId`, `ChartSource`, `ChartSourceType`) |
+| `SourceService.GetFilteredChartDataAsync` | `chart` | every chart, tile, dashboard, delivery and Ask AI data load (`ViewId`, `ChartSource`, `ChartSourceType`), including view filters, date placeholders, report filters, Top N and DAX tiles |
+| `SourceService.GetTableDataAsync` / `GetAggregateAsync` | `chart` | table / view data (`SELECT TOP 1000`) and tile values |
 | `DatabaseViewService.PreviewAsync` | `preview` | a saved view run as saved (`ViewId` set, no `Sql`); builder previews of edited SQL are not recorded |
+| `RunModelQueryHandler` (Model Studio) | `dataset` | data model queries that reach the database (`SourceName` = the data model; result-cache hits are not loads) |
+| `AiViewQueryRunner.RunAsync` | `ai` | Ask AI's push-down or streamed query over every row of a view |
+
+Not recorded: Model Studio admin source samples, column profiles and value lookups (metadata, not loads), Data Quality rules, Crew Calendar, and the unused `ReportDataFetcher`.
+
+**SQL:** `TimeAsync` puts the run in an `AsyncLocal`; the code that sends the query calls `ViewRunTiming.NoteSql(sql)` right before executing (no-op outside a timed load). The text is the final SQL after filters are applied, with parameter names (`@pFrom`), never their values. `ViewRunLog.Record` drops it for fast successful runs and cuts it to `SelfHealing:SqlLength`. Column `sql nvarchar(max)` (ALTER in `add-view-run-log.sql`). A wrapped exception records `"<message> (<inner message>)"`, so the database's own error stays visible behind the friendly one.
 
 `ViewRunTiming.TimeAsync` times the call: success → `row_count`; a null result → `error` = `ViewRunTiming.NoResult` (refused or not found); an exception → its message, rethrown; `OperationCanceledException` is not recorded. When the view's source fails and the stored preview is served instead, the run keeps `"Served the stored preview: <error>"`.
 
@@ -28,7 +35,7 @@ Module permission `data-quality.self-healing` View (`RequireModulePermission`), 
 
 ## Settings (`SelfHealing`, all required)
 
-`RecordRuns`, `QueueCapacity`, `BatchSize`, `FlushSeconds`, `RetentionDays`, `CleanupHours`, `SlowMs`, `Days` (list; the first is the default), `TopViews`, `LogRows`, `StaleDays`. Read by `SelfHealingOptions.From` (`RequiredSettings`); a missing one stops startup with its name.
+`RecordRuns`, `QueueCapacity`, `BatchSize`, `FlushSeconds`, `RetentionDays`, `CleanupHours`, `SlowMs`, `SqlLength`, `Days` (list; the first is the default), `TopViews`, `LogRows`, `StaleDays`. Read by `SelfHealingOptions.From` (`RequiredSettings`); a missing one stops startup with its name.
 
 ## Frontend
 

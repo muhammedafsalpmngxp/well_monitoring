@@ -37,6 +37,7 @@ public sealed class ModelQueryService : IModelQueryService
             await conn.OpenAsync(cancellationToken);
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = compiled.Sql;
+            ViewRunTiming.NoteSql(compiled.Sql);
             cmd.CommandTimeout = CommandTimeoutSeconds;
             foreach (var (name, value) in compiled.Parameters)
                 cmd.Parameters.Add(Parameter(name, value));
