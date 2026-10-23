@@ -2,7 +2,7 @@
 
 ## Target type `Insight`
 
-`DeliveryTerms.Insight`. `TargetId` is the assistant message (`core.AiChatMessages.id`). No new table or column: it is a row in `delivery.Schedule` like any other target.
+`DeliveryTerms.Insight`. `TargetId` is the assistant message (`core.AiChatMessages.id`). No new table or column: it is a row in `delivery.Schedule` like any other target, once `infra/sql/model/015-schedule-insight-target.sql` has widened `CK_delivery_Schedule_TargetType` (012 allowed only Report, Dashboard and Canvas; without 015 the save fails with a CHECK constraint error, shown as "references a record that does not exist").
 
 | Rule | Where |
 |---|---|
