@@ -32,6 +32,8 @@ public static class DependencyInjection
 
         // Explain and AI deck limits: the AiExplain section of appsettings.json (no defaults in code).
         services.AddSingleton(sp => Features.Ai.AiExplainOptions.From(sp.GetRequiredService<IConfiguration>()));
+        // Rows a saved chat keeps per answer: the AiHistory section.
+        services.AddSingleton(sp => Features.Ai.AiHistoryOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddSingleton(sp => Features.Ai.AiAlertOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddSingleton(sp => Features.Ai.AiSqlReviewOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddSingleton(sp => Features.Ai.AiAdminOptions.From(sp.GetRequiredService<IConfiguration>(), Features.Ai.Settings.AiMapping.ProviderKinds));

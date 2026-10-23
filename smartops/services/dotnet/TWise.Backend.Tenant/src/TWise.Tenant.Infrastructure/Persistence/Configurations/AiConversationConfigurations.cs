@@ -37,6 +37,7 @@ public sealed class AiChatMessageConfiguration : IEntityTypeConfiguration<AiChat
         b.Property(e => e.Role).HasColumnName("role").HasMaxLength(10).IsRequired();
         b.Property(e => e.Content).HasColumnName("content").IsRequired();
         b.Property(e => e.QuerySpecJson).HasColumnName("query_spec_json");
+        b.Property(e => e.AnswerJson).HasColumnName("answer_json");
         b.Property(e => e.CreatedAt).HasColumnName("created_at");
     }
 }

@@ -89,21 +89,30 @@ public sealed partial class AiAskService
         // The query the answer was built from. steps also lists the rejected attempts (marked), so its last may not be it.
         var accepted = steps.Where(s => !Rejected(s)).ToList();
         var sql = Str(d, "sql") ?? (accepted.Count > 0 ? Str(accepted[^1], "sql") : null);
-        if (!string.IsNullOrWhiteSpace(sql)) yield return new AiAskEvent("sql", new { sql, verified, queries = accepted.Count });
+        var sqlInfo = string.IsNullOrWhiteSpace(sql) ? null : new AskDataSqlDto(sql, verified, accepted.Count);
+        if (sqlInfo is not null) yield return new AiAskEvent("sql", sqlInfo);
+        AiQueryResult? shown = null;
+        AskDataChartDto? shownChart = null;
+        IReadOnlyList<string>? shownFindings = null;
         if (Result(d) is { } result)
         {
-            yield return new AiAskEvent("result", result with { Labels = AskDataLabels(result.Columns, askData.Notes) });
+            shown = result with { Labels = AskDataLabels(result.Columns, askData.Notes) };
+            yield return new AiAskEvent("result", shown);
             // A chart for the panel: the runtime's when the question asked for one, else read from the answer's groups.
-            if (AskDataChart(d, sql, result, question) is { } chart) yield return new AiAskEvent("chartspec", chart);
+            if (AskDataChart(d, sql, result, question) is { } chart) { shownChart = chart; yield return new AiAskEvent("chartspec", chart); }
             // Highest and lowest group, shares, ties and blanks, worked out in code from the answer's own rows.
             if (AskDataInsights.Spec(sql, result) is { } shape && Insights.Find(shape, result) is { Count: > 0 } findings)
+            {
+                shownFindings = findings;
                 yield return new AiAskEvent("insights", findings);
+            }
         }
         var answer = Str(d, "answer") ?? "";
         if (!verified) answer += "\n\n_The figures could not be verified: treat them as indicative._";
         yield return new AiAskEvent("answer", answer);
         // Next questions from what the database holds: follow-ups of an answer, or questions that work here when nothing was found.
-        if (Strings(d, "follow_ups") is { Count: > 0 } next) yield return new AiAskEvent("followups", next);
+        var followUps = Strings(d, "follow_ups");
+        if (followUps is { Count: > 0 }) yield return new AiAskEvent("followups", followUps);
         else if (Strings(d, "suggestions") is { Count: > 0 } other) yield return new AiAskEvent("suggestions", other);
         // After the answer is on screen: every save below is a round trip to the tenant database.
         await LogAskDataUsageAsync(d, tenantId, userId);
@@ -112,7 +121,12 @@ public sealed partial class AiAskService
         if (conv.Id == 0) await conversations.AddAsync(conv, ct);
         conv.ModifiedAt = DateTime.UtcNow;
         await conversations.AddMessageAsync(new AiChatMessage { ConversationId = conv.Id, Role = "user", Content = question }, ct);
-        var assistant = new AiChatMessage { ConversationId = conv.Id, Role = "assistant", Content = answer };
+        var assistant = new AiChatMessage
+        {
+            ConversationId = conv.Id, Role = "assistant", Content = answer,
+            // What the panel showed, so reopening the chat shows the table and chart again.
+            AnswerJson = AiAnswerSnapshots.ToJson(new AiAnswerSnapshot(shown, shownChart, shownFindings, sqlInfo, followUps), savedAnswers.SavedRows),
+        };
         await conversations.AddMessageAsync(assistant, ct);
         await conversations.SaveAsync(ct);
         if (tracing) yield return new AiAskEvent("trace", trace);

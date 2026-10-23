@@ -38,7 +38,8 @@ public sealed partial class AiAskService(
     IAiPromptStore prompts,
     IDatabaseConnectionRepository connections,
     IAiSummaryRepository summaries,
-    AiExplainOptions explain) : IAiAskService
+    AiExplainOptions explain,
+    AiHistoryOptions savedAnswers) : IAiAskService
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private const int HistoryTurns = 6;
@@ -216,7 +217,12 @@ public sealed partial class AiAskService(
         if (conv.Id == 0) await conversations.AddAsync(conv, ct);
         conv.ModifiedAt = DateTime.UtcNow;
         await conversations.AddMessageAsync(new AiChatMessage { ConversationId = conv.Id, Role = "user", Content = question }, ct);
-        var assistantMessage = new AiChatMessage { ConversationId = conv.Id, Role = "assistant", Content = answer.ToString(), QuerySpecJson = JsonSerializer.Serialize(spec, Json) };
+        var assistantMessage = new AiChatMessage
+        {
+            ConversationId = conv.Id, Role = "assistant", Content = answer.ToString(), QuerySpecJson = JsonSerializer.Serialize(spec, Json),
+            // The table and findings shown with the answer, so reopening the chat shows them again.
+            AnswerJson = AiAnswerSnapshots.ToJson(new AiAnswerSnapshot(result, null, insights, null, null), savedAnswers.SavedRows),
+        };
         await conversations.AddMessageAsync(assistantMessage, ct);
         await conversations.SaveAsync(ct);
         // A trace is a debugging aid: failing to keep it must not fail the answer.

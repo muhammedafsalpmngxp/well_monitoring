@@ -1496,8 +1496,12 @@ CREATE TABLE core.AiChatMessages (
     role             nvarchar(10)   NOT NULL,
     content          nvarchar(max)  NOT NULL,
     query_spec_json  nvarchar(max)  NULL,
+    answer_json      nvarchar(max)  NULL,   -- assistant turns: table, chart, findings, query, next questions
     created_at       datetime2      NOT NULL CONSTRAINT DF_core_AiChatMessages_created DEFAULT SYSUTCDATETIME()
 );
+GO
+IF COL_LENGTH('core.AiChatMessages', 'answer_json') IS NULL
+    ALTER TABLE core.AiChatMessages ADD answer_json nvarchar(max) NULL;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiChatMessages_conversation')

@@ -189,7 +189,9 @@ export interface AiAlert { id: number; sourceType: AiKnowledgeSource; sourceId: 
 export interface AiAlertOptions { everyHours: number[]; defaultEveryHours: number; maxEmails: number; minHistory: number }
 export interface AiConversation { id: number; sourceType: AiSourceType; sourceId: number; sourceName: string; title: string; modifiedAt: string }
 
-export interface AiChatMessage { id: number; role: 'user' | 'assistant'; content: string; querySpec?: AiQuerySpec | null; createdAt: string }
+export interface AiChatMessage { id: number; role: 'user' | 'assistant'; content: string; querySpec?: AiQuerySpec | null; createdAt: string; answer?: AiAnswerSnapshot | null }
+/** What the panel showed with a saved answer, so a reopened chat shows it again (null for older answers). */
+export interface AiAnswerSnapshot { result: AiQueryResult | null; chart: AskDataChart | null; insights: string[] | null; sql: AiAskDataSql | null; followUps: string[] | null }
 
 /** column null is the dataset-level note. */
 export interface AiDatasetNote { column: string | null; note: string; displayName?: string | null }

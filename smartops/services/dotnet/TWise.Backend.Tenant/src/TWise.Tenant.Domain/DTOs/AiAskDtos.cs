@@ -68,7 +68,16 @@ public record AiQueryResult(IReadOnlyList<string> Columns, IReadOnlyList<Diction
 
 public record AiConversationDto(long Id, string SourceType, long SourceId, string SourceName, string Title, DateTime ModifiedAt);
 
-public record AiChatMessageDto(long Id, string Role, string Content, AiQuerySpec? QuerySpec, DateTime CreatedAt);
+/// <summary>Answer: what the panel showed with an assistant answer (table, chart, findings, query, next questions), so a
+/// reopened chat shows it again; null for answers saved before it was kept.</summary>
+public record AiChatMessageDto(long Id, string Role, string Content, AiQuerySpec? QuerySpec, DateTime CreatedAt, AiAnswerSnapshot? Answer = null);
+
+/// <summary>One answer as shown in the panel. Result holds at most AiHistory:SavedRows rows; TotalRows still says how many there were.
+/// Sql: an Ask Data answer's query (dataset answers have QuerySpec instead).</summary>
+public record AiAnswerSnapshot(AiQueryResult? Result, AskDataChartDto? Chart, IReadOnlyList<string>? Insights, AskDataSqlDto? Sql, IReadOnlyList<string>? FollowUps);
+
+/// <summary>An Ask Data answer's query: whether the verifier accepted it and how many queries ran.</summary>
+public record AskDataSqlDto(string Sql, bool Verified, int Queries);
 
 public record AiConversationDetailDto(AiConversationDto Conversation, IReadOnlyList<AiChatMessageDto> Messages);
 

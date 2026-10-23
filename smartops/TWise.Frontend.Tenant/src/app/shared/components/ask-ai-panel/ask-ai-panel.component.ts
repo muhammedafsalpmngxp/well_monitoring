@@ -257,11 +257,21 @@ export class AskAiPanelComponent implements OnInit {
         this.conversationId = d.conversation.id;
         this.sourceName = d.conversation.sourceName;
         this.selectedKey = `${d.conversation.sourceType}:${d.conversation.sourceId}`;
-        // Pair user/assistant messages into turns; stored answers have no result table.
+        // Pair user/assistant messages into turns; a saved answer brings back its table, chart, findings, query and next questions.
         this.turns = [];
+        const { sourceType, sourceId, sourceName } = d.conversation;
         for (const m of d.messages) {
           if (m.role === 'user') this.turns.push({ question: m.content, status: '', spec: null, result: null, answer: '', error: '', showQuery: false, chart: null, messageId: null, liked: false, disliked: false });
-          else if (this.turns.length) { const t = this.turns[this.turns.length - 1]; t.answer = m.content; t.spec = m.querySpec ?? null; t.messageId = m.id; }
+          else if (this.turns.length) {
+            const t = this.turns[this.turns.length - 1];
+            t.answer = m.content; t.spec = m.querySpec ?? null; t.messageId = m.id;
+            const a = m.answer;
+            if (!a) continue;
+            t.result = a.result; t.sql = a.sql; t.insights = a.insights ?? undefined; t.followUps = a.followUps ?? undefined;
+            if (a.chart) { t.askChart = a.chart; t.askChartOptions = this.chartOptions(a.chart); }
+            if (t.spec && a.result && (sourceType === 'view' || sourceType === 'import'))
+              t.chart = this.presets.suggest(t.spec, a.result, t.question, sourceType, sourceId, sourceName);
+          }
         }
         this.cdr.markForCheck();
         this.scrollToEnd();

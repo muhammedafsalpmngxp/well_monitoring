@@ -26,6 +26,8 @@ public class AiChatMessage
     public string Role { get; set; } = "";
     public string Content { get; set; } = "";
     public string? QuerySpecJson { get; set; }
+    /// <summary>Assistant turns: AiAnswerSnapshot as JSON (table, chart, findings, query, next questions).</summary>
+    public string? AnswerJson { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

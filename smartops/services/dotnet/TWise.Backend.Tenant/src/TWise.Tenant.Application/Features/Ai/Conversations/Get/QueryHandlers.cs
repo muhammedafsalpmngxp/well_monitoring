@@ -21,7 +21,8 @@ public sealed class GetAiConversationHandler(IAiConversationRepository conversat
         var conv = await conversations.GetAsync(q.Id, q.TenantId, q.UserId.ToString(), ct);
         if (conv is null) return null;
         var messages = (await conversations.GetMessagesAsync(q.Id, ct)).Select(m => new AiChatMessageDto(m.Id, m.Role, m.Content,
-            m.QuerySpecJson is null ? null : JsonSerializer.Deserialize<AiQuerySpec>(m.QuerySpecJson, Json), AiDates.Utc(m.CreatedAt))).ToList();
+            m.QuerySpecJson is null ? null : JsonSerializer.Deserialize<AiQuerySpec>(m.QuerySpecJson, Json), AiDates.Utc(m.CreatedAt),
+            AiAnswerSnapshots.FromJson(m.AnswerJson))).ToList();
         return new AiConversationDetailDto(AiConversationMapping.ToDto(conv), messages);
     }
 }

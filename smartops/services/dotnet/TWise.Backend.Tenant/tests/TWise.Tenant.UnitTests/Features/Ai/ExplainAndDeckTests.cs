@@ -88,7 +88,7 @@ public class ExplainAndDeckTests
             new Mock<IImportedDatasetService>().Object, new Mock<ISourceService>().Object, new Mock<IAiKnowledgeRepository>().Object,
             settings.Object, grants.Object, user.Object, new Mock<IServiceScopeFactory>().Object, new MemoryCache(new MemoryCacheOptions()),
             new Mock<IAiViewQueryRunner>().Object, new Mock<IAgentRuntimeClient>().Object, new Mock<IAiUsageRepository>().Object,
-            Prompts().Object, new Mock<IDatabaseConnectionRepository>().Object, summaries.Object, Explain);
+            Prompts().Object, new Mock<IDatabaseConnectionRepository>().Object, summaries.Object, Explain, new AiHistoryOptions { SavedRows = 500 });
 
         var events = new List<AiAskEvent>();
         await foreach (var ev in service.SummarizeDashboardAsync(new AiDashboardSummaryRequest("Wells", [Wells]), 7, 1, default)) events.Add(ev);

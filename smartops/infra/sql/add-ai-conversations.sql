@@ -46,3 +46,7 @@ BEGIN
     );
     CREATE INDEX IX_AiChatMessages_conversation ON core.AiChatMessages (conversation_id, id);
 END
+-- Assistant turns: what the panel showed with the answer (result rows up to AiHistory:SavedRows, chart, findings,
+-- Ask Data query, next questions) as JSON, so a reopened chat shows its table and chart. NULL = older answer.
+IF COL_LENGTH('core.AiChatMessages', 'answer_json') IS NULL
+    ALTER TABLE core.AiChatMessages ADD answer_json NVARCHAR(MAX) NULL;
