@@ -48,6 +48,26 @@ public class AskDataInsightsTests
     }
 
     [Fact]
+    public void An_id_is_a_label_never_a_measure()
+    {
+        // "list 5 wells with their location": a list, not a figure per well - no findings, no chart of well ids.
+        var wells = new (long id, string? location)[] { (4645, null), (10204, null), (10205, "LOC3"), (10206, "LOC4"), (10207, "LOC18") };
+        var list = new AiQueryResult(["well_id", "well_location"],
+            wells.Select(w => new Dictionary<string, object?> { ["well_id"] = w.id, ["well_location"] = w.location }).ToList(), 5, 5, false);
+        AskDataInsights.Spec("SELECT TOP 5 well_id, well_location FROM well.well_master", list).Should().BeNull();
+        AskDataInsights.Chart("SELECT TOP 5 well_id, well_location FROM well.well_master", list, "wells").Should().BeNull();
+
+        // A number per well: the well id is the label and the count the measure.
+        var perWell = new AiQueryResult(["well_id", "late_tasks"], new[] { (10204L, 7L), (10205L, 3L), (10206L, 12L) }
+            .Select(w => new Dictionary<string, object?> { ["well_id"] = w.Item1, ["late_tasks"] = w.Item2 }).ToList(), 3, 3, false);
+        var spec = AskDataInsights.Spec("SELECT well_id, COUNT(*) AS late_tasks FROM t GROUP BY well_id", perWell)!;
+        spec.GroupBy.Should().Equal("well_id");
+        spec.Measures.Should().ContainSingle().Which.Column.Should().Be("late_tasks");
+        AskDataInsights.Chart("SELECT well_id, COUNT(*) AS late_tasks FROM t GROUP BY well_id", perWell, "late tasks")!.Labels
+            .Should().Equal("10204", "10205", "10206");
+    }
+
+    [Fact]
     public void A_year_number_is_a_period_to_group_by()
     {
         var years = new AiQueryResult(["year", "wells"], new[] { 2024L, 2025L, 2026L }

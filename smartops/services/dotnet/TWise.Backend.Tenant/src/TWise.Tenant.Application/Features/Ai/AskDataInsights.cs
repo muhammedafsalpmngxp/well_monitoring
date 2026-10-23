@@ -6,8 +6,9 @@ namespace TWise.Tenant.Application.Features.Ai;
 /// <summary>
 /// Key findings and the insight report for Ask Data answers, which are SQL with no query spec: the spec
 /// <see cref="Insights"/> needs is read from the answer itself. Columns holding text or dates (and number columns named
-/// like a period, e.g. "year") are the groups; the first number column whose value varies is the measure. It adds up
-/// (totals and shares make sense) only when the SQL computes it with COUNT or SUM.
+/// like a period, e.g. "year", or an identifier, e.g. "well_id") are the groups; the first other number column whose
+/// value varies is the measure. An identifier is a label, never an amount: a plain list of wells has no measure, so no
+/// findings and no chart. The measure adds up (totals and shares make sense) only when the SQL computes it with COUNT or SUM.
 /// </summary>
 public static partial class AskDataInsights
 {
@@ -16,12 +17,19 @@ public static partial class AskDataInsights
     [GeneratedRegex(@"^(year|yr|month|quarter|qtr|week|period)(_?(no|num|number))?$|_(year|month|quarter|week)$", RegexOptions.IgnoreCase)]
     private static partial Regex PeriodColumn();
 
+    /// <summary>A number that names a thing (well_id, project_no, crew_code), never one to add up or compare.</summary>
+    [GeneratedRegex(@"^(id|code|key)$|_(id|no|num|code|key)$", RegexOptions.IgnoreCase)]
+    private static partial Regex IdColumn();
+
+    private static bool IsLabel(AiQueryResult result, string column) =>
+        !IsNumber(result, column) || PeriodColumn().IsMatch(column) || IdColumn().IsMatch(column);
+
     /// <summary>The spec of a grouped answer with a number per group (at least <paramref name="minRows"/> rows: findings
     /// need 3, a chart 2), else null.</summary>
     public static AiQuerySpec? Spec(string? sql, AiQueryResult result, int minRows = 3)
     {
         if (result.Rows.Count < minRows) return null;
-        var groups = result.Columns.Where(c => !IsNumber(result, c) || PeriodColumn().IsMatch(c)).ToList();
+        var groups = result.Columns.Where(c => IsLabel(result, c)).ToList();
         // A number that is the same in every row (e.g. COUNT(*) OVER () as a total) says nothing per group.
         var measure = result.Columns.FirstOrDefault(c => IsNumber(result, c) && !groups.Contains(c)
             && result.Rows.Select(r => QuerySpecEngine.Num(r.GetValueOrDefault(c))).Distinct().Count() > 1);
@@ -34,7 +42,7 @@ public static partial class AskDataInsights
     public static AiQuerySpec WatchSpec(string? sql, AiQueryResult result)
     {
         if (Spec(sql, result, minRows: 2) is { } grouped) return grouped;
-        var number = result.Columns.FirstOrDefault(c => IsNumber(result, c) && !PeriodColumn().IsMatch(c));
+        var number = result.Columns.FirstOrDefault(c => !IsLabel(result, c));
         return new AiQuerySpec(null, [], number is null ? [] : [new AiMeasure(Agg(sql, number), number, number)], null, null, null);
     }
 

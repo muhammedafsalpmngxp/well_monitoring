@@ -27,6 +27,8 @@ interface Turn {
   /** Ask Data answers: the SQL instead of a spec (alerts, likes and reports work from it). */
   sql?: AiAskDataSql | null;
   result: AiQueryResult | null;
+  /** The result rows are folded under "Show table": the answer, findings and chart say what they show. */
+  showTable?: boolean;
   answer: string;
   error: string;
   showQuery: boolean;
@@ -39,7 +41,7 @@ interface Turn {
   suggestions?: string[];
   /** Ask Data: next questions for an answer that found something. */
   followUps?: string[];
-  /** Ask Data: the answer's chart, drawn under the table (hidden with "Hide chart"). */
+  /** Ask Data: the answer's chart, drawn under the answer (hidden with "Hide chart"). */
   askChart?: AskDataChart;
   askChartOptions?: Highcharts.Options;
   hideChart?: boolean;
@@ -65,7 +67,7 @@ interface Turn {
 
 /**
  * "Ask your data" drawer. Type a question: Ask Data (the agent runtime's multi-agent graph over the Ask Data
- * database) answers it with the query it ran, the result table and a formatted answer. Follow-up questions reuse
+ * database) answers it with the query it ran, a formatted answer and the result table (folded under "Show table"). Follow-up questions reuse
  * the conversation. Conversations started on a dataset before keep using that dataset's spec engine.
  */
 @Component({

@@ -195,7 +195,7 @@
           <li *ngFor="let f of t.insights">{{ f }}</li>
         </ul>
 
-        <div class="ask__result" *ngIf="t.result as r">
+        <div class="ask__result" *ngIf="t.showTable && t.result as r">
           <table>
             <thead><tr><th *ngFor="let c of r.columns" [title]="c">{{ label(c, r.labels) }}</th></tr></thead>
             <tbody>
@@ -221,6 +221,9 @@
           <button type="button" class="ask__like" *ngIf="t.messageId && (t.spec || t.sql) && can('learning')" (click)="toggleDislike(t)" [class.ask__like--off]="t.disliked"
             [title]="t.disliked ? 'Remove rating' : 'Wrong answer: never use it as an example'" aria-label="Wrong answer">
             <svg width="16" height="16" viewBox="0 0 24 24" [attr.fill]="t.disliked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+          </button>
+          <button type="button" class="ask__link" *ngIf="t.result?.rows?.length" (click)="t.showTable = !t.showTable" [attr.aria-expanded]="!!t.showTable">
+            {{ t.showTable ? 'Hide table' : 'Show table (' + (t.result!.totalRows | number) + ' row' + (t.result!.totalRows === 1 ? ')' : 's)') }}
           </button>
           <button type="button" class="ask__link" *ngIf="t.spec || t.sql" (click)="t.showQuery = !t.showQuery">{{ t.showQuery ? 'Hide query' : 'Show query' }}</button>
           <button type="button" class="ask__link" *ngIf="can('trace') && (t.trace || t.messageId)" (click)="toggleTrace(t)">{{ t.showTrace ? 'Hide steps' : 'Show steps' }}</button>
