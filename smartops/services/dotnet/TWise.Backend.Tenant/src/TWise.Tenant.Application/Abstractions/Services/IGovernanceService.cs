@@ -13,5 +13,9 @@ public interface IGovernanceService
     /// <summary>Upserts the dataset-level entry and every column sent; columns not sent are left alone.</summary>
     Task<DictionaryDatasetDetailDto?> SaveDatasetAsync(string kind, long id, SaveDictionaryRequest request, long userId, long tenantId, CancellationToken ct = default);
 
+    /// <summary>The first rows the dataset already holds (an import's stored rows, a view's last preview), for the AI to see
+    /// example values; no query runs. Null when the dataset does not exist for the tenant.</summary>
+    Task<IReadOnlyList<Dictionary<string, object?>>?> SampleRowsAsync(string kind, long id, long tenantId, int maxRows, CancellationToken ct = default);
+
     Task<LineageGraphDto> GetLineageAsync(long tenantId, CancellationToken ct = default);
 }

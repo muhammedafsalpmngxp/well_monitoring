@@ -26,6 +26,7 @@ public static class AiPrompts
     public const string Deck = "deck";
     public const string DeckKeyFigures = "deck-key-figures";
     public const string SqlReview = "sql-review";
+    public const string Dictionary = "dictionary";
     /// <summary>Longest per-dataset override (core.AiDatasetPrompts.prompt_text).</summary>
     public const int MaxLength = 4000;
     /// <summary>Keys an admin may also set per dataset; the rest are tenant-wide only.</summary>

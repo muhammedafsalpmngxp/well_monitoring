@@ -106,6 +106,34 @@ public sealed class GovernanceService(TenantDbContext db) : IGovernanceService
         return new DictionaryDatasetDetailDto(dataset.Kind, dataset.Id, dataset.Name, top?.Description, top?.Owner, columns);
     }
 
+    public async Task<IReadOnlyList<Dictionary<string, object?>>?> SampleRowsAsync(string kind, long id, long tenantId, int maxRows, CancellationToken ct = default)
+    {
+        IReadOnlyList<string> rows;
+        switch (kind)
+        {
+            case "import":
+                if (!await db.ImportedDatasets.AnyAsync(d => d.Id == id && d.TenantId == tenantId, ct)) return null;
+                rows = await db.ImportedDataRows.AsNoTracking().Where(r => r.DatasetId == id)
+                    .OrderBy(r => r.RowIndex).Take(maxRows).Select(r => r.DataJson).ToListAsync(ct);
+                break;
+            case "view":
+                var view = await db.DatabaseViews.Where(v => v.Id == id && v.TenantId == tenantId)
+                    .Select(v => new { v.PreviewDataJson }).FirstOrDefaultAsync(ct);
+                if (view is null) return null;
+                return ParseRows(view.PreviewDataJson).Take(maxRows).ToList();
+            default:
+                return null;
+        }
+        return rows.Select(r => ParseRows($"[{r}]").FirstOrDefault() ?? []).ToList();
+    }
+
+    private static List<Dictionary<string, object?>> ParseRows(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(json, Json) ?? []; }
+        catch (JsonException) { return []; }
+    }
+
     private async Task<(string Kind, long Id, string Name, List<ImportColumnDto> Columns)?> LoadDatasetAsync(
         string kind, long id, long tenantId, CancellationToken ct)
     {

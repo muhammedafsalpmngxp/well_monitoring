@@ -53,11 +53,16 @@
         </div>
         <div class="dd-detail__actions">
           <span class="dd-saved" *ngIf="saved">Saved</span>
+          <button type="button" class="dd-btn dd-btn--ai" *ngIf="canDraft" (click)="draft()" [disabled]="drafting || saving || loadingDetail"
+            title="The AI drafts business names, descriptions, sensitivity and tags for the empty fields; you review and save">
+            {{ drafting ? 'Drafting…' : 'Draft with AI' }}
+          </button>
           <button type="button" class="dd-btn dd-btn--primary" (click)="save()" [disabled]="saving || loadingDetail">
             {{ saving ? 'Saving…' : 'Save' }}
           </button>
         </div>
       </div>
+      <p class="dd-draft-note" *ngIf="draftNote" role="status">{{ draftNote }}</p>
 
       <div class="dd-dataset-fields">
         <label class="dd-field dd-field--grow">
@@ -89,8 +94,8 @@
           </thead>
           <tbody>
             <tr *ngIf="loadingDetail"><td colspan="7" class="dd-table__empty">Loading…</td></tr>
-            <tr *ngFor="let c of filteredColumns" [class.dd-row--pii]="c.sensitivity === 'pii'">
-              <td class="dd-col-name">{{ c.columnName }}</td>
+            <tr *ngFor="let c of filteredColumns" [class.dd-row--pii]="c.sensitivity === 'pii'" [class.dd-row--ai]="aiDrafted.has(c.columnName)">
+              <td class="dd-col-name">{{ c.columnName }}<span class="dd-ai-badge" *ngIf="aiDrafted.has(c.columnName)" title="Filled by the AI: review before saving">AI draft</span></td>
               <td><span class="dd-type" *ngIf="c.dataType">{{ c.dataType }}</span></td>
               <td><input type="text" [(ngModel)]="c.businessName" placeholder="—" /></td>
               <td><input type="text" [(ngModel)]="c.description" placeholder="Add a description" /></td>

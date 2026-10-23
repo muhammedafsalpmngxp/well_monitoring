@@ -20,6 +20,7 @@ public static class AiFeatureCatalog
     public const string Trace = "trace";
     public const string Alerts = "alerts";
     public const string Sql = "sql";
+    public const string Dictionary = "dictionary";
 
     public static readonly IReadOnlyList<AiFeatureDto> All =
     [
@@ -34,6 +35,7 @@ public static class AiFeatureCatalog
         new(Trace, "Prompt trace", "See what was sent to the AI for an answer, step by step"),
         new(Alerts, "Alerts", "Watch an answer and be notified when it crosses a limit or looks unusual"),
         new(Sql, "SQL review", "Explain and tune a view's SQL in the Database View builder"),
+        new(Dictionary, "Draft the data dictionary", "AI drafts business names, descriptions and sensitivity for a dataset's columns; you review and save"),
     ];
 
     public static bool IsKnown(string key) => All.Any(f => f.Key == key);

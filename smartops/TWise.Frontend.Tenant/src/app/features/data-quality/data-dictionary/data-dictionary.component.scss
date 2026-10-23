@@ -144,6 +144,7 @@
   font-weight: 500;
   cursor: pointer;
   &--primary { background: var(--color-primary, #21409a); color: #fff; }
+  &--ai { background: #fff; color: var(--color-primary, #21409a); }
   &:disabled { opacity: .6; cursor: default; }
 }
 
@@ -180,6 +181,10 @@
 .dd-col-name { font-weight: 600; color: #101828; white-space: nowrap; }
 .dd-type { padding: 1px 8px; border-radius: 999px; background: #f2f4f7; font-size: 11px; color: #475467; }
 .dd-row--pii .dd-col-name::after { content: ' PII'; font-size: 10px; color: #b26a00; }
+// Fields the AI filled, until they are saved.
+.dd-row--ai td { background: #f5f7ff; }
+.dd-ai-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #e0e7ff; color: #21409a; font-size: 10px; font-weight: 600; }
+.dd-draft-note { margin: 0 0 12px; font-size: 13px; color: #475467; }
 
 @media (max-width: 900px) {
   .dd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }

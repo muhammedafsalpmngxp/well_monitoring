@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TWise.Tenant.Application.Abstractions.Services;
+using TWise.Tenant.Application.Features.Ai.Dictionary;
 using TWise.Tenant.Domain.DTOs;
 
 namespace TWise.Tenant.API.Controllers;
@@ -11,8 +13,25 @@ namespace TWise.Tenant.API.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/governance")]
-public sealed class GovernanceController(IGovernanceService governance) : ControllerBase
+public sealed class GovernanceController(IGovernanceService governance, ISender sender) : ControllerBase
 {
+    /// <summary>The AI's draft documentation for a dataset (Draft the data dictionary feature). Nothing is saved: the
+    /// editor shows it for review and the user saves with PUT. 400 with { message } when the AI cannot draft it.</summary>
+    [HttpPost("dictionary/{kind}/{id:long}/draft")]
+    [ProducesResponseType(typeof(DictionaryDraftDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DraftDataset(string kind, long id, CancellationToken ct)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        if (!TryGetTenantId(out var tenantId)) return Unauthorized(TenantIdMissing);
+        try
+        {
+            return await sender.Send(new DraftDictionaryCommand(kind, id, tenantId, userId), ct) is { } draft ? Ok(draft) : NotFound();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException) { return BadRequest(new { message = ex.Message }); }
+    }
+
     private const string TenantIdMissing = "TenantId not found in token.";
 
     /// <summary>Every documentable dataset (completed imports and database views) with coverage counts.</summary>

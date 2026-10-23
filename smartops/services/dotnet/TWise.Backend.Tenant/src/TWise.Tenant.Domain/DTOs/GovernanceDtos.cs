@@ -43,6 +43,12 @@ public sealed record SaveDictionaryRequest(
     string? Owner,
     IReadOnlyList<SaveDictionaryColumnRequest> Columns);
 
+/// <summary>The AI's draft documentation for a dataset. Nothing is saved: an admin reviews it in the editor and saves.</summary>
+public sealed record DictionaryDraftDto(string? Description, IReadOnlyList<DictionaryColumnDraftDto> Columns);
+
+/// <summary>One column's draft; Sensitivity is public | internal | confidential | pii.</summary>
+public sealed record DictionaryColumnDraftDto(string ColumnName, string? BusinessName, string? Description, string Sensitivity, string? Tags);
+
 // ── Lineage ──────────────────────────────────────────────────────────────────
 
 /// <summary>Kind is one of: source, db, import, view, table, chart, dashboard, report.</summary>

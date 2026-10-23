@@ -52,6 +52,7 @@ public static partial class AiPromptCatalog
         F(AiPrompts.Deck, "Slide deck narrative", "How the AI writes the speaker text of an exported slide deck."),
         F(AiPrompts.DeckKeyFigures, "Slide deck key figures", "What the AI puts on the deck's Key figures slide. {MAX} becomes the number of figures; a figure whose numbers are not in the data is dropped by code."),
         F(AiPrompts.SqlReview, "SQL review", "How the AI explains a view's SQL and proposes a faster equivalent. The plan facts and reply format are added by code."),
+        F(AiPrompts.Dictionary, "Draft the data dictionary", "How the AI drafts business names, descriptions, sensitivity and tags for a dataset's columns. The columns, sample values and reply format are added by code."),
         F(AiPrompts.AlertMessage, "Alert message", "How the AI words the notification and e-mail when an alert starts firing."),
 
         // ── Ask Data: system prompts and knowledge (agent runtime) ────────────────────────────────────────────

@@ -44,6 +44,12 @@ export interface SaveDictionaryRequest {
   columns: Omit<DictionaryColumn, 'dataType'>[];
 }
 
+/** The AI's draft for a dataset; nothing is saved until the user saves the editor. */
+export interface DictionaryDraft {
+  description: string | null;
+  columns: { columnName: string; businessName: string | null; description: string | null; sensitivity: Sensitivity; tags: string | null }[];
+}
+
 export type LineageKind = 'source' | 'db' | 'import' | 'view' | 'table' | 'chart' | 'dashboard' | 'report';
 
 export interface LineageNode {
@@ -79,6 +85,11 @@ export class GovernanceService {
 
   saveDataset(kind: DictionaryKind, id: number, body: SaveDictionaryRequest): Observable<DictionaryDatasetDetail> {
     return this.http.put<DictionaryDatasetDetail>(`${this.base}/dictionary/${kind}/${id}`, body);
+  }
+
+  /** The AI's draft documentation (Draft the data dictionary feature). */
+  draftDataset(kind: DictionaryKind, id: number): Observable<DictionaryDraft> {
+    return this.http.post<DictionaryDraft>(`${this.base}/dictionary/${kind}/${id}/draft`, {});
   }
 
   lineage(): Observable<LineageGraph> {
