@@ -96,6 +96,7 @@ def _cache_dir() -> str:
     key = "|".join([
         f"{settings.db_server}:{settings.db_port}/{settings.db_name}",
         ",".join(agent_settings.allowed_schemas),
+        ",".join(sorted(agent_settings.included_tables)),
         ",".join(sorted(agent_settings.excluded_tables)),
         ",".join(sorted(agent_settings.excluded_columns)),
     ])
@@ -121,17 +122,22 @@ def _is_secret(col: str) -> bool:
 
 
 def _is_excluded(schema: str, table: str) -> bool:
-    """True when EXCLUDED_TABLES in .env hides this table from the LLM.
+    """True when the tenant's settings hide this table from the LLM.
 
-    Matches either "schema.table" (exact — the safe form) or a bare "table" name, which hides that
-    name in every allowed schema. Excluding a table also removes it from the primary keys, the
-    foreign keys, the inferred joins and the value hints, because each of those is built from the
-    surviving table list.
+    INCLUDED_TABLES, when set, is the tenant's list of the tables Ask Data may read ("schema.table"):
+    every other table is hidden. EXCLUDED_TABLES then hides more: either "schema.table" (exact, the
+    safe form) or a bare "table" name, which hides that name in every allowed schema. Excluding a
+    table also removes it from the primary keys, the foreign keys, the inferred joins and the value
+    hints, because each of those is built from the surviving table list. The SQL checker
+    (tools/access.py) refuses a query on a hidden table with this same test.
     """
+    full = f"{schema}.{table}".lower()
+    if agent_settings.included_tables and full not in agent_settings.included_tables:
+        return True
     if not agent_settings.excluded_tables:
         return False
     excluded = agent_settings.excluded_tables
-    return f"{schema}.{table}".lower() in excluded or table.lower() in excluded
+    return full in excluded or table.lower() in excluded
 
 
 def _is_excluded_column(schema: str, table: str, column: str) -> bool:
@@ -458,6 +464,7 @@ def _live_fingerprint(cur) -> str:
     # The catalogue query above is NOT filtered by EXCLUDED_TABLES, so editing that setting would
     # leave the hash unchanged and the cache would keep serving a schema that still lists the
     # tables you just hid. Fold the setting into the hash explicitly so a change rebuilds.
+    h.update(("!included=" + ",".join(sorted(agent_settings.included_tables))).encode("utf-8"))
     h.update(("!excluded=" + ",".join(sorted(agent_settings.excluded_tables))).encode("utf-8"))
     h.update(("!excluded_cols=" + ",".join(sorted(agent_settings.excluded_columns))).encode("utf-8"))
     # Same reasoning as the two settings above: the database structure is unchanged when only the

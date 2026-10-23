@@ -14,6 +14,9 @@ public class AiSettings : BaseEntity
     public string? AskDataAllowedSchemas { get; set; }
     public string? AskDataExcludedTables { get; set; }
     public string? AskDataExcludedColumns { get; set; }
+    /// <summary>The tables Ask Data may read ("schema.table"), as the page ticks them. When set, only these are visible and
+    /// AskDataAllowedSchemas is their schemas; empty = a tenant not moved yet, still read by allowed schemas and hidden tables.</summary>
+    public string? AskDataIncludedTables { get; set; }
     public int AskDataMaxRows { get; set; } = 500;
     public int AskDataQueryTimeout { get; set; } = 60;
     public int AskDataMaxQueries { get; set; } = 3;

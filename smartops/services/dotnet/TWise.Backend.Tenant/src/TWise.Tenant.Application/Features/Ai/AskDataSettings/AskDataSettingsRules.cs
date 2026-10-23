@@ -21,6 +21,8 @@ public static partial class AskDataSettingsRules
     public const int MaxQueriesMin = 1, MaxQueriesMax = 10;
     public const int SqlRetriesMax = 5, VerifyRetriesMax = 3, HistoryTurnsMax = 20;
     public const int MaxSchemas = 50, MaxTables = 1000, MaxColumns = 2000, OrgNameMax = 200, ExportPrefixMax = 40;
+    /// <summary>Most tables Ask Data may be given: every table of a large reporting database.</summary>
+    public const int MaxIncludedTables = 5000;
 
     /// <summary>File names start "ask-data-…" when the tenant has not chosen a prefix.</summary>
     public const string DefaultExportPrefix = "ask-data";
@@ -48,9 +50,10 @@ public static partial class AskDataSettingsRules
     public static AskDataSettingsDto ToDto(AiSettings? s)
     {
         if (s is null)
-            return new AskDataSettingsDto(false, [], [], [], 500, 60, 3, 2, 1, 3, null, null, DeepMode, null, null);
+            return new AskDataSettingsDto(false, [], [], [], [], 500, 60, 3, 2, 1, 3, null, null, DeepMode, null, null);
         var schemas = ParseList(s.AskDataAllowedSchemas);
-        return new AskDataSettingsDto(schemas.Count > 0, schemas, ParseList(s.AskDataExcludedTables), ParseList(s.AskDataExcludedColumns),
+        return new AskDataSettingsDto(schemas.Count > 0, schemas, ParseList(s.AskDataIncludedTables), ParseList(s.AskDataExcludedTables),
+            ParseList(s.AskDataExcludedColumns),
             s.AskDataMaxRows, s.AskDataQueryTimeout, s.AskDataMaxQueries, s.AskDataSqlRetries, s.AskDataVerifyRetries, s.AskDataHistoryTurns,
             s.AskDataOrgName, s.AskDataExportPrefix, ChatMode(s.AskDataChatMode), s.ModifiedBy,
             s.ModifiedAt == default ? null : DateTime.SpecifyKind(s.ModifiedAt, DateTimeKind.Utc));
@@ -116,31 +119,53 @@ public static partial class AskDataSettingsRules
         var d = ToDto(s);
         return new AgentRuntimeAskData(d.AllowedSchemas, d.ExcludedTables, d.ExcludedColumns, d.MaxRows, d.QueryTimeout, d.MaxQueries,
             d.SqlRetries, d.VerifyRetries, d.HistoryTurns, d.OrgName ?? "", string.IsNullOrWhiteSpace(d.ExportPrefix) ? DefaultExportPrefix : d.ExportPrefix,
-            d.ChatMode);
+            d.ChatMode, IncludedTables: d.IncludedTables);
     }
 
     /// <summary>
     /// Checks a save against the Ask Data database's catalog and writes it to <paramref name="s"/>. Throws
-    /// InvalidOperationException with every problem found. Allowed schemas must exist in the database; hidden tables and
-    /// columns are checked for their shape only, so a name that no longer exists can stay hidden.
+    /// InvalidOperationException with every problem found. With a table list (the page ticks the tables Ask Data may read)
+    /// every table must exist in the database, the allowed schemas become their schemas and no table is hidden. Without one
+    /// (an older client) allowed schemas must exist and hidden tables are checked for their shape only. Hidden columns are
+    /// always checked for their shape only, so a name that no longer exists can stay hidden.
     /// </summary>
     public static void Apply(AiSettings s, SaveAskDataSettingsRequest r, AskDataCatalogDto catalog)
     {
         var problems = new List<string>();
         var known = catalog.Schemas.ToDictionary(x => x.Name, x => x.Name, StringComparer.OrdinalIgnoreCase);
 
-        var schemas = Clean(r.AllowedSchemas);
-        if (schemas.Count == 0) problems.Add("Choose at least one schema Ask Data may read.");
-        if (schemas.Count > MaxSchemas) problems.Add($"Choose at most {MaxSchemas} schemas.");
-        var unknown = schemas.Where(x => !known.ContainsKey(x)).ToList();
-        if (unknown.Count > 0)
-            problems.Add($"These schemas are not in the {catalog.Database} database (or have no tables): {string.Join(", ", unknown)}.");
-        schemas = schemas.Select(x => known.TryGetValue(x, out var n) ? n : x).ToList();
+        List<string> schemas, tables, included;
+        if (r.IncludedTables is not null)
+        {
+            var inCatalog = catalog.Schemas.SelectMany(x => x.Tables.Select(t => $"{x.Name}.{t.Name}"))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToDictionary(x => x, x => x, StringComparer.OrdinalIgnoreCase);
+            included = Clean(r.IncludedTables);
+            if (included.Count == 0) problems.Add("Tick at least one table Ask Data may read.");
+            if (included.Count > MaxIncludedTables) problems.Add($"Tick at most {MaxIncludedTables:N0} tables.");
+            var unknownTables = included.Where(t => !inCatalog.ContainsKey(t)).ToList();
+            if (unknownTables.Count > 0)
+                problems.Add($"These tables are not in the {catalog.Database} database: {Quote(unknownTables)}.");
+            included = included.Select(t => inCatalog.TryGetValue(t, out var n) ? n : t).ToList();
+            schemas = included.Select(t => t.Split('.')[0]).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (schemas.Count > MaxSchemas) problems.Add($"Tick tables from at most {MaxSchemas} schemas.");
+            tables = [];
+        }
+        else
+        {
+            included = [];
+            schemas = Clean(r.AllowedSchemas);
+            if (schemas.Count == 0) problems.Add("Choose at least one schema Ask Data may read.");
+            if (schemas.Count > MaxSchemas) problems.Add($"Choose at most {MaxSchemas} schemas.");
+            var unknown = schemas.Where(x => !known.ContainsKey(x)).ToList();
+            if (unknown.Count > 0)
+                problems.Add($"These schemas are not in the {catalog.Database} database (or have no tables): {string.Join(", ", unknown)}.");
+            schemas = schemas.Select(x => known.TryGetValue(x, out var n) ? n : x).ToList();
 
-        var tables = Clean(r.ExcludedTables);
-        if (tables.Count > MaxTables) problems.Add($"Hide at most {MaxTables} tables.");
-        var badTables = tables.Where(x => !IsName(x, 1, 2)).ToList();
-        if (badTables.Count > 0) problems.Add($"Hidden tables must be written schema.table or table: {Quote(badTables)}.");
+            tables = Clean(r.ExcludedTables);
+            if (tables.Count > MaxTables) problems.Add($"Hide at most {MaxTables} tables.");
+            var badTables = tables.Where(x => !IsName(x, 1, 2)).ToList();
+            if (badTables.Count > 0) problems.Add($"Hidden tables must be written schema.table or table: {Quote(badTables)}.");
+        }
 
         var columns = Clean(r.ExcludedColumns);
         if (columns.Count > MaxColumns) problems.Add($"Hide at most {MaxColumns} columns.");
@@ -167,6 +192,7 @@ public static partial class AskDataSettingsRules
         if (problems.Count > 0) throw new InvalidOperationException(string.Join(" ", problems));
 
         s.AskDataAllowedSchemas = JsonSerializer.Serialize(schemas, JsonOut);
+        s.AskDataIncludedTables = JsonSerializer.Serialize(included, JsonOut);
         s.AskDataExcludedTables = JsonSerializer.Serialize(tables, JsonOut);
         s.AskDataExcludedColumns = JsonSerializer.Serialize(columns, JsonOut);
         s.AskDataMaxRows = r.MaxRows;

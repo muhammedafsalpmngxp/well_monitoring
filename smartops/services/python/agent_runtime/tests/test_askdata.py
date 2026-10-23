@@ -336,7 +336,8 @@ def test_the_runtime_has_no_schema_table_or_column_names_of_its_own():
     from app.askdata.settings import AskDataSettings
 
     s = AskDataSettings()
-    assert s.allowed_schemas == () and s.excluded_tables == () and s.excluded_columns == () and s.org_name == ""
+    assert s.allowed_schemas == () and s.included_tables == () and s.excluded_tables == () and s.excluded_columns == ()
+    assert s.org_name == ""
 
 
 def test_the_tenants_lists_are_lowercased_like_twise():
@@ -352,6 +353,27 @@ def test_the_tenants_lists_are_lowercased_like_twise():
     assert s.excluded_tables == ("dbo.activitycodesnorms",) and s.excluded_columns == ("well.well_master.location_dd",)
     assert (s.max_rows, s.query_timeout, s.max_queries, s.max_sql_retries, s.verify_retries, s.history_turns) == (250, 30, 2, 1, 0, 5)
     assert s.org_name == "Acme" and s.export_prefix == "acme"
+
+
+def test_the_tenants_table_list_is_lowercased_too():
+    from app.askdata.runner import settings_for
+    from app.models import AskDataTenantSettings
+
+    s = settings_for(None, AskDataTenantSettings(allowed_schemas=["well"], included_tables=["Well.Well_Master", " well.task_daily "]))
+    assert s.included_tables == ("well.well_master", "well.task_daily")
+    assert settings_for(None, AskDataTenantSettings(allowed_schemas=["well"])).included_tables == ()
+
+
+def test_with_a_table_list_every_other_table_is_hidden_and_refused(askdata_run):
+    import dataclasses
+    from app.askdata.tools.schema_introspect import _is_excluded
+
+    askdata_run.settings = dataclasses.replace(askdata_run.settings, included_tables=("well.well_master",))
+    assert not _is_excluded("well", "well_master") and not _is_excluded("WELL", "Well_Master")
+    assert _is_excluded("well", "task_daily") and _is_excluded("project", "prj_mstr")
+    problems = access.access_problems("SELECT COUNT(*) FROM well.task_daily", SCHEMA)
+    assert problems and "well.task_daily" in " ".join(problems)
+    assert access.access_problems("SELECT TOP 5 well_name FROM well.well_master ORDER BY well_name", SCHEMA) == []
 
 
 def test_ask_data_refuses_until_the_tenant_sets_it_up():

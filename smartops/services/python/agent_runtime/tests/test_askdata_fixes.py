@@ -69,7 +69,7 @@ def test_an_empty_schema_is_not_cached(monkeypatch):
         server, port, name = "s", 1433, "d"
 
     class Settings:
-        allowed_schemas, excluded_tables, excluded_columns = ("well",), (), ()
+        allowed_schemas, included_tables, excluded_tables, excluded_columns = ("well",), (), (), ()
 
     class Run:
         db, settings = Db(), Settings()
@@ -108,7 +108,7 @@ def test_after_a_restart_the_cached_schema_answers_at_once_and_is_checked_in_the
         server, port, name = "s", 1433, "d"
 
     class Settings:
-        allowed_schemas, excluded_tables, excluded_columns = ("well",), (), ()
+        allowed_schemas, included_tables, excluded_tables, excluded_columns = ("well",), (), (), ()
 
     class Run:
         db, settings = Db(), Settings()

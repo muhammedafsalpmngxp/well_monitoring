@@ -8,6 +8,8 @@
 --   askdata_allowed_schemas   JSON array of the schemas Ask Data may read, e.g. ["well","dbo"].
 --                             NULL or [] = not set up: Ask Data refuses until an admin chooses them.
 --   askdata_excluded_tables   JSON array: "schema.table" (that table) or "table" (that name in every schema)
+--   askdata_included_tables   added by add-agentic-features.sql: the tables Ask Data may read ("schema.table"). Once
+--                             an admin saves that list, it replaces the allowed schemas and hidden tables above.
 --   askdata_excluded_columns  JSON array: "schema.table.column", "table.column" or "column" (in every table)
 --   askdata_max_rows          rows a query may return (an agent can lower it, never raise it)
 --   askdata_query_timeout     seconds a query may run

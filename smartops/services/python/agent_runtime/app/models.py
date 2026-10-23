@@ -134,6 +134,7 @@ class AskDataTenantSettings(_Camel):
     """The tenant's Ask Data settings (core.AiSettings, AI Settings > Ask Data & Features), sent by the Tenant API with every run that
     uses Ask Data. The runtime has no schema, table or column names of its own: no allowed schemas = not set up."""
     allowed_schemas: list[str] = []
+    included_tables: list[str] = []      # "schema.table": when set, the ONLY tables Ask Data may see (allowed_schemas = theirs)
     excluded_tables: list[str] = []      # "schema.table" or "table" (that name in every schema)
     excluded_columns: list[str] = []     # "schema.table.column", "table.column" or "column" (that name in every table)
     max_rows: int = Field(500, ge=1, le=10_000)

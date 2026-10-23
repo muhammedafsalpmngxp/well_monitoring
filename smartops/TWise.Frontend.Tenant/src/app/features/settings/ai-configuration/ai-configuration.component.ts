@@ -32,11 +32,16 @@ interface Message { ok: boolean; text: string }
 /** Lowercase, for comparing names the way Ask Data does. */
 const low = (s: string) => s.trim().toLowerCase();
 
+/** The schema of "schema.table". */
+const schemaOf = (full: string) => low(full.split('.')[0]);
+
 /**
  * AI Settings → Ask Data & Features (admins only): how the AI works for this tenant, stored in core.AiSettings. The Ask Data
- * section sets which schemas it may read, which tables and columns stay hidden, and its limits; the agent runtime has
- * no list of its own, so until a schema is chosen Ask Data refuses to run. Schemas, tables and columns are picked
- * from the Ask Data database itself; names that no longer exist (or apply in every schema / table) can still be hidden.
+ * section ticks the tables it may read (the same picker as Slippage, Daily Report and Crew Management), the columns that
+ * stay hidden, and its limits; the agent runtime has no list of its own, so until a table is ticked Ask Data refuses to
+ * run. Tables and columns are picked from the Ask Data database itself; column names that no longer exist (or apply in
+ * every table) can still be hidden. A tenant saved before the table list (allowed schemas minus hidden tables) opens with
+ * every table it could read ticked, to review and save.
  */
 @Component({
   selector: 'app-ai-configuration',
@@ -52,7 +57,7 @@ export class AiConfigurationComponent implements OnInit {
   readonly limits = ASK_DATA_LIMITS;
   readonly chatModes = CHAT_MODES;
   readonly breadcrumbs = [{ label: 'Home' }, { label: 'AI Settings', route: '/settings/ai' }, { label: 'Ask Data & Features' }];
-  /** Tables listed at once in the hidden-tables picker; the search narrows the rest. */
+  /** Tables listed at once in the table picker; the search narrows the rest. */
   readonly tableListMax = 200;
 
   activeSection = inject(ActivatedRoute).snapshot.queryParamMap.get('section') ?? AI_SETTINGS_SECTIONS[0].key;
@@ -70,8 +75,12 @@ export class AiConfigurationComponent implements OnInit {
 
   tableSearch = '';
   columnTable = '';
-  customTable = '';
   customColumn = '';
+  /** Schemas whose tables the picker lists (a view filter only: what Ask Data reads is the ticked tables). */
+  shownSchemas = new Set<string>();
+  onlyTicked = false;
+  /** Tables ticked from the old settings (allowed schemas minus hidden tables) for the admin to review and save; 0 = none. */
+  movedFromSchemas = 0;
 
   constructor(private readonly ai: AiService, private readonly cdr: ChangeDetectorRef) {}
 
@@ -130,7 +139,7 @@ export class AiConfigurationComponent implements OnInit {
   loadCatalog(): void {
     this.catalogError = '';
     this.ai.askDataCatalog().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: c => { this.catalog = c; this.cdr.markForCheck(); },
+      next: c => { this.catalog = c; this.moveFromSchemas(); this.cdr.markForCheck(); },
       error: err => {
         this.catalog = null;
         this.catalogError = err?.error?.message ?? 'The Ask Data database could not be read.';
@@ -142,24 +151,45 @@ export class AiConfigurationComponent implements OnInit {
   // ── State ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
   private blank(): SaveAskDataSettings {
-    return { allowedSchemas: [], excludedTables: [], excludedColumns: [], maxRows: 500, queryTimeout: 60, maxQueries: 3, sqlRetries: 2,
-      verifyRetries: 1, historyTurns: 3, orgName: '', exportPrefix: '', chatMode: 'deep' };
+    return { allowedSchemas: [], includedTables: [], excludedTables: [], excludedColumns: [], maxRows: 500, queryTimeout: 60, maxQueries: 3,
+      sqlRetries: 2, verifyRetries: 1, historyTurns: 3, orgName: '', exportPrefix: '', chatMode: 'deep' };
   }
 
   private apply(s: AskDataSettings): void {
     this.saved = s;
     this.draft = {
-      allowedSchemas: [...s.allowedSchemas], excludedTables: [...s.excludedTables], excludedColumns: [...s.excludedColumns],
-      maxRows: s.maxRows, queryTimeout: s.queryTimeout, maxQueries: s.maxQueries, sqlRetries: s.sqlRetries,
-      verifyRetries: s.verifyRetries, historyTurns: s.historyTurns, orgName: s.orgName ?? '', exportPrefix: s.exportPrefix ?? '',
-      chatMode: s.chatMode === 'normal' ? 'normal' : 'deep',
+      allowedSchemas: [...s.allowedSchemas], includedTables: [...(s.includedTables ?? [])], excludedTables: [...s.excludedTables],
+      excludedColumns: [...s.excludedColumns], maxRows: s.maxRows, queryTimeout: s.queryTimeout, maxQueries: s.maxQueries,
+      sqlRetries: s.sqlRetries, verifyRetries: s.verifyRetries, historyTurns: s.historyTurns, orgName: s.orgName ?? '',
+      exportPrefix: s.exportPrefix ?? '', chatMode: s.chatMode === 'normal' ? 'normal' : 'deep',
     };
+    this.movedFromSchemas = 0;
+    this.shownSchemas = new Set(this.draft.includedTables.map(schemaOf));
+    this.moveFromSchemas();
+  }
+
+  /**
+   * Saved before the table list (allowed schemas, hidden tables, no included tables): tick every table Ask Data reads today,
+   * so saving changes nothing it can see. Runs once the settings and the catalog have both loaded; only the draft changes.
+   */
+  private moveFromSchemas(): void {
+    const s = this.saved;
+    if (!s || !this.catalog || (s.includedTables ?? []).length || !s.allowedSchemas.length || this.draft.includedTables.length) return;
+    const hidden = s.excludedTables.map(low);
+    const allowed = s.allowedSchemas.map(low);
+    const tables = this.catalog.schemas.filter(x => allowed.includes(low(x.name)))
+      .flatMap(x => x.tables.filter(t => !hidden.includes(low(`${x.name}.${t.name}`)) && !hidden.includes(low(t.name)))
+        .map(t => `${x.name}.${t.name}`));
+    this.draft.includedTables = tables;
+    this.movedFromSchemas = tables.length;
+    this.shownSchemas = new Set(tables.map(schemaOf));
   }
 
   private snapshot(s: SaveAskDataSettings): string {
     const sorted = (a: string[]) => [...a].map(low).sort();
-    return JSON.stringify({ ...s, allowedSchemas: sorted(s.allowedSchemas), excludedTables: sorted(s.excludedTables),
-      excludedColumns: sorted(s.excludedColumns), orgName: (s.orgName ?? '').trim(), exportPrefix: (s.exportPrefix ?? '').trim().toLowerCase() });
+    return JSON.stringify({ ...s, allowedSchemas: sorted(s.allowedSchemas), includedTables: sorted(s.includedTables ?? []),
+      excludedTables: sorted(s.excludedTables), excludedColumns: sorted(s.excludedColumns), orgName: (s.orgName ?? '').trim(),
+      exportPrefix: (s.exportPrefix ?? '').trim().toLowerCase() });
   }
 
   get dirty(): boolean {
@@ -171,7 +201,8 @@ export class AiConfigurationComponent implements OnInit {
   /** Problems the server would refuse, shown before saving. */
   get problems(): string[] {
     const p: string[] = [];
-    if (!this.draft.allowedSchemas.length) p.push('Choose at least one schema Ask Data may read.');
+    if (!this.draft.includedTables.length) p.push('Tick at least one table Ask Data may read.');
+    if (this.unknownIncluded.length) p.push(`Not in the database: ${this.unknownIncluded.slice(0, 5).join(', ')}. Remove them to save.`);
     for (const f of this.limits) {
       const v = this.draft[f.key];
       if (!Number.isInteger(v) || v < f.min || v > f.max) p.push(`${f.label} must be a whole number from ${f.min} to ${f.max.toLocaleString('en')}.`);
@@ -182,77 +213,83 @@ export class AiConfigurationComponent implements OnInit {
     return p;
   }
 
-  // ── Schemas ───────────────────────────────────────────────────────────────────────────────────────────────────
+  // ── Tables Ask Data may read ──────────────────────────────────────────────────────────────────────────────────
 
-  isAllowed(schema: string): boolean { return this.draft.allowedSchemas.some(s => low(s) === low(schema)); }
+  // Every change replaces draft.includedTables, so the lookup set is rebuilt only when the array is a new one.
+  private includedOf: string[] | null = null;
+  private includedSet = new Set<string>();
 
-  toggleSchema(schema: string): void {
-    this.draft.allowedSchemas = this.isAllowed(schema)
-      ? this.draft.allowedSchemas.filter(s => low(s) !== low(schema))
-      : [...this.draft.allowedSchemas, schema];
-    if (this.columnTable && !this.isAllowed(this.columnTable.split('.')[0])) this.columnTable = '';
+  isIncluded(full: string): boolean {
+    if (this.includedOf !== this.draft.includedTables) {
+      this.includedOf = this.draft.includedTables;
+      this.includedSet = new Set(this.includedOf.map(low));
+    }
+    return this.includedSet.has(low(full));
   }
 
-  /** Allowed schemas the database no longer has (kept until the admin removes them; the server refuses them). */
-  get missingSchemas(): string[] {
+  toggleIncluded(full: string): void {
+    this.draft.includedTables = this.isIncluded(full)
+      ? this.draft.includedTables.filter(t => low(t) !== low(full))
+      : [...this.draft.includedTables, full];
+    if (this.columnTable && !this.isIncluded(this.columnTable)) this.columnTable = '';
+  }
+
+  /** Tick (or untick) every table the picker lists with the current schemas, search and filter, not only the first 200. */
+  tickListed(on: boolean): void {
+    const listed = this.tableRows.map(r => r.full);
+    const listedSet = new Set(listed.map(low));
+    this.draft.includedTables = on
+      ? [...this.draft.includedTables, ...listed.filter(t => !this.isIncluded(t))]
+      : this.draft.includedTables.filter(t => !listedSet.has(low(t)));
+    if (this.columnTable && !this.isIncluded(this.columnTable)) this.columnTable = '';
+  }
+
+  /** Ticked tables the database no longer has (kept until the admin removes them; the server refuses them). */
+  get unknownIncluded(): string[] {
     if (!this.catalog) return [];
-    return this.draft.allowedSchemas.filter(s => !this.catalog!.schemas.some(c => low(c.name) === low(s)));
+    const known = new Set(this.catalog.schemas.flatMap(s => s.tables.map(t => low(`${s.name}.${t.name}`))));
+    return this.draft.includedTables.filter(t => !known.has(low(t)));
   }
 
-  get allowedCatalog() { return (this.catalog?.schemas ?? []).filter(s => this.isAllowed(s.name)); }
+  isShown(schema: string): boolean { return this.shownSchemas.has(low(schema)); }
+
+  toggleShown(schema: string): void {
+    const s = low(schema);
+    if (!this.shownSchemas.delete(s)) this.shownSchemas.add(s);
+    this.shownSchemas = new Set(this.shownSchemas);
+  }
+
+  /** Ticked tables of one schema, for its count beside the schema. */
+  tickedIn(schema: string): number { return this.draft.includedTables.filter(t => schemaOf(t) === low(schema)).length; }
+
+  /** Tables of the listed schemas matching the search (and "Ticked only"): ticked first, then by name. */
+  get tableRows(): { full: string; schema: string; table: string; columns: number }[] {
+    const words = low(this.tableSearch).split(/\s+/).filter(Boolean);
+    const rows: { full: string; schema: string; table: string; columns: number }[] = [];
+    for (const s of this.catalog?.schemas ?? []) {
+      if (!this.isShown(s.name)) continue;
+      for (const t of s.tables) {
+        const full = `${s.name}.${t.name}`;
+        if (this.onlyTicked && !this.isIncluded(full)) continue;
+        if (words.every(w => low(full).includes(w))) rows.push({ full, schema: s.name, table: t.name, columns: t.columns.length });
+      }
+    }
+    return rows.sort((a, b) => Number(this.isIncluded(b.full)) - Number(this.isIncluded(a.full)) || a.full.localeCompare(b.full));
+  }
 
   /** Tables and columns Ask Data will see with the draft settings (secret-named columns aside). */
   get visibleCounts(): { tables: number; totalTables: number; columns: number } {
     let tables = 0, columns = 0, totalTables = 0;
     for (const s of this.catalog?.schemas ?? []) {
       totalTables += s.tables.length;
-      if (!this.isAllowed(s.name)) continue;
       for (const t of s.tables) {
-        if (this.isTableHidden(s.name, t.name)) continue;
+        if (!this.isIncluded(`${s.name}.${t.name}`)) continue;
         tables++;
         columns += t.columns.filter(c => !this.isColumnHidden(s.name, t.name, c)).length;
       }
     }
     return { tables, totalTables, columns };
   }
-
-  // ── Hidden tables ─────────────────────────────────────────────────────────────────────────────────────────────
-
-  isTableHidden(schema: string, table: string): boolean {
-    const full = low(`${schema}.${table}`), bare = low(table);
-    return this.draft.excludedTables.some(x => low(x) === full || low(x) === bare);
-  }
-
-  /** Hidden by its bare name (every schema): the checkbox cannot unhide only this one. */
-  hiddenByName(table: string): boolean { return this.draft.excludedTables.some(x => low(x) === low(table)); }
-
-  toggleTable(schema: string, table: string): void {
-    const full = `${schema}.${table}`;
-    if (this.draft.excludedTables.some(x => low(x) === low(full))) {
-      this.draft.excludedTables = this.draft.excludedTables.filter(x => low(x) !== low(full));
-    } else if (!this.hiddenByName(table)) {
-      this.draft.excludedTables = [...this.draft.excludedTables, full];
-    }
-  }
-
-  /** Tables of the allowed schemas matching the search, capped at tableListMax. */
-  get tableRows(): { schema: string; table: string; columns: number }[] {
-    const words = low(this.tableSearch).split(/\s+/).filter(Boolean);
-    const rows: { schema: string; table: string; columns: number }[] = [];
-    for (const s of this.allowedCatalog)
-      for (const t of s.tables)
-        if (words.every(w => low(`${s.name}.${t.name}`).includes(w))) rows.push({ schema: s.name, table: t.name, columns: t.columns.length });
-    return rows;
-  }
-
-  addCustomTable(): void {
-    const name = this.customTable.trim();
-    if (!name || this.draft.excludedTables.some(x => low(x) === low(name))) { this.customTable = ''; return; }
-    this.draft.excludedTables = [...this.draft.excludedTables, name];
-    this.customTable = '';
-  }
-
-  removeTable(name: string): void { this.draft.excludedTables = this.draft.excludedTables.filter(x => x !== name); }
 
   // ── Hidden columns ────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -293,9 +330,9 @@ export class AiConfigurationComponent implements OnInit {
 
   removeColumn(name: string): void { this.draft.excludedColumns = this.draft.excludedColumns.filter(x => x !== name); }
 
-  /** Tables of the allowed schemas, for the column picker. */
+  /** The ticked tables the database has, for the column picker. */
   get columnTableOptions(): string[] {
-    return this.allowedCatalog.flatMap(s => s.tables.filter(t => !this.isTableHidden(s.name, t.name)).map(t => `${s.name}.${t.name}`));
+    return (this.catalog?.schemas ?? []).flatMap(s => s.tables.map(t => `${s.name}.${t.name}`).filter(full => this.isIncluded(full)));
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -304,8 +341,11 @@ export class AiConfigurationComponent implements OnInit {
     if (this.saving || !this.dirty || this.problems.length) return;
     this.saving = true;
     this.message = null;
+    // The ticked tables replace the schemas and hidden tables: the server stores their schemas as the allowed ones.
     const body: SaveAskDataSettings = {
       ...this.draft,
+      allowedSchemas: [...new Set(this.draft.includedTables.map(t => t.split('.')[0]))],
+      excludedTables: [],
       orgName: (this.draft.orgName ?? '').trim() || null,
       exportPrefix: (this.draft.exportPrefix ?? '').trim().toLowerCase() || null,
     };
@@ -332,5 +372,5 @@ export class AiConfigurationComponent implements OnInit {
   trackFeature(_: number, f: AgenticFeatureSettings): string { return f.feature; }
 
   trackName(_: number, x: { name: string } | string): string { return typeof x === 'string' ? x : x.name; }
-  trackRow(_: number, r: { schema: string; table: string }): string { return `${r.schema}.${r.table}`; }
+  trackRow(_: number, r: { full: string }): string { return r.full; }
 }

@@ -84,6 +84,7 @@
     border: 1px solid;
     &--warn { color: #93370d; background: #fffaeb; border-color: #fedf89; }
     &--bad { color: #b42318; background: #fef3f2; border-color: #fecdca; }
+    &--info { color: #21409a; background: #f5f7ff; border-color: #c7d2fe; line-height: 1.45; }
   }
 
   // ── Chatbot mode ────────────────────────────────────────────────────────────
@@ -195,7 +196,12 @@
     input:disabled { cursor: not-allowed; }
   }
   &__table--hidden { background: #fef3f2; color: #b42318; .ac__table-name { text-decoration: line-through; } &:hover { background: #fee4e2; } }
+  // Ask Data's tables are ticked IN (what it may read), as on the features' pages; columns are still ticked out (hidden).
+  &__tables--include .ac__table input { accent-color: #21409a; }
+  &__table--on { background: #f5f7ff; color: #21409a; &:hover { background: #eef2ff; } }
   &__table-name { overflow-wrap: anywhere; }
+  &__filter { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; .ac__search { flex: 1 1 260px; } }
+  &__only { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #344054; white-space: nowrap; input { accent-color: #21409a; } }
   &__column { grid-template-columns: auto minmax(0, 1fr); }
   &__columns {
     display: grid;

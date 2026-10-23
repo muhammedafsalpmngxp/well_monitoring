@@ -18,6 +18,7 @@ public sealed class AiSettingsConfiguration : IEntityTypeConfiguration<AiSetting
         b.Property(e => e.AskDataAllowedSchemas).HasColumnName("askdata_allowed_schemas");
         b.Property(e => e.AskDataExcludedTables).HasColumnName("askdata_excluded_tables");
         b.Property(e => e.AskDataExcludedColumns).HasColumnName("askdata_excluded_columns");
+        b.Property(e => e.AskDataIncludedTables).HasColumnName("askdata_included_tables");
         b.Property(e => e.AskDataMaxRows).HasColumnName("askdata_max_rows");
         b.Property(e => e.AskDataQueryTimeout).HasColumnName("askdata_query_timeout");
         b.Property(e => e.AskDataMaxQueries).HasColumnName("askdata_max_queries");

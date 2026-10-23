@@ -6,6 +6,7 @@
 --
 --   core.AiSettings.<feature>_settings_json   each feature's settings and the tables it may read
 --                                             (AI Settings → Ask Data & Features → the feature). NULL = the defaults.
+--   core.AiSettings.askdata_included_tables   the tables Ask Data may read (the same table picker as the features)
 --   core.AiFeatureQuery                       the verified SQL of Slippage and Daily Report (one row per query).
 --                                             seed_hash = the seed text it was copied from (NULL once edited), so a
 --                                             newer seed replaces only queries nobody changed.
@@ -39,6 +40,11 @@ IF COL_LENGTH('core.AiSettings', 'anomaly_settings_json') IS NULL
     ALTER TABLE core.AiSettings ADD anomaly_settings_json nvarchar(max) NULL;
 IF COL_LENGTH('core.AiSettings', 'crew_settings_json') IS NULL
     ALTER TABLE core.AiSettings ADD crew_settings_json nvarchar(max) NULL;
+
+-- Ask Data: the tables it may read (AI Settings → Ask Data & Features → Ask Data), a JSON array of "schema.table", the
+-- same picker as the features. NULL / empty = not moved yet: its allowed schemas minus its hidden tables are read.
+IF COL_LENGTH('core.AiSettings', 'askdata_included_tables') IS NULL
+    ALTER TABLE core.AiSettings ADD askdata_included_tables nvarchar(max) NULL;
 
 -- ── Verified SQL of Slippage and Daily Report ────────────────────────────────
 IF OBJECT_ID('core.AiFeatureQuery', 'U') IS NULL

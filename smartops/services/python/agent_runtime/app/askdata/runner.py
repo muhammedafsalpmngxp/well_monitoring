@@ -51,7 +51,7 @@ _SCHEMAS: dict[tuple, str] = {}
 
 def _schema(run: AskDataRun) -> str:
     s = run.settings
-    key = (run.db.server, run.db.port, run.db.name, s.allowed_schemas, s.excluded_tables, s.excluded_columns)
+    key = (run.db.server, run.db.port, run.db.name, s.allowed_schemas, s.included_tables, s.excluded_tables, s.excluded_columns)
     if key in _SCHEMAS:
         return _SCHEMAS[key]
     # After a restart the schema cached on disk answers at once; checking it against the live database (a fingerprint
@@ -269,7 +269,8 @@ def settings_for(options: Any, tenant: Any = None) -> AskDataSettings:
     return AskDataSettings(
         max_sql_retries=tenant.max_sql_retries, max_rows=max_rows, query_timeout=tenant.query_timeout,
         max_queries=tenant.max_queries, verify_retries=tenant.verify_retries, history_turns=tenant.history_turns,
-        allowed_schemas=allowed or base, excluded_tables=_names(tenant.excluded_tables),
+        allowed_schemas=allowed or base, included_tables=_names(tenant.included_tables),
+        excluded_tables=_names(tenant.excluded_tables),
         excluded_columns=_names(tenant.excluded_columns), org_name=(tenant.org_name or "").strip(),
         export_prefix=tenant.export_prefix or "",
         terms=tuple(Term(t.term.strip(), tuple(x.strip() for x in t.synonyms if x.strip()), (t.column or "").strip(),

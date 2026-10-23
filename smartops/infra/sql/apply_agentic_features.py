@@ -49,7 +49,8 @@ def check() -> None:
         cur = conn.cursor()
         tables = ["AiFeatureQuery", "AnomalyRule", "AnomalyProbe", "AnomalyRun", "AnomalyRunReport", "AnomalyProposal", "AiFeatureJob"]
         missing = [t for t in tables if cur.execute("SELECT OBJECT_ID(?, 'U')", f"core.{t}").fetchone()[0] is None]
-        cols = [c for c in ("slippage_settings_json", "dailyreport_settings_json", "anomaly_settings_json", "crew_settings_json")
+        cols = [c for c in ("slippage_settings_json", "dailyreport_settings_json", "anomaly_settings_json", "crew_settings_json",
+                            "askdata_included_tables")
                 if cur.execute("SELECT COL_LENGTH('core.AiSettings', ?)", c).fetchone()[0] is None]
     with connect(CONTROL_DB) as conn:
         modules = conn.cursor().execute(

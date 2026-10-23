@@ -63,6 +63,7 @@ class AskDataSettings:
     verify_retries: int = 1
     history_turns: int = 3
     allowed_schemas: tuple[str, ...] = ()
+    included_tables: tuple[str, ...] = ()   # "schema.table", lower case: when set, every other table is hidden
     excluded_tables: tuple[str, ...] = ()
     excluded_columns: tuple[str, ...] = ()
     org_name: str = ""                 # {{ORG_NAME}} in the prompts

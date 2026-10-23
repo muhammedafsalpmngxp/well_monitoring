@@ -9,7 +9,8 @@ public sealed record AgentFlowLlm(string Provider, string Model, string? BaseUrl
 
 /// <summary>
 /// The tenant's Ask Data settings as the runtime takes them (core.AiSettings, AI Settings → Ask Data & Features): what Ask Data may
-/// read and its limits. The runtime has no list of its own; no allowed schemas means it refuses (not set up).
+/// read and its limits. The runtime has no list of its own; no allowed schemas means it refuses (not set up). IncludedTables,
+/// when set, are the only tables it may see ("schema.table"); AllowedSchemas are then their schemas.
 /// ChatMode (deep | normal) is only the Ask your data chatbot's mode: it is sent as that request's mode, never with an
 /// agent run (agents choose their mode per step).
 /// </summary>
@@ -30,7 +31,8 @@ public sealed record AgentRuntimeAskData(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeColumnNote>? Notes = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeMetric>? Metrics = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeExample>? Examples = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeLink>? Links = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgentRuntimeLink>? Links = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? IncludedTables = null);
 
 /// <summary>A shared KPI definition: Agg (count, countDistinct, sum, avg, min, max) of Column ("schema.table.column").</summary>
 public sealed record AgentRuntimeMetric(string Name, string Agg, string? Column, string? Description);

@@ -32,8 +32,8 @@
 
     <section class="ac__body" *ngIf="activeSection === 'ask-data'">
       <div class="ac__alert ac__alert--warn" *ngIf="!saved?.configured" role="status">
-        <strong>Ask Data is not set up.</strong> Ask your data and agent Ask Data steps stay off until you choose at least one
-        schema below and save.
+        <strong>Ask Data is not set up.</strong> Ask your data and agent Ask Data steps stay off until you tick the tables it may
+        read below and save.
       </div>
       <div class="ac__alert ac__alert--bad" *ngIf="catalogError" role="alert">
         {{ catalogError }}
@@ -57,71 +57,61 @@
         </div>
       </article>
 
-      <!-- Schemas -->
+      <!-- Tables Ask Data may read: the same picker as Slippage, Daily Report and Crew Management -->
       <article class="ac__card">
         <header class="ac__card-head">
           <div>
             <h3>What Ask Data can read</h3>
-            <p>Only the schemas you tick are described to the AI and can be queried{{ catalog ? ' in ' + catalog.database : '' }}.
-              System schemas are never readable.</p>
+            <p>Tick the tables Ask Data may read{{ catalog ? ' in ' + catalog.database : '' }}. Only ticked tables are described
+              to the AI, and a query on any other table is refused. System schemas are never readable.</p>
           </div>
           <span class="ac__stat" *ngIf="catalog">
-            <strong>{{ visibleCounts.tables | number }}</strong> of {{ visibleCounts.totalTables | number }} tables visible
+            <strong>{{ visibleCounts.tables | number }}</strong> of {{ visibleCounts.totalTables | number }} tables ticked
           </span>
         </header>
-        <app-loader *ngIf="!catalog && !catalogError" size="sm"></app-loader>
-        <div class="ac__schemas" *ngIf="catalog">
-          <label class="ac__schema" *ngFor="let s of catalog.schemas; trackBy: trackName" [class.ac__schema--on]="isAllowed(s.name)">
-            <input type="checkbox" [checked]="isAllowed(s.name)" (change)="toggleSchema(s.name)" />
-            <span class="ac__schema-name">{{ s.name }}</span>
-            <span class="ac__schema-count">{{ s.tables.length }} table{{ s.tables.length === 1 ? '' : 's' }}</span>
-          </label>
-        </div>
-        <p class="ac__msg ac__msg--bad" *ngIf="missingSchemas.length">
-          Not in the database any more: {{ missingSchemas.join(', ') }}.
-          <button type="button" class="ac__link" *ngFor="let m of missingSchemas" (click)="toggleSchema(m)">Remove {{ m }}</button>
-        </p>
-      </article>
 
-      <!-- Hidden tables -->
-      <article class="ac__card">
-        <header class="ac__card-head">
-          <div>
-            <h3>Hidden tables</h3>
-            <p>Ticked tables are left out: the AI never sees them and a query that names them is refused.</p>
-          </div>
-          <span class="ac__stat"><strong>{{ draft.excludedTables.length }}</strong> hidden</span>
-        </header>
-        <div class="ac__chips" *ngIf="draft.excludedTables.length">
-          <span class="ac__chip" *ngFor="let t of draft.excludedTables; trackBy: trackName">
-            <code>{{ t }}</code><span class="ac__chip-note" *ngIf="!t.includes('.')">every schema</span>
-            <button type="button" class="ac__chip-x" (click)="removeTable(t)" [attr.aria-label]="'Show ' + t + ' again'">×</button>
-          </span>
+        <div class="ac__alert ac__alert--info" *ngIf="movedFromSchemas" role="status">
+          <strong>Ask Data now reads only the tables ticked here.</strong> The {{ movedFromSchemas | number }} tables it could read
+          before (your allowed schemas without the hidden tables) are ticked for you. Review them and save; until then Ask Data
+          keeps reading as before.
         </div>
-        <ng-container *ngIf="catalog && allowedCatalog.length">
-          <label class="ac__search">
-            <span class="ac__sr">Search tables</span>
-            <input type="search" [(ngModel)]="tableSearch" name="tableSearch" placeholder="Search tables in the allowed schemas…" />
-          </label>
-          <div class="ac__tables" role="group" aria-label="Tables">
-            <label class="ac__table" *ngFor="let r of tableRows.slice(0, tableListMax); trackBy: trackRow"
-              [class.ac__table--hidden]="isTableHidden(r.schema, r.table)"
-              [title]="hiddenByName(r.table) ? 'Hidden by name in every schema: remove ' + r.table + ' above to show it' : ''">
-              <input type="checkbox" [checked]="isTableHidden(r.schema, r.table)" [disabled]="hiddenByName(r.table)"
-                (change)="toggleTable(r.schema, r.table)" />
-              <span class="ac__table-name"><span class="ac__muted">{{ r.schema }}.</span>{{ r.table }}</span>
-              <span class="ac__muted">{{ r.columns }} col</span>
+        <p class="ac__msg ac__msg--bad" *ngIf="unknownIncluded.length">
+          Not in the database: {{ unknownIncluded.join(', ') }}.
+          <button type="button" class="ac__link" *ngFor="let t of unknownIncluded" (click)="toggleIncluded(t)">Remove {{ t }}</button>
+        </p>
+
+        <app-loader *ngIf="!catalog && !catalogError" size="sm"></app-loader>
+        <ng-container *ngIf="catalog">
+          <div class="ac__schemas" role="group" aria-label="Schemas whose tables are listed">
+            <label class="ac__schema" *ngFor="let s of catalog.schemas; trackBy: trackName" [class.ac__schema--on]="isShown(s.name)">
+              <input type="checkbox" [checked]="isShown(s.name)" (change)="toggleShown(s.name)" />
+              <span class="ac__schema-name">{{ s.name }}</span>
+              <span class="ac__schema-count">{{ tickedIn(s.name) }} of {{ s.tables.length }} ticked</span>
             </label>
-            <p class="ac__empty" *ngIf="!tableRows.length">No table matches.</p>
           </div>
-          <p class="ac__hint" *ngIf="tableRows.length > tableListMax">Showing {{ tableListMax }} of {{ tableRows.length }}: search to find the others.</p>
+          <p class="ac__hint" *ngIf="!shownSchemas.size">Tick a schema to list its tables.</p>
+          <ng-container *ngIf="shownSchemas.size">
+            <div class="ac__filter">
+              <label class="ac__search">
+                <span class="ac__sr">Search tables</span>
+                <input type="search" [(ngModel)]="tableSearch" name="tableSearch" placeholder="Search tables…" />
+              </label>
+              <label class="ac__only"><input type="checkbox" [(ngModel)]="onlyTicked" name="onlyTicked" /> Ticked only</label>
+              <button type="button" class="btn btn-secondary btn-sm" [disabled]="!tableRows.length" (click)="tickListed(true)">Tick all listed</button>
+              <button type="button" class="btn btn-secondary btn-sm" [disabled]="!tableRows.length" (click)="tickListed(false)">Untick all listed</button>
+            </div>
+            <div class="ac__tables ac__tables--include" role="group" aria-label="Tables Ask Data may read">
+              <label class="ac__table" *ngFor="let r of tableRows.slice(0, tableListMax); trackBy: trackRow" [class.ac__table--on]="isIncluded(r.full)">
+                <input type="checkbox" [checked]="isIncluded(r.full)" (change)="toggleIncluded(r.full)" />
+                <span class="ac__table-name"><span class="ac__muted">{{ r.schema }}.</span>{{ r.table }}</span>
+                <span class="ac__muted">{{ r.columns }} col</span>
+              </label>
+              <p class="ac__empty" *ngIf="!tableRows.length">No table matches.</p>
+            </div>
+            <p class="ac__hint" *ngIf="tableRows.length > tableListMax">Showing {{ tableListMax }} of {{ tableRows.length }}: search to find
+              the others. "Tick all listed" ticks all {{ tableRows.length | number }}.</p>
+          </ng-container>
         </ng-container>
-        <p class="ac__hint" *ngIf="catalog && !allowedCatalog.length">Choose a schema above to list its tables.</p>
-        <form class="ac__add" (ngSubmit)="addCustomTable()">
-          <input type="text" [(ngModel)]="customTable" name="customTable" maxlength="257"
-            placeholder="Hide by name: schema.table, or table for every schema" aria-label="Table to hide" />
-          <button type="submit" class="btn btn-secondary" [disabled]="!customTable.trim()">Hide</button>
-        </form>
       </article>
 
       <!-- Hidden columns -->
@@ -142,7 +132,7 @@
             <button type="button" class="ac__chip-x" (click)="removeColumn(c)" [attr.aria-label]="'Show ' + c + ' again'">×</button>
           </span>
         </div>
-        <div class="ac__picker" *ngIf="catalog && allowedCatalog.length">
+        <div class="ac__picker" *ngIf="catalog && columnTableOptions.length">
           <label class="ac__field">
             <span>Table</span>
             <select [(ngModel)]="columnTable" name="columnTable">

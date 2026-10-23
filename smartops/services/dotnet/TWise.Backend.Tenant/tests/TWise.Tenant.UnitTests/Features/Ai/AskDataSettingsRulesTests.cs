@@ -65,6 +65,46 @@ public class AskDataSettingsRulesTests
     }
 
     [Fact]
+    public void A_table_list_replaces_the_schemas_and_hidden_tables()
+    {
+        var s = new AiSettings { AskDataExcludedTables = "[\"dbo.sysdiagrams\"]" };
+        AskDataSettingsRules.Apply(s, Request(schemas: ["dbo"], tables: ["audit_log"]) with
+        {
+            IncludedTables = ["WELL.Well_Master", " dbo.employee ", "well.well_master"],
+        }, Catalog);
+
+        AskDataSettingsRules.ParseList(s.AskDataIncludedTables).Should().Equal("well.well_master", "dbo.employee");
+        AskDataSettingsRules.ParseList(s.AskDataAllowedSchemas).Should().Equal("well", "dbo");
+        AskDataSettingsRules.ParseList(s.AskDataExcludedTables).Should().BeEmpty();
+
+        var dto = AskDataSettingsRules.ToDto(s);
+        dto.Configured.Should().BeTrue();
+        dto.IncludedTables.Should().Equal("well.well_master", "dbo.employee");
+        AskDataSettingsRules.ToRuntime(s).IncludedTables.Should().Equal("well.well_master", "dbo.employee");
+    }
+
+    [Fact]
+    public void A_table_list_needs_a_table_and_only_tables_the_database_has()
+    {
+        var empty = () => AskDataSettingsRules.Apply(new AiSettings(), Request() with { IncludedTables = [] }, Catalog);
+        empty.Should().Throw<InvalidOperationException>().WithMessage("*at least one table*");
+
+        var unknown = () => AskDataSettingsRules.Apply(new AiSettings(), Request() with { IncludedTables = ["well.well_master", "hr.salary", "employee"] }, Catalog);
+        unknown.Should().Throw<InvalidOperationException>().WithMessage("*not in the AlTasnimBI database*hr.salary*employee*");
+    }
+
+    [Fact]
+    public void An_older_client_without_a_table_list_saves_schemas_and_hidden_tables_as_before()
+    {
+        var s = new AiSettings { AskDataIncludedTables = "[\"well.well_master\"]" };
+        AskDataSettingsRules.Apply(s, Request(schemas: ["dbo"], tables: ["dbo.sysdiagrams"]), Catalog);
+
+        AskDataSettingsRules.ParseList(s.AskDataIncludedTables).Should().BeEmpty();
+        AskDataSettingsRules.ParseList(s.AskDataAllowedSchemas).Should().Equal("dbo");
+        AskDataSettingsRules.ParseList(s.AskDataExcludedTables).Should().Equal("dbo.sysdiagrams");
+    }
+
+    [Fact]
     public void A_save_needs_a_schema_that_exists_in_the_database()
     {
         var empty = () => AskDataSettingsRules.Apply(new AiSettings(), Request(schemas: []), Catalog);

@@ -77,12 +77,14 @@ public record AiCompletion(string Content, int PromptTokens, int CompletionToken
 
 /// <summary>
 /// Ask Data's settings (AI Settings → Ask Data & Features): what it may read and its limits. Configured is false until an admin
-/// has chosen at least one schema; Ask Data refuses to run until then. ChatMode (deep | normal) is how the Ask your data
-/// chatbot answers; agents choose their own mode per step.
+/// has chosen what it may read; Ask Data refuses to run until then. IncludedTables are the tables it may read ("schema.table");
+/// empty with AllowedSchemas set is a tenant not moved to the table list yet (its schemas minus ExcludedTables are read).
+/// ChatMode (deep | normal) is how the Ask your data chatbot answers; agents choose their own mode per step.
 /// </summary>
 public record AskDataSettingsDto(
     bool Configured,
     IReadOnlyList<string> AllowedSchemas,
+    IReadOnlyList<string> IncludedTables,
     IReadOnlyList<string> ExcludedTables,
     IReadOnlyList<string> ExcludedColumns,
     int MaxRows,
@@ -109,7 +111,9 @@ public record SaveAskDataSettingsRequest(
     int HistoryTurns,
     string? OrgName,
     string? ExportPrefix,
-    string? ChatMode = null);
+    string? ChatMode = null,
+    // The tables Ask Data may read. Not sent (an older client): the allowed schemas and hidden tables are saved as before.
+    IReadOnlyList<string>? IncludedTables = null);
 
 /// <summary>The Ask Data database's schemas, tables and columns, for choosing what Ask Data may read.</summary>
 public record AskDataCatalogDto(string Database, IReadOnlyList<AskDataCatalogSchemaDto> Schemas);

@@ -30,13 +30,16 @@ export interface AiPromptItem {
 export interface AiPromptVersion { version: number; action: 'seed' | 'update' | 'restore'; note: string | null; changedBy: string; changedAt: string; isCurrent: boolean; text: string }
 
 /**
- * Ask Data's settings (AI Settings → Ask Data & Features): what it may read and its limits. configured is false until at least
- * one schema is chosen; Ask Data refuses to run until then. Hidden tables are "schema.table" or "table" (every schema);
- * hidden columns "schema.table.column", "table.column" or "column" (every table).
+ * Ask Data's settings (AI Settings → Ask Data & Features): what it may read and its limits. configured is false until it has
+ * something to read; Ask Data refuses to run until then. includedTables ("schema.table") are the tables it may read, ticked
+ * like a feature's; allowedSchemas are their schemas. A tenant not moved yet has no includedTables and is read by
+ * allowedSchemas minus excludedTables ("schema.table" or "table"). Hidden columns are "schema.table.column", "table.column"
+ * or "column" (every table).
  */
 export interface AskDataSettings {
   configured: boolean;
   allowedSchemas: string[];
+  includedTables: string[];
   excludedTables: string[];
   excludedColumns: string[];
   maxRows: number;

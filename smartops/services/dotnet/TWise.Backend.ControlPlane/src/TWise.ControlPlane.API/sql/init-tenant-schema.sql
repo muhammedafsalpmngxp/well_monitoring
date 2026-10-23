@@ -1207,6 +1207,7 @@ CREATE TABLE core.AiSettings (
     -- Ask Data: what it may read and its limits (AI Settings → Ask Data & Features; see infra/sql/add-ai-askdata-settings.sql).
     -- No schemas = not set up: Ask Data refuses until an admin chooses them.
     askdata_allowed_schemas  nvarchar(max) NULL,   -- JSON array of schema names
+    askdata_included_tables  nvarchar(max) NULL,   -- JSON array: schema.table, the only tables Ask Data may read (empty = by schema)
     askdata_excluded_tables  nvarchar(max) NULL,   -- JSON array: schema.table | table
     askdata_excluded_columns nvarchar(max) NULL,   -- JSON array: schema.table.column | table.column | column
     askdata_max_rows         int           NOT NULL CONSTRAINT DF_core_AiSettings_askdata_max_rows DEFAULT 500,
