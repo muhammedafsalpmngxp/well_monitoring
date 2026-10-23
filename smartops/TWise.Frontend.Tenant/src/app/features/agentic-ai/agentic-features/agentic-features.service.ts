@@ -1,10 +1,23 @@
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { API_ENDPOINTS } from '../../../core/constants/api.constants';
+import { AGENTIC_FEATURE_TITLES } from '../../../core/services/ai.service';
+import { TokenService } from '../../../core/services/token.service';
 
-/** One Agentic Feature on the landing page (only those the user may open). route: slippage | daily-report | data-anomaly. */
+/** A day brief saved earlier for a report date (verified when it was written). */
+export interface SavedBrief { explanation: string; model: string | null; createdAt: string; usedAt: string }
+
+/** One event of a streamed Daily Report brief (see AgenticFeaturesService.dailyBriefStream). */
+export type BriefStreamEvent =
+  | { type: 'stage'; data: { stage: 'data' | 'writing' | 'checking' | 'revising' | 'reused' } }
+  | { type: 'delta'; data: { text: string; replace?: boolean } }
+  | { type: 'restart'; data: Record<string, never> }
+  | { type: 'result'; data: any }
+  | { type: 'error'; data: { message: string; status?: number } };
+
+/** One Agentic Feature on the landing page (only those the user may open). route: slippage | daily-report | data-anomaly | crew-management. */
 export interface AgenticFeatureSummary {
   feature: string; title: string; description: string; route: string; moduleCode: string;
   /** AI is switched on for the tenant (Settings → AI Providers). */
@@ -62,10 +75,11 @@ export class AgenticFeaturesService {
   private readonly api = environment.tenantApiUrl;
   private readonly ep = API_ENDPOINTS.AGENTIC_FEATURES;
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient, private readonly tokens: TokenService, private readonly zone: NgZone) {}
 
   list(): Observable<AgenticFeatureSummary[]> {
-    return this.http.get<AgenticFeatureSummary[]>(`${this.api}${this.ep.LIST}`);
+    return this.http.get<AgenticFeatureSummary[]>(`${this.api}${this.ep.LIST}`).pipe(
+      map(list => list.map(f => ({ ...f, title: AGENTIC_FEATURE_TITLES[f.feature] ?? f.title }))));
   }
 
   queries(feature: string): Observable<AgenticFeatureQuery[]> {
@@ -110,6 +124,59 @@ export class AgenticFeaturesService {
       { reportDate, scope, wellId: wellId ?? null, taskDailyId: taskDailyId ?? null, today: localToday() });
   }
 
+  /** The day brief saved for the date (prepared in the background or asked before), or null: one quick read, no AI. */
+  dailySavedBrief(reportDate: string): Observable<SavedBrief | null> {
+    return this.http.get<SavedBrief>(`${this.api}${this.ep.DAILY_REPORT}/brief/saved`,
+      { params: new HttpParams().set('reportDate', reportDate), observe: 'response' })
+      .pipe(map(res => (res.status === 200 ? res.body : null)));
+  }
+
+  /**
+   * The same brief, streamed: stage / delta / restart events while it is looked up and written, then one result (the
+   * brief) or error ({ message }). Uses fetch, not HttpClient, which would hold the whole stream back; the Bearer token
+   * is added by hand for the same reason. A refusal before the stream starts errors in HttpErrorResponse's shape
+   * ({ status, error: { message } }), so errorText() reads it as for any other call.
+   */
+  dailyBriefStream(reportDate: string, scope: 'day' | 'well' | 'task', wellId?: number | null,
+                   taskDailyId?: number | null): Observable<BriefStreamEvent> {
+    return new Observable<BriefStreamEvent>(subscriber => {
+      const controller = new AbortController();
+      const run = async () => {
+        const res = await fetch(`${this.api}${this.ep.DAILY_REPORT}/brief/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.tokens.getAccessToken() ?? ''}` },
+          body: JSON.stringify({ reportDate, scope, wellId: wellId ?? null, taskDailyId: taskDailyId ?? null, today: localToday() }),
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) {
+          const error = await res.json().catch(() => null);
+          throw { status: res.status, error: error ?? { message: res.status === 401 ? 'Please sign in again.' : `The request failed (HTTP ${res.status}).` } };
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let sep: number;
+          while ((sep = buffer.indexOf('\n\n')) >= 0) {
+            const block = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+            const type = /^event: (.+)$/m.exec(block)?.[1];
+            const data = /^data: (.*)$/m.exec(block)?.[1];
+            if (type && type !== 'ping' && data !== undefined) {
+              this.zone.run(() => subscriber.next({ type, data: JSON.parse(data) } as BriefStreamEvent));
+            }
+          }
+        }
+        this.zone.run(() => subscriber.complete());
+      };
+      run().catch(err => { if (!controller.signal.aborted) this.zone.run(() => subscriber.error(err)); });
+      return () => controller.abort();
+    });
+  }
+
   dailyAsk<T = any>(reportDate: string, question: string): Observable<T> {
     return this.http.post<T>(`${this.api}${this.ep.DAILY_REPORT}/ask`, { reportDate, question, today: localToday() });
   }
@@ -128,6 +195,11 @@ export class AgenticFeaturesService {
   }
 
   anomalyRules<T = any>(): Observable<T> { return this.http.get<T>(`${this.api}${this.ep.DATA_ANOMALY}/rules`); }
+
+  /** The compiled checks (with their SQL) of a rule, or of one family member by its check id. */
+  anomalyChecks<T = any>(id: string): Observable<T> {
+    return this.http.get<T>(`${this.api}${this.ep.DATA_ANOMALY}/checks/${encodeURIComponent(id)}`);
+  }
 
   anomalySetRuleStatus<T = any>(ruleId: string, status: string): Observable<T> {
     return this.http.put<T>(`${this.api}${this.ep.DATA_ANOMALY}/rules/${encodeURIComponent(ruleId)}/status`, { status });
@@ -196,5 +268,23 @@ export class AgenticFeaturesService {
       });
       return () => s.unsubscribe();
     });
+  }
+
+  // ── Crew Management ─────────────────────────────────────────────────────────────────────────────────────────
+
+  /** Every crew and its availability, capacity vs delayed work per crew type, the wells needing crews (no AI).
+   *  fresh reads the fleet-wide results again instead of the server's short-lived cache. */
+  crewOverview<T = any>(fresh = false): Observable<T> {
+    return this.http.post<T>(`${this.api}${this.ep.CREW_MANAGEMENT}/overview`, { fresh });
+  }
+
+  /** One well's delayed activities, the crew on each and the free crews to approach (no AI). */
+  crewWell<T = any>(wellId: string, fresh = false): Observable<T> {
+    return this.http.post<T>(`${this.api}${this.ep.CREW_MANAGEMENT}/well`, { wellId, fresh });
+  }
+
+  /** The well's crew plan with an AI brief (the tenant's AI provider and quota). */
+  crewBrief<T = any>(wellId: string): Observable<T> {
+    return this.http.post<T>(`${this.api}${this.ep.CREW_MANAGEMENT}/brief`, { wellId, fresh: false });
   }
 }

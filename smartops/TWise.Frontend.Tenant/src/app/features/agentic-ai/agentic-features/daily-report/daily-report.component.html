@@ -678,15 +678,30 @@
   </li>
 </ng-template>
 
-<!-- One brief's slot: loading / error (e.g. AI off) / the answer. -->
+<!-- One brief's slot: loading (the text as it is written) / error (e.g. AI off) / the checked answer. Screen readers
+     wait for the checked answer (aria-busy) instead of reading every piece of text as it streams in. -->
 <ng-template #briefSlot let-b let-scope="scope" let-wellId="wellId" let-taskId="taskId" let-title="title">
-  <div aria-live="polite" class="dr__brief-slot">
+  <div aria-live="polite" class="dr__brief-slot" [attr.aria-busy]="b?.loading ? 'true' : null">
     <div class="dr__answer" *ngIf="b">
       <div class="dr__answer-head">
         <h3>{{ title }}</h3>
         <button type="button" class="dr__link" (click)="closeBrief(scope, wellId, taskId)">Close</button>
       </div>
-      <app-loader *ngIf="b.loading" size="sm" message="Looking up the data and writing the brief…"></app-loader>
+      <app-loader *ngIf="b.loading && !b.live && !b.preview" size="sm" [message]="briefStage(b)"></app-loader>
+      <ng-container *ngIf="b.loading && !b.live && b.preview">
+        <p class="dr__live-stage">
+          <span class="dr__pill dr__pill--sm" data-tone="ok">Saved brief</span>
+          {{ b.stage === 'writing' || b.stage === 'revising' ? 'The data changed: writing a new brief…' : 'Checking it is still current…' }}
+        </p>
+        <div class="dr__prose dr__preview">{{ b.preview }}</div>
+      </ng-container>
+      <ng-container *ngIf="b.loading && b.live">
+        <p class="dr__live-stage">
+          <span class="dr__pill dr__pill--sm" data-tone="warn">{{ b.stage === 'checking' ? 'Checking figures' : (b.stage === 'revising' ? 'Correcting' : 'Writing') }}</span>
+          Not checked yet: the brief is shown once every figure matches the data.
+        </p>
+        <div class="dr__live">{{ b.live }}</div>
+      </ng-container>
       <p class="dr__msg dr__msg--bad" *ngIf="b.error" role="alert">{{ b.error }}</p>
       <ng-container *ngIf="b.data as r"><ng-container *ngTemplateOutlet="answerTpl; context: { $implicit: r }"></ng-container></ng-container>
     </div>

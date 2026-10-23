@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,14 +24,22 @@ public abstract class AgenticFeatureControllerBase(ILogger logger) : ControllerB
     {
         if (!TryGetTenantId(out var tenantId)) return Unauthorized();
         try { return await action(tenantId); }
-        catch (AgentRuntimeException ex) { return StatusCode(ex.Status, new { message = ex.Message }); }
-        catch (FeatureConflictException ex) { return Conflict(new { message = ex.Message }); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (Failure(ex) is { } f) { return StatusCode(f.Status, new { message = f.Message }); }
+    }
+
+    /// <summary>The status and safe message of a failure this mapping knows; null for anything else (a real error).</summary>
+    protected (int Status, string Message)? Failure(Exception ex)
+    {
+        switch (ex)
         {
-            logger.LogWarning(ex, "Agentic Feature call failed: the agent runtime is not reachable.");
-            return StatusCode(StatusCodes.Status502BadGateway, new { message = "The agent service is not reachable. Try again in a moment." });
+            case AgentRuntimeException e: return (e.Status, e.Message);
+            case FeatureConflictException e: return (StatusCodes.Status409Conflict, e.Message);
+            case KeyNotFoundException e: return (StatusCodes.Status404NotFound, e.Message);
+            case InvalidOperationException e: return (StatusCodes.Status400BadRequest, e.Message);
+            case HttpRequestException e:
+                logger.LogWarning(e, "Agentic Feature call failed: the agent runtime is not reachable.");
+                return (StatusCodes.Status502BadGateway, "The agent service is not reachable. Try again in a moment.");
+            default: return null;
         }
     }
 
@@ -125,9 +134,12 @@ public sealed class SlippageController(IAgenticFeatureGateway gateway, ILogger<S
 [ApiController]
 [Authorize]
 [Route("api/agentic-features/daily-report")]
-public sealed class DailyReportController(IAgenticFeatureGateway gateway, ILogger<DailyReportController> logger)
+public sealed class DailyReportController(IAgenticFeatureGateway gateway, IDailyReportAgent agent, IAiFeatureAnswerStore answers,
+    ILogger<DailyReportController> logger)
     : AgenticFeatureControllerBase(logger)
 {
+    private static readonly JsonSerializerOptions SseJson = new(JsonSerializerDefaults.Web);
+
     private const string Module = "agentic-ai.daily-report";
     private const string Feature = AgenticFeatureCatalog.DailyReport;
 
@@ -207,11 +219,69 @@ public sealed class DailyReportController(IAgenticFeatureGateway gateway, ILogge
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public Task<IActionResult> Brief([FromBody] DailyReportBriefRequest request, CancellationToken ct) => FeatureAsync(async t =>
-        Ok(await gateway.CallAsync(t, UserId(), Feature, "agent/brief", new
+        Ok(await agent.BriefAsync(t, UserId(), BriefOf(request), ct)));
+
+    /// <summary>The day brief saved for the date (prepared in the background or asked before), for the page to show the
+    /// moment "Brief the day" is clicked while brief/stream checks it against the data. 204 when there is none.</summary>
+    [HttpGet("brief/saved")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(typeof(SavedAiAnswerDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public Task<IActionResult> SavedBrief([FromQuery] string? reportDate, CancellationToken ct) => FeatureAsync(async t =>
+    {
+        if (!DateOnly.TryParseExact(reportDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var day))
+            throw new InvalidOperationException("Choose a report date.");
+        var saved = await answers.LatestAsync(t, Feature, day, "brief", "day", ct);
+        return saved is null ? NoContent() : Ok(saved);
+    });
+
+    /// <summary>The same brief as server-sent events: stage {stage} (data | writing | checking | revising | reused) and
+    /// delta {text, replace?} while it is written (restart when a draft the checker rejected is written again), then one
+    /// result {the brief, as POST brief returns it} or error {message, status}. A refusal before it starts (AI off, bad
+    /// input) is an ordinary JSON error with its status.</summary>
+    [HttpPost("brief/stream")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [Produces("text/event-stream")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task BriefStream([FromBody] DailyReportBriefRequest request, CancellationToken ct)
+    {
+        if (!TryGetTenantId(out var tenantId)) { Response.StatusCode = StatusCodes.Status401Unauthorized; return; }
+        IAsyncEnumerator<AgentRuntimeEvent>? events = null;
+        var started = false;
+        try
         {
-            reportDate = Date(request.ReportDate), scope = request.Scope ?? "day", wellId = request.WellId,
-            taskDailyId = request.TaskDailyId, today = Today(request.Today),
-        }, needsAi: true, ct)));
+            events = agent.BriefStreamAsync(tenantId, UserId(), BriefOf(request), ct).GetAsyncEnumerator(ct);
+            var more = await events.MoveNextAsync();     // the AI provider, the saved answers and the runtime's own checks
+            Response.ContentType = "text/event-stream";
+            Response.Headers.CacheControl = "no-cache";
+            Response.Headers["X-Accel-Buffering"] = "no";
+            started = true;
+            for (; more; more = await events.MoveNextAsync())
+                await WriteEventAsync(events.Current.Type, events.Current.Data, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }   // the page was closed
+        catch (Exception ex) when (Failure(ex) is { } f)
+        {
+            if (!started)
+            {
+                Response.StatusCode = f.Status;
+                await Response.WriteAsJsonAsync(new { message = f.Message }, ct);
+            }
+            else await WriteEventAsync("error", JsonSerializer.SerializeToElement(new { message = f.Message, status = f.Status }, SseJson), ct);
+        }
+        finally
+        {
+            if (events is not null) await events.DisposeAsync();
+        }
+    }
+
+    private async Task WriteEventAsync(string type, JsonElement data, CancellationToken ct)
+    {
+        await Response.WriteAsync($"event: {type}\ndata: {data.GetRawText()}\n\n", ct);
+        await Response.Body.FlushAsync(ct);
+    }
 
     /// <summary>Ask the agent a question about the report date.</summary>
     [HttpPost("ask")]
@@ -221,16 +291,22 @@ public sealed class DailyReportController(IAgenticFeatureGateway gateway, ILogge
     public Task<IActionResult> Ask([FromBody] DailyReportAskRequest request, CancellationToken ct) => FeatureAsync(async t =>
     {
         if (string.IsNullOrWhiteSpace(request.Question)) throw new InvalidOperationException("Type a question.");
-        return Ok(await gateway.CallAsync(t, UserId(), Feature, "agent/ask",
-            new { reportDate = Date(request.ReportDate), question = request.Question.Trim(), today = Today(request.Today) }, needsAi: true, ct));
+        return Ok(await agent.AskAsync(t, UserId(), ReportDate(request.ReportDate), request.Question.Trim(), TodayOf(request.Today), ct));
     });
 
+    private static DailyBrief BriefOf(DailyReportBriefRequest r) =>
+        new(ReportDate(r.ReportDate), r.Scope ?? "day", r.WellId, r.TaskDailyId, TodayOf(r.Today));
+
+    private static DateOnly ReportDate(DateOnly? date) => date ?? throw new InvalidOperationException("Choose a report date.");
+
     private static string Date(DateOnly? date) =>
-        (date ?? throw new InvalidOperationException("Choose a report date.")).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        ReportDate(date).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>The user's date (sent by the page, which knows the user's time zone), else the server's UTC date.</summary>
+    private static DateOnly TodayOf(DateOnly? today) => today ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
     private static string Today(DateOnly? today) =>
-        (today ?? DateOnly.FromDateTime(DateTime.UtcNow)).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        TodayOf(today).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 }
 
 /// <summary>
@@ -263,6 +339,12 @@ public sealed class DataAnomalyController(IDataAnomalyService anomaly, IAgenticF
     [RequireModulePermission(Module, ModulePermission.View)]
     [ProducesResponseType(typeof(IReadOnlyList<AnomalyRuleDto>), StatusCodes.Status200OK)]
     public Task<IActionResult> Rules(CancellationToken ct) => FeatureAsync(async t => Ok(await anomaly.RulesAsync(t, ct)));
+
+    /// <summary>The compiled checks of a rule, or of one family member, with their SQL (read-only).</summary>
+    [HttpGet("checks/{id}")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(typeof(IReadOnlyList<AnomalyCheckDto>), StatusCodes.Status200OK)]
+    public Task<IActionResult> Checks(string id, CancellationToken ct) => FeatureAsync(async t => Ok(await anomaly.ChecksAsync(t, id, ct)));
 
     /// <summary>active (runs and scores), probation (runs, reported apart), draft or disabled (do not run).</summary>
     [HttpPut("rules/{ruleId}/status")]
@@ -354,4 +436,45 @@ public sealed class DataAnomalyController(IDataAnomalyService anomaly, IAgenticF
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> CancelJob(long id, CancellationToken ct) =>
         FeatureAsync(async t => Ok(await anomaly.CancelJobAsync(t, id, UserName(), ct)));
+}
+
+/// <summary>
+/// Agentic Features → Crew Management: every crew's availability and team, crew capacity against the delayed work each
+/// crew type is needed for, and per live well the crew on each delayed activity with the free crews to approach (all
+/// from the verified SQL, no AI), plus an AI brief that narrates a well's crew plan. Advisory only: nothing is assigned.
+/// </summary>
+[ApiController]
+[Authorize]
+[Route("api/agentic-features/crew-management")]
+public sealed class CrewManagementController(IAgenticFeatureGateway gateway, ILogger<CrewManagementController> logger)
+    : AgenticFeatureControllerBase(logger)
+{
+    private const string Module = "agentic-ai.crew-management";
+    private const string Feature = AgenticFeatureCatalog.Crew;
+
+    /// <summary>Every crew and its availability, capacity vs delayed work per crew type, and the wells needing crews.</summary>
+    [HttpPost("overview")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public Task<IActionResult> Overview([FromBody] CrewManagementRequest? request, CancellationToken ct) => FeatureAsync(async t =>
+        Ok(await gateway.CallAsync(t, UserId(), Feature, "overview", new { fresh = request?.Fresh ?? false }, needsAi: false, ct)));
+
+    /// <summary>One well's delayed activities, the crew on each and the free crews to approach. 404 for an unknown well.</summary>
+    [HttpPost("well")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> Well([FromBody] CrewManagementRequest request, CancellationToken ct) => FeatureAsync(async t =>
+        Ok(await gateway.CallAsync(t, UserId(), Feature, "well", new { wellId = request.WellId, fresh = request.Fresh }, needsAi: false, ct)));
+
+    /// <summary>The well's crew plan with an AI brief (calls the AI; a provider failure comes back as briefError).</summary>
+    [HttpPost("brief")]
+    [RequireModulePermission(Module, ModulePermission.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> Brief([FromBody] CrewManagementRequest request, CancellationToken ct) => FeatureAsync(async t =>
+        Ok(await gateway.CallAsync(t, UserId(), Feature, "brief", new { wellId = request.WellId, fresh = request.Fresh }, needsAi: true, ct)));
 }

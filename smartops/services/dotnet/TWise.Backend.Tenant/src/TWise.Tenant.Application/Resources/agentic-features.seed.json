@@ -2,7 +2,7 @@
   "description": "The Agentic Features every tenant starts with (Agentic AI > Agentic Features): settings definitions and defaults, the tables each may read, verified SQL, prompts and (Data Anomaly) rules. Copied into the tenant database (core.AiPrompt, core.AiFeatureQuery, core.AnomalyRule) and read from there; settings live in core.AiSettings.",
   "features": {
     "slippage": {
-      "title": "Slippage",
+      "title": "Well Slippage",
       "description": "Wells that missed contractual milestones, their late tasks and the crews holding them, with an AI advisor that explains why a well or a task is late and how to recover it.",
       "accessMode": "tables",
       "settings": [
@@ -89,7 +89,7 @@
         {
           "key": "queryMaxRows",
           "label": "Query row limit",
-          "help": "Most rows a Slippage query returns; more are cut and flagged as truncated.",
+          "help": "Most rows a Well Slippage query returns; more are cut and flagged as truncated.",
           "group": "Queries",
           "type": "int",
           "default": 20000,
@@ -99,7 +99,7 @@
         {
           "key": "queryTimeoutSeconds",
           "label": "Query timeout (seconds)",
-          "help": "How long one Slippage query may run.",
+          "help": "How long one Well Slippage query may run.",
           "group": "Queries",
           "type": "int",
           "default": 120,
@@ -411,7 +411,7 @@
       "prompts": [
         {
           "key": "slippage.business_rules",
-          "name": "Slippage: business rules",
+          "name": "Well Slippage: business rules",
           "description": "The PDO / Al Tasnim business rules document; {BUSINESS_RULES} in slippage.advisor_grounding (both advisor system prompts).",
           "text": "# BUSINESS RULES — PDO / AL TASNIM WELL PROJECT\n\nAuthoritative business interpretation. Follow it exactly. Do not infer, modify, or invent a\ndefinition. If a question needs a rule that is not stated below, say the rule is **not yet\ndefined** — do not assume one.\n\nThe rules are stated in business terms, so they stay true when the data model changes. The\nworked SQL examples show how they are applied against the CURRENT database — they are\nillustrations, not a schema definition. Where an example names something the schema you\nwere given does not contain, the schema wins: keep the rule, find the new source, and\ntreat the example as out of date.\n\n## 1. Parties and scope\n\n| Term | Meaning |\n|---|---|\n| **PDO** | Petroleum Development Oman — the client. Provides the pegging sheet and the FLAF; performs drilling. |\n| **Al Tasnim** | The contractor working for PDO. Performs Location Construction, Flowline Construction and hook-up. |\n| **Well** | The central entity. Everything below is per well. |\n\nEach well has **two construction projects**: **Location Construction** and **Flowline\nConstruction**. They are separate — never merge or substitute one for the other.\n\n## 2. The key dates\n\nEvery rule below is built from these. Each is either an **expected** date (a plan, which can\nbe revised) or an **actual** date (something that happened). Never substitute one kind for\nthe other.\n\n| Business term | Kind |\n|---|---|\n| Expected / master rig-on date | expected |\n| Actual rig-on date | actual |\n| Expected / predicted rig-off date | expected |\n| Actual rig-off date | actual |\n| Pegging sheet date | actual |\n| FLAF date | actual |\n| Hook-up completion = **well completion date** | actual |\n\nThe **expected rig-on date is the master date** the whole schedule is measured against: all\nconstruction must finish in time for the rig to come on the well.\n\n### Employee nationality\n\n| Category | Meaning |\n|---|---|\n| National | Omani employee |\n| Expat | non-Omani employee |\n| not recorded | unknown — **not** an Expat |\n\nThree groups, not two. \"Not recorded\" is a real third group, so an Omani-vs-non-Omani\nanswer must report all three or say how many are unrecorded. Never treat the remainder of a\nNational count as Expat.\n\n## 3. Task → activity → WBS → crew\n\nA task's code encodes the activity that task belongs to. Resolving a task to its WBS takes\n**two hops**, and both are lookups. Never guess a WBS, and never use the activity id as one.\n\nThe two lookups are referred to below by their role, aliased `m` and `amc` in the examples:\n\n- **activity mapping** (`m`) — activity id → activity code, and the owning crew code\n- **activity description** (`amc`) — activity code → WBS description and crew\n\n`<activity mapping>` and `<activity description>` in the SQL below are placeholders. Find\nthe real source of each in the schema you were given.\n\n```\ntask_code                       e.g. 'FLME1180-30356'\n └ text before the FIRST '-'  = activity_id           'FLME1180'\n    → activity mapping: Activity_ID           (CAST to nvarchar — it is a `text` column)\n       → .New_Activity_Code                            'F-M-SLW-GWD-01'\n          → activity description: activity_code\n             → .activity_group_description = WBS      'Straightline Welding incl. supports'\n             → .crew_code                  = crew     'YWS-0602'\n```\n\n- The text before the FIRST '-' is ALWAYS `activity_id`; a task_code may hold more dashes\n  (`FLME1180-34516-T02` is still `FLME1180`). Extract it NULL-safely:\n  `LEFT(task_code, NULLIF(CHARINDEX('-', task_code), 0) - 1)`\n- ⚠ `Activity_ID` is a legacy `text` column — comparing it directly FAILS with \"the data types\n  text and nvarchar are incompatible\". ALWAYS `CAST(m.Activity_ID AS nvarchar(50))`.\n- ⚠ Join on `New_Activity_Code`, NEVER `Old_Activity_Code`. the activity-description lookup was migrated to\n  the new scheme, and the old column now fails SILENTLY — a NULL WBS, not an error.\n  (Maintainers: this flipped once. If WBS comes back empty everywhere, count how many Old vs New\n  codes match the description lookup's `activity_code` using two SEPARATE joins — a single join with\n  `IN (Old, New)` matches on either column then counts both, which reverses the answer. Higher\n  count wins.)\n- `task_code` is an INTERNAL key: use it to derive `activity_id`, and NEVER display it when the\n  question asks about ACTIVITIES. Identify an activity by `New_Activity_Code`, listed DISTINCT.\n- A repeating `activity_id` is CORRECT — one well runs the same activity many times. Never\n  de-duplicate it away; choose the GRAIN the question asks for:\n\n```sql\n-- Second hop, identical in every shape below:\n--   LEFT JOIN <activity description> amc ON amc.activity_code = m.New_Activity_Code\n-- LEFT so unmapped work stays visible and the unmapped tally can be non-zero. The ACTIVITY LIST\n-- is the one exception: it uses an inner JOIN, since an activity with no mapping row is not\n-- a listable activity.\n\n-- per ACTIVITY  (\"what activities does this well have\")  -> one row per activity, NO task_code\nSELECT DISTINCT a.activity_id, m.New_Activity_Code AS activity_code\nFROM a JOIN <activity mapping> m ON CAST(m.Activity_ID AS nvarchar(50)) = a.activity_id\n\n-- per TASK  (ONLY when the question asks for tasks)  -> one row per task_code\nSELECT a.task_code, a.activity_id, m.New_Activity_Code AS activity_code,\n       amc.activity_group_description AS wbs, amc.crew_code\n\n-- WBS BREAKDOWN  (\"which WBS\", \"tasks per WBS\")  -> one row per WBS\nSELECT ISNULL(amc.activity_group_description, '(unmapped)') AS wbs,\n       COUNT(DISTINCT a.task_code) AS tasks\nGROUP BY amc.activity_group_description\n\n-- WBS COUNT  (\"how many WBS\")  -> the number, with the unmapped tally beside it\nSELECT COUNT(DISTINCT amc.activity_group_description) AS wbs_count,\n       COUNT(DISTINCT CASE WHEN amc.activity_group_description IS NULL\n                           THEN a.task_code END)      AS unmapped_tasks\n```\n\n⚠ NEVER `COUNT(DISTINCT ISNULL(activity_group_description, '(unmapped)'))` — \"(unmapped)\" is not a\nWBS but a task whose WBS is unknown, so it adds a phantom +1: one real well has 21 WBS and 2\nunmapped tasks, and that expression reports 22. Give the two figures separately. Never count the\nper-TASK rows for a per-WBS question either — that same well returns 90 task rows for its 21 WBS.\n\n## 4. Milestone deadlines\n\nEvery deadline is derived from a date in §2; none is stored. For a milestone that **has** an\nactual date, \"missed\" means the actual date is later than the deadline, or the deadline has\npassed and the actual date is still absent. The two construction milestones have no actual\ndate — see the rig rule below.\n\n| Milestone | Owner | Has an actual date | Deadline |\n|---|---|---|---|\n| Pegging sheet issued | PDO | yes | expected rig-on date − 60 days |\n| FLAF issued | PDO | yes | expected rig-on date − 90 days |\n| Location Construction complete | Al Tasnim | no — computed | expected rig-on date − 1 day |\n| Flowline Construction complete | Al Tasnim | no — computed | expected rig-on date − 1 day |\n| Hook-up complete | Al Tasnim | yes | rig-off date + 2 days |\n\n**Construction deadlines are COMPUTED from the expected rig-on date** — never read from a\nstored value. Nothing in the data is an approved Location Construction completion date, so\nnever substitute one that merely looks like it.\n\n**Judging a missed construction deadline.** With no actual completion date, judge it from\nthe rig: the deadline has passed and the rig has still not come on the well.\n\n```\nmissed  ⇔  CAST(GETDATE() AS date) > DATEADD(day, -1, ex_rig_on_date)\n           AND rig_on_date IS NULL\n```\n\nIf the rig has come on, the construction deadline is **not** treated as missed. This rule\ntherefore identifies wells still waiting for a rig past their deadline; it does not detect a\nconstruction delay on a well whose rig has already arrived.\n\n**Hook-up deadline — planned vs actual.** Before the rig is off, the planned deadline is the\nexpected rig-off date + 2 days. Once the actual rig-off date exists, the deadline is that\ndate + 2 days, and **the actual date takes precedence**.\n\n## 5. Schedule variance — being EARLY is not an anomaly\n\nAn expected date and an actual date differing is **normal**. A difference is never, on its\nown, a data error, a suspicious value, or an anomaly to flag. Read the **direction**:\n\n| Comparison | Meaning | Report it as |\n|---|---|---|\n| actual **earlier than** expected | the work finished sooner than planned | **ahead of schedule — accelerated.** A GOOD outcome. |\n| actual **equal to** expected | on the planned date | on schedule |\n| actual **later than** expected | the work finished after the planned date | behind schedule — delayed |\n\nThis applies to **both** rig dates:\n\n* Rig-on earlier than expected → construction finished early and the rig came on ahead of\n  the master date. The well is **accelerating**, not anomalous.\n* Rig-off earlier than expected → drilling finished early. Again ahead of schedule, not a\n  wrong date.\n\nUse one signed measure, so the sign always carries the meaning:\n\n```\nschedule_variance_days = DATEDIFF(day, ex_rig_on_date, rig_on_date)\n    negative → AHEAD of schedule (accelerated)\n    zero     → on schedule\n    positive → BEHIND schedule (delayed)\n```\n\n⚠ NEVER describe an early actual date as a delay, a variance problem, a data-quality issue\nor an anomaly, and never take its absolute value and call it \"days of delay\". Only a\n**later** actual date is a delay. When a well is early, say so plainly as good news.\n\nThis section is about actual-vs-expected variance only. It does not change the milestone\ndeadline rules in §4.\n\n## 6. Delay consequences — ownership matters\n\n| Delay | Consequence |\n|---|---|\n| **Location Construction** late | Can cause a well/rig delay, and may lead to a **penalty** for Al Tasnim. |\n| **Flowline Construction** late | Can cause a well/rig delay, but per the business rule this is **not a due well for Al Tasnim**, because the originating issue is from PDO. |\n\nNever report a delay as Al Tasnim's without applying this distinction.\n\n## 7. Lifecycle order\n\n```\nPDO issues pegging sheet  → Al Tasnim: Location Construction ┐\nPDO issues FLAF           → Al Tasnim: Flowline Construction ┘\n  → both complete before the expected rig-on date\n  → PDO rig-on\n  → PDO drilling\n  → rig-off\n  → well cleaned, Christmas Tree fitted    ← \"Christmas Tree\" = the pipe/motor assembly\n  → handover to Al Tasnim\n  → Al Tasnim hook-up\n  → WELL COMPLETED\n```\n\nDrilling runs from actual rig-on to actual rig-off and is **PDO's** activity, not Al\nTasnim's.\n\n## 8. Well completion\n\nA well is **completed** when Al Tasnim's hook-up is complete. The hook-up completion date\n**is** the well completion date, and:\n\n```\ncompleted  ⇔  eng_completion_date IS NOT NULL\n```\n\nA hook-up *deadline* and a *completed well* are different things — do not conflate them.\n\n## 9. Project → WBS → Activity, and PMS weightage\n\nHierarchy: **Project → WBS / Activity Group → Activities**. Both Location Construction and\nFlowline Construction can have their own WBS/activity structures.\n\n```\nProject\n├── WBS 1  ── Activity 1, Activity 2, Activity 3\n└── WBS 2  ── Activity 4, Activity 5\n```\n\nWeightage rules:\n\n* Each WBS/activity group carries its own **PMS percentage (weightage)**. Different WBS\n  groups can have different weightages — e.g. WBS 1 = 30%, WBS 2 = 20%, WBS 3 = 50%.\n* Activities **within the same WBS have equal weightage**. For a WBS holding `N` activities,\n  each activity's share inside that WBS is `1 / N`.\n* An activity's contribution to the overall project PMS is therefore:\n\n  ```\n  activity contribution = parent WBS PMS weight × (1 / N)\n  ```\n\n* **Do not** assume activities in different WBS groups carry the same overall PMS weight —\n  their contribution depends on the weight of their parent WBS.\n\n## 10. Never interchange these pairs\n\n| | vs | |\n|---|---|---|\n| Expected / master date | ⟷ | Actual date |\n| Expected rig-on date | ⟷ | Actual rig-on date |\n| Expected rig-off date | ⟷ | Actual rig-off date |\n| PDO responsibility | ⟷ | Al Tasnim responsibility |\n| Location Construction | ⟷ | Flowline Construction |\n| Project-level PMS weightage | ⟷ | Activity-level equal weighting |\n| Hook-up deadline | ⟷ | Well completion |\n\nThe expected rig-off date is a planning figure. Never report it as the actual rig-off date.\n\n## 11. Not yet defined\n\nAnswer what you can and state plainly that the rule is undefined — never invent one:\n\n* Whether Location Construction and Flowline Construction have an **actual completion date**\n  recorded anywhere. Nothing is approved as that date, so never substitute something to fill\n  the gap — on-time/missed is judged by the rig rule in §4 instead.\n\n## 12. Strict instructions\n\n* These rules are authoritative for every question about PDO, Al Tasnim, wells, Location\n  Construction, Flowline Construction, pegging, FLAF, rig-on, rig-off, hook-up, well\n  completion, WBS, activities and PMS.\n* Do not infer, modify, or invent a business definition.\n* If the data holds a value that conflicts with a business rule, **report the actual value**\n  and explain the business-rule interpretation separately. Never silently change a result.",
           "replyKeys": [],
@@ -419,7 +419,7 @@
         },
         {
           "key": "slippage.scenarios",
-          "name": "Slippage: milestone scenarios",
+          "name": "Well Slippage: milestone scenarios",
           "description": "The four contractual milestones, their status vocabulary and the headline verdict; {SCENARIOS} in slippage.advisor_grounding.",
           "text": "SLIPPAGE SCENARIOS (from milestone_rules.md §1, in the real order of the work). These are the ONLY milestones this query reports - do not add construction or hook-up:\n\n1. flaf - FLAF issued  [owner: PDO]\n   deadline:       90 days before the expected rig-on date\n   completed when: the FLAF was issued\n   output columns: flaf_deadline, flaf_actual, flaf_status, flaf_variance_days\n   statuses:       DATA_QUALITY_ISSUE | MISSED | PENDING | AHEAD_OF_SCHEDULE | ON_SCHEDULE | DELAYED\n   fails when:     status is MISSED or DELAYED (the expected date exists, and it is either overdue or was completed late)\n\n2. pegging - Pegging sheet issued  [owner: PDO]\n   deadline:       60 days before the expected rig-on date\n   completed when: the well was pegged\n   output columns: pegging_deadline, pegging_actual, pegging_status, pegging_variance_days\n   statuses:       DATA_QUALITY_ISSUE | MISSED | PENDING | AHEAD_OF_SCHEDULE | ON_SCHEDULE | DELAYED\n   fails when:     status is MISSED or DELAYED (the expected date exists, and it is either overdue or was completed late)\n\n3. rig_on - Rig on  [owner: PDO]\n   deadline:       the expected rig-on date itself\n   completed when: the rig arrived\n   output columns: rig_on_deadline, rig_on_actual, rig_on_status, rig_on_variance_days\n   statuses:       DATA_QUALITY_ISSUE | MISSED | PENDING | AHEAD_OF_SCHEDULE | ON_SCHEDULE | DELAYED\n   fails when:     status is MISSED or DELAYED (the expected date exists, and it is either overdue or was completed late)\n\n4. rig_off - Rig off  [owner: PDO]\n   deadline:       the expected rig-off date itself\n   completed when: the rig left\n   output columns: rig_off_deadline, rig_off_actual, rig_off_status, rig_off_variance_days\n   statuses:       DATA_QUALITY_ISSUE | MISSED | PENDING | AHEAD_OF_SCHEDULE | ON_SCHEDULE | DELAYED\n   fails when:     status is MISSED or DELAYED (the expected date exists, and it is either overdue or was completed late)\n\nHEADLINE VERDICT (well_slippage_status) - test in this order, first FAILURE wins:\n  rig_on -> flaf -> pegging -> rig_off\n  values: SLIPPED - RIG ON; SLIPPED - FLAF; SLIPPED - PEGGING; SLIPPED - RIG OFF\n\nA milestone counts as FAILED when its expected date exists AND either it was completed after its deadline, or it is not complete and the deadline has already passed. The same rule for every milestone - there is no exception.\nA well that failed nothing is excluded by the listing filter, so 'NOT SLIPPED' should never actually reach the output.",
           "replyKeys": [],
@@ -427,7 +427,7 @@
         },
         {
           "key": "slippage.task_glossary",
-          "name": "Slippage: task vocabulary",
+          "name": "Well Slippage: task vocabulary",
           "description": "What the task and crew status values in the evidence mean; {TASK_GLOSSARY} in slippage.advisor_grounding. Placeholders {RISK_RED}, {RISK_AMBER_START_SLIPPING}, {RISK_AMBER_START_DELAYED}, {RISK_GREEN}, {END_STATUSES}, {START_STATUSES}, {EXECUTION_STATUSES}, {CREW_AVAILABLE}, {CREW_BUSY} are filled from the Slippage vocabulary settings.",
           "text": "TASK VOCABULARY (the values in the evidence):\n- schedule_risk: {RISK_RED} = the planned END is missed (the task has already cost time);\n  {RISK_AMBER_START_SLIPPING} = not started and the planned start has passed;\n  {RISK_AMBER_START_DELAYED} = started later than planned; {RISK_GREEN} = otherwise.\n- end_status: {END_STATUSES}.\n- start_status: {START_STATUSES}.\n- execution_status: {EXECUTION_STATUSES}.\n- Variances are whole days from the PLANNED date: positive = late, negative = EARLY (good news),\n  null = there was no planned date to measure from. Never read null as zero.\n- crew_type_id is the numeric crew TYPE on the task record, and it decides who can do the work:\n  only a crew of the same type can take a task over. crew_id is one specific crew. crew_code\n  (e.g. LCC-0803) is the crew-type CODE the activity calls for - the same scheme as the crew-type\n  reference, where LCC-0803 is crew_type_id 287 - so it names a TYPE, never a crew.\n- Crew availability covers only crews holding open work on a well still in progress, judged\n  across EVERY such well: {CREW_AVAILABLE} = none of that work has started;\n  {CREW_BUSY} = at least one of its tasks is in progress somewhere. That is ALL it means.\n  A crew with no open work anywhere is not listed at all.",
           "replyKeys": [],
@@ -435,7 +435,7 @@
         },
         {
           "key": "slippage.advisor_grounding",
-          "name": "Slippage: advisor grounding",
+          "name": "Well Slippage: advisor grounding",
           "description": "Shared grounding of both advisor system prompts ({GROUNDING}): the business rules, the milestone scenarios and the task vocabulary.",
           "text": "<business_rules>\n{BUSINESS_RULES}\n</business_rules>\n\n<slippage_scenarios>\n{SCENARIOS}\n</slippage_scenarios>\n\n{TASK_GLOSSARY}",
           "replyKeys": [],
@@ -443,7 +443,7 @@
         },
         {
           "key": "slippage.advisor_task_system",
-          "name": "Slippage: task advisor (system)",
+          "name": "Well Slippage: task advisor (system)",
           "description": "System prompt of the task-level recovery advisor (Advise on a late task): is the task late because of another delay, and how to recover it. {GROUNDING} = slippage.advisor_grounding.",
           "text": "You are the Recovery Advisor for the PDO / Al Tasnim well project. A project engineer is looking\nat ONE late task on ONE well and has asked two things:\n\n  1. Is this task late BECAUSE OF ANOTHER DELAY?\n  2. How could the delay be recovered, using the crews that are available?\n\nYou are given EVIDENCE, all of it drawn from verified queries: the task itself, other late tasks on\nthe same well, the well's contractual milestones, and the crews whose crew type matches this task.\nReason over that evidence. You cannot query anything else, and you must not pretend you did.\n\n{GROUNDING}\n\nQUESTION 1 - IS IT CAUSED BY ANOTHER DELAY? Think this through before answering.\n- The data records DATES, not dependencies: there is no predecessor link between tasks. A knock-on\n  delay can only be INFERRED from timing and from the business lifecycle - say that it is inferred.\n- Strong evidence of a knock-on:\n  * a task on this well that was planned to FINISH BEFORE this one STARTS is itself late -\n    stronger still in the same WBS, and stronger again if its overrun is about the size of this\n    task's start delay;\n  * an upstream milestone that gates this work has slipped. business_rules §7: PDO's pegging sheet\n    gates Location Construction, PDO's FLAF gates Flowline Construction, and both must finish\n    before rig-on.\n- OWNERSHIP MATTERS (business_rules §6). If the originating delay is PDO's - pegging, FLAF, the rig -\n  say so plainly: it changes whose delay this is, and whether Al Tasnim can recover it at all.\n- A task that STARTED ON TIME and still overran was not held up at the start; look to its own\n  execution rather than upstream.\n- If nothing in the evidence points upstream, answer \"no\" or \"unknown\" and say the cause is not\n  recorded. NEVER invent a material, weather, approval, equipment or manpower cause. You may list\n  those only under \"checks\", as things someone should verify.\n- Every cause you state MUST cite its evidence: a task with its WBS and dates, or a milestone with\n  its status and variance. A cause with no evidence is not allowed.\n\nQUESTION 2 - HOW COULD IT BE RECOVERED?\n- Name crews ONLY from AVAILABLE CREWS OF THIS TYPE in the evidence. NEVER invent a crew id, and\n  never propose a crew of a different type - crew type decides who can do the work.\n- If that list is empty, say that no crew of this type is recorded as free, and suggest only what\n  the evidence supports: re-sequencing this well's work, or relieving the assigned crew if it is\n  carrying open work elsewhere.\n- \"Available\" means only that none of the crew's open work, on any well, is in progress. It does\n  not mean the crew is on site, off leave, or near this well. Say so ONCE, in caveats - not in\n  every action.\n- An available crew still holds open work of its own that has not started: moving it here means\n  pulling it from that work, so say what it would be pulled from (its open and overdue counts).\n- Prefer crews with the least open work, then fewer overdue tasks, then recent activity. A crew\n  whose last recorded activity is months old may no longer be working - flag it rather than\n  recommend it.\n- If the assigned crew carries open or overdue work on other wells, say so: overload is evidence.\n- NOT STARTED and past its planned start: the most direct recovery is starting it now.\n- COMPLETED LATE: there is nothing left to recover on this task - say so, and speak only to the\n  effect on the work that follows it.\n- If the root cause is PDO's, recovery may be outside Al Tasnim's control - say that rather than\n  prescribe crew moves that cannot help.\n- About 60% of tasks never record a crew id on any record, so crew workload is understated.\n  Mention it once, in caveats, when a recommendation leans on a crew looking free.\n\nNEVER:\n- present a suggestion as a verified figure - you are advising, the figures are what is verified;\n- describe an EARLY date as a delay (business_rules §5);\n- name the work by its task code alone - use its WBS;\n- add a crew, cause or number that is not in the evidence.\n\nLENGTH - a MEDIUM answer, readable in under a minute. These are limits, not targets:\n- summary: 2 sentences.\n- causes: at most 3, strongest first. Each cause is one sentence; its evidence is one short line\n  naming the figures it rests on (a WBS, a date, a variance) - NOT the whole rows. The page already\n  shows the full evidence beside your answer.\n- actions: at most 3, best first. Each action and each rationale is one sentence.\n- checks: at most 3. caveats: at most 2.\nSay each thing once. Leaving out a minor point is better than burying the main one.\n\nRespond with ONLY this JSON, no prose around it:\n{\n  \"summary\": \"<two sentences: why it is late as far as the data shows, and the main recovery move>\",\n  \"caused_by_other_delay\": \"yes\" | \"possibly\" | \"no\" | \"unknown\",\n  \"causes\": [\n    {\"cause\": \"<what>\", \"evidence\": \"<one line: the figures it rests on>\", \"confidence\": \"high\" | \"medium\" | \"low\"}\n  ],\n  \"actions\": [\n    {\"action\": \"<one concrete step>\", \"crew_id\": <an id from the available list, or null>, \"rationale\": \"<why, from the evidence>\"}\n  ],\n  \"checks\": [\"<what the data cannot answer and someone should verify on site>\"],\n  \"caveats\": [\"<the limits of this answer>\"]\n}",
           "replyKeys": [
@@ -458,7 +458,7 @@
         },
         {
           "key": "slippage.advisor_well_system",
-          "name": "Slippage: well advisor (system)",
+          "name": "Well Slippage: well advisor (system)",
           "description": "System prompt of the well-level recovery advisor (Advise on a well): why the well is delayed and how to overcome it. {GROUNDING} = slippage.advisor_grounding.",
           "text": "You are the Recovery Advisor for the PDO / Al Tasnim well project. A project engineer is looking at\nONE WELL and has asked two things:\n\n  1. WHY is this well delayed?\n  2. HOW could the delay be overcome, using the crews that are available?\n\nYou are given EVIDENCE, all of it drawn from verified queries: the well's contractual milestones, a\ntally of its tasks, its most urgent late tasks, the late work grouped by WBS and by crew type, and -\nfor each crew type involved - the crews assigned to that late work, how many crews of the type are\nfree, and the best free candidates. Reason over that evidence. You cannot query anything else.\n\n{GROUNDING}\n\nQUESTION 1 - WHY IS THE WELL DELAYED? Think it through before answering.\n- Start from the MILESTONES. A well is contractually delayed when a milestone is MISSED or DELAYED.\n  Name each failed milestone, its owner, and by how many days. Milestones are the contract; the\n  tasks are the work between them.\n- Then the TASKS: which WBS and which crew types carry the late work, and whether that work sits\n  UPSTREAM of a failed milestone in the lifecycle (business_rules §7): pegging sheet -> Location\n  Construction, FLAF -> Flowline Construction, both before rig-on.\n- OWNERSHIP decides whose delay it is (business_rules §6). Pegging sheet, FLAF, rig-on and rig-off\n  are PDO's; construction work is Al Tasnim's. If the chain starts with PDO, say so plainly.\n- Tell the cases apart honestly:\n  * milestones failed AND late work upstream of them -> that work is a PLAUSIBLE contributor;\n  * milestones failed but every task on time -> the delay is not in the recorded construction work;\n    look to the milestone's owner;\n  * no milestone failed but tasks are late -> the well is not contractually delayed yet; the late\n    work is a RISK to the next deadline (\"at_risk\");\n  * nothing failed and nothing late -> the well is not delayed (\"no\").\n- The data records DATES, not dependencies. Any causal link is INFERRED from timing and the\n  lifecycle - say so. NEVER invent a material, weather, approval, equipment or manpower cause; list\n  those only under \"checks\".\n- Every reason must cite evidence: a milestone with its status and variance, or a WBS / crew type\n  with its late-task count and worst overrun.\n\nQUESTION 2 - HOW COULD IT BE OVERCOME?\n- Order the actions by their effect on the next contractual deadline: first whatever unblocks a\n  failed or next-due milestone.\n- NOT STARTED and late -> start it now. OVERDUE and in progress -> reinforce it with a free crew of\n  the SAME crew type. COMPLETED LATE -> nothing left to recover; only its knock-on matters.\n- Name crews ONLY from the candidates listed under their own crew type, and give that crew_type_id\n  with the crew_id. Never propose a crew of another type, and never invent an id.\n- If no crew of a type is free, say so, and propose only what the evidence supports: re-sequencing,\n  or relieving an assigned crew that carries open or overdue work elsewhere (quote its load).\n- \"Available\" means only that none of the crew's open work, on any well, is in progress - not that\n  it is on site, off leave, or near this well. Say so ONCE, in caveats - not in every action.\n- An available crew still holds open work of its own that has not started: moving it means\n  pulling it from that work, so say what it would be pulled from (its open and overdue counts).\n- If the root cause is PDO's, say recovery is outside Al Tasnim's control, and what Al Tasnim can\n  still do meanwhile.\n- About 60% of tasks never record a crew id on any record, so crew workload is understated.\n  Mention it once, in caveats, when a recommendation leans on a crew looking free.\n\nNEVER:\n- present a suggestion as a verified figure;\n- describe an EARLY date as a delay (business_rules §5);\n- name the work by task code alone - use its WBS;\n- add a crew, cause or number that is not in the evidence.\n\nLENGTH - a MEDIUM answer, readable in about a minute. These are limits, not targets:\n- description: 3 sentences - why the well is delayed, whose delay it is, and the main way out.\n- why_delayed: at most 3 reasons, most important first. Each reason is one sentence; its evidence\n  is one short line naming the figures it rests on (e.g. \"FLAF MISSED, +169 d, PDO\") - NOT the\n  whole rows. The page already shows the full evidence beside your answer.\n- actions: at most 4, in priority order. Each action and each rationale is one sentence. Fold\n  related moves into one action (one per crew type, not one per crew) rather than listing each.\n- checks: at most 3. caveats: at most 2.\nSay each thing once. Leaving out a minor point is better than burying the main one.\n\nRespond with ONLY this JSON, no prose around it:\n{\n  \"description\": \"<3 plain sentences for an engineer: why this well is delayed, whose delay it is, and how to overcome it>\",\n  \"delayed\": \"yes\" | \"at_risk\" | \"no\" | \"unknown\",\n  \"why_delayed\": [\n    {\"reason\": \"<what>\", \"evidence\": \"<one line: the figures it rests on>\", \"owner\": \"PDO\" | \"Al Tasnim\" | \"unknown\", \"confidence\": \"high\" | \"medium\" | \"low\"}\n  ],\n  \"actions\": [\n    {\"priority\": 1, \"action\": \"<one concrete step>\", \"crew_type_id\": <id or null>, \"crew_id\": <id or null>, \"rationale\": \"<why, from the evidence>\"}\n  ],\n  \"checks\": [\"<what the data cannot answer and someone should verify on site>\"],\n  \"caveats\": [\"<the limits of this answer>\"]\n}",
           "replyKeys": [
@@ -473,7 +473,7 @@
         },
         {
           "key": "slippage.advisor_task_message",
-          "name": "Slippage: task advisor message",
+          "name": "Well Slippage: task advisor message",
           "description": "The user message of the task-level advisor: the task, related late tasks, milestones and crews as JSON lines. Placeholders are filled by the runtime; an empty {NOTE} leaves no blank lines.",
           "text": "WELL {WELL_ID}\n\nTHE TASK IN QUESTION:\n{TASK}\n\nOTHER LATE TASKS ON THIS WELL PLANNED TO FINISH BEFORE THIS ONE STARTS (nearest first; timing only - the data holds no dependency links):\n{EARLIER_LATE_TASKS}\n\nOTHER LATE TASKS IN THE SAME WBS:\n{SAME_WBS_LATE_TASKS}\n\n{MILESTONES}\n\nASSIGNED CREW (crew_id {ASSIGNED_CREW_ID}) - ITS WORKLOAD ACROSS THE FLEET:\n{ASSIGNED_CREW}\n\nAVAILABLE CREWS OF THIS TYPE (crew_type_id {CREW_TYPE_ID}): {AVAILABLE_COUNT} available, {BUSY_COUNT} busy, of {TYPE_TOTAL}. The best candidates - name ONLY these:\n{AVAILABLE_CREWS}\n\n{NOTE}\n\nAnswer both questions now, as the JSON.",
           "replyKeys": [],
@@ -481,7 +481,7 @@
         },
         {
           "key": "slippage.advisor_well_message",
-          "name": "Slippage: well advisor message",
+          "name": "Well Slippage: well advisor message",
           "description": "The user message of the well-level advisor: milestones, task tally, late work by WBS and by crew type, most urgent late tasks. An empty {NOTE} leaves no blank lines.",
           "text": "WELL {WELL_ID}\n\n{MILESTONES}\n\nTASK TALLY (latest record per task):\n{TASK_TALLY}\n\nLATE WORK BY WBS (worst first):\n{LATE_BY_WBS}\n\nLATE WORK BY CREW TYPE - with the assigned crews' fleet load and the best FREE crews of the same type (name ONLY these candidates, under their own type):\n{LATE_BY_CREW_TYPE}\n\nMOST URGENT LATE TASKS (most urgent first):\n{MOST_URGENT}\n\n{NOTE}\n\nAnswer both questions now, as the JSON.",
           "replyKeys": [],
@@ -489,7 +489,7 @@
         },
         {
           "key": "slippage.msg_task_milestones_listed",
-          "name": "Slippage: task message, milestones",
+          "name": "Well Slippage: task message, milestones",
           "description": "{MILESTONES} of the task advisor message when the well is in the slippage listing ({HEADLINE} = its headline, {MILESTONE_LINES} = one JSON line per milestone).",
           "text": "WELL MILESTONES (headline: {HEADLINE}):\n{MILESTONE_LINES}",
           "replyKeys": [],
@@ -497,7 +497,7 @@
         },
         {
           "key": "slippage.msg_task_milestones_not_listed",
-          "name": "Slippage: task message, no failed milestone",
+          "name": "Well Slippage: task message, no failed milestone",
           "description": "{MILESTONES} of the task advisor message when the well is not in the slippage listing.",
           "text": "WELL MILESTONES: this well is NOT in the slippage listing, which holds only wells that failed a milestone - so no contractual milestone has failed.",
           "replyKeys": [],
@@ -505,7 +505,7 @@
         },
         {
           "key": "slippage.msg_task_milestones_unknown",
-          "name": "Slippage: task message, milestones unknown",
+          "name": "Well Slippage: task message, milestones unknown",
           "description": "{MILESTONES} of the task advisor message when the slippage listing could not be read ({NOTE} = why).",
           "text": "WELL MILESTONES: unknown - {NOTE}",
           "replyKeys": [],
@@ -513,7 +513,7 @@
         },
         {
           "key": "slippage.msg_well_milestones_listed",
-          "name": "Slippage: well message, milestones",
+          "name": "Well Slippage: well message, milestones",
           "description": "{MILESTONES} of the well advisor message when the well is in the slippage listing ({HEADLINE}, {MILESTONE_LINES}).",
           "text": "CONTRACTUAL MILESTONES (headline: {HEADLINE}):\n{MILESTONE_LINES}",
           "replyKeys": [],
@@ -521,7 +521,7 @@
         },
         {
           "key": "slippage.msg_well_milestones_not_listed",
-          "name": "Slippage: well message, no failed milestone",
+          "name": "Well Slippage: well message, no failed milestone",
           "description": "{MILESTONES} of the well advisor message when the well is not in the slippage listing.",
           "text": "CONTRACTUAL MILESTONES: this well is NOT in the slippage listing, which holds only wells that failed a milestone - so no contractual milestone has failed.",
           "replyKeys": [],
@@ -529,7 +529,7 @@
         },
         {
           "key": "slippage.msg_well_milestones_unknown",
-          "name": "Slippage: well message, milestones unknown",
+          "name": "Well Slippage: well message, milestones unknown",
           "description": "{MILESTONES} of the well advisor message when the slippage listing could not be read ({NOTE} = why).",
           "text": "CONTRACTUAL MILESTONES: unknown - {NOTE}",
           "replyKeys": [],
@@ -537,7 +537,7 @@
         },
         {
           "key": "slippage.msg_note",
-          "name": "Slippage: message note",
+          "name": "Well Slippage: message note",
           "description": "{NOTE} of both advisor messages when the evidence carries a note (e.g. no crew data).",
           "text": "NOTE: {NOTE}",
           "replyKeys": [],
@@ -545,7 +545,7 @@
         },
         {
           "key": "slippage.msg_none",
-          "name": "Slippage: empty list",
+          "name": "Well Slippage: empty list",
           "description": "Shown in an advisor message in place of an empty list of tasks or crews.",
           "text": "(none)",
           "replyKeys": [],
@@ -553,7 +553,7 @@
         },
         {
           "key": "slippage.msg_no_late_tasks",
-          "name": "Slippage: no late tasks",
+          "name": "Well Slippage: no late tasks",
           "description": "Shown in the well advisor message in place of an empty late-work grouping.",
           "text": "(no late tasks)",
           "replyKeys": [],
@@ -561,7 +561,7 @@
         },
         {
           "key": "slippage.msg_assigned_crew_missing",
-          "name": "Slippage: assigned crew not found",
+          "name": "Well Slippage: assigned crew not found",
           "description": "{ASSIGNED_CREW} of the task advisor message when the assigned crew is not in crew availability.",
           "text": "(not found in crew availability, or the task records no crew)",
           "replyKeys": [],
@@ -569,7 +569,7 @@
         },
         {
           "key": "slippage.note_milestones_unavailable",
-          "name": "Slippage: note, milestones unknown",
+          "name": "Well Slippage: note, milestones unknown",
           "description": "Evidence note (shown to the model and on the page) when the well slippage query is not configured.",
           "text": "The well slippage query is not configured for Slippage, so the milestones are unknown.",
           "replyKeys": [],
@@ -577,7 +577,7 @@
         },
         {
           "key": "slippage.note_task_no_crew_columns",
-          "name": "Slippage: note, task has no crew columns",
+          "name": "Well Slippage: note, task has no crew columns",
           "description": "Evidence note of the task advisor when the activity delay rows carry no crew_type_id column.",
           "text": "This well's task data has no crew columns, so the task's crew type is unknown. The activity delay query must return crew_id and crew_type_id.",
           "replyKeys": [],
@@ -585,7 +585,7 @@
         },
         {
           "key": "slippage.note_crews_unavailable",
-          "name": "Slippage: note, crew availability missing",
+          "name": "Well Slippage: note, crew availability missing",
           "description": "Evidence note of both advisors when the crew availability query is not configured.",
           "text": "Crew availability is not configured for Slippage, so no crew can be matched.",
           "replyKeys": [],
@@ -593,7 +593,7 @@
         },
         {
           "key": "slippage.note_task_no_crew_type",
-          "name": "Slippage: note, task records no crew type",
+          "name": "Well Slippage: note, task records no crew type",
           "description": "Evidence note of the task advisor when the task records no crew type.",
           "text": "This task records no crew type, so no crew can be matched to it.",
           "replyKeys": [],
@@ -601,7 +601,7 @@
         },
         {
           "key": "slippage.note_no_crew_of_type",
-          "name": "Slippage: note, no crew of this type",
+          "name": "Well Slippage: note, no crew of this type",
           "description": "Evidence note of the task advisor when no crew of the task's type holds open work.",
           "text": "No crew of this type holds open work on any well still in progress.",
           "replyKeys": [],
@@ -609,7 +609,7 @@
         },
         {
           "key": "slippage.note_well_no_crew_columns",
-          "name": "Slippage: note, well has no crew columns",
+          "name": "Well Slippage: note, well has no crew columns",
           "description": "Evidence note of the well advisor when the activity delay rows carry no crew_type_id column.",
           "text": "This well's task data has no crew columns, so late work cannot be matched to crews. The activity delay query must return crew_id and crew_type_id.",
           "replyKeys": [],
@@ -738,6 +738,62 @@
           "max": 100000
         },
         {
+          "key": "savedAnswersPerDate",
+          "label": "Saved AI answers per date",
+          "help": "Verified AI answers are also saved in the database (core.AiFeatureAnswer), so a restart does not lose them. How many of a report date's newest answers are kept and offered for reuse. 0 saves none.",
+          "group": "Caching",
+          "type": "int",
+          "default": 20,
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "prepareBriefs",
+          "label": "Prepare the day brief in advance",
+          "help": "Write the day brief in the background, so it is ready when someone opens the page. It is written again only when the day's data changed.",
+          "group": "Prepared briefs",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "prepareEveryMinutes",
+          "label": "Check for new data every (minutes)",
+          "help": "How often the prepared briefs are checked against the data. A brief is rewritten (one AI call) only when its data changed.",
+          "group": "Prepared briefs",
+          "type": "int",
+          "default": 30,
+          "min": 5,
+          "max": 1440
+        },
+        {
+          "key": "prepareDays",
+          "label": "Report dates kept ready",
+          "help": "How many report dates, counting back from today, have their day brief prepared. 2 = today and yesterday.",
+          "group": "Prepared briefs",
+          "type": "int",
+          "default": 2,
+          "min": 1,
+          "max": 7
+        },
+        {
+          "key": "prepareTimeZone",
+          "label": "Time zone of \"today\"",
+          "help": "The time zone whose date is today for prepared briefs (IANA name, e.g. Asia/Muscat, Asia/Dubai, UTC). Use the users' time zone: a brief depends on today's date (days to each deadline), so only a brief prepared for the users' today is reused.",
+          "group": "Prepared briefs",
+          "type": "text",
+          "default": "Asia/Muscat"
+        },
+        {
+          "key": "parallelWorkers",
+          "label": "Data look-ups at the same time",
+          "help": "How many database look-ups of one AI brief or question run at the same time. 1 runs them one after another.",
+          "group": "Performance",
+          "type": "int",
+          "default": 4,
+          "min": 1,
+          "max": 16
+        },
+        {
           "key": "dbAnsiCodepage",
           "label": "Database code page",
           "help": "Python codec used to decode non-Unicode (varchar) columns.",
@@ -846,6 +902,14 @@
           "max": 5
         },
         {
+          "key": "patchSentences",
+          "label": "Fix only the faulty sentences",
+          "help": "When the verifier rejects a draft for a figure, date or word it can point to, only the sentences that state it are rewritten (one short AI call) and put back, and the whole draft is checked again; if that still fails, the whole draft is rewritten as before. Off: always rewrite the whole draft.",
+          "group": "Agent",
+          "type": "bool",
+          "default": true
+        },
+        {
           "key": "deadlineWindowDays",
           "label": "Deadline window (days)",
           "help": "Days ahead of a milestone deadline at which open work on that well is reported as open work before an upcoming deadline.",
@@ -928,10 +992,10 @@
         {
           "key": "plannerTier",
           "label": "Planner model",
-          "help": "Which of the tenant's AI models plans Ask questions.",
+          "help": "Which of the tenant's AI models plans Ask questions. Choosing tools is small work: the fast model (Settings > AI Providers) does it quickly and cheaply.",
           "group": "AI models",
           "type": "enum",
-          "default": "main",
+          "default": "fast",
           "options": [
             "main",
             "fast"
@@ -940,7 +1004,7 @@
         {
           "key": "dayWriterTier",
           "label": "Day brief model",
-          "help": "Which model writes the front page's day brief.",
+          "help": "Which model writes the front page's day brief. Writing from many figures is heavy work: the main model.",
           "group": "AI models",
           "type": "enum",
           "default": "main",
@@ -964,10 +1028,10 @@
         {
           "key": "verifierTier",
           "label": "AI verifier model",
-          "help": "Which model gives the optional second opinion.",
+          "help": "Which model gives the optional second opinion. Every figure is already checked by code, so this is small work: the fast model.",
           "group": "AI models",
           "type": "enum",
-          "default": "main",
+          "default": "fast",
           "options": [
             "main",
             "fast"
@@ -986,22 +1050,37 @@
         {
           "key": "writerMaxTokens",
           "label": "Writer max tokens",
-          "help": "Completion budget for well / task briefs and Ask answers.",
+          "help": "Completion budget for well / task briefs and Ask answers. A reasoning model spends part of it thinking before it writes; an answer that runs out is asked again once with twice the budget, and is never shown cut off.",
           "group": "AI models",
           "type": "int",
-          "default": 900,
+          "default": 3000,
           "min": 64,
           "max": 100000
         },
         {
           "key": "dayWriterMaxTokens",
           "label": "Day brief max tokens",
-          "help": "Completion budget for the day brief (reasoning models need more).",
+          "help": "Completion budget for the day brief. A reasoning model spends part of it thinking before it writes (900 cut gpt-5.6-luna's day brief off mid-sentence); an answer that runs out is asked again once with twice the budget, and is never shown cut off.",
           "group": "AI models",
           "type": "int",
-          "default": 900,
+          "default": 4000,
           "min": 64,
           "max": 100000
+        },
+        {
+          "key": "writerEffort",
+          "label": "Writer thinking effort",
+          "help": "How long a reasoning model (e.g. gpt-5.6-luna) thinks before it writes a Daily Report brief or answer. Every figure is already calculated by SQL and checked by code, so low is usually enough and much faster; raise it if the wording misses what matters. default = send nothing (the provider's own default). Only the main model is told; models that do not take it ignore it.",
+          "group": "AI models",
+          "type": "enum",
+          "default": "low",
+          "options": [
+            "default",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ]
         },
         {
           "key": "verifierMaxTokens",
@@ -1200,6 +1279,42 @@
             "FLAF=FLAF",
             "RIG_ON=Rig-on",
             "RIG_OFF=Rig-off"
+          ]
+        },
+        {
+          "key": "statusWords",
+          "label": "Status codes in plain words",
+          "help": "CODE=words: how a status code is written in an AI brief or answer (21 ON_PLAN reads 21 on plan). Applied to the AI's text before its figures are checked; a code not listed stays as it is. The AI's backticks around values are removed too.",
+          "group": "Vocabulary",
+          "type": "list",
+          "default": [
+            "ON_PLAN=on plan",
+            "ABOVE_PLAN=above plan",
+            "BELOW_PLAN=below plan",
+            "NO_ACTUAL=no actual entered",
+            "NOT_VALIDATED=not validated",
+            "ON_TIME=on time",
+            "EARLY=early",
+            "LATE=late",
+            "MATCHED=matched",
+            "MISMATCHED=mismatched",
+            "NOT_COMPARABLE=not comparable",
+            "COMPLETED=completed",
+            "ONGOING=ongoing",
+            "NOT_STARTED=not started",
+            "ENDED_NOT_COMPLETED=ended, not completed",
+            "UNMAPPED_ACTIVITY=unmapped activity",
+            "UNMAPPED_DESCRIPTION=unmapped activity description",
+            "UNMAPPED_WBS=unmapped WBS",
+            "UNMAPPED_CREW=unmapped crew",
+            "MISSING_UOM=missing unit of measure",
+            "INVALID_DAILY_JSON=unreadable daily entry",
+            "UNPARSEABLE_ACTUAL_QUANTITY=unreadable actual quantity",
+            "DUPLICATE_ACTUAL_ENTRY=duplicate actual entry",
+            "MULTIPLE_TASK_ROWS=multiple task rows",
+            "MISSING_PLANNED=missing planned quantity",
+            "MALFORMED_TASK_CODE=malformed task code",
+            "INVALID_DATE_SEQUENCE=actual end before actual start"
           ]
         },
         {
@@ -1407,7 +1522,7 @@
           "key": "dailyreport.explain_system",
           "name": "Daily Report: explanation rules",
           "description": "System prompt of the brief writer (day / well / task briefs and Ask answers): how to read the evidence and how to write about it. The writer addendum is appended after it.",
-          "text": "You are an operational data explanation assistant.\n\nThe supplied JSON is authoritative deterministic evidence.\n\nDo not calculate, modify, reinterpret, infer or invent values.\n\nDo not invent causes.\n\nDo not assign responsibility unless explicitly provided by the evidence.\n\nDo not create business rules.\n\nExplain only what the supplied evidence supports.\n\nThe \"summary\" figures (well_count, task_count, status_counts) always cover every well and task in scope. The \"tasks\" list is only a representative sample -- chosen to span every status and as many distinct wells as possible -- never the full list. When the scope covers more than one well, describe the scope as a whole using the summary figures first, and refer to specific wells only as individual examples within that whole. Never describe the scope as if it were about only the well(s) shown in the sample.\n\nIf information is missing, state that it is unavailable.\n\nUse the supplied quantity_status exactly as provided.\n\nDo not replace SQL/Python classifications with your own classification.\n\nDo not describe quantity differences as errors unless the evidence explicitly identifies them as errors.\n\nReport the progress value exactly as given. Its unit is not defined in the business rules, so never call it a percentage, never multiply it, and never describe how complete the task is from it.\n\nWhen a task carries \"crew_match_status\", it compares the crew type actually assigned to the task against the crew the WBS/activity mapping expects. `MATCHED` and `MISMATCHED` are both plain facts, never an error and never a judgement of the crew -- say only that the two agree or do not, and never speculate why. `NOT_COMPARABLE` means no crew is recorded on the task, or no WBS crew is mapped, so nothing could be compared; say that plainly rather than treating it as either a match or a mismatch.\n\nWhen a task carries \"start_date_status\" or \"end_date_status\", each compares one reported actual date against its own planned date -- start against start, end against end, never against each other. Use the supplied classification exactly: `EARLY` and `LATE` are both descriptive facts, never errors and never a sign the crew is at fault -- being early is not an anomaly. `NO_ACTUAL` means that date has not been reported yet. Never compute a variance yourself, never state a number of days, and never call a date \"wrong\", \"incorrect\" or \"bad\" -- say only that it is earlier than, later than, or the same as the plan.\n\nWrite for a construction operations supervisor reading a morning brief. Write in flowing prose paragraphs, the way a person would explain it out loud -- NOT as a bulleted or numbered list, and not broken into labelled sections. Do not use markdown formatting of any kind: no asterisks, no bold, no headings, no bullet points, no tables.\n\nOne exception, and the only one: wrap every literal value you copy directly from the evidence in backticks -- a well ID, task code, activity code, WBS name, crew code, unit of measure, quantity, date, or status code -- for example `30365`, `54 Joint`, `BELOW_PLAN`, `FLME1150-30365-T07`. This lets the reader tell your own words apart from a value taken straight from the record. Never wrap your own wording, a rounded or approximate figure, or anything you did not copy verbatim from the evidence.\n\nTwo to four short paragraphs is normal; a single paragraph is fine for a small scope. Use conservative wording: say \"the reported actual quantity is below the planned quantity\", never \"the crew underperformed\". Never convert between units of measure. Keep the response under 220 words.\n\nWhen \"summary\" carries \"no_daily_entry\", nothing was recorded for this selection on this report date. Say that in one plain sentence and move on to whatever else the evidence carries. When the selection is a single well, never mention a well count at all -- there is one well, it is the one being explained, and saying \"0 wells\" about it is both confusing and wrong.\n\nNever read the shape of the payload out loud. Do not write \"0 wells and 0 tasks in scope\", do not recite a list of zeroed status counts, and never introduce a figure by naming the block it came from -- not \"the summary indicates\", \"the task state summary shows\", \"the evidence lists\" or anything of that shape. State the fact itself, the way a person reading the record would say it out loud.\n\nA task reported with no actual quantity is still a task that was reported. `NO_ACTUAL` means the entry carries no actual quantity, NOT that the well reported nothing that day -- a well with a reported task must never be described as having reported no activity, and the two are separate facts that must never be merged into one sentence.\n\nWhen the evidence includes a \"live_well_task_activity\" object, it covers EVERY live well with a task record as of the report date -- not only the wells that reported something on it. Use it to describe the standing position behind the day: how many live wells have unfinished tasks, how many of those reported nothing on the date, and how much work that adds up to. Its open_total is incomplete_total plus ongoing_total, which do not overlap -- the same split each well row shows. Keep it clearly apart from the day's own reported figures above it: one describes what was entered on this date, the other where every live well's tasks stand. A day with one reported task and hundreds of wells carrying open work is an ordinary thing to describe plainly, not a problem to raise. The wells in \"wells_with_most_open_work\" are examples only, chosen for carrying the most unfinished tasks; the counts beside them cover every well, so never describe the day as if it were about only the wells you name, and never total, rank or compare them yourself beyond the order given. A well appearing there with no task reported on the date means exactly that -- no entry that day -- never that it is idle, abandoned, delayed or behind.\n\nWhen the evidence includes a \"well_task_activity\" object, it describes where that one well's tasks stand overall as of the report date -- not what it did on the date alone. Every figure in it was already calculated: never add, subtract, compare or re-derive one, and never turn one into a percentage or a share. Read the \"definitions\" it carries and say what each figure means in plain words rather than naming the field. today_reported_task_count is how many tasks the well reported on the selected date, and zero means simply that no task was recorded for it that day -- never that work stopped, that the well is idle, or that someone failed to report. open_task_count counts every task whose latest record does not say completed, and it splits into two figures that do NOT overlap: incomplete_task_count (open but not ongoing -- no recorded actual start, or an actual end recorded without completion) and ongoing_task_count (a recorded actual start and no recorded actual end). Incomplete and ongoing add up to open, so never call ongoing a subset or a part of incomplete, never describe one task as counting toward both, and never add, subtract or re-derive these figures yourself -- each is already exactly what it says. last_task_date is the latest date the well appears in the task records: say it that way, and never call it a completion date, a finish date, or the date work stopped. A task listed as ended without being completed is exactly that -- the record carries an end date and does not say completed -- so report both halves and do not resolve the two yourself. Never describe a task or a well as delayed, late, overdue, stalled, behind schedule or at risk: no rule in this system defines any of those, and no evidence here establishes one. Never suggest what should be done about the well. A well with tasks but none reported on the selected date is an ordinary case worth one plain sentence, not a concern to raise.\n\nWhen the evidence includes a \"crew_suggestion\" object, it is deterministic evidence about this one task only -- calculated entirely by SQL/Python, never by you. It is advisory only: never describe it as an assignment, a reassignment, or something that has happened. Never say a crew \"will be\" or \"has been\" put on the task.\n\nALWAYS give a crew's id the first time you mention that crew, wrapped in backticks like every other literal value -- for example \"crew `10570`\" or \"crew `10570` (Cellar Crew, supervised by Ali)\". This applies to every crew in the evidence: the one recorded on the task now (current_crew.crew_id) and the one being surfaced (suggested_crew.crew_id or consult_crew.crew_id). The id is what an operator uses to actually find the crew, and a crew type name alone does not identify one crew -- several crew instances can share a type. Never invent an id, and when current_crew.crew_id is null say plainly that no crew is recorded on the task rather than naming one.\n\nEverywhere below, never write the name of a JSON field or an internal status code as if it were a phrase in your own sentence -- not \"eligible\", \"ineligible\", \"crew_suggestion\", \"suggested_crew\", \"consult_crew\", \"suppression_reason\", \"the suppression reason states...\", \"no_suggestion_reason\", or anything of that shape. These are internal field names for carrying data between programs, not words a person would say out loud; writing one describes the evidence structure instead of the task. Always restate what a field says in plain prose instead of naming the field itself.\n\nIf crew_suggestion.eligible is false and there is no consult_crew field either, write your explanation exactly as you would if the word \"crew_suggestion\" never appeared anywhere in the evidence. Do not write any sentence about a crew suggestion, an alternative crew, or crew availability -- including a sentence that says one is not needed, not provided, or not applicable. Silence on the topic is correct; a sentence explaining its absence is not. This happens whenever the task is already completed, or already shows recorded progress with no crew to point to -- a routine case that needs no comment.\n\nIf crew_suggestion.eligible is true but suggested_crew is null, do not invent a crew. Say plainly, in your own words, that no suitable alternative crew was identified from the available records, using no_suggestion_reason if it is present.\n\nIf suggested_crew is present, weave it naturally into the same explanation -- do not present it as a separate feature or a separate paragraph header. Explain why that crew is being surfaced using only the supplied fields: how many times it has completed this same activity (historical_completed_task_count), on how many distinct wells (distinct_completed_well_count), its typical (median) completion time (typical_completion_days) and, where useful, its average (average_completion_days) -- these are two different figures and must never be conflated or called by the other's name. If completed_on_incomplete_well_count is greater than zero, mention that some of that history comes from wells that were not themselves complete, so the evidence reflects finishing this activity, not finishing the whole well. derived_availability of NO_CURRENT_UNFINISHED_TASK means only that no current unfinished task was found for that crew in the available records -- never call this \"available\" or \"free\" without that qualification, and never claim physical or workforce availability. evidence_strength describes how much history backs the suggestion (say so only if it adds something, never as a raw label). Never rank or compare crews yourself -- exactly one crew is ever supplied, and it is already the top-ranked one. suggested_crew is only ever supplied for a task that is stalled or has not yet started moving -- never say this task \"is progressing normally\", \"is going smoothly\", or \"does not need a change\": that framing belongs only to consult_crew below, on a different kind of task, and would contradict the evidence here. Conclude this crew's mention as a possible alternative for the task itself -- e.g. \"may be worth considering as an alternative crew for this task\" -- never as something to consult for feedback or information, which is consult_crew's framing, not this one.\n\nIf consult_crew is present instead of suggested_crew, the task is already progressing normally -- no change is needed. Refer to the crew the ordinary way you would refer to any other crew in this evidence: by its crew id, plus its crew type and/or supervisor name when those are given -- exactly as you would for suggested_crew or current_crew, never by naming the field it came from.\n\nSay, in plain natural words, that the task is going smoothly and another crew is not necessary right now, then add -- as a small, friendly aside, not a warning -- that if any feedback or information is ever needed about this activity, that crew has handled this same work before (using its own historical_completed_task_count / distinct_completed_well_count / typical_completion_days the same way you would for suggested_crew) and could be worth asking. Never call this a suggestion, a recommendation, or an alternative crew -- it is only a \"here is who has done this before, in case you want their input\" mention on an otherwise fine task. The same rules as suggested_crew apply to what you may claim: never call derived_availability \"available\" without qualification, never invent a reason beyond the supplied fields, and never rank or compare crews. A good shape for this, adapted in your own words and grounded in the actual crew type/supervisor given, is: \"the task is going smoothly, so another crew is not necessary, but if any feedback or information is needed on this activity, the crew that previously completed this work could be worth asking.\"\n\ncurrent_crew tells you what is already recorded on the task. If current_crew.recorded is false, say the crew is not recorded or associated with this task record -- never say \"no crew was assigned\", which claims more than the evidence supports. Never criticise, blame, or judge the performance of the current crew; the current task simply taking longer than the historical pattern is not evidence of fault.\n\nRespect the report date. For a past report date, describe the crew evidence in the past tense, as what was already known BY that date -- e.g. \"Crew X had already completed...\" or \"could have been considered as an alternative at that time\" -- never as if it were being decided today. Never use evidence timestamped after the selected report date; the evidence you were given is already limited to what existed by then, so simply describe it as of that date. Never claim a crew \"would definitely have finished faster\" or \"would have solved the delay\" -- say only that it could have been considered, based on the evidence available then.",
+          "text": "You are an operational data explanation assistant.\n\nThe supplied JSON is authoritative deterministic evidence.\n\nDo not calculate, modify, reinterpret, infer or invent values.\n\nDo not invent causes.\n\nDo not assign responsibility unless explicitly provided by the evidence.\n\nDo not create business rules.\n\nExplain only what the supplied evidence supports.\n\nThe \"summary\" figures (well_count, task_count, status_counts) always cover every well and task in scope. The \"tasks\" list is only a representative sample -- chosen to span every status and as many distinct wells as possible -- never the full list. When the scope covers more than one well, describe the scope as a whole using the summary figures first, and refer to specific wells only as individual examples within that whole. Never describe the scope as if it were about only the well(s) shown in the sample.\n\nIf information is missing, state that it is unavailable.\n\nUse the supplied quantity_status exactly as provided.\n\nDo not replace SQL/Python classifications with your own classification.\n\nDo not describe quantity differences as errors unless the evidence explicitly identifies them as errors.\n\nReport the progress value exactly as given. Its unit is not defined in the business rules, so never call it a percentage, never multiply it, and never describe how complete the task is from it.\n\nWhen a task carries \"crew_match_status\", it compares the crew type actually assigned to the task against the crew the WBS/activity mapping expects. `MATCHED` and `MISMATCHED` are both plain facts, never an error and never a judgement of the crew -- say only that the two agree or do not, and never speculate why. `NOT_COMPARABLE` means no crew is recorded on the task, or no WBS crew is mapped, so nothing could be compared; say that plainly rather than treating it as either a match or a mismatch.\n\nWhen a task carries \"start_date_status\" or \"end_date_status\", each compares one reported actual date against its own planned date -- start against start, end against end, never against each other. Use the supplied classification exactly: `EARLY` and `LATE` are both descriptive facts, never errors and never a sign the crew is at fault -- being early is not an anomaly. `NO_ACTUAL` means that date has not been reported yet. Never compute a variance yourself, never state a number of days, and never call a date \"wrong\", \"incorrect\" or \"bad\" -- say only that it is earlier than, later than, or the same as the plan.\n\nWrite for a construction operations supervisor reading a morning brief. Write in flowing prose paragraphs, the way a person would explain it out loud -- NOT as a bulleted or numbered list, and not broken into labelled sections. Do not use markdown formatting of any kind: no asterisks, no bold, no headings, no bullet points, no tables.\n\nWrite every value as plain text, exactly as the evidence gives it, with no backticks or quotation marks around it -- for example well 30365, 54 Joint, FLME1150-30365-T07. Write a status code in plain words: on plan, above plan, below plan, no actual entered, not validated, on time, early, late, matched, mismatched, not comparable -- for example \"21 tasks on plan\", never \"21 ON_PLAN\".\n\nTwo to four short paragraphs is normal; a single paragraph is fine for a small scope. Use conservative wording: say \"the reported actual quantity is below the planned quantity\", never \"the crew underperformed\". Never convert between units of measure. Keep the response under 220 words.\n\nWhen \"summary\" carries \"no_daily_entry\", nothing was recorded for this selection on this report date. Say that in one plain sentence and move on to whatever else the evidence carries. When the selection is a single well, never mention a well count at all -- there is one well, it is the one being explained, and saying \"0 wells\" about it is both confusing and wrong.\n\nNever read the shape of the payload out loud. Do not write \"0 wells and 0 tasks in scope\", do not recite a list of zeroed status counts, and never introduce a figure by naming the block it came from -- not \"the summary indicates\", \"the task state summary shows\", \"the evidence lists\" or anything of that shape. State the fact itself, the way a person reading the record would say it out loud.\n\nA task reported with no actual quantity is still a task that was reported. `NO_ACTUAL` means the entry carries no actual quantity, NOT that the well reported nothing that day -- a well with a reported task must never be described as having reported no activity, and the two are separate facts that must never be merged into one sentence.\n\nWhen the evidence includes a \"live_well_task_activity\" object, it covers EVERY live well with a task record as of the report date -- not only the wells that reported something on it. Use it to describe the standing position behind the day: how many live wells have unfinished tasks, how many of those reported nothing on the date, and how much work that adds up to. Its open_total is incomplete_total plus ongoing_total, which do not overlap -- the same split each well row shows. Keep it clearly apart from the day's own reported figures above it: one describes what was entered on this date, the other where every live well's tasks stand. A day with one reported task and hundreds of wells carrying open work is an ordinary thing to describe plainly, not a problem to raise. The wells in \"wells_with_most_open_work\" are examples only, chosen for carrying the most unfinished tasks; the counts beside them cover every well, so never describe the day as if it were about only the wells you name, and never total, rank or compare them yourself beyond the order given. A well appearing there with no task reported on the date means exactly that -- no entry that day -- never that it is idle, abandoned, delayed or behind.\n\nWhen the evidence includes a \"well_task_activity\" object, it describes where that one well's tasks stand overall as of the report date -- not what it did on the date alone. Every figure in it was already calculated: never add, subtract, compare or re-derive one, and never turn one into a percentage or a share. Read the \"definitions\" it carries and say what each figure means in plain words rather than naming the field. today_reported_task_count is how many tasks the well reported on the selected date, and zero means simply that no task was recorded for it that day -- never that work stopped, that the well is idle, or that someone failed to report. open_task_count counts every task whose latest record does not say completed, and it splits into two figures that do NOT overlap: incomplete_task_count (open but not ongoing -- no recorded actual start, or an actual end recorded without completion) and ongoing_task_count (a recorded actual start and no recorded actual end). Incomplete and ongoing add up to open, so never call ongoing a subset or a part of incomplete, never describe one task as counting toward both, and never add, subtract or re-derive these figures yourself -- each is already exactly what it says. last_task_date is the latest date the well appears in the task records: say it that way, and never call it a completion date, a finish date, or the date work stopped. A task listed as ended without being completed is exactly that -- the record carries an end date and does not say completed -- so report both halves and do not resolve the two yourself. Never describe a task or a well as delayed, late, overdue, stalled, behind schedule or at risk: no rule in this system defines any of those, and no evidence here establishes one. Never suggest what should be done about the well. A well with tasks but none reported on the selected date is an ordinary case worth one plain sentence, not a concern to raise.\n\nWhen the evidence includes a \"crew_suggestion\" object, it is deterministic evidence about this one task only -- calculated entirely by SQL/Python, never by you. It is advisory only: never describe it as an assignment, a reassignment, or something that has happened. Never say a crew \"will be\" or \"has been\" put on the task.\n\nALWAYS give a crew's id the first time you mention that crew, wrapped in backticks like every other literal value -- for example \"crew `10570`\" or \"crew `10570` (Cellar Crew, supervised by Ali)\". This applies to every crew in the evidence: the one recorded on the task now (current_crew.crew_id) and the one being surfaced (suggested_crew.crew_id or consult_crew.crew_id). The id is what an operator uses to actually find the crew, and a crew type name alone does not identify one crew -- several crew instances can share a type. Never invent an id, and when current_crew.crew_id is null say plainly that no crew is recorded on the task rather than naming one.\n\nEverywhere below, never write the name of a JSON field or an internal status code as if it were a phrase in your own sentence -- not \"eligible\", \"ineligible\", \"crew_suggestion\", \"suggested_crew\", \"consult_crew\", \"suppression_reason\", \"the suppression reason states...\", \"no_suggestion_reason\", or anything of that shape. These are internal field names for carrying data between programs, not words a person would say out loud; writing one describes the evidence structure instead of the task. Always restate what a field says in plain prose instead of naming the field itself.\n\nIf crew_suggestion.eligible is false and there is no consult_crew field either, write your explanation exactly as you would if the word \"crew_suggestion\" never appeared anywhere in the evidence. Do not write any sentence about a crew suggestion, an alternative crew, or crew availability -- including a sentence that says one is not needed, not provided, or not applicable. Silence on the topic is correct; a sentence explaining its absence is not. This happens whenever the task is already completed, or already shows recorded progress with no crew to point to -- a routine case that needs no comment.\n\nIf crew_suggestion.eligible is true but suggested_crew is null, do not invent a crew. Say plainly, in your own words, that no suitable alternative crew was identified from the available records, using no_suggestion_reason if it is present.\n\nIf suggested_crew is present, weave it naturally into the same explanation -- do not present it as a separate feature or a separate paragraph header. Explain why that crew is being surfaced using only the supplied fields: how many times it has completed this same activity (historical_completed_task_count), on how many distinct wells (distinct_completed_well_count), its typical (median) completion time (typical_completion_days) and, where useful, its average (average_completion_days) -- these are two different figures and must never be conflated or called by the other's name. If completed_on_incomplete_well_count is greater than zero, mention that some of that history comes from wells that were not themselves complete, so the evidence reflects finishing this activity, not finishing the whole well. derived_availability of NO_CURRENT_UNFINISHED_TASK means only that no current unfinished task was found for that crew in the available records -- never call this \"available\" or \"free\" without that qualification, and never claim physical or workforce availability. evidence_strength describes how much history backs the suggestion (say so only if it adds something, never as a raw label). Never rank or compare crews yourself -- exactly one crew is ever supplied, and it is already the top-ranked one. suggested_crew is only ever supplied for a task that is stalled or has not yet started moving -- never say this task \"is progressing normally\", \"is going smoothly\", or \"does not need a change\": that framing belongs only to consult_crew below, on a different kind of task, and would contradict the evidence here. Conclude this crew's mention as a possible alternative for the task itself -- e.g. \"may be worth considering as an alternative crew for this task\" -- never as something to consult for feedback or information, which is consult_crew's framing, not this one.\n\nIf consult_crew is present instead of suggested_crew, the task is already progressing normally -- no change is needed. Refer to the crew the ordinary way you would refer to any other crew in this evidence: by its crew id, plus its crew type and/or supervisor name when those are given -- exactly as you would for suggested_crew or current_crew, never by naming the field it came from.\n\nSay, in plain natural words, that the task is going smoothly and another crew is not necessary right now, then add -- as a small, friendly aside, not a warning -- that if any feedback or information is ever needed about this activity, that crew has handled this same work before (using its own historical_completed_task_count / distinct_completed_well_count / typical_completion_days the same way you would for suggested_crew) and could be worth asking. Never call this a suggestion, a recommendation, or an alternative crew -- it is only a \"here is who has done this before, in case you want their input\" mention on an otherwise fine task. The same rules as suggested_crew apply to what you may claim: never call derived_availability \"available\" without qualification, never invent a reason beyond the supplied fields, and never rank or compare crews. A good shape for this, adapted in your own words and grounded in the actual crew type/supervisor given, is: \"the task is going smoothly, so another crew is not necessary, but if any feedback or information is needed on this activity, the crew that previously completed this work could be worth asking.\"\n\ncurrent_crew tells you what is already recorded on the task. If current_crew.recorded is false, say the crew is not recorded or associated with this task record -- never say \"no crew was assigned\", which claims more than the evidence supports. Never criticise, blame, or judge the performance of the current crew; the current task simply taking longer than the historical pattern is not evidence of fault.\n\nRespect the report date. For a past report date, describe the crew evidence in the past tense, as what was already known BY that date -- e.g. \"Crew X had already completed...\" or \"could have been considered as an alternative at that time\" -- never as if it were being decided today. Never use evidence timestamped after the selected report date; the evidence you were given is already limited to what existed by then, so simply describe it as of that date. Never claim a crew \"would definitely have finished faster\" or \"would have solved the delay\" -- say only that it could have been considered, based on the evidence available then.",
           "replyKeys": [],
           "allowEmpty": false
         },
@@ -1452,6 +1567,16 @@
           "description": "Appended to the writer message when the verifier rejected a draft. {ISSUES} the issues as '- ' bullet lines, {DRAFT} the rejected draft.",
           "text": "Your previous draft was rejected by the verifier for these reasons:\n{ISSUES}\n\nPrevious draft:\n{DRAFT}\n\nWrite a corrected answer that fixes every issue.",
           "replyKeys": [],
+          "allowEmpty": false
+        },
+        {
+          "key": "dailyreport.writer_patch",
+          "name": "Daily Report: fix only the rejected sentences",
+          "description": "Appended to the writer message when the verifier rejected only some sentences of a draft (setting \"Fix only the faulty sentences\"): the model rewrites those sentences, code puts them back and the whole draft is checked again. {ISSUES} the issues as '- ' bullet lines, {DRAFT} the whole draft, {COUNT} how many sentences to return, {SENTENCES} the rejected sentences, numbered. The reply must be JSON with a \"sentences\" list.",
+          "text": "The verifier accepted your draft except for the sentences below, for these reasons:\n{ISSUES}\n\nYour whole draft, for context:\n{DRAFT}\n\nRewrite ONLY these {COUNT} sentence(s), in the same order. Keep each one's place and purpose in the draft, and use only values the tool results give: correct a figure, date or word the verifier named, or leave it out. Write each as one plain sentence, in the same style as the draft.\n\nSentences to rewrite:\n{SENTENCES}\n\nReturn ONLY a JSON object: {\"sentences\": [\"<rewritten sentence 1>\", ...]} with exactly {COUNT} sentence(s).",
+          "replyKeys": [
+            "sentences"
+          ],
           "allowEmpty": false
         },
         {
@@ -1808,6 +1933,16 @@
           "default": 3,
           "min": 1,
           "max": 16
+        },
+        {
+          "key": "compileConcurrency",
+          "label": "Rules compiled in parallel",
+          "help": "How many rules one compile writes and checks at the same time. Each makes its own AI calls and short test queries: higher is faster, but uses more of the AI provider rate limit and of the database. Rule families always compile one member at a time.",
+          "group": "Database",
+          "type": "int",
+          "default": 3,
+          "min": 1,
+          "max": 8
         },
         {
           "key": "readUncommitted",
@@ -5523,6 +5658,328 @@
             "observationFact": "",
             "proposalHash": ""
           }
+        }
+      ]
+    },
+    "crew": {
+      "title": "Crew Management",
+      "description": "Which crews are free, busy or idle across the fleet, crew capacity against the delayed work each crew type is needed for, and for a live well the crew on each delayed activity with the free crews to approach, plus an AI brief of the crew plan.",
+      "accessMode": "tables",
+      "settings": [
+        {
+          "key": "crewRecentDays",
+          "label": "Recent activity window (days)",
+          "help": "A crew whose whole team has no task record within this many days of the latest task record is INACTIVE (it may have left the project) and is never recommended.",
+          "group": "Availability",
+          "type": "int",
+          "default": 90,
+          "min": 7,
+          "max": 365
+        },
+        {
+          "key": "maxCrewsPerActivity",
+          "label": "Recommended crews per activity",
+          "help": "Most free crews recommended for one delayed activity, best first.",
+          "group": "Availability",
+          "type": "int",
+          "default": 3,
+          "min": 1,
+          "max": 10
+        },
+        {
+          "key": "maxCrewsPerType",
+          "label": "Free crews listed per crew type",
+          "help": "Most free crews listed per crew type in a well's crew plan.",
+          "group": "Availability",
+          "type": "int",
+          "default": 5,
+          "min": 1,
+          "max": 20
+        },
+        {
+          "key": "staleRecordDays",
+          "label": "Stale well record (days)",
+          "help": "When a well's latest task record is older than this, the page says its delays are as last recorded.",
+          "group": "Availability",
+          "type": "int",
+          "default": 14,
+          "min": 1,
+          "max": 90
+        },
+        {
+          "key": "cacheSeconds",
+          "label": "Fleet result cache (seconds)",
+          "help": "The crew board, the crew-type demand and the well list scan every task record; their results are reused for this long (Refresh reads them again). 0 = always read.",
+          "group": "Queries",
+          "type": "int",
+          "default": 300,
+          "min": 0,
+          "max": 3600
+        },
+        {
+          "key": "queryMaxRows",
+          "label": "Query row limit",
+          "help": "Most rows a Crew Management query returns; more are cut and flagged.",
+          "group": "Queries",
+          "type": "int",
+          "default": 20000,
+          "min": 100,
+          "max": 100000
+        },
+        {
+          "key": "queryTimeoutSeconds",
+          "label": "Query timeout (seconds)",
+          "help": "How long one Crew Management query may run.",
+          "group": "Queries",
+          "type": "int",
+          "default": 180,
+          "min": 5,
+          "max": 600
+        },
+        {
+          "key": "wellIdMaxLength",
+          "label": "Well id max length",
+          "help": "Longest well id accepted.",
+          "group": "Queries",
+          "type": "int",
+          "default": 20,
+          "min": 1,
+          "max": 50
+        },
+        {
+          "key": "briefTemperature",
+          "label": "Brief temperature",
+          "help": "Sampling temperature of the crew brief (dropped automatically for models that do not accept it).",
+          "group": "AI",
+          "type": "decimal",
+          "default": 0.2,
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "briefReasoningEffort",
+          "label": "Brief reasoning effort",
+          "help": "Reasoning effort sent to reasoning models; blank = the provider's default. Never sent to Ollama.",
+          "group": "AI",
+          "type": "enum",
+          "default": "low",
+          "options": [
+            "",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        {
+          "key": "briefVerbosity",
+          "label": "Brief verbosity",
+          "help": "Verbosity sent to models that support it; blank = the provider's default.",
+          "group": "AI",
+          "type": "enum",
+          "default": "",
+          "options": [
+            "",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        {
+          "key": "briefMaxTokens",
+          "label": "Brief length limit (tokens)",
+          "help": "Most tokens the AI may write for one brief.",
+          "group": "AI",
+          "type": "int",
+          "default": 3000,
+          "min": 256,
+          "max": 16000
+        }
+      ],
+      "access": {
+        "includedTables": [
+          "bridge.crew_employee",
+          "dbo.activity_master_csv",
+          "dbo.mapping_master",
+          "ref.crew",
+          "ref.crew_type",
+          "ref.employee",
+          "well.task_daily",
+          "well.well_master"
+        ]
+      },
+      "queries": [
+        {
+          "key": "crew_wells",
+          "label": "Live wells with delayed activities",
+          "description": "Which live wells have delayed activities that still need work, how many have no crew recorded, and how late the worst one is? The well picker. Grain: one row per live well.",
+          "sql": "/*\n===============================================================================\nCREW MANAGEMENT\nLIVE WELLS WITH OPEN DELAYED ACTIVITIES\n\nPurpose:\n    The well picker. One row per live well (eng_completion_date IS NULL) that\n    has at least one delayed task that still needs work, using the same task\n    state and delay rules as crew_delayed_activities (see its header for the\n    three data rules: forecast actual dates, the completed flag, the crew):\n\n        COMPLETED            closed on the latest record, or completed = 1 on an\n                             earlier record with no new work since (not listed)\n        AWAITING_CLOSE_OUT   progress = 1 but not closed (counted separately)\n        delayed              target_end has passed, or target_start has passed and\n                             the task never started\n\nContract:\n    - READ-ONLY. SELECT/CTE only. No parameters.\n===============================================================================\n*/\n\nWITH Params AS\n(\n    SELECT\n        CAST(GETDATE() AS DATE) AS today\n),\n\n\nTaskHistory AS\n(\n    SELECT\n        TRY_CONVERT(INT, td.well_id)        AS well_id,\n        td.ActionOn,\n        td.target_start,\n        td.target_end,\n        CASE\n            WHEN td.actual_start <> '19000101'\n             AND td.actual_start <= CAST(td.ActionOn AS DATE)\n                THEN td.actual_start\n        END AS actual_start,\n\n        CASE\n            WHEN td.actual_end <> '19000101'\n             AND td.actual_end <= CAST(td.ActionOn AS DATE)\n                THEN td.actual_end\n        END AS actual_end,\n\n        td.completed,\n        td.progress,\n\n        FIRST_VALUE(td.crew_id) OVER\n        (\n            PARTITION BY\n                TRY_CONVERT(INT, td.well_id),\n                LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                CASE WHEN td.crew_id IS NULL THEN 1 ELSE 0 END,\n                td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS crew_id,\n\n        ROW_NUMBER() OVER\n        (\n            PARTITION BY\n                TRY_CONVERT(INT, td.well_id),\n                LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                td.ActionOn DESC,\n                td.updated_at DESC,\n                td.id DESC\n        ) AS rn,\n\n        MAX(\n            CASE WHEN td.completed = 1 THEN CAST(td.ActionOn AS DATE) END\n        ) OVER\n        (\n            PARTITION BY\n                TRY_CONVERT(INT, td.well_id),\n                LTRIM(RTRIM(td.task_code))\n        ) AS completed_on\n\n    FROM well.task_daily AS td\n\n    CROSS JOIN Params AS p\n\n    WHERE td.task_code IS NOT NULL\n      AND LTRIM(RTRIM(td.task_code)) <> ''\n      AND TRY_CONVERT(INT, td.well_id) IS NOT NULL\n      AND td.ActionOn <= p.today\n),\n\n\nTaskState AS\n(\n    SELECT\n        th.*,\n\n        CASE\n            WHEN th.completed = 1 OR th.actual_end IS NOT NULL\n                THEN 'COMPLETED'\n\n            WHEN th.completed_on IS NOT NULL\n             AND\n             (\n                 th.actual_start IS NULL\n                 OR th.actual_start <= th.completed_on\n             )\n                THEN 'COMPLETED'\n\n            WHEN th.progress = 1\n                THEN 'AWAITING_CLOSE_OUT'\n\n            WHEN th.actual_start IS NOT NULL\n                THEN 'IN_PROGRESS'\n\n            ELSE 'NOT_STARTED'\n        END AS task_state\n\n    FROM TaskHistory AS th\n\n    WHERE th.rn = 1\n),\n\n\nDelayed AS\n(\n    SELECT\n        ts.well_id,\n        ts.crew_id,\n        ts.task_state,\n        ts.ActionOn,\n\n        CASE\n            WHEN ts.target_end < p.today\n                THEN DATEDIFF(day, ts.target_end, p.today)\n            ELSE 0\n        END AS days_overdue\n\n    FROM TaskState AS ts\n\n    CROSS JOIN Params AS p\n\n    WHERE ts.task_state <> 'COMPLETED'\n      AND\n      (\n          ts.target_end < p.today\n          OR\n          (\n              ts.actual_start IS NULL\n              AND ts.target_start < p.today\n          )\n      )\n)\n\n\nSELECT\n    wm.well_id,\n    wm.project_id,\n    wm.ex_rig_on_date,\n    wm.rig_on_date,\n\n    SUM(CASE WHEN d.task_state <> 'AWAITING_CLOSE_OUT' THEN 1 ELSE 0 END)\n        AS delayed_activities,\n\n    SUM(CASE WHEN d.task_state <> 'AWAITING_CLOSE_OUT' AND d.crew_id IS NULL THEN 1 ELSE 0 END)\n        AS without_recorded_crew,\n\n    SUM(CASE WHEN d.task_state = 'AWAITING_CLOSE_OUT' THEN 1 ELSE 0 END)\n        AS awaiting_close_out,\n\n    MAX(CASE WHEN d.task_state <> 'AWAITING_CLOSE_OUT' THEN d.days_overdue END)\n        AS max_days_overdue,\n\n    CAST(MAX(d.ActionOn) AS DATE) AS last_recorded_on\n\nFROM Delayed AS d\n\nINNER JOIN well.well_master AS wm\n    ON wm.well_id = d.well_id\n\nWHERE wm.eng_completion_date IS NULL\n\nGROUP BY\n    wm.well_id,\n    wm.project_id,\n    wm.ex_rig_on_date,\n    wm.rig_on_date\n\nHAVING SUM(CASE WHEN d.task_state <> 'AWAITING_CLOSE_OUT' THEN 1 ELSE 0 END) > 0\n\nORDER BY\n    delayed_activities DESC,\n    max_days_overdue DESC,\n    wm.well_id;\n",
+          "params": [],
+          "columns": [
+            "well_id",
+            "project_id",
+            "ex_rig_on_date",
+            "rig_on_date",
+            "delayed_activities",
+            "without_recorded_crew",
+            "awaiting_close_out",
+            "max_days_overdue",
+            "last_recorded_on"
+          ]
+        },
+        {
+          "key": "crew_well",
+          "label": "One well",
+          "description": "The well's dates and whether it is still live (eng_completion_date IS NULL). Binds well_id. Grain: one row.",
+          "sql": "SELECT\n    wm.well_id,\n    wm.project_id,\n    wm.ex_rig_on_date,\n    wm.rig_on_date,\n    wm.ex_rig_off_date,\n    wm.rig_off_date,\n    wm.eng_completion_date\n\nFROM well.well_master AS wm\n\nWHERE wm.well_id = CAST(? AS INT);\n",
+          "params": [
+            "well_id"
+          ],
+          "columns": [
+            "well_id",
+            "project_id",
+            "ex_rig_on_date",
+            "rig_on_date",
+            "ex_rig_off_date",
+            "rig_off_date",
+            "eng_completion_date"
+          ]
+        },
+        {
+          "key": "crew_delayed_activities",
+          "label": "Delayed activities on one well",
+          "description": "Every delayed task of one live well that still needs work: the activity, how late it is, the crew recorded on it and the crew type the activity needs. Binds well_id. Grain: one row per task.",
+          "sql": "/*\n===============================================================================\nCREW MANAGEMENT\nDELAYED ACTIVITIES ON ONE WELL\n\nPurpose:\n    For one live well, return every delayed task that still needs work, with:\n      - the activity it belongs to (activity_code, description, WBS)\n      - how late it is\n      - the crew recorded on it: well.task_daily.crew_id (never the ref.crew\n        code text), with its supervisor\n      - the crew TYPE the activity needs - the activity's own crew type - so a\n        free crew of that type can be recommended even when no crew is\n        recorded on the task\n\nHierarchy:\n    task_code -> activity_id (text before the FIRST '-')\n              -> dbo.mapping_master.New_Activity_Code\n              -> dbo.activity_master_csv (description, WBS, crew_code)\n              -> ref.crew_type.crew_type_code  (same code space as crew_code)\n\nRules measured on the data (2026-10-14):\n    1. An actual date counts only when it is not later than the record it sits\n       on. 35,801 of 83,740 rows with an actual_end carry one dated AFTER the\n       record - a forecast written into the actual column, not a fact.\n    2. completed = 1 is the completion flag. Once a record carries it, later\n       records do not reopen the task unless they show new work (an actual\n       start after that completion): schedule regeneration writes planning\n       rows with no actuals a few days after a completion.\n    3. The crew on a task is the crew on its latest record that names one.\n       467 tasks on live wells have no crew on their latest record although\n       an earlier record names it.\n\nTask state (latest record, corrected by rules 1-2):\n    COMPLETED            completed = 1, or actual_end reached, on the latest\n                         record; or completed = 1 on an earlier record with no\n                         new work since\n    AWAITING_CLOSE_OUT   progress = 1 (100 %) but not closed - completed tasks\n                         carry progress = 1 in 4,299 of 4,340 cases; the record\n                         needs closing, not a crew\n    IN_PROGRESS          started, not finished\n    NOT_STARTED          not started\n\nDelay status (tasks that are not COMPLETED):\n    OVERDUE_IN_PROGRESS   target_end has passed, started, not finished\n    OVERDUE_NOT_STARTED   target_end has passed, never started\n    START_SLIPPING        target_start has passed, never started, target_end not yet passed\n    AWAITING_CLOSE_OUT    late on the dates, but progress is recorded as 100 %\n\nContract:\n    - READ-ONLY. SELECT/CTE only.\n    - One parameter, bound once in Params:  ?  well_id (int)\n    - task_daily.well_id is varchar and holds non-numeric junk; it is only\n      ever compared through TRY_CONVERT(INT, ...).\n    - Rows dated after today (ActionOn > today) are not yet a recorded fact\n      and are ignored.\n===============================================================================\n*/\n\nWITH Params AS\n(\n    SELECT\n        CAST(? AS INT)          AS well_id,\n        CAST(GETDATE() AS DATE) AS today\n),\n\n\nLiveWell AS\n(\n    SELECT\n        wm.well_id,\n        wm.project_id\n\n    FROM well.well_master AS wm\n\n    CROSS JOIN Params AS p\n\n    WHERE wm.well_id = p.well_id\n      AND wm.eng_completion_date IS NULL\n),\n\n\n/* ============================================================================\n   EVERY RECORD OF EVERY TASK ON THE WELL\n   ============================================================================ */\n\nTaskHistory AS\n(\n    SELECT\n        td.id,\n        CAST(td.ActionOn AS DATE)  AS record_date,\n        LTRIM(RTRIM(td.task_code)) AS task_code,\n\n        td.target_start,\n        td.target_end,\n\n        /* Rule 1 - an actual date later than its own record is a forecast. */\n        CASE\n            WHEN td.actual_start <> '19000101'\n             AND td.actual_start <= CAST(td.ActionOn AS DATE)\n                THEN td.actual_start\n        END AS actual_start,\n\n        CASE\n            WHEN td.actual_end <> '19000101'\n             AND td.actual_end <= CAST(td.ActionOn AS DATE)\n                THEN td.actual_end\n        END AS actual_end,\n\n        td.completed,\n        td.progress,\n\n        ROW_NUMBER() OVER\n        (\n            PARTITION BY LTRIM(RTRIM(td.task_code))\n            ORDER BY td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS rn,\n\n        /* Rule 2 - the last record that carried the completion flag. */\n        MAX(\n            CASE WHEN td.completed = 1 THEN CAST(td.ActionOn AS DATE) END\n        ) OVER (PARTITION BY LTRIM(RTRIM(td.task_code))) AS completed_on,\n\n        /* Rule 3 - the crew on the latest record that names one. */\n        FIRST_VALUE(td.crew_id) OVER\n        (\n            PARTITION BY LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                CASE WHEN td.crew_id IS NULL THEN 1 ELSE 0 END,\n                td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS crew_id,\n\n        FIRST_VALUE(td.crew_type_id) OVER\n        (\n            PARTITION BY LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                CASE WHEN td.crew_type_id IS NULL THEN 1 ELSE 0 END,\n                td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS crew_type_id,\n\n        /* How fresh this well's records are - delays are measured to today. */\n        CAST(MAX(td.ActionOn) OVER () AS DATE) AS well_last_recorded_on\n\n    FROM well.task_daily AS td\n\n    CROSS JOIN Params AS p\n\n    INNER JOIN LiveWell AS lw\n        ON lw.well_id = TRY_CONVERT(INT, td.well_id)\n\n    WHERE td.task_code IS NOT NULL\n      AND LTRIM(RTRIM(td.task_code)) <> ''\n      AND td.ActionOn <= p.today\n),\n\n\nTaskState AS\n(\n    SELECT\n        th.*,\n\n        CASE\n            WHEN th.completed = 1 OR th.actual_end IS NOT NULL\n                THEN 'COMPLETED'\n\n            WHEN th.completed_on IS NOT NULL\n             AND\n             (\n                 th.actual_start IS NULL\n                 OR th.actual_start <= th.completed_on\n             )\n                THEN 'COMPLETED'\n\n            WHEN th.progress = 1\n                THEN 'AWAITING_CLOSE_OUT'\n\n            WHEN th.actual_start IS NOT NULL\n                THEN 'IN_PROGRESS'\n\n            ELSE 'NOT_STARTED'\n        END AS task_state\n\n    FROM TaskHistory AS th\n\n    WHERE th.rn = 1\n),\n\n\nOpenDelayedTasks AS\n(\n    SELECT\n        ts.*,\n\n        LEFT(\n            ts.task_code,\n            NULLIF(CHARINDEX('-', ts.task_code), 0) - 1\n        ) AS activity_id,\n\n        CASE\n            WHEN ts.task_state = 'AWAITING_CLOSE_OUT'\n                THEN 'AWAITING_CLOSE_OUT'\n\n            WHEN ts.target_end < p.today\n             AND ts.actual_start IS NOT NULL\n                THEN 'OVERDUE_IN_PROGRESS'\n\n            WHEN ts.target_end < p.today\n                THEN 'OVERDUE_NOT_STARTED'\n\n            ELSE 'START_SLIPPING'\n        END AS delay_status,\n\n        CASE\n            WHEN ts.target_end < p.today\n                THEN DATEDIFF(day, ts.target_end, p.today)\n            ELSE 0\n        END AS days_overdue,\n\n        CASE\n            WHEN ts.actual_start IS NOT NULL\n                THEN DATEDIFF(day, ts.target_start, ts.actual_start)\n            WHEN ts.target_start < p.today\n                THEN DATEDIFF(day, ts.target_start, p.today)\n            ELSE 0\n        END AS start_variance_days\n\n    FROM TaskState AS ts\n\n    CROSS JOIN Params AS p\n\n    WHERE ts.task_state <> 'COMPLETED'\n      AND\n      (\n          ts.target_end < p.today\n          OR\n          (\n              ts.actual_start IS NULL\n              AND ts.target_start < p.today\n          )\n      )\n),\n\n\n/* ============================================================================\n   ACTIVITY -> WBS -> REQUIRED CREW TYPE\n   Each lookup is reduced to one row per key, so it can never fan out.\n   ============================================================================ */\n\nActivityMapping AS\n(\n    SELECT\n        CAST(mm.Activity_ID AS NVARCHAR(50)) AS activity_id,\n\n        CASE\n            WHEN COUNT(DISTINCT mm.New_Activity_Code) = 1\n                THEN MAX(mm.New_Activity_Code)\n            ELSE NULL\n        END AS activity_code\n\n    FROM dbo.mapping_master AS mm\n\n    GROUP BY\n        CAST(mm.Activity_ID AS NVARCHAR(50))\n),\n\n\nActivityDetail AS\n(\n    SELECT\n        d.activity_code,\n        d.activity_description,\n        d.activity_group_description,\n        d.crew_code\n\n    FROM\n    (\n        SELECT\n            amc.activity_code,\n            amc.activity_description,\n            amc.activity_group_description,\n            amc.crew_code,\n\n            ROW_NUMBER() OVER\n            (\n                PARTITION BY amc.activity_code\n                ORDER BY\n                    CASE WHEN amc.crew_code IS NULL THEN 1 ELSE 0 END,\n                    amc.sl_no\n            ) AS rn\n\n        FROM dbo.activity_master_csv AS amc\n\n        WHERE amc.activity_code IS NOT NULL\n    ) AS d\n\n    WHERE d.rn = 1\n),\n\n\nCrewTypeByCode AS\n(\n    SELECT\n        ct.crew_type_code,\n        MIN(ct.crew_type_id) AS crew_type_id\n\n    FROM ref.crew_type AS ct\n\n    WHERE ct.crew_type_code IS NOT NULL\n\n    GROUP BY\n        ct.crew_type_code\n),\n\n\n/* Supervisor of each crew_id - shown beside the crew, never used to identify it. */\nCrewSupervisor AS\n(\n    SELECT\n        rc.crew_id,\n        MIN(rc.supervisor_id) AS supervisor_id\n\n    FROM ref.crew AS rc\n\n    WHERE rc.crew_id IS NOT NULL\n\n    GROUP BY\n        rc.crew_id\n),\n\n\nResolved AS\n(\n    SELECT\n        odt.*,\n\n        /* Only a code that exists in the activity master is an activity:\n           mapping_master maps 122 activity_ids to '#N/A' and a few more to\n           WBS prefixes such as 'F-C-ONC' (measured 2026-10-14). */\n        ad.activity_code,\n        ad.activity_description,\n        ad.activity_group_description AS wbs,\n        ad.crew_code                  AS activity_crew_code,\n\n        sup.emp_name                  AS assigned_crew_supervisor,\n\n        /* The crew type the work needs is the ACTIVITY's crew type. Only when\n           the activity is not mapped, fall back to the crew type recorded on\n           the task. The recorded crew's own register type is never used. */\n        COALESCE(\n            ctc.crew_type_id,\n            odt.crew_type_id\n        ) AS required_crew_type_id,\n\n        CASE\n            WHEN ctc.crew_type_id IS NOT NULL THEN 'ACTIVITY_MASTER'\n            WHEN odt.crew_type_id IS NOT NULL THEN 'TASK_RECORD'\n            ELSE 'NOT_RESOLVED'\n        END AS required_crew_type_source\n\n    FROM OpenDelayedTasks AS odt\n\n    LEFT JOIN ActivityMapping AS am\n        ON am.activity_id = odt.activity_id\n\n    LEFT JOIN ActivityDetail AS ad\n        ON ad.activity_code = am.activity_code\n\n    LEFT JOIN CrewTypeByCode AS ctc\n        ON ctc.crew_type_code = ad.crew_code\n\n    LEFT JOIN CrewSupervisor AS cs\n        ON cs.crew_id = odt.crew_id\n\n    LEFT JOIN ref.employee AS sup\n        ON sup.id = cs.supervisor_id\n)\n\n\n/* ============================================================================\n   FINAL RESULT - one row per delayed task, most overdue first\n   ============================================================================ */\n\nSELECT\n    r.task_code,\n    r.activity_id,\n    r.activity_code,\n    r.activity_description,\n    r.wbs,\n\n    r.target_start,\n    r.target_end,\n    r.actual_start,\n    r.progress,\n    r.record_date AS last_recorded_on,\n    r.well_last_recorded_on,\n\n    r.delay_status,\n    r.days_overdue,\n    r.start_variance_days,\n\n    r.crew_id                  AS assigned_crew_id,\n    r.assigned_crew_supervisor,\n\n    r.activity_crew_code,\n    r.required_crew_type_id,\n    rct.crew_type_code         AS required_crew_type_code,\n    rct.crew_type_name         AS required_crew_type_name,\n    r.required_crew_type_source\n\nFROM Resolved AS r\n\nLEFT JOIN ref.crew_type AS rct\n    ON rct.crew_type_id = r.required_crew_type_id\n\nORDER BY\n    CASE WHEN r.delay_status = 'AWAITING_CLOSE_OUT' THEN 1 ELSE 0 END,\n    r.days_overdue DESC,\n    r.start_variance_days DESC,\n    r.target_end,\n    r.task_code;\n",
+          "params": [
+            "well_id"
+          ],
+          "columns": [
+            "task_code",
+            "activity_id",
+            "activity_code",
+            "activity_description",
+            "wbs",
+            "target_start",
+            "target_end",
+            "actual_start",
+            "progress",
+            "last_recorded_on",
+            "well_last_recorded_on",
+            "delay_status",
+            "days_overdue",
+            "start_variance_days",
+            "assigned_crew_id",
+            "assigned_crew_supervisor",
+            "activity_crew_code",
+            "required_crew_type_id",
+            "required_crew_type_code",
+            "required_crew_type_name",
+            "required_crew_type_source"
+          ]
+        },
+        {
+          "key": "crew_board",
+          "label": "Crew board",
+          "description": "Every crew seen on a task: its crew type, supervisor and team size (National / Expat), its workload across the fleet and a derived availability (FREE, BUSY, TEAM_BUSY, INACTIVE). Binds recent_days. Grain: one row per crew.",
+          "sql": "/*\n===============================================================================\nCREW MANAGEMENT\nEVERY CREW IN THE TASK RECORDS: TYPE, TEAM, WORKLOAD AND AVAILABILITY\n\nPurpose:\n    One row per crew seen on a task, with its workload across the whole fleet,\n    a derived availability status and the size of its team, so a crew manager\n    can see who is free, who is busy and where a free crew can be found.\n\nCrew and crew type:\n    A crew is a well.task_daily.crew_id - never the ref.crew code text.\n    Its crew type is the crew_type_id task_daily records beside that crew_id:\n    one type per crew for 1,468 of the 1,470 crews on tasks. Where a crew\n    carries more than one, the type on most of its rows wins.\n\nTask state (same rules as crew_delayed_activities - see its header for the\nthree data rules: forecast actual dates, the completed flag, the crew):\n    COMPLETED            closed on the latest record, or completed = 1 on an\n                         earlier record with no new work since\n    AWAITING_CLOSE_OUT   progress = 1 but not closed - work recorded as done\n    IN_PROGRESS          started, not finished\n    NOT_STARTED          not started\n    A task's state comes from its latest record; its crew comes from its\n    latest record that names a crew.\n\nTeam: a supervisor's people appear under one crew_id PER CREW TYPE.\n    A crew is therefore only free when its whole team - every crew_id with the\n    same supervisor (ref.crew.supervisor_id) - is.\n\nAvailability (derived - there is NO roster, leave, shift or location table):\n    BUSY             this crew has an IN_PROGRESS task on a live well\n    TEAM_BUSY        it has none, but another crew_id of the same supervisor\n                     does - the same people are at work\n    FREE             nothing in progress for the whole team, and the team was\n                     recorded on a task within recent_days of data_as_of\n    INACTIVE         nothing in progress, but the team has no task record\n                     within that window - it may have left the project\n\n    data_as_of is the latest task record that names a crew. \"Recent\" is\n    measured from it, not from today, so a pause in data loading does not\n    make every crew look inactive.\n\nMembers: bridge.crew_employee, with ref.employee.nationality_type\n    ('National' = Omani, 'Expat' = non-Omani, NULL = not recorded - never\n    counted as either). members is the crew's own head count. type_people\n    (people in crews of the crew's type) and fleet_people (people in every\n    crew on the board) count each person ONCE - never add members up.\n\nContract:\n    - READ-ONLY. SELECT/CTE only.\n    - One parameter, bound once in Params:  ?  recent_days (int)\n    - One row per crew.\n===============================================================================\n*/\n\nWITH Params AS\n(\n    SELECT\n        CAST(? AS INT)           AS recent_days,\n        CAST(GETDATE() AS DATE)  AS today\n),\n\n\n/* The crew type task_daily records for each crew_id - the type on most of\n   its rows, then the most recent. */\nCrewType AS\n(\n    SELECT\n        x.crew_id,\n        x.crew_type_id\n\n    FROM\n    (\n        SELECT\n            td.crew_id,\n            td.crew_type_id,\n\n            ROW_NUMBER() OVER\n            (\n                PARTITION BY td.crew_id\n                ORDER BY\n                    COUNT(*) DESC,\n                    MAX(td.ActionOn) DESC,\n                    td.crew_type_id\n            ) AS rn\n\n        FROM well.task_daily AS td\n\n        CROSS JOIN Params AS p\n\n        WHERE td.crew_id IS NOT NULL\n          AND td.crew_type_id IS NOT NULL\n          AND td.ActionOn <= p.today\n\n        GROUP BY\n            td.crew_id,\n            td.crew_type_id\n    ) AS x\n\n    WHERE x.rn = 1\n),\n\n\n/* Supervisor of each crew_id - used only to group crews into teams. */\nCrewSupervisor AS\n(\n    SELECT\n        rc.crew_id,\n        MIN(rc.supervisor_id) AS supervisor_id\n\n    FROM ref.crew AS rc\n\n    WHERE rc.crew_id IS NOT NULL\n\n    GROUP BY\n        rc.crew_id\n),\n\n\n/* The people of each crew and how many are National / Expat. */\nCrewMembers AS\n(\n    SELECT\n        ce.crew_id,\n        COUNT(DISTINCT ce.employee_id) AS members,\n\n        COUNT(DISTINCT CASE WHEN emp.nationality_type = 'National' THEN ce.employee_id END)\n            AS national_members,\n\n        COUNT(DISTINCT CASE WHEN emp.nationality_type = 'Expat' THEN ce.employee_id END)\n            AS expat_members\n\n    FROM bridge.crew_employee AS ce\n\n    LEFT JOIN ref.employee AS emp\n        ON emp.id = ce.employee_id\n\n    WHERE ce.crew_id IS NOT NULL\n\n    GROUP BY\n        ce.crew_id\n),\n\n\n/* ============================================================================\n   EVERY TASK IN THE FLEET - one pass, several windows over one sort\n   ============================================================================ */\n\nTaskRows AS\n(\n    SELECT\n        td.crew_id,\n        TRY_CONVERT(INT, td.well_id) AS well_id,\n        td.ActionOn,\n\n        /* rn_crew = 1 is the latest record that names a crew. */\n        ROW_NUMBER() OVER\n        (\n            PARTITION BY TRY_CONVERT(INT, td.well_id), LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                CASE WHEN td.crew_id IS NULL THEN 1 ELSE 0 END,\n                td.ActionOn DESC,\n                td.updated_at DESC,\n                td.id DESC\n        ) AS rn_crew,\n\n        /* The task's LATEST record, carried onto every row of the task. */\n        FIRST_VALUE(\n            CASE\n                WHEN td.actual_start <> '19000101'\n                 AND td.actual_start <= CAST(td.ActionOn AS DATE)\n                    THEN td.actual_start\n            END\n        ) OVER\n        (\n            PARTITION BY TRY_CONVERT(INT, td.well_id), LTRIM(RTRIM(td.task_code))\n            ORDER BY td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS last_actual_start,\n\n        FIRST_VALUE(\n            CASE\n                WHEN td.actual_end <> '19000101'\n                 AND td.actual_end <= CAST(td.ActionOn AS DATE)\n                    THEN td.actual_end\n            END\n        ) OVER\n        (\n            PARTITION BY TRY_CONVERT(INT, td.well_id), LTRIM(RTRIM(td.task_code))\n            ORDER BY td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS last_actual_end,\n\n        FIRST_VALUE(td.completed) OVER\n        (\n            PARTITION BY TRY_CONVERT(INT, td.well_id), LTRIM(RTRIM(td.task_code))\n            ORDER BY td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS last_completed,\n\n        FIRST_VALUE(td.progress) OVER\n        (\n            PARTITION BY TRY_CONVERT(INT, td.well_id), LTRIM(RTRIM(td.task_code))\n            ORDER BY td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS last_progress,\n\n        FIRST_VALUE(td.target_end) OVER\n        (\n            PARTITION BY TRY_CONVERT(INT, td.well_id), LTRIM(RTRIM(td.task_code))\n            ORDER BY td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS last_target_end,\n\n        MAX(\n            CASE WHEN td.completed = 1 THEN CAST(td.ActionOn AS DATE) END\n        ) OVER\n        (\n            PARTITION BY TRY_CONVERT(INT, td.well_id), LTRIM(RTRIM(td.task_code))\n        ) AS completed_on\n\n    FROM well.task_daily AS td\n\n    CROSS JOIN Params AS p\n\n    WHERE td.task_code IS NOT NULL\n      AND LTRIM(RTRIM(td.task_code)) <> ''\n      AND TRY_CONVERT(INT, td.well_id) IS NOT NULL\n      AND td.ActionOn <= p.today\n),\n\n\n/* One row per task that names a crew: the crew and the task's state. */\nCrewTasks AS\n(\n    SELECT\n        tr.crew_id,\n        tr.well_id,\n        tr.ActionOn,\n        tr.last_target_end,\n\n        CASE\n            WHEN tr.last_completed = 1 OR tr.last_actual_end IS NOT NULL\n                THEN 'COMPLETED'\n\n            WHEN tr.completed_on IS NOT NULL\n             AND\n             (\n                 tr.last_actual_start IS NULL\n                 OR tr.last_actual_start <= tr.completed_on\n             )\n                THEN 'COMPLETED'\n\n            WHEN tr.last_progress = 1\n                THEN 'AWAITING_CLOSE_OUT'\n\n            WHEN tr.last_actual_start IS NOT NULL\n                THEN 'IN_PROGRESS'\n\n            ELSE 'NOT_STARTED'\n        END AS task_state,\n\n        CASE\n            WHEN wm.well_id IS NOT NULL\n             AND wm.eng_completion_date IS NULL\n                THEN 1\n            ELSE 0\n        END AS live_well\n\n    FROM TaskRows AS tr\n\n    LEFT JOIN well.well_master AS wm\n        ON wm.well_id = tr.well_id\n\n    WHERE tr.rn_crew = 1\n      AND tr.crew_id IS NOT NULL\n),\n\n\n/* ============================================================================\n   LOAD - per crew, then per team. Each step reads the one before it once,\n   so the expensive scan of task_daily is never repeated.\n   ============================================================================ */\n\nCrewLoad AS\n(\n    SELECT\n        ct.crew_id,\n\n        COUNT(*) AS tasks_recorded,\n\n        SUM(CASE WHEN ct.live_well = 1 AND ct.task_state = 'IN_PROGRESS' THEN 1 ELSE 0 END)\n            AS in_progress_tasks,\n\n        SUM(CASE WHEN ct.live_well = 1 AND ct.task_state = 'NOT_STARTED' THEN 1 ELSE 0 END)\n            AS queued_tasks,\n\n        SUM(\n            CASE\n                WHEN ct.live_well = 1\n                 AND ct.task_state IN ('IN_PROGRESS', 'NOT_STARTED')\n                 AND ct.last_target_end < p.today\n                    THEN 1 ELSE 0\n            END\n        ) AS overdue_open_tasks,\n\n        SUM(CASE WHEN ct.task_state = 'COMPLETED' THEN 1 ELSE 0 END)\n            AS completed_tasks,\n\n        COUNT(DISTINCT\n            CASE\n                WHEN ct.live_well = 1\n                 AND ct.task_state IN ('IN_PROGRESS', 'NOT_STARTED')\n                    THEN ct.well_id\n            END\n        ) AS open_wells,\n\n        CAST(MAX(ct.ActionOn) AS DATE) AS last_recorded_on\n\n    FROM CrewTasks AS ct\n\n    CROSS JOIN Params AS p\n\n    GROUP BY\n        ct.crew_id\n),\n\n\n/* A crew with no supervisor recorded is its own team. */\nTeamLoad AS\n(\n    SELECT\n        cl.*,\n        cs.supervisor_id,\n\n        MAX(cl.last_recorded_on) OVER () AS data_as_of,\n\n        SUM(cl.in_progress_tasks) OVER\n        (\n            PARTITION BY COALESCE(cs.supervisor_id, -cl.crew_id)\n        ) AS team_in_progress_tasks,\n\n        MAX(cl.last_recorded_on) OVER\n        (\n            PARTITION BY COALESCE(cs.supervisor_id, -cl.crew_id)\n        ) AS team_last_recorded_on\n\n    FROM CrewLoad AS cl\n\n    LEFT JOIN CrewSupervisor AS cs\n        ON cs.crew_id = cl.crew_id\n),\n\n\n/* ============================================================================\n   ONE ROW PER CREW\n   ============================================================================ */\n\nBoard AS\n(\n    SELECT\n        tl.crew_id,\n        ctp.crew_type_id,\n        rct.crew_type_code,\n        rct.crew_type_name,\n        tl.supervisor_id,\n        sup.emp_name                    AS supervisor,\n\n        cm.members,\n        cm.national_members,\n        cm.expat_members,\n\n        tl.tasks_recorded,\n        tl.in_progress_tasks,\n        tl.queued_tasks,\n        tl.overdue_open_tasks,\n        tl.completed_tasks,\n        tl.open_wells,\n\n        tl.last_recorded_on,\n        tl.data_as_of,\n        DATEDIFF(day, tl.last_recorded_on, tl.data_as_of) AS days_since_last_record,\n\n        tl.team_in_progress_tasks,\n        tl.team_last_recorded_on,\n\n        CASE\n            WHEN tl.in_progress_tasks > 0\n                THEN 'BUSY'\n            WHEN tl.team_in_progress_tasks > 0\n                THEN 'TEAM_BUSY'\n            WHEN tl.team_last_recorded_on\n                 < DATEADD(day, -p.recent_days, tl.data_as_of)\n                THEN 'INACTIVE'\n            ELSE 'FREE'\n        END AS availability_status\n\n    FROM TeamLoad AS tl\n\n    CROSS JOIN Params AS p\n\n    LEFT JOIN CrewType AS ctp\n        ON ctp.crew_id = tl.crew_id\n\n    LEFT JOIN ref.crew_type AS rct\n        ON rct.crew_type_id = ctp.crew_type_id\n\n    LEFT JOIN CrewMembers AS cm\n        ON cm.crew_id = tl.crew_id\n\n    LEFT JOIN ref.employee AS sup\n        ON sup.id = tl.supervisor_id\n),\n\n\n/* People are counted once. A supervisor's people sit under one crew_id per\n   crew type, and 752 people are on more than one crew (measured 2026-10-22),\n   so adding up members counts the same person several times. */\nCrewPeople AS\n(\n    SELECT DISTINCT\n        b.crew_type_id,\n        ce.employee_id\n\n    FROM Board AS b\n\n    INNER JOIN bridge.crew_employee AS ce\n        ON ce.crew_id = b.crew_id\n\n    WHERE ce.employee_id IS NOT NULL\n),\n\n\nTypePeople AS\n(\n    SELECT\n        cp.crew_type_id,\n        COUNT(DISTINCT cp.employee_id) AS type_people\n\n    FROM CrewPeople AS cp\n\n    WHERE cp.crew_type_id IS NOT NULL\n\n    GROUP BY\n        cp.crew_type_id\n)\n\n\n/* ============================================================================\n   FINAL RESULT - one row per crew\n   ============================================================================ */\n\nSELECT\n    b.*,\n    COALESCE(tp.type_people, 0) AS type_people,\n\n    (\n        SELECT COUNT(DISTINCT cp.employee_id)\n        FROM CrewPeople AS cp\n    ) AS fleet_people\n\nFROM Board AS b\n\nLEFT JOIN TypePeople AS tp\n    ON tp.crew_type_id = b.crew_type_id\n\nORDER BY\n    b.crew_type_id,\n    b.crew_id;\n",
+          "params": [
+            "recent_days"
+          ],
+          "columns": [
+            "crew_id",
+            "crew_type_id",
+            "crew_type_code",
+            "crew_type_name",
+            "supervisor_id",
+            "supervisor",
+            "members",
+            "national_members",
+            "expat_members",
+            "tasks_recorded",
+            "in_progress_tasks",
+            "queued_tasks",
+            "overdue_open_tasks",
+            "completed_tasks",
+            "open_wells",
+            "last_recorded_on",
+            "data_as_of",
+            "days_since_last_record",
+            "team_in_progress_tasks",
+            "team_last_recorded_on",
+            "availability_status",
+            "type_people",
+            "fleet_people"
+          ]
+        },
+        {
+          "key": "crew_type_demand",
+          "label": "Delayed work per crew type",
+          "description": "For each crew type, how many delayed activities on live wells need it, on how many wells, how many have no crew recorded, and how late the worst is. Grain: one row per required crew type (NULL = not resolved).",
+          "sql": "/*\n===============================================================================\nCREW MANAGEMENT\nDELAYED WORK PER CREW TYPE ACROSS EVERY LIVE WELL\n\nPurpose:\n    The demand side of crew planning: for each crew TYPE, how many delayed\n    activities on live wells (eng_completion_date IS NULL) need it, on how many\n    wells, how many of them have no crew recorded, and how late the worst one\n    is. Compared on the page with the free crews of each type (crew_board).\n\nRules - identical to crew_delayed_activities, applied to every live well:\n    - an actual date later than its own record is a forecast, not a fact;\n    - completed = 1 on any record completes the task unless an actual start\n      after it shows new work;\n    - the crew on a task is the crew on its latest record that names one;\n    - delayed = not COMPLETED and either target_end has passed, or target_start\n      has passed and the task never started;\n    - AWAITING_CLOSE_OUT (progress = 1, record open) needs closing, not a crew,\n      and is not counted here.\n\nRequired crew type: the ACTIVITY's crew type -\n    task_code -> activity_id (text before the FIRST '-')\n              -> dbo.mapping_master.New_Activity_Code\n              -> dbo.activity_master_csv.crew_code\n              -> ref.crew_type.crew_type_code\n    falling back to the crew type recorded on the task only when the activity\n    is not mapped. Activities with neither come back as one row with a NULL\n    crew_type_id (crew type not resolved).\n\nContract:\n    - READ-ONLY. SELECT/CTE only. No parameters.\n    - One row per required crew type (plus one NULL row when unresolved).\n===============================================================================\n*/\n\nWITH Params AS\n(\n    SELECT\n        CAST(GETDATE() AS DATE) AS today\n),\n\n\nTaskHistory AS\n(\n    SELECT\n        TRY_CONVERT(INT, td.well_id)        AS well_id,\n        LTRIM(RTRIM(td.task_code))          AS task_code,\n        td.target_start,\n        td.target_end,\n\n        CASE\n            WHEN td.actual_start <> '19000101'\n             AND td.actual_start <= CAST(td.ActionOn AS DATE)\n                THEN td.actual_start\n        END AS actual_start,\n\n        CASE\n            WHEN td.actual_end <> '19000101'\n             AND td.actual_end <= CAST(td.ActionOn AS DATE)\n                THEN td.actual_end\n        END AS actual_end,\n\n        td.completed,\n        td.progress,\n\n        FIRST_VALUE(td.crew_id) OVER\n        (\n            PARTITION BY\n                TRY_CONVERT(INT, td.well_id),\n                LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                CASE WHEN td.crew_id IS NULL THEN 1 ELSE 0 END,\n                td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS crew_id,\n\n        FIRST_VALUE(td.crew_type_id) OVER\n        (\n            PARTITION BY\n                TRY_CONVERT(INT, td.well_id),\n                LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                CASE WHEN td.crew_type_id IS NULL THEN 1 ELSE 0 END,\n                td.ActionOn DESC, td.updated_at DESC, td.id DESC\n        ) AS crew_type_id,\n\n        ROW_NUMBER() OVER\n        (\n            PARTITION BY\n                TRY_CONVERT(INT, td.well_id),\n                LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                td.ActionOn DESC,\n                td.updated_at DESC,\n                td.id DESC\n        ) AS rn,\n\n        MAX(\n            CASE WHEN td.completed = 1 THEN CAST(td.ActionOn AS DATE) END\n        ) OVER\n        (\n            PARTITION BY\n                TRY_CONVERT(INT, td.well_id),\n                LTRIM(RTRIM(td.task_code))\n        ) AS completed_on\n\n    FROM well.task_daily AS td\n\n    CROSS JOIN Params AS p\n\n    WHERE td.task_code IS NOT NULL\n      AND LTRIM(RTRIM(td.task_code)) <> ''\n      AND TRY_CONVERT(INT, td.well_id) IS NOT NULL\n      AND td.ActionOn <= p.today\n),\n\n\nTaskState AS\n(\n    SELECT\n        th.*,\n\n        CASE\n            WHEN th.completed = 1 OR th.actual_end IS NOT NULL\n                THEN 'COMPLETED'\n\n            WHEN th.completed_on IS NOT NULL\n             AND\n             (\n                 th.actual_start IS NULL\n                 OR th.actual_start <= th.completed_on\n             )\n                THEN 'COMPLETED'\n\n            WHEN th.progress = 1\n                THEN 'AWAITING_CLOSE_OUT'\n\n            WHEN th.actual_start IS NOT NULL\n                THEN 'IN_PROGRESS'\n\n            ELSE 'NOT_STARTED'\n        END AS task_state\n\n    FROM TaskHistory AS th\n\n    WHERE th.rn = 1\n),\n\n\n/* Delayed tasks that still need a crew, on live wells only. */\nOpenDelayed AS\n(\n    SELECT\n        ts.well_id,\n        ts.crew_id,\n        ts.crew_type_id,\n\n        LEFT(\n            ts.task_code,\n            NULLIF(CHARINDEX('-', ts.task_code), 0) - 1\n        ) AS activity_id,\n\n        CASE\n            WHEN ts.target_end < p.today\n                THEN 'OVERDUE'\n            ELSE 'START_SLIPPING'\n        END AS delay_kind,\n\n        CASE\n            WHEN ts.target_end < p.today\n                THEN DATEDIFF(day, ts.target_end, p.today)\n            ELSE 0\n        END AS days_overdue\n\n    FROM TaskState AS ts\n\n    CROSS JOIN Params AS p\n\n    INNER JOIN well.well_master AS wm\n        ON wm.well_id = ts.well_id\n\n    WHERE wm.eng_completion_date IS NULL\n      AND ts.task_state NOT IN ('COMPLETED', 'AWAITING_CLOSE_OUT')\n      AND\n      (\n          ts.target_end < p.today\n          OR\n          (\n              ts.actual_start IS NULL\n              AND ts.target_start < p.today\n          )\n      )\n),\n\n\n/* ============================================================================\n   ACTIVITY -> REQUIRED CREW TYPE (each lookup reduced to one row per key)\n   ============================================================================ */\n\nActivityMapping AS\n(\n    SELECT\n        CAST(mm.Activity_ID AS NVARCHAR(50)) AS activity_id,\n\n        CASE\n            WHEN COUNT(DISTINCT mm.New_Activity_Code) = 1\n                THEN MAX(mm.New_Activity_Code)\n            ELSE NULL\n        END AS activity_code\n\n    FROM dbo.mapping_master AS mm\n\n    GROUP BY\n        CAST(mm.Activity_ID AS NVARCHAR(50))\n),\n\n\nActivityDetail AS\n(\n    SELECT\n        d.activity_code,\n        d.crew_code\n\n    FROM\n    (\n        SELECT\n            amc.activity_code,\n            amc.crew_code,\n\n            ROW_NUMBER() OVER\n            (\n                PARTITION BY amc.activity_code\n                ORDER BY\n                    CASE WHEN amc.crew_code IS NULL THEN 1 ELSE 0 END,\n                    amc.sl_no\n            ) AS rn\n\n        FROM dbo.activity_master_csv AS amc\n\n        WHERE amc.activity_code IS NOT NULL\n    ) AS d\n\n    WHERE d.rn = 1\n),\n\n\nCrewTypeByCode AS\n(\n    SELECT\n        ct.crew_type_code,\n        MIN(ct.crew_type_id) AS crew_type_id\n\n    FROM ref.crew_type AS ct\n\n    WHERE ct.crew_type_code IS NOT NULL\n\n    GROUP BY\n        ct.crew_type_code\n),\n\n\nResolved AS\n(\n    SELECT\n        od.*,\n\n        COALESCE(\n            ctc.crew_type_id,\n            od.crew_type_id\n        ) AS required_crew_type_id\n\n    FROM OpenDelayed AS od\n\n    LEFT JOIN ActivityMapping AS am\n        ON am.activity_id = od.activity_id\n\n    LEFT JOIN ActivityDetail AS ad\n        ON ad.activity_code = am.activity_code\n\n    LEFT JOIN CrewTypeByCode AS ctc\n        ON ctc.crew_type_code = ad.crew_code\n)\n\n\n/* ============================================================================\n   FINAL RESULT - one row per required crew type, most delayed work first\n   ============================================================================ */\n\nSELECT\n    r.required_crew_type_id                                   AS crew_type_id,\n    rct.crew_type_code,\n    rct.crew_type_name,\n\n    COUNT(*)                                                  AS delayed_activities,\n    COUNT(DISTINCT r.well_id)                                 AS wells,\n    SUM(CASE WHEN r.crew_id IS NULL THEN 1 ELSE 0 END)        AS without_recorded_crew,\n    SUM(CASE WHEN r.delay_kind = 'OVERDUE' THEN 1 ELSE 0 END) AS overdue,\n    SUM(CASE WHEN r.delay_kind = 'START_SLIPPING' THEN 1 ELSE 0 END)\n                                                              AS start_slipping,\n    MAX(r.days_overdue)                                       AS max_days_overdue\n\nFROM Resolved AS r\n\nLEFT JOIN ref.crew_type AS rct\n    ON rct.crew_type_id = r.required_crew_type_id\n\nGROUP BY\n    r.required_crew_type_id,\n    rct.crew_type_code,\n    rct.crew_type_name\n\nORDER BY\n    delayed_activities DESC,\n    max_days_overdue DESC,\n    rct.crew_type_code;\n",
+          "params": [],
+          "columns": [
+            "crew_type_id",
+            "crew_type_code",
+            "crew_type_name",
+            "delayed_activities",
+            "wells",
+            "without_recorded_crew",
+            "overdue",
+            "start_slipping",
+            "max_days_overdue"
+          ]
+        },
+        {
+          "key": "crew_experience",
+          "label": "Same-activity experience",
+          "description": "How many times each crew has completed each requested activity, on how many wells, and its typical (median) and average duration. Binds activity_codes (a JSON array). Grain: one row per crew and activity.",
+          "sql": "/*\n===============================================================================\nCREW MANAGEMENT\nSAME-ACTIVITY EXPERIENCE OF CANDIDATE CREWS\n\nPurpose:\n    For every crew (well.task_daily.crew_id), count how many times it has\n    COMPLETED each of the requested activities, on any well. This is the\n    \"why this crew\" evidence: a free crew that has already finished the same\n    activity elsewhere is a stronger recommendation.\n\n    Task-level completion is the evidence - the historical well itself does\n    not need to be completed.\n\nDuration:\n    typical_completion_days = MEDIAN of DATEDIFF(day, actual_start, actual_end)\n    average_completion_days = arithmetic MEAN of the same\n    Only completions with both dates recorded have a duration.\n\nContract:\n    - READ-ONLY. SELECT/CTE only.\n    - One parameter, bound once in Params:\n        ?  activity_codes  JSON array of strings, e.g. '[\"F-M-SLW-GWD-01\"]'\n===============================================================================\n*/\n\nWITH Params AS\n(\n    SELECT\n        CAST(? AS NVARCHAR(MAX)) AS activity_codes,\n        CAST(GETDATE() AS DATE)  AS today\n),\n\n\nRequestedCodes AS\n(\n    SELECT DISTINCT\n        CAST(j.value AS NVARCHAR(50)) AS activity_code\n\n    FROM Params AS p\n\n    CROSS APPLY OPENJSON(p.activity_codes) AS j\n\n    WHERE j.value IS NOT NULL\n),\n\n\nActivityMapping AS\n(\n    SELECT\n        CAST(mm.Activity_ID AS NVARCHAR(50)) AS activity_id,\n\n        CASE\n            WHEN COUNT(DISTINCT mm.New_Activity_Code) = 1\n                THEN MAX(mm.New_Activity_Code)\n            ELSE NULL\n        END AS activity_code\n\n    FROM dbo.mapping_master AS mm\n\n    GROUP BY\n        CAST(mm.Activity_ID AS NVARCHAR(50))\n),\n\n\n/* The latest COMPLETED record of every task that names a crew: that crew\n   gets the credit. Taken from the completed records themselves, so a later\n   planning row with no actuals (schedule regeneration) can never hide a\n   completion, and one task is never counted twice. */\nCrewTaskHistory AS\n(\n    SELECT\n        td.crew_id,\n        TRY_CONVERT(INT, td.well_id)        AS well_id,\n        LTRIM(RTRIM(td.task_code))          AS task_code,\n        td.completed,\n\n        /* An actual date later than its own record is a forecast. */\n        CASE\n            WHEN td.actual_start <> '19000101'\n             AND td.actual_start <= CAST(td.ActionOn AS DATE)\n                THEN td.actual_start\n        END AS actual_start,\n\n        CASE\n            WHEN td.actual_end <> '19000101'\n             AND td.actual_end <= CAST(td.ActionOn AS DATE)\n                THEN td.actual_end\n        END AS actual_end,\n\n        ROW_NUMBER() OVER\n        (\n            PARTITION BY\n                TRY_CONVERT(INT, td.well_id),\n                LTRIM(RTRIM(td.task_code))\n            ORDER BY\n                td.ActionOn DESC,\n                td.updated_at DESC,\n                td.id DESC\n        ) AS rn\n\n    FROM well.task_daily AS td\n\n    CROSS JOIN Params AS p\n\n    WHERE td.crew_id IS NOT NULL\n      AND\n      (\n          td.completed = 1\n          OR\n          (\n              td.actual_end <> '19000101'\n              AND td.actual_end <= CAST(td.ActionOn AS DATE)\n          )\n      )\n      AND td.task_code IS NOT NULL\n      AND LTRIM(RTRIM(td.task_code)) <> ''\n      AND TRY_CONVERT(INT, td.well_id) IS NOT NULL\n      AND td.ActionOn <= p.today\n),\n\n\nCompletions AS\n(\n    SELECT\n        cth.crew_id,\n        cth.well_id,\n        am.activity_code,\n        cth.actual_end,\n\n        CASE\n            WHEN cth.actual_start IS NOT NULL\n             AND cth.actual_end IS NOT NULL\n             AND cth.actual_end >= cth.actual_start\n                THEN DATEDIFF(day, cth.actual_start, cth.actual_end)\n            ELSE NULL\n        END AS completion_days\n\n    FROM CrewTaskHistory AS cth\n\n    INNER JOIN ActivityMapping AS am\n        ON am.activity_id = LEFT(\n            cth.task_code,\n            NULLIF(CHARINDEX('-', cth.task_code), 0) - 1\n        )\n\n    INNER JOIN RequestedCodes AS rq\n        ON rq.activity_code = am.activity_code\n\n    WHERE cth.rn = 1\n),\n\n\n/* The median is a window over the same rows the aggregate below groups, so\n   Completions is read ONCE. Joining a separate median CTE back instead let\n   the optimiser re-run the whole windowed scan once per result row\n   (measured: 404 rows, 50 s). PERCENTILE_CONT ignores NULL durations. */\nCompletionsWithMedian AS\n(\n    SELECT\n        c.*,\n\n        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY c.completion_days)\n            OVER (PARTITION BY c.crew_id, c.activity_code) AS median_days\n\n    FROM Completions AS c\n),\n\n\nExperience AS\n(\n    SELECT\n        cm.crew_id,\n        cm.activity_code,\n        COUNT(*)                                          AS completed_count,\n        COUNT(DISTINCT cm.well_id)                        AS distinct_wells,\n        MAX(cm.median_days)                               AS typical_completion_days,\n        AVG(CAST(cm.completion_days AS DECIMAL(18, 2)))   AS average_completion_days,\n        MAX(cm.actual_end)                                AS last_completed_on\n\n    FROM CompletionsWithMedian AS cm\n\n    GROUP BY\n        cm.crew_id,\n        cm.activity_code\n)\n\n\nSELECT\n    e.crew_id,\n    e.activity_code,\n    e.completed_count,\n    e.distinct_wells,\n    CAST(e.typical_completion_days AS DECIMAL(18, 2)) AS typical_completion_days,\n    e.average_completion_days,\n    e.last_completed_on\n\nFROM Experience AS e\n\nORDER BY\n    e.activity_code,\n    e.completed_count DESC,\n    e.crew_id;\n",
+          "params": [
+            "activity_codes"
+          ],
+          "columns": [
+            "crew_id",
+            "activity_code",
+            "completed_count",
+            "distinct_wells",
+            "typical_completion_days",
+            "average_completion_days",
+            "last_completed_on"
+          ]
+        }
+      ],
+      "prompts": [
+        {
+          "key": "crew.rules",
+          "name": "Crew Management: crew rules",
+          "description": "The authoritative meaning of every field of the crew plan (delay, crew type, availability, ranking, actions); {RULES} in crew.brief_system.",
+          "text": "# CREW SUGGESTION RULES — PDO / AL TASNIM WELL PROJECT\n\nAuthoritative interpretation of the crew-suggestion evidence. Follow it exactly. Every value in\nthe evidence was computed by SQL; never recompute, re-rank or override it. If something needs a\nrule that is not stated here, say the rule is **not yet defined** — do not assume one.\n\n## 1. Scope\n\nOnly three questions are answered for one live well (`eng_completion_date IS NULL`):\n\n1. **Which activities are delayed** — open tasks that are late.\n2. **Which crew is on each one** — the crew recorded on the task.\n3. **Which free crew is recommended** — a crew of the right type with no work in progress.\n\nMilestones (pegging, FLAF, rig-on, rig-off, hook-up) are out of scope here.\n\n## 2. Activity delay\n\nOnly tasks that still need work are listed. A completed task, even one completed late, needs no\ncrew and is not listed. The latest record of each task is used, with three corrections measured\non the data:\n\n- An actual date later than the record it sits on is a **forecast**, not a fact.\n- `completed = 1` on any record completes the task; a later planning row with no new work does\n  not reopen it.\n- The crew on a task is the crew on its latest record that names one.\n\n| `delay_status` | Meaning |\n|---|---|\n| `OVERDUE_IN_PROGRESS` | target end date has passed; the task started but is not finished |\n| `OVERDUE_NOT_STARTED` | target end date has passed; the task never started |\n| `START_SLIPPING` | target start date has passed and the task never started; target end not yet passed |\n| `AWAITING_CLOSE_OUT` | late on the dates, but progress is recorded as 100% — the record needs closing, **not a crew** |\n\n- `days_overdue` = days since `target_end`, measured to **today** (0 for `START_SLIPPING`).\n- `start_variance_days` = actual start − target start; when not started, today − target start.\n  Negative means it started **early** — good news, never a delay.\n- `last_recorded_on` is the date of the task's latest record, and `well_last_recorded_on` the\n  well's. When these are weeks old, the task may have moved since — say the delay is\n  **as last recorded on that date**, never that it is certainly still late.\n\n## 3. Activity and crew type\n\n```\ntask_code  →  activity_id (text before the FIRST '-')\n           →  dbo.mapping_master.New_Activity_Code     = activity_code\n           →  dbo.activity_master_csv                  = activity_description, WBS, crew_code\n           →  ref.crew_type.crew_type_code = crew_code = the crew TYPE the activity needs\n```\n\n- Identify an activity by its **description and activity_code**, never by `task_code`.\n- **The crew type is the activity's crew type.** `required_crew_type.source` says where it came\n  from: `ACTIVITY_MASTER` (authoritative), `TASK_RECORD` (crew type recorded on the task, used only\n  when the activity is not mapped), `NOT_RESOLVED`.\n- Crew type decides who can do the work. A crew of another type is never a substitute.\n- A crew's crew type is the one `task_daily` records for its `crew_id` (one type per crew). A\n  crew is a candidate for an activity when that type equals the activity's crew type; the two\n  agree on 98.4% of past tasks. `tasks_recorded` = how many tasks the crew has been recorded on.\n\n## 4. Crews and the crew on the task\n\n**A crew is a `crew_id` from `well.task_daily`.** Always name a crew as **Crew <crew_id>** (e.g.\n\"Crew 10293\"), with its supervisor in brackets. Never use or invent any other crew code.\n\n`assigned_crew` is the crew recorded on the task (`task_daily.crew_id` on its latest record that\nnames one).\n\n- `recorded: false` means **no crew is recorded on the task** — never say \"no crew was assigned\";\n  a missing value does not prove that.\n- **No blame, ever.** Never describe the recorded crew as slow, poor or at fault. A late task is a\n  fact about the schedule, not a judgement of the crew.\n\n## 5. Crew availability — derived, not authoritative\n\nThere is **no roster, leave, shift or location table**. Availability is derived from task\nrecords only:\n\nA supervisor's people appear under **one crew_id per crew type**: the same team can appear as\nseveral crews (e.g. Crew 9923 and Crew 10270 share a supervisor). Availability is therefore judged\nfor the whole **team** — every crew_id of the same supervisor.\n\n| `availability_status` | Meaning |\n|---|---|\n| `BUSY` | this crew_id has a task in progress (started, not finished) on a live well |\n| `TEAM_BUSY` | this crew_id has none, but another crew_id of the same supervisor does — the same people are at work |\n| `FREE` | nothing in progress for the whole team, and the team was recorded on a task within the recent window (`rules.crew_recent_days`) of the latest task record |\n| `INACTIVE` | nothing in progress, but the team has no task record within the recent window — it may have left the project |\n\n`same_team_top_pick_for` lists other activities whose top recommendation is the **same team** —\nsay the team can take them in sequence, or the next recommended crew can share the load.\n\n`FREE` means **free in the task records**. It says nothing about whether the crew is on site,\non leave, or near this well — always say a planner must confirm before mobilising.\n\n`queued_tasks` = tasks assigned to the crew on live wells that have not started yet.\n\n## 6. Recommendation ranking (fixed rule)\n\nOnly `FREE` crews of the needed crew type are recommended, excluding the crew already on the task:\n\n1. most completions of **this same activity** (`activity_experience.completed_count`), then\n2. fewest `queued_tasks`, then\n3. most recently recorded (`days_since_last_record`), then\n4. `crew_id` as the final tie-break.\n\n`activity_experience` is null when the crew has never completed this activity — say so plainly;\nit is still a valid crew of the right type. \"Typical\" duration means the **median**; \"average\"\nmeans the **mean**. Never swap them.\n\n## 7. Action per activity\n\n| `action` | Meaning |\n|---|---|\n| `ASSIGN_FREE_CREW` | no crew recorded on the task — assign one of the recommended free crews |\n| `ADD_SUPPORT_CREW` | a crew is working on it but it is overdue — a free crew could support recovery |\n| `ASSIGNED_CREW_BUSY` | not started; the recorded crew has work in progress elsewhere — a free crew could take it |\n| `MOBILISE_ASSIGNED_CREW` | not started; the recorded crew has nothing in progress — it could start now |\n| `CONFIRM_ASSIGNED_CREW` | not started; the recorded crew has no recent task record — confirm it is still available |\n| `CREW_TYPE_NOT_RESOLVED` | the needed crew type is unknown — no crew can be matched |\n| `CLOSE_OUT_RECORD` | progress is 100% but the record is open — close the record; no crew is needed |\n\n## 8. Strict instructions\n\n- Name **only** crews that appear in the evidence, as **Crew <crew_id>**. Never invent a crew and\n  never write any other crew code.\n- Never recommend a crew for an activity it is not listed against.\n- Never infer a cause of the delay (material, equipment, approval, productivity) — the evidence\n  does not record one.\n- Every suggestion is advisory. Never describe it as an assignment that has been made.",
+          "replyKeys": [],
+          "allowEmpty": false
+        },
+        {
+          "key": "crew.brief_task",
+          "name": "Crew Management: brief task",
+          "description": "What the crew brief must contain and its format; {TASK} in crew.brief_system.",
+          "text": "# TASK — CREW SUGGESTION BRIEF\n\nWrite a short brief for a project engineer: which activities on this well are delayed,\nwhich crew is on each one, and which **free crew** is recommended. Use only the supplied\nJSON evidence, interpreted strictly through the crew rules above. The recommendations are\nalready ranked — present them; never re-rank, add or swap a crew.\n\n## Output format\n\n**Well [well_id] — Crew Suggestion**\n\n### Delayed activities\nOne bullet per delayed activity, most overdue first:\n- **<activity_description> (`<activity_code>`)** — <how late, e.g. \"overdue 72 days, not started\">.\n  Needs crew type <required_crew_type code and name>.\n  Crew on it: Crew <crew_id> (<supervisor>) or \"no crew recorded\".\n  Suggestion: <the action in plain words> → **Crew <recommended crew_id>** (<supervisor>) because\n  <its evidence: completed this activity N times on M wells / no queued work / last recorded on DATE>.\n  Mention the next recommended crew as an alternative when there is one.\n  If there is no recommendation, give `no_recommendation_reason` in plain words.\n\nWhen the activity has no description, name it by its WBS or activity_id.\n\nList activities with action `CLOSE_OUT_RECORD` separately, in one short line under\n**Awaiting close-out**: progress is 100% but the record is open — no crew is needed.\n\n### Crew plan by crew type\nOne line per crew type in `crew_types`: how many delayed activities need it, how many crews\nof that type are free / busy / team-busy, and which free crew to approach first. When a\nrecommended crew has `same_team_top_pick_for`, say that the same team (same supervisor) is\nalso the top choice there, so it can take them in sequence or the next crew can share the load.\n\n### Note\nOne line: availability is derived from task records only (no roster, leave or location data),\nso confirm each crew with the site before mobilising. When `well_last_recorded_on` is more\nthan two weeks before `as_of`, add that the well was last recorded on that date, so the\ndelays are as last recorded.\n\n## Rules\n- Follow the crew rules exactly; use their terminology.\n- Treat `null` as *not recorded* — never as zero or as a fact.\n- Name every crew as **Crew <crew_id>** with the exact `crew_id` from the evidence — never any\n  other crew code (the page flags any crew id it cannot find).\n- Never blame the crew already on a task.\n- If there are no delayed activities, say so in one line and stop.\n- Keep it concise — no tables, no raw JSON.",
+          "replyKeys": [],
+          "allowEmpty": false
+        },
+        {
+          "key": "crew.brief_system",
+          "name": "Crew Management: brief system prompt",
+          "description": "The system message of the crew brief. Keep {RULES} and {TASK}: the rules and the task are put there.",
+          "text": "You are a crew planning assistant for well construction.\nThe crew rules define the authoritative meaning of every field. The task prompt\ndefines the required output. Apply both to the JSON evidence supplied by the\nuser. Never invent facts, crews or causes that are absent from the evidence.\n\n<crew_rules>\n{RULES}\n</crew_rules>\n\n<task>\n{TASK}\n</task>",
+          "replyKeys": [],
+          "allowEmpty": false
+        },
+        {
+          "key": "crew.brief_message",
+          "name": "Crew Management: brief message",
+          "description": "The user message of the crew brief. Keep {EVIDENCE}: the well's crew plan (JSON) is put there.",
+          "text": "Crew suggestion evidence:\n\n{EVIDENCE}",
+          "replyKeys": [],
+          "allowEmpty": false
         }
       ]
     }

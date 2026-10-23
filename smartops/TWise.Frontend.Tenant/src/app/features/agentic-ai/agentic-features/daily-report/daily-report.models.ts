@@ -89,7 +89,9 @@ export interface AgentVerification { passed?: boolean; issues?: string[]; checke
 export interface AgentPlanStep { tool: string; args?: Record<string, unknown>; why?: string }
 export interface AgentTraceStep {
   node?: string; tool?: string; args?: Record<string, unknown>; why?: string; mode?: string; ok?: boolean;
-  error?: string | null; passed?: boolean; issues?: number; model?: string; duration_s?: number; [key: string]: unknown;
+  error?: string | null; passed?: boolean; issues?: number; model?: string; duration_s?: number;
+  /** verify: why the checker rejected the draft. write: "patch" fixed only `sentences` sentences. */
+  reasons?: string[]; sentences?: number; [key: string]: unknown;
 }
 export interface SqlSource { label: string; file: string; parameters?: string[]; sql: string }
 export interface ProofRow {
@@ -124,3 +126,12 @@ export interface AgentAnswer {
 export interface Load<T> { loading: boolean; error: string; data: T | null }
 
 export function idle<T>(): Load<T> { return { loading: false, error: '', data: null }; }
+
+/** A brief while it streams: the text written so far (live) and what the agent is doing (stage), then the checked answer. */
+export interface BriefLoad extends Load<AgentAnswer> {
+  /** The brief saved for the date, shown the moment it is asked for, until the check against the data ends. */
+  preview: string;
+  live: string;
+  stage: '' | 'data' | 'writing' | 'checking' | 'revising' | 'reused';
+  stop?: () => void;
+}

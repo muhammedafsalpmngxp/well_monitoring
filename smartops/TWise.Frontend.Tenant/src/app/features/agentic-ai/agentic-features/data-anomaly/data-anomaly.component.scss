@@ -236,3 +236,10 @@ $muted: #667085;
 
 @keyframes da-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.6; } }
 @media (prefers-reduced-motion: reduce) { .da__bar--indeterminate span { animation: none; } }
+
+// Compiled SQL with Copy buttons (findings and the rule drawer).
+.da__sqlbox { margin-top: 12px; display: grid; gap: 8px; }
+.da__check summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; cursor: pointer; }
+.da__sql-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px;
+  h4 { margin: 0; font-size: 13px; font-weight: 600; } }
+.da__run-reports { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }

@@ -28,7 +28,8 @@ PARAMS = {data.DAILY_SUMMARY: ["report_date"], data.DAILY_DETAILS: ["report_date
 TEMPLATES = {
     "explain_system": set(), "writer_addendum": {"WORD_LIMIT"}, "planner_system": {"MAX_STEPS"},
     "planner_user": {"REPORT_DATE", "TOOLS", "QUESTION"}, "writer_user": {"REPORT_DATE", "QUESTION", "TOOL_RESULTS"},
-    "writer_revision": {"ISSUES", "DRAFT"}, "verifier_system": set(), "verifier_user": {"TOOL_RESULTS", "DRAFT"},
+    "writer_revision": {"ISSUES", "DRAFT"}, "writer_patch": {"ISSUES", "DRAFT", "COUNT", "SENTENCES"},
+    "verifier_system": set(), "verifier_user": {"TOOL_RESULTS", "DRAFT"},
     "tool_unavailable_note": set(), "tool_deadline_rule": {"WINDOW_DAYS"}, "tool_data_quality_note": set(),
     "evidence_no_daily_entry_note": set(), "evidence_quantities_withheld": set(), "evidence_data_quality_note": set(),
     "evidence_tasks_truncated_note": set(), "well_ongoing_truncated_note": set(), "day_wells_truncated_note": set(),

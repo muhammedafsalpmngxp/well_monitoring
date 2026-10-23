@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable, Iterable, List, Sequence, Set
+from typing import Any, Callable, Iterable, List, Sequence, Set, Tuple
 
 _DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 _NUMBER = re.compile(r"(?<![\w.])-?\d[\d,]*(?:\.\d+)?(?![\w])")
@@ -31,6 +31,9 @@ class Verification:
     passed: bool
     issues: List[str] = field(default_factory=list)
     checked_numbers: int = 0
+    #: What each issue is about, (kind, the text in the draft): ("figure", "88"), ("date", "2026-07-21"), ("judgement",
+    #: "late"), ("field_name", "open_total"). The writer uses it to find and fix only the sentences concerned.
+    problems: List[Tuple[str, str]] = field(default_factory=list)
 
     def as_dict(self):
         return {"passed": self.passed, "issues": list(self.issues), "checked_numbers": self.checked_numbers}
@@ -85,18 +88,21 @@ def verify(draft: str, evidence: Any, *, issue: IssueText, forbidden_phrases: Se
            question: str = "") -> Verification:
     numbers, dates, keys, codes = evidence_vocabulary(evidence, [question])
     issues: List[str] = []
+    problems: List[Tuple[str, str]] = []
 
     body = _LIST_MARKER.sub(" ", draft)
     stated_dates = _DATE.findall(body)
     for stated in sorted(set(stated_dates)):
         if stated not in dates:
             issues.append(issue("date", DATE=stated))
+            problems.append(("date", stated))
 
     stated_numbers = _NUMBER.findall(_DATE.sub(" ", body))
     for token in sorted(set(stated_numbers)):
         normalised = _normalise(token)
         if normalised not in numbers and normalised.lstrip("-") not in numbers:
             issues.append(issue("figure", FIGURE=token))
+            problems.append(("figure", token))
 
     lowered = f" {draft.lower()} "
     for phrase in forbidden_phrases:
@@ -106,9 +112,25 @@ def verify(draft: str, evidence: Any, *, issue: IssueText, forbidden_phrases: Se
         pattern = rf"(?<![a-z]){re.escape(phrase)}(?![a-z])"
         if re.search(pattern, lowered) and phrase.upper().replace(" ", "_") not in codes:
             issues.append(issue("judgement", PHRASE=phrase))
+            problems.append(("judgement", phrase))
 
     for token in sorted({token for token in _SNAKE.findall(draft) if token in keys}):
         issues.append(issue("field_name", FIELD=token))
+        problems.append(("field_name", token))
 
     return Verification(passed=not issues, issues=issues,
-                        checked_numbers=len(set(stated_numbers)) + len(set(stated_dates)))
+                        checked_numbers=len(set(stated_numbers)) + len(set(stated_dates)), problems=problems)
+
+
+def mentions(sentence: str, kind: str, text: str) -> bool:
+    """Whether a sentence states what one problem is about, matched the way verify() found it in the draft."""
+    if kind == "date":
+        return text in _DATE.findall(sentence)
+    if kind == "figure":
+        wanted = _normalise(text)
+        return any(_normalise(t) == wanted for t in _NUMBER.findall(_DATE.sub(" ", _LIST_MARKER.sub(" ", sentence))))
+    if kind == "judgement":
+        return re.search(rf"(?<![a-z]){re.escape(text)}(?![a-z])", sentence.lower()) is not None
+    if kind == "field_name":
+        return text in _SNAKE.findall(sentence)
+    return False

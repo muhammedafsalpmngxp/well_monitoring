@@ -13,12 +13,13 @@ import { FeaturesHomeComponent } from './agentic-features/features-home/features
 import { SlippageComponent } from './agentic-features/slippage/slippage.component';
 import { DailyReportComponent } from './agentic-features/daily-report/daily-report.component';
 import { DataAnomalyComponent } from './agentic-features/data-anomaly/data-anomaly.component';
+import { CrewManagementComponent } from './agentic-features/crew-management/crew-management.component';
 import { AgentCatalogComponent } from './catalog/agent-catalog.component';
 import { AgentEvalsComponent } from './new-agent/agent-evals/agent-evals.component';
 
 @NgModule({
   declarations: [AgenticAiComponent, AiAgentsComponent, ActivityLogComponent, NewAgentComponent, RunAgentDialogComponent,
-    FeaturesHomeComponent, SlippageComponent, DailyReportComponent, DataAnomalyComponent, AgentCatalogComponent, AgentEvalsComponent],
+    FeaturesHomeComponent, SlippageComponent, DailyReportComponent, DataAnomalyComponent, CrewManagementComponent, AgentCatalogComponent, AgentEvalsComponent],
   imports: [SharedModule, AgGridAngular, HighchartsChartComponent, AgenticAiRoutingModule, AgentCanvasComponent],
 })
 export class AgenticAiModule {}

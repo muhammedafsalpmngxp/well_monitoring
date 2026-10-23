@@ -35,6 +35,7 @@ does nothing.
 | 6 | `add-ai-prompt-table.sql` | `core.AiPrompt` | AI Prompts; copies any custom prompts from `prompts_json`; needs step 5 |
 | 7 | `add-ai-askdata-settings.sql` | Ask Data settings on `AiSettings` | **Fills tenants with no settings yet** with the Al-Tasnim schemas and limits (correct for UAT) |
 | 8 | `add-agentic-features.sql` | Agentic Features tables, `AiFeatureJob`, feature settings | Slippage, Daily Report, Data Anomaly |
+| 8a | `add-ai-feature-answers.sql` | `core.AiFeatureAnswer` | Saved AI answers: Daily Report briefs, also those prepared in the background, survive a restart of the agent runtime. Without it the app still works; answers are then kept in memory only |
 | 9 | `add-ai-agents.sql` | Agent builder tables and columns | Agents, runs (usage, tokens, threads, approvals), versions, memories, schedules, evals, model prices, notes |
 | 10 | `add-ai-agent-state.sql` | `AiAgents.agent_state` | Active / inactive agents; after step 9 |
 
@@ -42,7 +43,7 @@ does nothing.
 
 | # | Script | Adds |
 |---|---|---|
-| 11 | `add-agentic-features-permission.sql` | Modules `agentic-ai.features`, `.slippage`, `.daily-report`, `.data-anomaly` and their role permissions |
+| 11 | `add-agentic-features-permission.sql` | Modules `agentic-ai.features`, `.slippage`, `.daily-report`, `.data-anomaly`, `.crew-management` and their role permissions |
 
 Users see the new menu items after their next login.
 

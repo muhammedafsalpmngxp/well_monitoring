@@ -23,6 +23,8 @@ namespace TWise.Tenant.Infrastructure.Services;
 public sealed class AgenticJobSignal : IAgenticJobSignal
 {
     private readonly SemaphoreSlim _signal = new(0, 1);
+    private readonly ConcurrentQueue<long> _claimed = new();
+    private volatile bool _runsJobsHere;
 
     public void Notify()
     {
@@ -31,6 +33,18 @@ public sealed class AgenticJobSignal : IAgenticJobSignal
     }
 
     public Task WaitAsync(TimeSpan timeout, CancellationToken ct) => _signal.WaitAsync(timeout, ct);
+
+    public bool RunsJobsHere => _runsJobsHere;
+
+    public void Claimed(long jobId)
+    {
+        _claimed.Enqueue(jobId);
+        Notify();
+    }
+
+    internal void SetRunsJobsHere(bool value) => _runsJobsHere = value;
+
+    internal bool TryTakeClaimed(out long jobId) => _claimed.TryDequeue(out jobId);
 }
 
 /// <summary>
@@ -54,12 +68,17 @@ public sealed class AgenticJobWorker(IServiceScopeFactory scopes, IAgenticJobSig
         var stale = TimeSpan.FromMinutes(Setting("AgenticFeatures:StaleJobMinutes", 5, 2, 120));
 
         var missingTables = false;
+        var local = signal as AgenticJobSignal;
+        local?.SetRunsJobsHere(true);
         while (!stoppingToken.IsCancellationRequested)
         {
             var wait = poll;
             try
             {
                 await FailStaleAsync(stale, stoppingToken);
+                // Jobs started on this instance were created already claimed: they run here, never elsewhere.
+                while (local is not null && local.TryTakeClaimed(out var mine))
+                    _running[mine] = Task.Run(() => RunAsync(mine, stoppingToken), CancellationToken.None);
                 while (_running.Count < maxParallel && await ClaimAsync(stoppingToken) is { } id)
                     _running[id] = Task.Run(() => RunAsync(id, stoppingToken), CancellationToken.None);
                 if (missingTables) logger.LogInformation("Agentic Features: the job queue table is there now; jobs run again.");
@@ -146,10 +165,18 @@ public sealed class AgenticJobWorker(IServiceScopeFactory scopes, IAgenticJobSig
 /// meanwhile stops at its next heartbeat; a shutdown puts it back in the queue.
 /// </summary>
 public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeatureContext context, IAgentRuntimeClient runtime,
-    IAiUsageRepository usage, ILogger<AgenticJobRunner> logger)
+    IAiUsageRepository usage, IConfiguration config, ILogger<AgenticJobRunner> logger)
 {
     private static readonly TimeSpan BeatEvery = TimeSpan.FromSeconds(10);
     private const int MaxCoveredChecks = 1000;
+    /// <summary>Compiled checks written per round trip: a dropped connection loses one small batch, not the whole catalog.</summary>
+    internal const int ProbeBatchSize = 25;
+    /// <summary>Waits between attempts to store a job's outcome after the database connection dropped (about 2 minutes in
+    /// all, well inside the stale-job limit; the job's heartbeat is kept current meanwhile).</summary>
+    /// <summary>A probe kept during the compile retries briefly: the whole catalog is written again at the end anyway.</summary>
+    internal static TimeSpan[] ProbeRetryDelays { get; set; } = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)];
+    internal static TimeSpan[] StoreRetryDelays { get; set; } =
+        [TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(40), TimeSpan.FromSeconds(60)];
     private static readonly string[] ProbeStatuses = ["active", "failed", "not_applicable", "disabled"];
 
     public async Task RunAsync(long jobId, CancellationToken stoppingToken)
@@ -165,18 +192,22 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         var abandoned = false;
         var lastBeat = DateTime.UtcNow;
-        string? lastProgress = null;
+        string? latestProgress = null, storedProgress = null;
         var started = DateTime.UtcNow;
         var options = DataAnomalyService.Parse(job.RequestJson) ?? JsonSerializer.Deserialize<JsonElement>("{}");
 
         async Task BeatAsync(string? progress)
         {
             var now = DateTime.UtcNow;
-            if (progress == lastProgress && now - lastBeat < BeatEvery) return;
-            if (progress != lastProgress && now - lastBeat < TimeSpan.FromSeconds(2)) return;   // progress at most every 2 s
+            // A progress update that arrives too soon is kept and written by the next beat (a ping, a stored probe or
+            // the next progress), so the page never stays on an old count while rules finish in parallel.
+            if (progress is not null) latestProgress = progress;
+            var changed = latestProgress != storedProgress;
+            if (!changed && now - lastBeat < BeatEvery) return;
+            if (changed && now - lastBeat < TimeSpan.FromSeconds(2)) return;   // progress at most every 2 s
             lastBeat = now;
-            lastProgress = progress ?? lastProgress;
-            var stored = lastProgress;
+            var stored = latestProgress;
+            storedProgress = stored;
             int alive;
             try
             {
@@ -202,6 +233,20 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
             await DataAnomalyService.EnsureRulesAsync(db, job.TenantId, logger, cts.Token);
             var body = await BodyAsync(job, options, cts.Token);
             var envelope = await EnvelopeAsync(job, cts.Token);
+            var pending = new PendingJobResults(config, logger);
+            var pendingKey = PendingJobResults.Key(job.Kind, body, envelope);
+
+            // An earlier job with the same input finished its AI work but could not store it (database connection
+            // lost): store that outcome now instead of paying for the AI work again.
+            if (PendingJobResults.Applies(job.Kind) && pending.TryLoad(job.TenantId, job.Feature, job.Kind, pendingKey) is { } saved)
+            {
+                logger.LogInformation("Data Anomaly {Kind} job {JobId}: storing the outcome job {EarlierJob} could not save ({SavedAt:u}), "
+                    + "without calling the AI again.", job.Kind, job.Id, saved.JobId, saved.SavedAt);
+                await BeatAsync(JsonSerializer.Serialize(new { stage = "store", label = "Saving the result of the earlier job" }));
+                await CompleteAsync(job, options, saved.Result, started, pending, pendingKey, () => BeatAsync(null));
+                return;
+            }
+
             JsonElement? result = null;
             string? error = null;
             await foreach (var ev in runtime.FeatureStreamAsync(job.Feature, job.Kind, envelope, body, cts.Token))
@@ -210,6 +255,11 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
                 {
                     case "progress":
                         await BeatAsync(ev.Data.GetRawText());
+                        break;
+                    case "probe" when job.Kind == DataAnomalyService.KindCompile && ev.Data.TryGetProperty("probe", out var probe):
+                        // Kept at once: a compile cut short (restart, lost connection) is resumed from these.
+                        await SaveProbeAsync(job, probe);
+                        await BeatAsync(null);
                         break;
                     case "result":
                         result = ev.Data;
@@ -225,10 +275,7 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
 
             if (result is { } r)
             {
-                var summary = await StoreAsync(job, options, r, started);
-                await AgenticFeatureGateway.LogUsageAsync(usage, job.TenantId, job.RequestedBy, job.Feature, r);
-                await FinishAsync(job.Id, AiFeatureJobStatus.Succeeded, summary, null);
-                logger.LogInformation("Data Anomaly {Kind} job {JobId} finished for tenant {TenantId}.", job.Kind, job.Id, job.TenantId);
+                await CompleteAsync(job, options, r, started, pending, pendingKey, () => BeatAsync(null));
             }
             else
             {
@@ -274,16 +321,117 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
         await FinishAsync(job.Id, AiFeatureJobStatus.Failed, null, message);
     }
 
-    /// <summary>Closes the job unless someone already did (cancelled, or failed as stale).</summary>
+    /// <summary>
+    /// Stores a job's outcome, logs its AI usage and closes the job. A dropped database connection is retried with a fresh
+    /// connection (StoreRetryDelays). If the outcome of a compile or discover still cannot be stored, it is kept on disk
+    /// (PendingJobResults) and the job fails with a message saying so: starting the same job again stores it without
+    /// calling the AI. AI usage is logged only once the outcome is stored, so a kept outcome is not counted twice.
+    /// </summary>
+    private async Task CompleteAsync(AiFeatureJob job, JsonElement options, JsonElement result, DateTime started,
+        PendingJobResults pending, string pendingKey, Func<Task> heartbeat)
+    {
+        JsonObject summary;
+        try
+        {
+            summary = await WithDatabaseRetryAsync($"job {job.Id}: store the outcome", () => StoreAsync(job, options, result, started), heartbeat);
+        }
+        catch (Exception ex) when (IsTransient(ex) && PendingJobResults.Applies(job.Kind))
+        {
+            var kept = pending.Save(job.TenantId, job.Feature, job.Kind, pendingKey, job.Id, result);
+            logger.LogError(ex, "Data Anomaly {Kind} job {JobId}: the outcome could not be stored (database connection lost); kept: {Kept}",
+                job.Kind, job.Id, kept);
+            var what = job.Kind == DataAnomalyService.KindCompile ? "The checks were compiled" : "New rules were proposed";
+            await FinishAsync(job.Id, AiFeatureJobStatus.Failed, null, kept
+                ? $"{what} but could not be saved: the connection to the database was lost. Start it again with the same options: "
+                  + $"the result is saved then, without calling the AI again (kept for {pending.KeepHours} hours)."
+                : $"{what} but could not be saved: the connection to the database was lost. Start it again.");
+            return;
+        }
+
+        pending.Delete(job.TenantId, job.Feature, job.Kind);
+        try
+        {
+            await WithDatabaseRetryAsync($"job {job.Id}: log AI usage", async () =>
+            {
+                await AgenticFeatureGateway.LogUsageAsync(usage, job.TenantId, job.RequestedBy, job.Feature, result);
+                return true;
+            }, heartbeat);
+        }
+        catch (Exception ex)
+        {
+            // The outcome is stored; missing usage rows only make today's AI count low.
+            logger.LogWarning(ex, "Data Anomaly job {JobId}: AI usage could not be logged", job.Id);
+        }
+        await FinishAsync(job.Id, AiFeatureJobStatus.Succeeded, summary, null);
+        logger.LogInformation("Data Anomaly {Kind} job {JobId} finished for tenant {TenantId}.", job.Kind, job.Id, job.TenantId);
+    }
+
+    /// <summary>Runs a database step again after a dropped connection or a timeout, with a fresh change tracker (the
+    /// failed attempt's transaction was rolled back) and the job's heartbeat kept current while it waits.</summary>
+    private async Task<T> WithDatabaseRetryAsync<T>(string what, Func<Task<T>> step, Func<Task>? heartbeat = null,
+        TimeSpan[]? delays = null)
+    {
+        delays ??= StoreRetryDelays;
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await step();
+            }
+            catch (Exception ex) when (IsTransient(ex) && attempt < delays.Length)
+            {
+                db.ChangeTracker.Clear();
+                var wait = delays[attempt];
+                logger.LogWarning("Data Anomaly {What}: database connection problem ({Error}); attempt {Attempt} of {Total} in {Wait}s.",
+                    what, ex.GetBaseException().Message, attempt + 2, delays.Length + 1, wait.TotalSeconds);
+                await Task.Delay(wait);
+                if (heartbeat is not null)
+                {
+                    try { await heartbeat(); } catch (Exception) { /* the heartbeat logs its own problems */ }
+                }
+            }
+        }
+    }
+
+    /// <summary>A failure that a new attempt on a fresh connection can get past: the connection dropped or timed out.
+    /// Constraint violations and SQL errors are not.</summary>
+    internal static bool IsTransient(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+        {
+            switch (e)
+            {
+                case SqlException sql when sql.Class >= 20 || TransientSqlNumbers.Contains(sql.Number):
+                case TimeoutException:
+                case IOException:
+                case System.Net.Sockets.SocketException:
+                case System.ComponentModel.Win32Exception:
+                    return true;
+                case SqlException:
+                    return false;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>Timeout (-2), connection broken / forcibly closed / network name gone (64, 233, 10053, 10054, 10060),
+    /// Azure SQL busy or throttling (40197, 40501, 40613, 49918, 49919, 49920).</summary>
+    private static readonly HashSet<int> TransientSqlNumbers = [-2, 64, 233, 10053, 10054, 10060, 40197, 40501, 40613, 49918, 49919, 49920];
+
+    /// <summary>Closes the job unless someone already did (cancelled, or failed as stale). Retried on a dropped
+    /// connection: otherwise a finished job would stay "running" until the stale check fails it.</summary>
     private async Task FinishAsync(long jobId, string status, JsonObject? result, string? error)
     {
-        var now = DateTime.UtcNow;
         var resultJson = result?.ToJsonString(DataAnomalyService.Json);
         var message = DataAnomalyService.Clip(error, 4000);
-        await db.AiFeatureJobs.Where(j => j.Id == jobId && j.Status == AiFeatureJobStatus.Running)
-            .ExecuteUpdateAsync(x => x.SetProperty(j => j.Status, status).SetProperty(j => j.FinishedAt, now)
-                .SetProperty(j => j.HeartbeatAt, now).SetProperty(j => j.ResultJson, resultJson).SetProperty(j => j.Error, message),
-                CancellationToken.None);
+        await WithDatabaseRetryAsync($"job {jobId}: close", async () =>
+        {
+            var now = DateTime.UtcNow;
+            return await db.AiFeatureJobs.Where(j => j.Id == jobId && j.Status == AiFeatureJobStatus.Running)
+                .ExecuteUpdateAsync(x => x.SetProperty(j => j.Status, status).SetProperty(j => j.FinishedAt, now)
+                    .SetProperty(j => j.HeartbeatAt, now).SetProperty(j => j.ResultJson, resultJson).SetProperty(j => j.Error, message),
+                    CancellationToken.None);
+        });
     }
 
     /// <summary>Compile and Discover need the AI; a run uses it only to recompile stale checks (when the settings allow),
@@ -383,6 +531,54 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
         return summary;
     }
 
+    private HashSet<string>? _ruleIds;
+
+    /// <summary>
+    /// Stores one probe the moment the compile finished it (insert, or replace the tenant's probe with that id). The next
+    /// compile sends the stored catalog back, and the runtime reuses every probe still valid, so a compile cut short
+    /// continues where it stopped. Retried on a dropped connection; a probe that still cannot be stored is only logged:
+    /// the complete catalog is written again when the compile ends.
+    /// </summary>
+    private async Task SaveProbeAsync(AiFeatureJob job, JsonElement probe)
+    {
+        var id = DataAnomalyService.Str(probe, "ruleId")?.Trim();
+        if (probe.ValueKind != JsonValueKind.Object || string.IsNullOrEmpty(id) || id.Length > 200) return;
+        try
+        {
+            await WithDatabaseRetryAsync($"job {job.Id}: keep probe {id}", async () =>
+            {
+                _ruleIds ??= (await db.AnomalyRules.AsNoTracking().Where(r => r.TenantId == job.TenantId).Select(r => r.RuleId)
+                    .ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var row = await db.AnomalyProbes.FirstOrDefaultAsync(p => p.TenantId == job.TenantId && p.ProbeId == id);
+                if (row is null)
+                {
+                    row = new AnomalyProbe { TenantId = job.TenantId, ProbeId = id };
+                    db.AnomalyProbes.Add(row);
+                }
+                Fill(row, probe, _ruleIds);
+                await db.SaveChangesAsync();
+                db.ChangeTracker.Clear();
+                return true;
+            }, delays: ProbeRetryDelays);
+        }
+        catch (Exception ex)
+        {
+            db.ChangeTracker.Clear();
+            logger.LogWarning(ex, "Data Anomaly job {JobId}: probe {ProbeId} could not be kept yet; it is stored with the whole catalog "
+                + "when the compile ends", job.Id, id);
+        }
+    }
+
+    private static void Fill(AnomalyProbe row, JsonElement probe, IReadOnlySet<string> ruleIds)
+    {
+        var status = DataAnomalyService.Str(probe, "status") ?? "failed";
+        row.RuleId = OwnerRule(row.ProbeId, ruleIds);
+        row.Status = ProbeStatuses.Contains(status) ? status : "failed";
+        row.ProbeJson = probe.GetRawText();
+        row.CompiledAt = DateTime.TryParse(DataAnomalyService.Str(probe, "compiledAt"), CultureInfo.InvariantCulture,
+            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var at) ? at : DateTime.UtcNow;
+    }
+
     /// <summary>The catalog after a compile is complete: it replaces the stored one.</summary>
     private async Task ReplaceCatalogAsync(long tenantId, JsonElement catalog)
     {
@@ -390,20 +586,23 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         await db.AnomalyProbes.Where(p => p.TenantId == tenantId).ExecuteDeleteAsync();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var batch = 0;
         foreach (var probe in catalog.EnumerateArray().Where(p => p.ValueKind == JsonValueKind.Object))
         {
             var id = DataAnomalyService.Str(probe, "ruleId")?.Trim();
             if (string.IsNullOrEmpty(id) || id.Length > 200 || !seen.Add(id)) continue;
-            var status = DataAnomalyService.Str(probe, "status") ?? "failed";
-            db.AnomalyProbes.Add(new AnomalyProbe
+            var row = new AnomalyProbe { TenantId = tenantId, ProbeId = id };
+            Fill(row, probe, ruleIds);
+            db.AnomalyProbes.Add(row);
+            // Small round trips inside the one transaction: the catalog is still replaced all or nothing.
+            if (++batch % ProbeBatchSize == 0)
             {
-                TenantId = tenantId, ProbeId = id, RuleId = OwnerRule(id, ruleIds),
-                Status = ProbeStatuses.Contains(status) ? status : "failed", ProbeJson = probe.GetRawText(),
-                CompiledAt = DateTime.TryParse(DataAnomalyService.Str(probe, "compiledAt"), CultureInfo.InvariantCulture,
-                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var at) ? at : DateTime.UtcNow,
-            });
+                await db.SaveChangesAsync();
+                db.ChangeTracker.Clear();
+            }
         }
         await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
     }
 
     /// <summary>A family member's probe ("R12-003") belongs to its family rule ("R12").</summary>
@@ -553,4 +752,93 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
 
     [GeneratedRegex(@"^(.+)-\d{3}$")]
     private static partial Regex FamilyMember();
+}
+
+/// <summary>
+/// The outcome of a compile or discover whose AI work finished but could not be stored (the database connection was
+/// lost), kept as a file so the next job with the same input stores it instead of calling the AI again. One file per
+/// tenant, feature and kind under AgenticFeatures:PendingResultsDir (default: the user's local app data
+/// \TWise\agentic-pending), kept AgenticFeatures:PendingResultHours (24). The key covers everything the outcome was
+/// computed from (rules, compiled checks, options, settings, readable tables, prompts), so a changed input never
+/// reuses it. The files hold SQL and rule text, no secrets.
+/// </summary>
+public sealed class PendingJobResults(IConfiguration config, ILogger logger)
+{
+    public sealed record Saved(long JobId, DateTime SavedAt, JsonElement Result);
+
+    public int KeepHours { get; } = int.TryParse(config["AgenticFeatures:PendingResultHours"], out var h) ? Math.Clamp(h, 1, 168) : 24;
+
+    private string Dir => config["AgenticFeatures:PendingResultsDir"] is { Length: > 0 } d ? d
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TWise", "agentic-pending");
+
+    /// <summary>Compile and discover are the jobs whose AI work is worth keeping; a run is cheap to repeat and its
+    /// result belongs to the moment it ran.</summary>
+    public static bool Applies(string kind) => kind is DataAnomalyService.KindCompile or DataAnomalyService.KindDiscover;
+
+    /// <summary>SHA-256 of what the outcome depends on (the run id, new per job, left out).</summary>
+    public static string Key(string kind, JsonObject body, AgenticFeatureEnvelope envelope)
+    {
+        var input = (JsonObject)body.DeepClone();
+        input.Remove("runId");
+        var text = JsonSerializer.Serialize(new
+        {
+            kind, body = input.ToJsonString(), settings = envelope.Settings, access = envelope.Access,
+            prompts = envelope.Prompts.OrderBy(p => p.Key, StringComparer.Ordinal).ToList(),
+        });
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+    }
+
+    public Saved? TryLoad(long tenantId, string feature, string kind, string key)
+    {
+        var path = PathFor(tenantId, feature, kind);
+        try
+        {
+            if (!File.Exists(path)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var root = doc.RootElement;
+            var savedAt = root.GetProperty("savedAt").GetDateTime();
+            if (DateTime.UtcNow - savedAt > TimeSpan.FromHours(KeepHours))
+            {
+                Delete(tenantId, feature, kind);
+                return null;
+            }
+            if (root.GetProperty("key").GetString() != key) return null;   // the input changed: the AI must run again
+            return new Saved(root.GetProperty("jobId").GetInt64(), savedAt, root.GetProperty("result").Clone());
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException or KeyNotFoundException
+            or InvalidOperationException or FormatException)
+        {
+            logger.LogWarning(ex, "Agentic Features: the kept result {Path} could not be read; it is ignored", path);
+            return null;
+        }
+    }
+
+    /// <summary>Writes the outcome (to a temporary file first, so a half-written file is never read). False when it
+    /// could not be written.</summary>
+    public bool Save(long tenantId, string feature, string kind, string key, long jobId, JsonElement result)
+    {
+        var path = PathFor(tenantId, feature, kind);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(new { key, jobId, savedAt = DateTime.UtcNow, result }));
+            File.Move(tmp, path, overwrite: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(ex, "Agentic Features: the result of job {JobId} could not be kept in {Path}", jobId, path);
+            return false;
+        }
+    }
+
+    public void Delete(long tenantId, string feature, string kind)
+    {
+        try { File.Delete(PathFor(tenantId, feature, kind)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    private string PathFor(long tenantId, string feature, string kind) =>
+        Path.Combine(Dir, $"tenant-{tenantId}-{feature}-{kind}.json");
 }

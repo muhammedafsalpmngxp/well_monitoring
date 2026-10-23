@@ -15,6 +15,7 @@ public static partial class AgenticFeatureCatalog
     public const string Slippage = "slippage";
     public const string DailyReport = "dailyreport";
     public const string Anomaly = "anomaly";
+    public const string Crew = "crew";
 
     public const string AccessTables = "tables";
     public const string AccessSchemas = "schemas";
@@ -22,7 +23,7 @@ public static partial class AgenticFeatureCatalog
     /// <summary>Permission module codes (control.FeatureModule).</summary>
     public const string LandingModule = "agentic-ai.features";
 
-    public static readonly IReadOnlyList<string> Keys = [Slippage, DailyReport, Anomaly];
+    public static readonly IReadOnlyList<string> Keys = [Slippage, DailyReport, Anomaly, Crew];
 
     private static readonly Lazy<IReadOnlyDictionary<string, FeatureSeed>> Seeds = new(Load);
 
@@ -38,6 +39,7 @@ public static partial class AgenticFeatureCatalog
         Slippage => "agentic-ai.slippage",
         DailyReport => "agentic-ai.daily-report",
         Anomaly => "agentic-ai.data-anomaly",
+        Crew => "agentic-ai.crew-management",
         _ => throw new KeyNotFoundException($"Unknown Agentic Feature '{feature}'."),
     };
 
@@ -46,6 +48,7 @@ public static partial class AgenticFeatureCatalog
         Slippage => "slippage",
         DailyReport => "daily-report",
         Anomaly => "data-anomaly",
+        Crew => "crew-management",
         _ => throw new KeyNotFoundException($"Unknown Agentic Feature '{feature}'."),
     };
 

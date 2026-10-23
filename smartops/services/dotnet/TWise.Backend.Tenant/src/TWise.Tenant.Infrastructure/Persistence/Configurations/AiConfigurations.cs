@@ -30,6 +30,7 @@ public sealed class AiSettingsConfiguration : IEntityTypeConfiguration<AiSetting
         b.Property(e => e.SlippageSettingsJson).HasColumnName("slippage_settings_json");
         b.Property(e => e.DailyReportSettingsJson).HasColumnName("dailyreport_settings_json");
         b.Property(e => e.AnomalySettingsJson).HasColumnName("anomaly_settings_json");
+        b.Property(e => e.CrewSettingsJson).HasColumnName("crew_settings_json");
         b.Property(e => e.CreatedBy).HasColumnName("created_by");
         b.Property(e => e.CreatedAt).HasColumnName("created_at");
         b.Property(e => e.ModifiedBy).HasColumnName("modified_by");

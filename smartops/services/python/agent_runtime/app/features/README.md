@@ -8,6 +8,7 @@ Three AI features run here, next to Ask Data. The Tenant API calls them; the Ang
 | Slippage | `app/features/slippage` | `slippage.` | Wells that missed contractual milestones, task delay per well, crew availability, and an AI recovery advisor (well and task level). |
 | Daily Report | `app/features/dailyreport` | `dailyreport.` | Daily morning brief for a report date: per-well task validation, milestones, AI briefs (day / well / task) with a number-checking verifier, "ask the agent", Excel export. |
 | Data Anomaly | `app/features/anomaly` | `anomaly.` | Plain-English data-quality rules compiled by AI into verified SQL probes, scored runs with an AI summary and Word / Excel reports, and AI-proposed new rules (Discover). |
+| Crew Management | `app/features/crew` | `crew.` | Every crew's availability (free / busy / team busy / inactive) and team, crew capacity against the delayed work each crew type is needed for, and per live well the crew on each delayed activity with the free crews to approach, plus an AI brief that narrates the plan. |
 
 ## The rule: the runtime keeps nothing of a tenant's
 

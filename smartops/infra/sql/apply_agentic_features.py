@@ -49,13 +49,13 @@ def check() -> None:
         cur = conn.cursor()
         tables = ["AiFeatureQuery", "AnomalyRule", "AnomalyProbe", "AnomalyRun", "AnomalyRunReport", "AnomalyProposal", "AiFeatureJob"]
         missing = [t for t in tables if cur.execute("SELECT OBJECT_ID(?, 'U')", f"core.{t}").fetchone()[0] is None]
-        cols = [c for c in ("slippage_settings_json", "dailyreport_settings_json", "anomaly_settings_json")
+        cols = [c for c in ("slippage_settings_json", "dailyreport_settings_json", "anomaly_settings_json", "crew_settings_json")
                 if cur.execute("SELECT COL_LENGTH('core.AiSettings', ?)", c).fetchone()[0] is None]
     with connect(CONTROL_DB) as conn:
         modules = conn.cursor().execute(
             "SELECT COUNT(*) FROM control.FeatureModule WHERE module_code IN "
-            "('agentic-ai.features','agentic-ai.slippage','agentic-ai.daily-report','agentic-ai.data-anomaly')").fetchone()[0]
-    print(f"Tenant tables missing: {missing or 'none'} | AiSettings columns missing: {cols or 'none'} | permission modules: {modules}/4")
+            "('agentic-ai.features','agentic-ai.slippage','agentic-ai.daily-report','agentic-ai.data-anomaly','agentic-ai.crew-management')").fetchone()[0]
+    print(f"Tenant tables missing: {missing or 'none'} | AiSettings columns missing: {cols or 'none'} | permission modules: {modules}/5")
 
 
 if __name__ == "__main__":

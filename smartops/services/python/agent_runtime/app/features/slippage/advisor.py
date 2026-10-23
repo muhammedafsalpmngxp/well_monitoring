@@ -263,9 +263,9 @@ def _complete(key: str, cfg: SlippageSettings, well_id: str | None = None) -> Qu
     short (a well cut from the slippage listing would be reported to the model as having failed no milestone)."""
     result = queries.run(key, cfg, well_id=well_id)
     if result.truncated:
-        raise BadRequest(f"The Slippage query '{key}' returned more than {cfg.query_max_rows} rows, so the advisor's "
+        raise BadRequest(f"The Well Slippage query '{key}' returned more than {cfg.query_max_rows} rows, so the advisor's "
                          "evidence would be incomplete. An admin can raise the query row limit under Settings > "
-                         "AI Settings > Slippage.")
+                         "AI Settings > Well Slippage.")
     return result
 
 
@@ -304,8 +304,8 @@ def _well(well_id: str, cfg: SlippageSettings) -> dict:
     absent = [f"{m.prefix}_{part}" for m in milestones for part in ("deadline", "actual", "status", "variance_days")
               if f"{m.prefix}_{part}" not in result.columns]
     if absent:
-        raise BadRequest(f"The Slippage milestones setting names columns the well slippage query does not return "
-                         f"({', '.join(absent)}). An admin can fix it under AI Settings > Ask Data & Features > Slippage.")
+        raise BadRequest(f"The Well Slippage milestones setting names columns the well slippage query does not return "
+                         f"({', '.join(absent)}). An admin can fix it under AI Settings > Ask Data & Features > Well Slippage.")
     for row in result.rows:
         if _same(row.get("well_id"), well_id):
             return {

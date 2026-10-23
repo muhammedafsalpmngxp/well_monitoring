@@ -60,6 +60,10 @@ public record SlippageQueryRequest(string? Key, string? WellId);
 /// model again instead of reusing an answer that rests on the same data.</summary>
 public record SlippageAdviseRequest(string? WellId, string? TaskCode, bool Fresh);
 
+/// <summary>Crew Management: the fleet overview, or (with WellId) one well's crew plan / AI brief. Fresh reads the
+/// fleet-wide results again instead of the short-lived cache.</summary>
+public record CrewManagementRequest(string? WellId, bool Fresh);
+
 /// <summary>Daily Report: a figure of one report date. Refresh reads the database again instead of the short-lived cache.
 /// The group filters (Status, Wbs, ActivityCode, Uom) select the tasks behind one summary figure; WellId one well.</summary>
 public record DailyReportDayRequest(DateOnly? ReportDate, bool Refresh, string? Status, string? Wbs, string? ActivityCode,
@@ -67,6 +71,10 @@ public record DailyReportDayRequest(DateOnly? ReportDate, bool Refresh, string? 
 
 /// <summary>Daily Report: deadlines due within WindowDays (the setting when null) of Today (the user's date).</summary>
 public record DailyReportMilestonesRequest(int? WindowDays, DateOnly? Today);
+
+/// <summary>A verified AI answer saved earlier for a report date (core.AiFeatureAnswer), shown at once while the page checks
+/// it is still current. UsedAt: when it was last written or confirmed against the data.</summary>
+public record SavedAiAnswerDto(string Explanation, string? Model, DateTime CreatedAt, DateTime UsedAt);
 
 /// <summary>Daily Report AI brief: Scope day, well (WellId) or task (TaskDailyId). Today is the user's date.</summary>
 public record DailyReportBriefRequest(DateOnly? ReportDate, string? Scope, long? WellId, long? TaskDailyId, DateOnly? Today);
@@ -86,6 +94,11 @@ public record AnomalyRuleDto(string RuleId, string Title, string? Category, stri
     string ModifiedBy, DateTime ModifiedAt);
 
 public record SetAnomalyRuleStatusRequest(string? Status);
+
+/// <summary>One compiled check of a rule (core.AnomalyProbe) with the SQL it runs: SummarySql counts the anomalies,
+/// DetailSql lists the flagged records. A rule family has one check per member (ProbeId "R12-003").</summary>
+public record AnomalyCheckDto(string ProbeId, string RuleId, string Status, string? SummarySql, string? DetailSql,
+    IReadOnlyList<string> Tables, string? Error, DateTime CompiledAt);
 
 /// <summary>One detection run for lists. Reports: the formats that can be downloaded.</summary>
 public record AnomalyRunSummaryDto(string RunId, string Status, string? DatabaseName, DateTime StartedAt, DateTime? FinishedAt,

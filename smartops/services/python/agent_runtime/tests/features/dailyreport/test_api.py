@@ -3,6 +3,7 @@ and the error contract (400 bad input / configuration, 404 unknown well, 503 dat
 from __future__ import annotations
 
 import io
+import json
 from datetime import date, timedelta
 
 import pytest
@@ -58,6 +59,16 @@ def day(fake_db):
 
 def post(client, path, **fields):
     return client.post(PREFIX + path, json=body(**fields))
+
+
+def _events(text):
+    """The (name, data) pairs of a server-sent event stream, pings left out."""
+    out = []
+    for block in text.strip().split("\n\n"):
+        lines = dict(line.split(": ", 1) for line in block.splitlines() if ": " in line)
+        if lines.get("event") and lines["event"] != "ping":
+            out.append((lines["event"], json.loads(lines["data"])))
+    return out
 
 
 class TestDashboard:
@@ -175,6 +186,35 @@ class TestAgentEndpoints:
         assert out["verified"] is True and out["report_date"] == DAY
         assert [p["task_code"] for p in out["proof"]] == ["FLME1180-31474"]
         assert [s["file"] for s in out["sql_sources"]] == [data.WELL_ACTIVITY, data.WELL_DETAIL]
+
+    def test_the_streamed_brief_sends_its_text_then_the_same_answer(self, client, day, fake_model):
+        answer = "Well 30349 reported nothing on the date and has 4 open tasks."
+        fake_model.answers["writer"] = [answer]
+        response = post(client, "/agent/brief/stream", reportDate=DAY, scope="well", wellId=30349,
+                        today=TODAY.isoformat())
+        assert response.headers["content-type"].startswith("text/event-stream")
+        events = _events(response.text)
+        names = [name for name, _ in events]
+        assert names[-1] == "result" and "error" not in names
+        assert "".join(d["text"] for n, d in events if n == "delta") == answer
+        result = events[-1][1]
+        assert result["explanation"] == answer and result["verified"] and result["answer_key"]
+        assert result["report_date"] == DAY
+
+    def test_the_streamed_brief_reports_a_refusal_as_an_error_event(self, client, day):
+        events = _events(post(client, "/agent/brief/stream", reportDate=DAY, scope="uom", today=TODAY.isoformat()).text)
+        assert events == [("error", {"message": events[0][1]["message"], "status": 400})]
+
+    def test_a_saved_answer_is_taken_from_the_request(self, client, day, fake_model):
+        answer = "Well 30349 reported nothing on the date and has 4 open tasks."
+        fake_model.answers["writer"] = [answer]
+        first = post(client, "/agent/brief", reportDate=DAY, scope="well", wellId=30349, today=TODAY.isoformat()).json()
+        data.ANSWER_CACHE.clear()
+        known = [{"key": first["answer_key"], "draft": first["explanation"], "verification": first["verification"],
+                  "model": first["model"]}]
+        second = post(client, "/agent/brief", reportDate=DAY, scope="well", wellId=30349, today=TODAY.isoformat(),
+                      knownAnswers=known).json()
+        assert second["cached"] is True and fake_model.count("writer") == 1
 
     def test_brief_refuses_a_scope_it_does_not_cover(self, client, day):
         assert post(client, "/agent/brief", reportDate=DAY, scope="uom", today=TODAY.isoformat()).status_code == 400

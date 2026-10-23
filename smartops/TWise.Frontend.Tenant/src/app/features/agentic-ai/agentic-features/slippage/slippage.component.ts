@@ -137,7 +137,7 @@ export class SlippageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly cdr = inject(ChangeDetectorRef);
 
-  readonly breadcrumbs = [{ label: 'Home' }, { label: 'Agentic AI' }, { label: 'Agentic Features', route: '/agentic-ai/features' }, { label: 'Slippage' }];
+  readonly breadcrumbs = [{ label: 'Home' }, { label: 'Agentic AI' }, { label: 'Agentic Features', route: '/agentic-ai/features' }, { label: 'Well Slippage' }];
   readonly empty = EMPTY;
 
   // ── Overview data ───────────────────────────────────────────────────────────────────────────────────────
@@ -253,7 +253,7 @@ export class SlippageComponent implements OnInit {
         this.cdr.markForCheck();
       },
       error: err => {
-        set({ loading: false, error: errorText(err, 'This Slippage query could not be run.'), data: null });
+        set({ loading: false, error: errorText(err, 'This Well Slippage query could not be run.'), data: null });
         done();
         this.cdr.markForCheck();
       },

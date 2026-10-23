@@ -10,6 +10,7 @@ import { FeaturesHomeComponent } from './agentic-features/features-home/features
 import { SlippageComponent } from './agentic-features/slippage/slippage.component';
 import { DailyReportComponent } from './agentic-features/daily-report/daily-report.component';
 import { DataAnomalyComponent } from './agentic-features/data-anomaly/data-anomaly.component';
+import { CrewManagementComponent } from './agentic-features/crew-management/crew-management.component';
 
 /** Asks before leaving the agent editor with unsaved changes. */
 const leaveAgent = (c: NewAgentComponent) => c.canLeave();
@@ -30,6 +31,7 @@ const routes: Routes = [
       { path: 'features/slippage',     component: SlippageComponent, canActivate: [permissionGuard], data: { permission: 'agentic-ai.slippage' } },
       { path: 'features/daily-report', component: DailyReportComponent, canActivate: [permissionGuard], data: { permission: 'agentic-ai.daily-report' } },
       { path: 'features/data-anomaly', component: DataAnomalyComponent, canActivate: [permissionGuard], data: { permission: 'agentic-ai.data-anomaly' } },
+      { path: 'features/crew-management', component: CrewManagementComponent, canActivate: [permissionGuard], data: { permission: 'agentic-ai.crew-management' } },
     ],
   },
 ];

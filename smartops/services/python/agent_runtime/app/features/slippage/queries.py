@@ -21,7 +21,7 @@ from app.features.common.db import QueryResult
 from app.features.slippage.errors import BadRequest
 from app.features.slippage.settings import SlippageSettings
 
-FEATURE_TITLE = "Slippage"
+FEATURE_TITLE = "Well Slippage"
 
 WELL_SLIPPAGE = "well_slippage"
 ACTIVITY_SUMMARY = "activity_summary"
@@ -33,7 +33,7 @@ KEYS = (WELL_SLIPPAGE, ACTIVITY_SUMMARY, ACTIVITY_DELAY, CREW_AVAILABILITY)
 # rows would be shown under another well's heading, so it is refused instead.
 WELL_SCOPED = frozenset({ACTIVITY_DELAY})
 
-_WHERE = "An admin can fix it under AI Settings > Ask Data & Features > Slippage."
+_WHERE = "An admin can fix it under AI Settings > Ask Data & Features > Well Slippage."
 # String literals, comments and quoted identifiers: a ? inside them is not a parameter.
 _NOT_CODE = re.compile(r"'(?:[^']|'')*'|--[^\n]*|/\*.*?\*/|\[[^\]]*\]|\"(?:[^\"]|\"\")*\"", re.S)
 
@@ -51,33 +51,33 @@ def run(key: str, cfg: SlippageSettings, *, well_id: str | None = None) -> Query
     """Run one verified query; rows are JSON-safe (dates as ISO text, decimals as numbers)."""
     query = current().request.queries.get(key)
     if query is None:
-        raise BadRequest(f"The Slippage query '{key}' is not configured. {_WHERE}")
+        raise BadRequest(f"The Well Slippage query '{key}' is not configured. {_WHERE}")
     sql = query.sql.strip().rstrip(";").strip()
 
     if key in WELL_SCOPED and "well_id" not in query.params:
-        raise BadRequest(f"The Slippage query '{key}' does not bind the well id, so it cannot be run for a chosen "
+        raise BadRequest(f"The Well Slippage query '{key}' does not bind the well id, so it cannot be run for a chosen "
                          f"well. {_WHERE}")
     supplied = {"well_id": well_id}
     params = []
     for name in query.params:
         if name not in supplied:
-            raise BadRequest(f"The Slippage query '{key}' needs a parameter '{name}' that this request cannot "
+            raise BadRequest(f"The Well Slippage query '{key}' needs a parameter '{name}' that this request cannot "
                              f"supply. {_WHERE}")
         if supplied[name] is None:
-            raise BadRequest(f"wellId is required for the Slippage query '{key}'.")
+            raise BadRequest(f"wellId is required for the Well Slippage query '{key}'.")
         params.append(supplied[name])
     if placeholders(sql) != len(params):
-        raise BadRequest(f"The Slippage query '{key}' declares {len(params)} parameter(s) but its SQL binds "
+        raise BadRequest(f"The Well Slippage query '{key}' declares {len(params)} parameter(s) but its SQL binds "
                          f"{placeholders(sql)}. {_WHERE}")
 
     try:
         result = db.query(sql, params, feature_title=FEATURE_TITLE, label=key, max_rows=cfg.query_max_rows,
                           timeout=cfg.query_timeout_seconds)
     except ReadOnlyViolation as exc:
-        raise BadRequest(f"The Slippage query '{key}' is not a safe read-only SELECT ({exc}). {_WHERE}") from None
+        raise BadRequest(f"The Well Slippage query '{key}' is not a safe read-only SELECT ({exc}). {_WHERE}") from None
 
     absent = [c for c in query.columns if c not in result.columns]
     if absent:
-        raise BadRequest(f"The Slippage query '{key}' no longer returns {', '.join(absent)}: the database or the "
+        raise BadRequest(f"The Well Slippage query '{key}' no longer returns {', '.join(absent)}: the database or the "
                          f"query has changed since it was verified. {_WHERE}")
     return QueryResult(result.columns, db.jsonable_rows(result.rows), result.truncated)

@@ -1,12 +1,13 @@
 -- =============================================================================
 -- T-Wise Control Plane: Agentic Features permissions (add-agentic-features-permission.sql)
 -- -----------------------------------------------------------------------------
--- Adds the Agentic Features page and its three features under the existing Agentic AI group in
+-- Adds the Agentic Features page and its four features under the existing Agentic AI group in
 -- control.FeatureModule, and grants them in full (view, create, modify, admin) to the admin roles:
 --   agentic-ai.features      Agentic AI → Agentic Features (the landing page)
 --   agentic-ai.slippage      Slippage
 --   agentic-ai.daily-report  Daily Report
 --   agentic-ai.data-anomaly  Data Anomaly (view = see results; create / modify = compile, run, decide proposals)
+--   agentic-ai.crew-management  Crew Management (view = crew board, crew plans and the AI crew brief)
 -- The frontend menu and routes and the Tenant API endpoints check these codes.
 --
 -- The modules use feature_code 'agentic-ai', so a tenant that has Agentic AI enabled gets them without a
@@ -22,9 +23,9 @@
 -- Undo:
 --   DELETE p FROM control.RoleModulePermission p
 --     JOIN control.FeatureModule m ON m.module_id = p.module_id
---    WHERE m.module_code IN ('agentic-ai.features', 'agentic-ai.slippage', 'agentic-ai.daily-report', 'agentic-ai.data-anomaly');
+--    WHERE m.module_code IN ('agentic-ai.features', 'agentic-ai.slippage', 'agentic-ai.daily-report', 'agentic-ai.data-anomaly', 'agentic-ai.crew-management');
 --   DELETE FROM control.FeatureModule
---    WHERE module_code IN ('agentic-ai.features', 'agentic-ai.slippage', 'agentic-ai.daily-report', 'agentic-ai.data-anomaly');
+--    WHERE module_code IN ('agentic-ai.features', 'agentic-ai.slippage', 'agentic-ai.daily-report', 'agentic-ai.data-anomaly', 'agentic-ai.crew-management');
 -- =============================================================================
 
 SET NOCOUNT ON;
@@ -35,7 +36,8 @@ INSERT INTO @modules VALUES
     ('agentic-ai.features',     'Agentic Features', 3),
     ('agentic-ai.slippage',     'Slippage',         4),
     ('agentic-ai.daily-report', 'Daily Report',     5),
-    ('agentic-ai.data-anomaly', 'Data Anomaly',     6);
+    ('agentic-ai.data-anomaly', 'Data Anomaly',     6),
+    ('agentic-ai.crew-management', 'Crew Management', 7);
 
 INSERT INTO control.FeatureModule (module_code, parent_code, display_name, feature_code, sort_order, is_active, is_deleted, created_at, modified_at)
 SELECT m.code, 'agentic-ai', m.name, 'agentic-ai', m.sort_order, 1, 0, SYSUTCDATETIME(), SYSUTCDATETIME()
@@ -49,7 +51,7 @@ GO
 INSERT INTO control.RoleModulePermission (role_id, module_id, can_view, can_create, can_modify, can_admin, is_active, is_deleted, created_at, modified_at)
 SELECT r.role_id, m.module_id, 1, 1, 1, 1, 1, 0, SYSUTCDATETIME(), SYSUTCDATETIME()
 FROM control.Role r
-JOIN control.FeatureModule m ON m.module_code IN ('agentic-ai.features', 'agentic-ai.slippage', 'agentic-ai.daily-report', 'agentic-ai.data-anomaly')
+JOIN control.FeatureModule m ON m.module_code IN ('agentic-ai.features', 'agentic-ai.slippage', 'agentic-ai.daily-report', 'agentic-ai.data-anomaly', 'agentic-ai.crew-management')
 WHERE r.role_code IN ('admin', 'tenant_admin', 'TenantAdmin', 'platform_admin', 'PlatformAdmin')
   AND r.is_deleted = 0
   AND NOT EXISTS (SELECT 1 FROM control.RoleModulePermission p WHERE p.role_id = r.role_id AND p.module_id = m.module_id);

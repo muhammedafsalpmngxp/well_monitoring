@@ -28,6 +28,29 @@ public sealed class AiFeatureQueryConfiguration : IEntityTypeConfiguration<AiFea
     }
 }
 
+/// <summary>core.AiFeatureAnswer (infra/sql/add-ai-feature-answers.sql).</summary>
+public sealed class AiFeatureAnswerConfiguration : IEntityTypeConfiguration<AiFeatureAnswer>
+{
+    public void Configure(EntityTypeBuilder<AiFeatureAnswer> b)
+    {
+        b.ToTable("AiFeatureAnswer", "core");
+        b.HasKey(e => new { e.TenantId, e.Feature, e.AnswerKey });
+        b.Property(e => e.TenantId).HasColumnName("tenant_id");
+        b.Property(e => e.Feature).HasColumnName("feature").HasMaxLength(40);
+        b.Property(e => e.AnswerKey).HasColumnName("answer_key").HasMaxLength(64).IsFixedLength();
+        b.Property(e => e.ReportDate).HasColumnName("report_date");
+        b.Property(e => e.Kind).HasColumnName("kind").HasMaxLength(20);
+        b.Property(e => e.Scope).HasColumnName("scope").HasMaxLength(20);
+        b.Property(e => e.Draft).HasColumnName("draft");
+        b.Property(e => e.Verification).HasColumnName("verification");
+        b.Property(e => e.Model).HasColumnName("model").HasMaxLength(100);
+        b.Property(e => e.CreatedBy).HasColumnName("created_by").HasMaxLength(200);
+        b.Property(e => e.CreatedAt).HasColumnName("created_at");
+        b.Property(e => e.UsedAt).HasColumnName("used_at");
+        b.HasIndex(e => new { e.TenantId, e.Feature, e.ReportDate, e.UsedAt });
+    }
+}
+
 public sealed class AiFeatureJobConfiguration : IEntityTypeConfiguration<AiFeatureJob>
 {
     public void Configure(EntityTypeBuilder<AiFeatureJob> b)

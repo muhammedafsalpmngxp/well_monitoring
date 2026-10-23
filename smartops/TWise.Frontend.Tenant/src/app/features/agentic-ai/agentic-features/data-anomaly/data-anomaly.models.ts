@@ -46,6 +46,12 @@ export interface AnomalyRule {
   compiledAt: string | null; edited: boolean; modifiedBy: string; modifiedAt: string;
 }
 
+/** One compiled check of a rule: DetailSql lists the flagged records, SummarySql counts them. */
+export interface AnomalyCheck {
+  probeId: string; ruleId: string; status: string; summarySql: string | null; detailSql: string | null;
+  tables: string[]; error: string | null; compiledAt: string;
+}
+
 export interface RankedFinding {
   rule_id: string; title: string; category: string; severity: string; status?: string; scope_total: number;
   anomaly_count: number; anomaly_pct: number; share: number; contribution?: number; detail_total?: number; concerns?: string[];

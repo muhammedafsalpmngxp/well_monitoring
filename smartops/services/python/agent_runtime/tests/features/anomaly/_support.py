@@ -43,6 +43,8 @@ def seed_settings() -> dict[str, Any]:
 def body(*, prompts: dict | None = None, settings: dict | None = None, llm: Any = "default",
          access: dict | None = None, **fields: Any) -> dict[str, Any]:
     merged_settings = seed_settings()
+    # One rule at a time unless a test asks otherwise: some scripted replies are consumed in call order.
+    merged_settings["compileConcurrency"] = 1
     merged_settings.update(settings or {})
     merged_prompts = seed_prompts()
     merged_prompts.update(prompts or {})

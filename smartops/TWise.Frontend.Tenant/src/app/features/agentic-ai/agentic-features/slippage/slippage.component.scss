@@ -38,7 +38,7 @@
 
   // ── Well view head ────────────────────────────────────────────────────────
   &__well-head { grid-template-columns: minmax(0, 1fr) auto; align-items: end; @media (max-width: 900px) { grid-template-columns: 1fr; } }
-  &__well-title { display: grid; gap: 6px; p { margin: 0; font-size: 13px; } }
+  &__well-title { display: grid; gap: 6px; p { margin: 0; font-size: 13px; } > .sl__link { justify-self: start; text-align: left; } }
   &__title-row {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     h2 { margin: 0; font-size: 20px; font-weight: 600; color: #101828; font-variant-numeric: tabular-nums; }

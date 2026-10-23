@@ -29,8 +29,8 @@ public class AgenticFeaturesTests
     [Fact]
     public void The_seed_holds_the_verified_sql_features_with_their_settings_queries_and_prompts()
     {
-        AgenticFeatureCatalog.All.Keys.Should().Contain([AgenticFeatureCatalog.Slippage, AgenticFeatureCatalog.DailyReport]);
-        foreach (var key in new[] { AgenticFeatureCatalog.Slippage, AgenticFeatureCatalog.DailyReport })
+        AgenticFeatureCatalog.All.Keys.Should().Contain([AgenticFeatureCatalog.Slippage, AgenticFeatureCatalog.DailyReport, AgenticFeatureCatalog.Crew]);
+        foreach (var key in new[] { AgenticFeatureCatalog.Slippage, AgenticFeatureCatalog.DailyReport, AgenticFeatureCatalog.Crew })
         {
             var f = AgenticFeatureCatalog.Get(key);
             f.AccessMode.Should().Be(AgenticFeatureCatalog.AccessTables);
@@ -41,6 +41,26 @@ public class AgenticFeaturesTests
             AgenticFeatureCatalog.QueryTables(f).Should().BeSubsetOf(f.Access.IncludedTables.Select(t => t.ToLowerInvariant()),
                 "the default tables must let every verified query run");
         }
+    }
+
+    [Fact]
+    public void Crew_management_has_its_module_route_queries_prompts_and_settings_column()
+    {
+        var f = AgenticFeatureCatalog.Get(AgenticFeatureCatalog.Crew);
+        AgenticFeatureCatalog.Keys.Should().Contain(AgenticFeatureCatalog.Crew);
+        AgenticFeatureCatalog.ModuleCode(f.Key).Should().Be("agentic-ai.crew-management");
+        AgenticFeatureCatalog.Route(f.Key).Should().Be("crew-management");
+        f.Queries.Select(q => q.Key).Should().Equal("crew_wells", "crew_well", "crew_delayed_activities", "crew_board",
+            "crew_type_demand", "crew_experience");
+        f.Prompts.Should().OnlyContain(p => p.Key.StartsWith("crew.", StringComparison.Ordinal));
+        AgenticFeatureCatalog.QueryTables(f).Should().BeEquivalentTo(f.Access.IncludedTables.Select(t => t.ToLowerInvariant()),
+            "the default tables are exactly the tables the verified queries read");
+
+        var s = new AiSettings { CrewSettingsJson = "{}" };
+        AgenticFeatureSettingsRules.Stored(s, f.Key).Should().Be("{}");
+        s.AnomalySettingsJson.Should().BeNull();
+        AgenticFeatureSettingsRules.Reset(s, f.Key);
+        s.CrewSettingsJson.Should().BeNull();
     }
 
     [Fact]

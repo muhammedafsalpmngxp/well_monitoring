@@ -1,9 +1,9 @@
 import { ChangeDetectorRef, Component, DestroyRef, ElementRef, inject, OnInit, ViewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, Subscription, finalize } from 'rxjs';
-import { AgenticFeatureQuery, AgenticFeaturesService, errorText, localToday, saveFile } from '../agentic-features.service';
+import { AgenticFeatureQuery, AgenticFeaturesService, SavedBrief, errorText, localToday, saveFile } from '../agentic-features.service';
 import {
-  AgentAnswer, DailyTask, GroupDetailsResponse, Load, LogicalTask, MilestoneAlert, MilestonesResponse, RecentDate,
+  AgentAnswer, BriefLoad, DailyTask, GroupDetailsResponse, Load, LogicalTask, MilestoneAlert, MilestonesResponse, RecentDate,
   RecentDatesResponse, StatusGroup, SummaryResponse, WbsGroup, WellActivity, WellActivityResponse, WellDetailResponse, idle,
 } from './daily-report.models';
 import { TextBlock, codeLabel, dueText, orderedKeys, parseLengthRule, statusHint, statusTone, taskStateTone, toBlocks } from './daily-report.format';
@@ -97,7 +97,10 @@ export class DailyReportComponent implements OnInit {
   openMilestone: string | null = null;
 
   // AI
-  private readonly briefs = new Map<string, Load<AgentAnswer>>();
+  private readonly briefs = new Map<string, BriefLoad>();
+  /** The day brief saved for the report date (null inside: none saved), read when the date loads. */
+  private savedDay: { date: string; brief: SavedBrief | null } | null = null;
+  private savedDaySub?: Subscription;
   private readonly blockCache = new WeakMap<AgentAnswer, TextBlock[]>();
   question = '';
   asked = '';
@@ -127,11 +130,10 @@ export class DailyReportComponent implements OnInit {
     });
   }
 
-  /** The recent dates with entries; on first load the newest becomes the report date (else today). */
+  /** The recent dates with entries, for the date picker. On first load the report date is the user's today. */
   private loadDates(pickDefault: boolean): void {
-    this.run(this.dates, this.mapDates(this.api.dailyDates<RecentDatesResponse>()), 'The recent report dates could not be loaded.',
-      list => { if (pickDefault) this.selectDate(this.newest(list) ?? localToday()); },
-      () => { if (pickDefault) this.selectDate(localToday()); });
+    if (pickDefault) this.selectDate(localToday());
+    this.run(this.dates, this.mapDates(this.api.dailyDates<RecentDatesResponse>()), 'The recent report dates could not be loaded.');
   }
 
   private mapDates(call: Observable<RecentDatesResponse>): Observable<RecentDate[]> {
@@ -141,9 +143,6 @@ export class DailyReportComponent implements OnInit {
     }));
   }
 
-  private newest(list: RecentDate[]): string | null {
-    return list.reduce<string | null>((best, d) => (!best || d.report_date > best ? d.report_date : best), null);
-  }
 
   loadMilestones(): void {
     this.run(this.milestones, this.api.dailyMilestones<MilestonesResponse>(null), 'The milestones could not be loaded.');
@@ -167,6 +166,7 @@ export class DailyReportComponent implements OnInit {
     const summary$ = this.api.daily<SummaryResponse>('summary', { reportDate: date, refresh }).pipe(finalize(() => { if (refresh) rest(); }));
     this.daySubs = [this.run(this.summary, summary$, 'The daily summary could not be loaded.')];
     if (!refresh) rest();
+    this.loadSavedDayBrief(date);
     this.allRows = [];
     this.rebuildRows();
   }
@@ -203,7 +203,7 @@ export class DailyReportComponent implements OnInit {
 
   refresh(): void {
     if (!this.reportDate) return;
-    this.briefs.clear();
+    this.stopBriefs();
     this.askState = idle();
     this.asked = '';
     this.loadDay(true);
@@ -422,20 +422,84 @@ export class DailyReportComponent implements OnInit {
     return `${this.reportDate}|${scope}|${wellId ?? ''}|${taskDailyId ?? ''}`;
   }
 
-  brief(scope: 'day' | 'well' | 'task', wellId?: number | null, taskDailyId?: number | null): Load<AgentAnswer> | null {
+  brief(scope: 'day' | 'well' | 'task', wellId?: number | null, taskDailyId?: number | null): BriefLoad | null {
     return this.briefs.get(this.briefKey(scope, wellId, taskDailyId)) ?? null;
   }
 
-  /** Asks for a brief (the runtime reuses an answer written on the same data, so asking again costs nothing new). */
+  /** The day brief saved for the date, read with the date (one quick read, no AI), so "Brief the day" shows it at once. */
+  private loadSavedDayBrief(date: string): void {
+    this.savedDaySub?.unsubscribe();
+    this.savedDay = null;
+    this.savedDaySub = this.api.dailySavedBrief(date).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: brief => { if (date === this.reportDate) this.savedDay = { date, brief }; },
+      error: () => { /* no saved brief to show first: the brief streams as usual */ },
+    });
+  }
+
+  /**
+   * Asks for a brief, streamed. The day brief saved for the date (prepared in the background) is shown at once while
+   * it is checked against the data; if the data changed, the new text replaces it as the AI writes it. Either way the
+   * checked answer, with its evidence, takes its place when it arrives.
+   */
   generateBrief(scope: 'day' | 'well' | 'task', wellId?: number | null, taskDailyId?: number | null): void {
     if (!this.reportDate) return;
-    const state: Load<AgentAnswer> = idle();
-    this.briefs.set(this.briefKey(scope, wellId, taskDailyId), state);
-    this.run(state, this.api.dailyBrief<AgentAnswer>(this.reportDate, scope, wellId, taskDailyId), 'The AI brief could not be produced.');
+    const key = this.briefKey(scope, wellId, taskDailyId);
+    this.briefs.get(key)?.stop?.();
+    const saved = scope === 'day' && this.savedDay?.date === this.reportDate ? this.savedDay.brief : null;
+    const state: BriefLoad = { ...idle<AgentAnswer>(), loading: true, preview: saved?.explanation ?? '', live: '', stage: '' };
+    this.briefs.set(key, state);
+    const fallback = 'The AI brief could not be produced.';
+    const settle = () => { state.loading = false; state.stage = ''; state.live = ''; state.preview = ''; };
+    const sub = this.api.dailyBriefStream(this.reportDate, scope, wellId, taskDailyId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ev => {
+          switch (ev.type) {
+            case 'stage': state.stage = ev.data.stage; break;
+            case 'restart': state.live = ''; break;
+            case 'delta': state.live = ev.data.replace ? ev.data.text : state.live + ev.data.text; break;
+            case 'result':
+              settle();
+              state.data = ev.data as AgentAnswer;
+              if (scope === 'day' && state.data.verified && state.data.explanation && state.data.report_date === this.reportDate) {
+                const now = new Date().toISOString();
+                this.savedDay = { date: this.reportDate,
+                  brief: { explanation: state.data.explanation, model: state.data.model ?? null, createdAt: now, usedAt: now } };
+              }
+              break;
+            case 'error': settle(); state.error = ev.data.message || fallback; break;
+          }
+          this.cdr.markForCheck();
+        },
+        error: err => { settle(); state.error = errorText(err, fallback); this.cdr.markForCheck(); },
+        complete: () => {
+          if (state.loading) { settle(); state.error = fallback; }
+          this.cdr.markForCheck();
+        },
+      });
+    state.stop = () => sub.unsubscribe();
+  }
+
+  /** What the agent is doing, for the loader while no text has arrived yet. */
+  briefStage(b: BriefLoad): string {
+    switch (b.stage) {
+      case 'writing': return 'Writing the brief…';
+      case 'checking': return 'Checking every figure against the data…';
+      case 'revising': return 'A figure did not match the data: correcting it…';
+      case 'reused': return 'Nothing changed since the last brief: showing it…';
+      default: return 'Looking up the data…';
+    }
   }
 
   closeBrief(scope: 'day' | 'well' | 'task', wellId?: number | null, taskDailyId?: number | null): void {
-    this.briefs.delete(this.briefKey(scope, wellId, taskDailyId));
+    const key = this.briefKey(scope, wellId, taskDailyId);
+    this.briefs.get(key)?.stop?.();
+    this.briefs.delete(key);
+  }
+
+  private stopBriefs(): void {
+    this.briefs.forEach(b => b.stop?.());
+    this.briefs.clear();
   }
 
   get questionLength(): number { return this.question.trim().length; }
@@ -470,7 +534,9 @@ export class DailyReportComponent implements OnInit {
 
   traceDetail(step: AgentAnswer['trace'] extends (infer S)[] | undefined ? S : never): string {
     const passed = step.passed === undefined ? null : step.passed ? 'passed' : `${step.issues ?? 0} issue(s)`;
-    return [step.why, step.mode, step.error, passed].filter(Boolean).join(' — ');
+    const reasons = step.reasons?.length ? step.reasons.join('; ') : null;
+    const mode = step.mode === 'patch' ? `fixed only ${step.sentences ?? 1} sentence(s)` : step.mode;
+    return [step.why, mode, step.error, passed, reasons].filter(Boolean).join(' — ');
   }
 
   hasEvidence(r: AgentAnswer): boolean { return !!r.evidence && Object.keys(r.evidence).length > 0; }
