@@ -332,7 +332,10 @@
     <article class="da__card">
       <header class="da__card-head">
         <h3>Rules <span class="da__muted" *ngIf="rules.data">({{ filteredRules.length | number }} of {{ rules.data.length | number }})</span></h3>
-        <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="rules.loading" (click)="loadRules()">Refresh</button>
+        <span class="da__head-actions">
+          <button type="button" class="btn btn-primary da__btn-sm" *ngIf="canModify" [disabled]="!rules.data" (click)="openAddRule()">+ Add rule</button>
+          <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="rules.loading" (click)="loadRules()">Refresh</button>
+        </span>
       </header>
       <div class="da__filters">
         <label class="da__field" for="da-rule-search">Search
@@ -388,13 +391,14 @@
               <td>
                 <button type="button" class="da__link da__link--title" (click)="selectRule(r)">{{ r.title }}</button>
                 <div class="da__muted da__mono">{{ r.ruleId }}<ng-container *ngIf="r.source !== 'declared'"> · {{ label(r.source) }}</ng-container>
-                  <ng-container *ngIf="r.edited"> · edited</ng-container></div>
+                  <ng-container *ngIf="r.original && r.edited"> · changed</ng-container><ng-container *ngIf="!r.original"> · added here</ng-container></div>
               </td>
               <td>{{ r.category || '—' }}</td>
               <td><span class="da__pill" [attr.data-tone]="statusTone(r.status)">{{ label(r.status) }}</span></td>
               <td>
                 <span class="da__pill" [attr.data-tone]="statusTone(r.probeStatus)">{{ r.probeStatus ? label(r.probeStatus) : 'Not compiled' }}</span>
                 <div class="da__muted" *ngIf="r.probes > 1">{{ r.probes | number }} checks<ng-container *ngIf="r.failedProbes">, {{ r.failedProbes | number }} failed</ng-container></div>
+                <div class="da__muted" *ngIf="needsCompile(r)">Changed since compile</div>
               </td>
               <td>{{ r.compiledAt ? (r.compiledAt | date: 'short') : '—' }}</td>
             </tr>
@@ -516,8 +520,8 @@
 </div>
 
 <!-- Rule detail drawer -->
-<div class="da__backdrop" *ngIf="selectedRule" (click)="closeRule()"></div>
-<aside *ngIf="selectedRule as r" class="da__drawer" role="dialog" aria-modal="true" aria-labelledby="da-rule-title"
+<div class="da__backdrop" *ngIf="selectedRule && !ruleForm" (click)="closeRule()"></div>
+<aside *ngIf="!ruleForm && selectedRule as r" class="da__drawer" role="dialog" aria-modal="true" aria-labelledby="da-rule-title"
   appDialog (dialogClose)="closeRule()">
   <header class="da__drawer-head">
     <div>
@@ -531,23 +535,29 @@
       <span class="da__sev" [attr.data-sev]="sevClass(r.severity)">{{ label(r.severity) }}</span>
       <span class="da__pill" [attr.data-tone]="statusTone(r.status)">{{ label(r.status) }}</span>
       <span class="da__pill" [attr.data-tone]="statusTone(r.probeStatus)">Check: {{ r.probeStatus ? label(r.probeStatus) : 'not compiled' }}</span>
-      <span class="da__pill" data-tone="neutral">{{ label(r.source) }}</span>
+      <span class="da__pill" data-tone="neutral" *ngIf="r.source === 'discovered'">Found by Discover</span>
     </p>
     <dl class="da__dl">
       <ng-container *ngIf="r.category"><dt>Category</dt><dd>{{ r.category }}</dd></ng-container>
-      <ng-container *ngIf="r.definition?.entity"><dt>Entity</dt><dd>{{ r.definition?.entity }}</dd></ng-container>
-      <ng-container *ngIf="r.definition?.method"><dt>Method</dt><dd>{{ label(r.definition?.method) }}</dd></ng-container>
-      <ng-container *ngIf="r.definition?.tags?.length"><dt>Tags</dt><dd>{{ r.definition?.tags?.join(', ') }}</dd></ng-container>
-      <ng-container *ngIf="r.definition?.expandsOver"><dt>Expands over</dt><dd class="da__mono">{{ asText(r.definition?.expandsOver) }}</dd></ng-container>
+      <ng-container *ngIf="r.definition?.entity && r.definition?.entity !== 'row'"><dt>Checks each</dt><dd>{{ r.definition?.entity }}</dd></ng-container>
+      <ng-container *ngIf="howItChecks(r) as how"><dt>How it checks</dt><dd>{{ how }}</dd></ng-container>
       <dt>Checks</dt><dd>{{ r.probes | number }}<ng-container *ngIf="r.failedProbes">, {{ r.failedProbes | number }} failed</ng-container>
         <ng-container *ngIf="r.compiledAt"> · compiled {{ r.compiledAt | date: 'medium' }}</ng-container></dd>
-      <dt>Modified</dt><dd>{{ r.modifiedAt | date: 'medium' }} by {{ r.modifiedBy }}<ng-container *ngIf="r.edited"> (edited)</ng-container></dd>
+      <dt>Modified</dt><dd>{{ r.modifiedAt | date: 'medium' }} by {{ r.modifiedBy }}<ng-container *ngIf="r.original && r.edited"> (changed from the default)</ng-container><ng-container *ngIf="!r.original"> (added here)</ng-container></dd>
     </dl>
 
     <h3>Rule</h3>
     <p class="da__body">{{ r.definition?.body || 'No rule text.' }}</p>
-
-    <p class="da__msg da__msg--bad" *ngIf="r.probeError"><strong>Check error:</strong> {{ r.probeError }}</p>
+    <ng-container *ngIf="checkState(r) as cs">
+      <div class="da__msg da__state" [class.da__msg--ok]="cs.tone === 'ok'" [class.da__msg--warn]="cs.tone === 'warn'"
+        [class.da__msg--bad]="cs.tone === 'bad'" [class.da__msg--info]="cs.tone === 'info'">
+        <span>{{ cs.text }}</span>
+        <span class="da__state-actions" *ngIf="cs.retry && canModify">
+          <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="!canStart('compile')" (click)="compileRule(r)">Try again</button>
+          <button type="button" class="btn btn-secondary da__btn-sm" (click)="openEditRule(r)">Edit rule</button>
+        </span>
+      </div>
+    </ng-container>
 
     <h3>Compiled SQL</h3>
     <ng-container *ngTemplateOutlet="sqlChecks; context: { $implicit: r.ruleId, run: false }"></ng-container>
@@ -563,14 +573,133 @@
       <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="!canStart('compile')" (click)="compileRule(r)"
         [title]="aiEnabled ? 'Recompile this rule' : 'Compile needs AI'">Compile this rule</button>
     </div>
+    <div class="da__drawer-actions da__drawer-actions--edit" *ngIf="canModify">
+      <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="ruleSaving" (click)="openEditRule(r)">Edit rule</button>
+      <button type="button" class="btn btn-secondary da__btn-sm" *ngIf="r.original && r.edited" [disabled]="ruleSaving"
+        (click)="confirmReset = r" title="Put back the default text of this rule">Reset to default</button>
+      <button type="button" class="btn btn-danger da__btn-sm" *ngIf="!r.original" [disabled]="ruleSaving"
+        (click)="confirmDelete = r">Delete rule</button>
+      <span class="da__muted" *ngIf="r.original">Default rule: set it to disabled to stop it running.</span>
+    </div>
     <div aria-live="polite">
       <p class="da__msg da__msg--ok" *ngIf="ruleMessage">{{ ruleMessage }}</p>
       <p class="da__msg da__msg--bad" *ngIf="ruleError" role="alert">{{ ruleError }}</p>
       <p class="da__msg da__msg--bad" *ngIf="jobError && canModify">{{ jobError }}</p>
-      <p class="da__hint" *ngIf="job?.kind === 'compile'">A compile is running: see Jobs above.</p>
     </div>
   </div>
 </aside>
+
+<!-- Add rule / Edit rule -->
+<div class="da__backdrop" *ngIf="ruleForm" (click)="closeRuleForm()"></div>
+<aside *ngIf="ruleForm as f" class="da__drawer" role="dialog" aria-modal="true" aria-labelledby="da-form-title"
+  appDialog (dialogClose)="closeRuleForm()">
+  <header class="da__drawer-head">
+    <div>
+      <h2 id="da-form-title">{{ f.mode === 'add' ? 'Add rule' : 'Edit rule' }}</h2>
+      <p class="da__muted da__mono" *ngIf="f.mode === 'edit'">{{ f.ruleId }}</p>
+    </div>
+    <button type="button" class="da__close" aria-label="Close without saving" [disabled]="formSaving" (click)="closeRuleForm()">×</button>
+  </header>
+  <form class="da da__drawer-body da__form" (ngSubmit)="saveRuleForm(true)">
+    <p class="da__hint">Describe the problem in plain English; the AI writes and tests the SQL that finds it.
+      Fields marked <span class="da__req">*</span> are required. Anything left empty is filled in automatically.</p>
+
+    <label class="da__field" for="da-f-title"><span>Title <span class="da__req">*</span></span>
+      <input id="da-f-title" name="title" [(ngModel)]="f.title" maxlength="400" required placeholder="e.g. Well has no spud date" />
+    </label>
+
+    <ng-container *ngIf="f.freeText === null; else freeBody">
+      <label class="da__field" for="da-f-wrong"><span>What is wrong <span class="da__req">*</span></span>
+        <textarea id="da-f-wrong" name="wrong" rows="2" required [(ngModel)]="f.wrong" placeholder="A well has no spud date recorded."></textarea>
+      </label>
+      <label class="da__field" for="da-f-detect"><span>How to find it <span class="da__req">*</span></span>
+        <textarea id="da-f-detect" name="detect" rows="3" required [(ngModel)]="f.detect"
+          placeholder="Check every well. Flag the well when the spud date is empty."></textarea>
+      </label>
+    </ng-container>
+    <ng-template #freeBody>
+      <label class="da__field" for="da-f-body"><span>Rule text <span class="da__req">*</span></span>
+        <textarea id="da-f-body" name="freeText" rows="10" required [(ngModel)]="f.freeText"></textarea>
+      </label>
+    </ng-template>
+
+    <div class="da__form-row">
+      <label class="da__field" for="da-f-sev">Severity
+        <select id="da-f-sev" name="severity" [(ngModel)]="f.severity">
+          <option *ngFor="let s of severities" [value]="s">{{ label(s) }}</option>
+        </select>
+      </label>
+      <label class="da__field" for="da-f-status">Status
+        <select id="da-f-status" name="status" [(ngModel)]="f.status">
+          <option *ngFor="let s of ruleStatuses" [value]="s">{{ label(s) }}</option>
+          <option *ngIf="f.status === 'rejected'" value="rejected" disabled>Rejected</option>
+        </select>
+      </label>
+      <label class="da__field" for="da-f-cat">Category
+        <input id="da-f-cat" name="category" [(ngModel)]="f.category" maxlength="100" list="da-f-cats"
+          [placeholder]="f.mode === 'add' ? 'Custom rules' : ''" />
+        <datalist id="da-f-cats"><option *ngFor="let c of ruleCategories" [value]="c"></option></datalist>
+      </label>
+      <label class="da__field" for="da-f-entity">Checks each
+        <input id="da-f-entity" name="entity" [(ngModel)]="f.entity" maxlength="60" list="da-f-entities" placeholder="AI decides" />
+        <datalist id="da-f-entities"><option *ngFor="let e of ruleEntities" [value]="e"></option></datalist>
+      </label>
+    </div>
+    <p class="da__hint">Status: Active runs and counts in the score; Probation runs but is shown apart; Draft and Disabled do not
+      run. Checks each: what one finding is about (a well, a task…); it stops one thing being counted many times.</p>
+
+    <div class="da__kept" *ngIf="formKept.length">
+      <strong>How this rule checks</strong> (kept as it is): <span *ngFor="let k of formKept">{{ k }}</span>
+    </div>
+
+    <button type="button" class="da__link" (click)="formOptional = !formOptional" [attr.aria-expanded]="formOptional"
+      aria-controls="da-f-optional">{{ formOptional ? 'Hide optional details' : 'Optional details' }}<ng-container *ngIf="!formOptional && optionalFilled"> ({{ optionalFilled }} filled in)</ng-container></button>
+    <div id="da-f-optional" class="da__form" *ngIf="formOptional">
+      <ng-container *ngIf="f.freeText === null">
+        <label class="da__field" for="da-f-never">Do not flag
+          <textarea id="da-f-never" name="neverFlag" rows="2" [(ngModel)]="f.neverFlag" placeholder="Cancelled wells."></textarea>
+        </label>
+        <label class="da__field" for="da-f-matters">Why it matters
+          <textarea id="da-f-matters" name="matters" rows="2" [(ngModel)]="f.matters"
+            placeholder="Its schedule cannot be measured, so it drops out of every delay report."></textarea>
+        </label>
+      </ng-container>
+      <label class="da__field" for="da-f-id" *ngIf="f.mode === 'add'">Rule id
+        <input id="da-f-id" name="ruleId" [(ngModel)]="f.ruleId" maxlength="60" class="da__mono" placeholder="Next DQ-U number" />
+      </label>
+      <ng-container *ngIf="!f.family">
+        <label class="da__field" for="da-f-sum"><span>Starting SQL: count <span class="da__muted">(both or neither; the AI checks and adapts it)</span></span>
+          <textarea id="da-f-sum" name="summarySql" rows="4" class="da__mono" [(ngModel)]="f.summarySql"
+            placeholder="SELECT 'DQ-U01' AS rule_id, COUNT(*) AS scope_total, SUM(…) AS anomaly_count FROM …"></textarea>
+        </label>
+        <label class="da__field" for="da-f-det">Starting SQL: records
+          <textarea id="da-f-det" name="detailSql" rows="4" class="da__mono" [(ngModel)]="f.detailSql"
+            placeholder="SELECT w.well_id AS entity_key, w.well_name AS entity_label FROM … WHERE …"></textarea>
+        </label>
+      </ng-container>
+    </div>
+
+    <div class="da__msg da__msg--warn" *ngIf="formDuplicates.length" role="alert">
+      <strong>This looks like a rule you already have:</strong>
+      <ul><li *ngFor="let d of formDuplicates"><span class="da__mono">{{ d.ruleId }}</span> {{ d.title }}</li></ul>
+      {{ f.mode === 'add' ? 'Save again to add it anyway, or Cancel and edit the existing rule.' : 'Save again to keep your change anyway.' }}
+    </div>
+    <p class="da__msg da__msg--bad" *ngIf="formError" role="alert">{{ formError }}</p>
+    <div class="da__drawer-actions">
+      <button type="submit" class="btn btn-primary da__btn-sm" [disabled]="formSaving"
+        [title]="'Save, then the AI writes and tests its SQL so the next run uses it'">
+        {{ formSaving ? 'Saving…' : (f.mode === 'add' ? 'Add and compile' : 'Save and compile') }}</button>
+      <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="formSaving" (click)="saveRuleForm(false)">Save only</button>
+      <button type="button" class="btn btn-secondary da__btn-sm" [disabled]="formSaving" (click)="closeRuleForm()">Cancel</button>
+    </div>
+  </form>
+</aside>
+
+<app-confirmation-dialog [isOpen]="!!confirmReset" title="Reset rule" [message]="resetMessage" confirmLabel="Reset"
+  variant="warning" [busy]="ruleSaving" (confirmed)="resetRule()" (cancelled)="confirmReset = null"></app-confirmation-dialog>
+
+<app-confirmation-dialog [isOpen]="!!confirmDelete" title="Delete rule" [message]="deleteMessage" confirmLabel="Delete"
+  variant="danger" [busy]="ruleSaving" (confirmed)="deleteRule()" (cancelled)="confirmDelete = null"></app-confirmation-dialog>
 
 <app-confirmation-dialog [isOpen]="confirmCancel" title="Cancel job"
   [message]="'Cancel the ' + (job?.kind ?? '') + ' in progress? Work done so far may be lost.'" confirmLabel="Cancel job" cancelLabel="Keep running"

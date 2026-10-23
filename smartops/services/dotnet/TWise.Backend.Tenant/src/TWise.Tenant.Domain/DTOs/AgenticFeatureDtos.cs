@@ -88,12 +88,25 @@ public record StartAnomalyJobRequest(string Kind, IReadOnlyList<string>? RuleIds
     IReadOnlyList<string>? Formats, int? MaxProposals);
 
 /// <summary>A Data Anomaly rule with how its compiled check stands. ProbeStatus: active | failed | not_applicable |
-/// disabled, null when not compiled yet; a family rule (expandsOver) has one probe per member (Probes counts them).</summary>
+/// disabled, null when not compiled yet; a family rule (expandsOver) has one probe per member (Probes counts them).
+/// Edited: changed from the default (or added by hand / accepted from Discover). Original: a default rule, so it can be
+/// reset to the default text; a rule that is not Original was added here and can be deleted.</summary>
 public record AnomalyRuleDto(string RuleId, string Title, string? Category, string Severity, string Status, string Source,
     JsonElement Definition, string? ProbeStatus, int Probes, int FailedProbes, string? ProbeError, DateTime? CompiledAt, bool Edited,
-    string ModifiedBy, DateTime ModifiedAt);
+    string ModifiedBy, DateTime ModifiedAt, bool Original = false);
 
 public record SetAnomalyRuleStatusRequest(string? Status);
+
+/// <summary>Add or edit a Data Anomaly rule. Body is the plain-English rule (Wrong / Matters / Detect / Never flag).
+/// RuleId: on add, optional (the next free DQ-U id when empty); on edit, ignored (a rule's id never changes).
+/// Method: rule | statistical | rollup. ExpandsOver: empty, or the schema feature a family rule repeats over.
+/// SummarySql / DetailSql: optional starting SQL, both or neither (the AI adapts it to the database at compile).
+/// A field left null keeps the edited rule's value (or takes the default on add: severity medium, status active,
+/// category "Custom rules"). ExpectedModifiedAt (edit): the rule's ModifiedAt when the form was opened; the save is
+/// refused (409) when someone changed the rule since.</summary>
+public record SaveAnomalyRuleRequest(string? RuleId, string? Title, string? Category, string? Severity, string? Entity,
+    string? Status, IReadOnlyList<string>? Tags, string? Body, string? Method, string? ExpandsOver,
+    IReadOnlyDictionary<string, string>? Params, string? SummarySql, string? DetailSql, DateTime? ExpectedModifiedAt = null);
 
 /// <summary>One compiled check of a rule (core.AnomalyProbe) with the SQL it runs: SummarySql counts the anomalies,
 /// DetailSql lists the flagged records. A rule family has one check per member (ProbeId "R12-003").</summary>

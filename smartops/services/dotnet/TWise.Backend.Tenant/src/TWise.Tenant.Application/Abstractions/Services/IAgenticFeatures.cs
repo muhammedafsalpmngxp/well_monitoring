@@ -58,6 +58,20 @@ public interface IDataAnomalyService
     Task<IReadOnlyList<AnomalyRuleDto>> RulesAsync(long tenantId, CancellationToken ct);
     Task<AnomalyRuleDto> SetRuleStatusAsync(long tenantId, string ruleId, string? status, string user, CancellationToken ct);
 
+    /// <summary>A new rule written by an admin (FeatureConflictException when its id is taken). It runs only once it
+    /// is compiled; nothing else changes.</summary>
+    Task<AnomalyRuleDto> CreateRuleAsync(long tenantId, SaveAnomalyRuleRequest request, string user, CancellationToken ct);
+
+    /// <summary>Changes a rule's definition (its id stays). The rule is then marked edited, so a newer default never
+    /// overwrites it, and its next compile rewrites its SQL; its current checks keep working until then.</summary>
+    Task<AnomalyRuleDto> UpdateRuleAsync(long tenantId, string ruleId, SaveAnomalyRuleRequest request, string user, CancellationToken ct);
+
+    /// <summary>A default rule back to its default text (the status chosen for it is kept).</summary>
+    Task<AnomalyRuleDto> ResetRuleAsync(long tenantId, string ruleId, string user, CancellationToken ct);
+
+    /// <summary>Deletes a rule added here (not a default one) with its compiled checks. Past runs keep their findings.</summary>
+    Task DeleteRuleAsync(long tenantId, string ruleId, CancellationToken ct);
+
     /// <summary>The compiled checks of a rule (by rule id) or the one check of a family member (by its probe id), with
     /// their SQL. Empty when nothing is compiled.</summary>
     Task<IReadOnlyList<AnomalyCheckDto>> ChecksAsync(long tenantId, string id, CancellationToken ct);

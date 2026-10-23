@@ -95,6 +95,221 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         return RuleDto(rule, probes);
     }
 
+    public async Task<AnomalyRuleDto> CreateRuleAsync(long tenantId, SaveAnomalyRuleRequest request, string user, CancellationToken ct)
+    {
+        await EnsureRulesAsync(db, tenantId, logger, ct);
+        var taken = await db.AnomalyRules.Where(r => r.TenantId == tenantId).Select(r => r.RuleId).ToListAsync(ct);
+        var id = string.IsNullOrWhiteSpace(request.RuleId) ? NextUserRuleId(taken) : request.RuleId.Trim();
+        if (!RuleIdPattern().IsMatch(id))
+            throw new InvalidOperationException("A rule id is 1 to 60 letters, digits, '-', '_' or '.', starting with a letter or digit.");
+        if (taken.Contains(id, StringComparer.OrdinalIgnoreCase))
+            throw new FeatureConflictException($"A rule with the id '{id}' already exists. Choose another id.");
+
+        var definition = RuleDefinition(null, id, request);
+        var row = NewRule(tenantId, JsonSerializer.Deserialize<JsonElement>(definition.ToJsonString(Json)), user, seedHash: null);
+        db.AnomalyRules.Add(row);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();   // UQ_core_AnomalyRule_rule: someone added the same id a moment ago
+            throw new FeatureConflictException($"A rule with the id '{id}' already exists. Choose another id.");
+        }
+        logger.LogInformation("Data Anomaly rule {RuleId} added for tenant {TenantId} by {User}.", id, tenantId, user);
+        return RuleDto(row, []);
+    }
+
+    public async Task<AnomalyRuleDto> UpdateRuleAsync(long tenantId, string ruleId, SaveAnomalyRuleRequest request, string user,
+        CancellationToken ct)
+    {
+        await EnsureRulesAsync(db, tenantId, logger, ct);
+        var rule = await db.AnomalyRules.FirstOrDefaultAsync(r => r.TenantId == tenantId && r.RuleId == ruleId, ct)
+            ?? throw new KeyNotFoundException($"There is no Data Anomaly rule '{ruleId}'.");
+        // Two people editing the same rule: the second save is refused rather than silently replacing the first.
+        if (ChangedSince(rule.ModifiedAt, request.ExpectedModifiedAt))
+            throw new FeatureConflictException(
+                $"{rule.ModifiedBy} changed this rule at {rule.ModifiedAt:yyyy-MM-dd HH:mm} UTC, after you opened it. Close the form and open the rule again to see their change.");
+        var before = JsonNode.Parse(rule.DefinitionJson) as JsonObject ?? new JsonObject();
+        var definition = RuleDefinition(before, rule.RuleId, request);
+        before.Remove("ruleHash");
+        if (!JsonNode.DeepEquals(before, definition))
+        {
+            var updated = NewRule(tenantId, JsonSerializer.Deserialize<JsonElement>(definition.ToJsonString(Json)), user, seedHash: null);
+            rule.Title = updated.Title;
+            rule.Category = updated.Category;
+            rule.Severity = updated.Severity;
+            rule.Status = updated.Status;
+            rule.DefinitionJson = updated.DefinitionJson;
+            // No seed hash: the rule is now the tenant's own, and a newer seed never overwrites it.
+            rule.SeedHash = null;
+            rule.ModifiedBy = user;
+            rule.ModifiedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Data Anomaly rule {RuleId} edited for tenant {TenantId} by {User}.", rule.RuleId, tenantId, user);
+        }
+        var probes = await db.AnomalyProbes.AsNoTracking().Where(p => p.TenantId == tenantId && p.RuleId == rule.RuleId).ToListAsync(ct);
+        return RuleDto(rule, probes);
+    }
+
+    public async Task<AnomalyRuleDto> ResetRuleAsync(long tenantId, string ruleId, string user, CancellationToken ct)
+    {
+        await EnsureRulesAsync(db, tenantId, logger, ct);
+        var rule = await db.AnomalyRules.FirstOrDefaultAsync(r => r.TenantId == tenantId && r.RuleId == ruleId, ct)
+            ?? throw new KeyNotFoundException($"There is no Data Anomaly rule '{ruleId}'.");
+        var seed = SeedRules().FirstOrDefault(r => string.Equals(Str(r, "ruleId"), rule.RuleId, StringComparison.OrdinalIgnoreCase));
+        if (seed.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException($"'{rule.RuleId}' was added here, so it has no default text to go back to.");
+        var hash = Hash(seed);
+        if (rule.SeedHash != hash)
+        {
+            var original = NewRule(tenantId, seed, user, hash);
+            rule.Title = original.Title;
+            rule.Category = original.Category;
+            rule.Severity = original.Severity;
+            rule.Source = original.Source;
+            rule.DefinitionJson = WithField(original.DefinitionJson, "status", rule.Status);
+            rule.SeedHash = hash;
+            rule.ModifiedBy = user;
+            rule.ModifiedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Data Anomaly rule {RuleId} reset to its default for tenant {TenantId} by {User}.", rule.RuleId, tenantId, user);
+        }
+        var probes = await db.AnomalyProbes.AsNoTracking().Where(p => p.TenantId == tenantId && p.RuleId == rule.RuleId).ToListAsync(ct);
+        return RuleDto(rule, probes);
+    }
+
+    public async Task DeleteRuleAsync(long tenantId, string ruleId, CancellationToken ct)
+    {
+        await EnsureRulesAsync(db, tenantId, logger, ct);
+        var rule = await db.AnomalyRules.FirstOrDefaultAsync(r => r.TenantId == tenantId && r.RuleId == ruleId, ct)
+            ?? throw new KeyNotFoundException($"There is no Data Anomaly rule '{ruleId}'.");
+        if (IsSeedRule(rule.RuleId))
+            throw new InvalidOperationException($"'{rule.RuleId}' is a default rule: set it to disabled instead of deleting it.");
+        var probes = await db.AnomalyProbes.Where(p => p.TenantId == tenantId && p.RuleId == rule.RuleId).ToListAsync(ct);
+        db.AnomalyProbes.RemoveRange(probes);
+        db.AnomalyRules.Remove(rule);
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Data Anomaly rule {RuleId} deleted for tenant {TenantId} ({Probes} checks).", rule.RuleId, tenantId, probes.Count);
+    }
+
+    // The values the agent runtime accepts (app/features/anomaly/model.py): a rule it would refuse is refused here,
+    // when it is saved, not at the next compile.
+    internal static readonly string[] Methods = ["rule", "statistical", "rollup"];
+    internal static readonly string[] ExpandsOver = ["foreign_key", "duplicate_key", "date_pair", "future_date", "numeric_range", "text_numeric"];
+    internal const string CustomCategory = "Custom rules";
+    private const int MaxBody = 8000, MaxSql = 20000, MaxTags = 20, MaxParams = 30;
+
+    /// <summary>The rule definition (the runtime's rule dict) of a request: <paramref name="existing"/> is the rule being
+    /// edited (null when adding), whose other fields (source, discovery provenance, anything newer) are kept. A field the
+    /// request leaves null keeps its current value (or the default when adding); "" clears a text field.</summary>
+    internal static JsonObject RuleDefinition(JsonObject? existing, string ruleId, SaveAnomalyRuleRequest request)
+    {
+        var d = existing?.DeepClone().AsObject() ?? new JsonObject { ["source"] = "declared", ["discovery"] = null };
+        string? Old(string name) => d[name] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+
+        var title = (request.Title ?? Old("title") ?? "").Trim();
+        if (title.Length == 0) throw new InvalidOperationException("Give the rule a title.");
+        if (title.Length > 400) throw new InvalidOperationException("A rule's title is at most 400 characters.");
+        var body = (request.Body ?? Old("body") ?? "").Trim();
+        if (body.Length == 0) throw new InvalidOperationException("Describe the rule: what is wrong and how to detect it.");
+        if (body.Length > MaxBody) throw new InvalidOperationException($"A rule's description is at most {MaxBody} characters.");
+        // An empty category keeps the rule's own (a new rule goes under "Custom rules").
+        var category = (string.IsNullOrWhiteSpace(request.Category) ? Old("category") : request.Category)?.Trim() ?? "";
+        if (category.Length > 100) throw new InvalidOperationException("A category is at most 100 characters.");
+        var entity = (request.Entity ?? Old("entity") ?? "").Trim();
+        if (entity.Length > 60) throw new InvalidOperationException("The entity is at most 60 characters.");
+
+        var severity = OneOf(request.Severity ?? Old("severity"), Severities, "medium", "severity");
+        var method = OneOf(request.Method ?? Old("method"), Methods, "rule", "method");
+        // An admin chooses active, probation, draft or disabled; a rejected rule stays rejected unless one is chosen.
+        var status = request.Status is null && Old("status") == "rejected" ? "rejected"
+            : OneOf(request.Status ?? Old("status"), RuleStatuses, "active", "status");
+        var expands = (request.ExpandsOver ?? Old("expandsOver") ?? "").Trim().ToLowerInvariant();
+        if (expands.Length > 0 && !ExpandsOver.Contains(expands))
+            throw new InvalidOperationException($"A rule family repeats over one of: {string.Join(", ", ExpandsOver)} (or leave it empty).");
+
+        var summarySql = (request.SummarySql ?? Old("summarySql") ?? "").Trim();
+        var detailSql = (request.DetailSql ?? Old("detailSql") ?? "").Trim();
+        if ((summarySql.Length > 0) != (detailSql.Length > 0))
+            throw new InvalidOperationException("Give both the summary SQL and the detail SQL, or neither (the AI then writes them).");
+        if (summarySql.Length > MaxSql || detailSql.Length > MaxSql)
+            throw new InvalidOperationException($"A rule's SQL is at most {MaxSql} characters.");
+        if (expands.Length > 0 && summarySql.Length > 0)
+            throw new InvalidOperationException("A rule family is written per schema feature, so it cannot carry its own SQL. Clear the SQL or the family.");
+        // Own SQL is a starting point the AI adapts ("seed") unless it was pinned; without SQL the AI writes it.
+        var sqlMode = summarySql.Length == 0 ? "authored" : Old("sqlMode") == "pinned" ? "pinned" : "seed";
+
+        var tags = request.Tags is null
+            ? (d["tags"] as JsonArray)?.Select(t => t?.ToString() ?? "").ToList() ?? []
+            : request.Tags.Select(t => (t ?? "").Trim()).Where(t => t.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (tags.Count > MaxTags || tags.Any(t => t.Length > 40)) throw new InvalidOperationException($"Use at most {MaxTags} tags of up to 40 characters.");
+
+        JsonObject parameters;
+        if (request.Params is null) parameters = d["params"] as JsonObject is { } p ? p.DeepClone().AsObject() : new JsonObject();
+        else
+        {
+            parameters = new JsonObject();
+            foreach (var (key, value) in request.Params)
+            {
+                var name = (key ?? "").Trim().ToLowerInvariant();
+                if (name.Length == 0) continue;
+                if (name.Length > 60 || (value ?? "").Length > 500)
+                    throw new InvalidOperationException("A value's name is at most 60 characters and its value at most 500.");
+                parameters[name] = (value ?? "").Trim();
+            }
+        }
+        if (parameters.Count > MaxParams) throw new InvalidOperationException($"A rule declares at most {MaxParams} values.");
+
+        d["ruleId"] = ruleId;
+        d["title"] = title;
+        d["category"] = category.Length > 0 ? category : existing is null ? CustomCategory : "Uncategorised";
+        d["severity"] = severity;
+        d["entity"] = entity.Length > 0 ? entity : "row";
+        d["method"] = method;
+        d["sqlMode"] = sqlMode;
+        d["status"] = status;
+        d["tags"] = new JsonArray(tags.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray());
+        d["expandsOver"] = expands;
+        d["body"] = body;
+        d["params"] = parameters;
+        d["summarySql"] = summarySql;
+        d["detailSql"] = detailSql;
+        // The runtime works out the definition's hash itself; a stored copy would only go stale.
+        d.Remove("ruleHash");
+        return d;
+    }
+
+    /// <summary>True when the rule was saved after the time the form was opened with (null: no check). Stored times are
+    /// UTC without a kind; the page sends back the value it was given (no offset = UTC).</summary>
+    internal static bool ChangedSince(DateTime modifiedAt, DateTime? expected) =>
+        expected is { } e && Math.Abs((modifiedAt - (e.Kind == DateTimeKind.Local ? e.ToUniversalTime() : e)).TotalMilliseconds) > 1;
+
+    private static string OneOf(string? value, string[] allowed, string fallback, string what)
+    {
+        var v = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim().ToLowerInvariant();
+        if (!allowed.Contains(v)) throw new InvalidOperationException($"A rule's {what} must be one of {string.Join(", ", allowed)}.");
+        return v;
+    }
+
+    /// <summary>DQ-U01, DQ-U02…: the next id after the highest DQ-U number in use.</summary>
+    internal static string NextUserRuleId(IEnumerable<string> taken)
+    {
+        var max = taken.Select(id => UserRuleIdPattern().Match(id)).Where(m => m.Success)
+            .Select(m => int.TryParse(m.Groups[1].Value, out var n) ? n : 0).DefaultIfEmpty(0).Max();
+        return $"DQ-U{max + 1:00}";
+    }
+
+    private static IReadOnlyList<JsonElement> SeedRules() =>
+        AgenticFeatureCatalog.IsKnown(Feature) ? AgenticFeatureCatalog.Get(Feature).Rules : [];
+
+    private static readonly Lazy<HashSet<string>> SeedRuleIds = new(() =>
+        SeedRules().Select(r => Str(r, "ruleId")).Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+    internal static bool IsSeedRule(string ruleId) => SeedRuleIds.Value.Contains(ruleId);
+
     // ── Runs and reports ───────────────────────────────────────────────────────────────────────────────────────────
 
     public async Task<IReadOnlyList<AnomalyCheckDto>> ChecksAsync(long tenantId, string id, CancellationToken ct)
@@ -111,11 +326,18 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
                 ? t.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToList()
                 : [];
             return new AnomalyCheckDto(p.ProbeId, p.RuleId, p.Status, NullIfEmpty(Str(json, "summarySql")), NullIfEmpty(Str(json, "detailSql")),
-                tables, NullIfEmpty(Str(json, "error")), p.CompiledAt);
+                tables, p.Status == "active" ? NullIfEmpty(Str(json, "error")) : ProbeReason(json), Utc(p.CompiledAt));
         }).ToList();
     }
 
     private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+
+    /// <summary>Why a check does not run: its error, else the reviewer's or the grounding's note (a check the AI found
+    /// not applicable may carry its reason only there, or in the comment that opens its SQL).</summary>
+    internal static string? ProbeReason(JsonElement probe) =>
+        NullIfEmpty(Str(probe, "error")) ?? NullIfEmpty(Str(probe, "verifierNote")) ?? NullIfEmpty(Str(probe, "groundingNote"))
+        ?? NullIfEmpty(string.Join(" ", (Str(probe, "summarySql") ?? "").Split('\n').Select(l => l.Trim())
+            .TakeWhile(l => l.StartsWith("--")).Select(l => l.TrimStart('-').Trim())));
 
     public async Task<IReadOnlyList<AnomalyRunSummaryDto>> RunsAsync(long tenantId, int take, CancellationToken ct)
     {
@@ -425,6 +647,9 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
     internal static string? Str(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
+    /// <summary>Stored times are UTC without a kind: marked UTC so the page reads them as UTC (sent with "Z").</summary>
+    internal static DateTime Utc(DateTime t) => t.Kind == DateTimeKind.Utc ? t : DateTime.SpecifyKind(t, DateTimeKind.Utc);
+
     internal static string? Clip(string? text, int max) => text is null ? null : text.Length <= max ? text : text[..max];
 
     /// <summary>run-yyyyMMdd-HHmmss-xxxx (UTC): sortable, unique, at most 40 characters.</summary>
@@ -450,14 +675,18 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
             probeStatus = failed > 0 ? "failed"
                 : probes.Any(p => p.Status == "active") ? "active"
                 : probes[0].Status;
-            error = probes.Where(p => p.Status == "failed").Select(p => Str(Parse(p.ProbeJson) ?? EmptyObject, "error"))
-                .FirstOrDefault(e => !string.IsNullOrWhiteSpace(e));
+            // Why it does not run: a failed check's error first, else why a check could not be applied here.
+            error = probes.Where(p => p.Status == "failed").Concat(probes.Where(p => p.Status == "not_applicable"))
+                .Select(p => ProbeReason(Parse(p.ProbeJson) ?? EmptyObject)).FirstOrDefault(e => e is not null);
         }
         return new AnomalyRuleDto(r.RuleId, r.Title, r.Category, r.Severity, r.Status, r.Source, Parse(r.DefinitionJson) ?? EmptyObject,
-            probeStatus, probes.Count, failed, error, probes.Count == 0 ? null : probes.Max(p => p.CompiledAt), r.SeedHash is null,
-            r.ModifiedBy, r.ModifiedAt);
+            probeStatus, probes.Count, failed, error, probes.Count == 0 ? null : Utc(probes.Max(p => p.CompiledAt)), r.SeedHash is null,
+            r.ModifiedBy, Utc(r.ModifiedAt), IsSeedRule(r.RuleId));
     }
 
     [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$")]
     private static partial Regex RuleIdPattern();
+
+    [GeneratedRegex("^DQ-U(\\d{1,6})$", RegexOptions.IgnoreCase)]
+    private static partial Regex UserRuleIdPattern();
 }

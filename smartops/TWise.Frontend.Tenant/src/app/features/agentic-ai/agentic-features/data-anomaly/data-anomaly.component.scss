@@ -243,3 +243,28 @@ $muted: #667085;
 .da__sql-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px;
   h4 { margin: 0; font-size: 13px; font-weight: 600; } }
 .da__run-reports { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+
+// Add rule / Edit rule form (in the drawer).
+.da__head-actions { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.da__form { display: grid; gap: 10px !important; }
+.da__form .da__field textarea {
+  min-width: 0; padding: 6px 8px; border: 1px solid #d0d5dd; border-radius: 6px; font: inherit; font-size: 13px; color: $text;
+  background: #fff; resize: vertical; line-height: 1.45;
+  &.da__mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  &:focus-visible { outline: 2px solid $accent; outline-offset: 1px; }
+}
+.da__form .da__hint { margin: 0; }
+.da__form > .da__link { justify-self: start; }
+.da__form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.da__drawer-actions--edit { margin-top: 8px; align-items: center; }
+.da__req { color: #b42318; }
+.da__kept {
+  padding: 8px 12px; border-radius: 6px; background: #f9fafb; border: 1px solid #eaecf0; font-size: 12px; color: #475467;
+  ul { margin: 4px 0 0; padding-left: 18px; }
+}
+.da__msg--info { color: #1d2939; background: #eef2ff; }
+.da__state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.da__state-actions { display: inline-flex; gap: 6px; }
+.da__msg ul { margin: 4px 0; padding-left: 18px; }
+// This page's confirmations (delete / reset a rule) open over the rule drawer (z-index 1001).
+:host ::ng-deep app-confirmation-dialog .dialog-backdrop { z-index: 1100; }

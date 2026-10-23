@@ -205,6 +205,26 @@ export class AgenticFeaturesService {
     return this.http.put<T>(`${this.api}${this.ep.DATA_ANOMALY}/rules/${encodeURIComponent(ruleId)}/status`, { status });
   }
 
+  /** Adds a rule (body: SaveAnomalyRuleRequest); it runs once compiled. */
+  anomalyCreateRule<T = any>(body: object): Observable<T> {
+    return this.http.post<T>(`${this.api}${this.ep.DATA_ANOMALY}/rules`, body);
+  }
+
+  /** Edits a rule's definition; its id never changes. */
+  anomalyUpdateRule<T = any>(ruleId: string, body: object): Observable<T> {
+    return this.http.put<T>(`${this.api}${this.ep.DATA_ANOMALY}/rules/${encodeURIComponent(ruleId)}`, body);
+  }
+
+  /** A default rule back to its default text. */
+  anomalyResetRule<T = any>(ruleId: string): Observable<T> {
+    return this.http.post<T>(`${this.api}${this.ep.DATA_ANOMALY}/rules/${encodeURIComponent(ruleId)}/reset`, {});
+  }
+
+  /** Deletes a rule added here (default rules can only be disabled). */
+  anomalyDeleteRule(ruleId: string): Observable<void> {
+    return this.http.delete<void>(`${this.api}${this.ep.DATA_ANOMALY}/rules/${encodeURIComponent(ruleId)}`);
+  }
+
   anomalyRuns<T = any>(take = 30): Observable<T> {
     return this.http.get<T>(`${this.api}${this.ep.DATA_ANOMALY}/runs`, { params: new HttpParams().set('take', take) });
   }
