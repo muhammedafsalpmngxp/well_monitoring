@@ -921,6 +921,9 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
       }),
       switchMap(({ plan, library, categories }) => {
         if (!plan.charts.length) throw new Error('The AI could not propose any chart for this dataset.');
+        // A chart needs one of the user's own chart categories (the list holds only those).
+        const categoryId = categories[0]?.categoryId;
+        if (!categoryId) throw new Error('You have no chart category yet. Create one under Charts & Tiles → WIP Charts → Manage Category, then try again.');
         this.generateStatus = `Creating ${plan.charts.length} charts…`; this.cdr.markForCheck();
         if (!this.pageName.trim() || this.pageName === 'Overview') this.pageName = plan.title;
         const creates = plan.charts.map(s => {
@@ -933,7 +936,7 @@ export class DashboardBuilderComponent implements OnInit, AfterViewInit, OnDestr
           return this.widgetService.createWidget({
             name: s.patch.title || 'Chart', description: s.reason, type: 'chart', libraryId: lib.id,
             source: payload.source, sourceType: payload.sourceType, sourceId: payload.sourceId, designJson: payload.designJson,
-            categoryId: categories[0]?.categoryId || 2,
+            categoryId,
           }).pipe(catchError(() => of(null)));
         });
         return forkJoin(creates);

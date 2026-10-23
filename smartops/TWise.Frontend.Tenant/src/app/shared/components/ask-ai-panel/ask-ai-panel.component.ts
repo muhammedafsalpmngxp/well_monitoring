@@ -214,11 +214,19 @@ export class AskAiPanelComponent implements OnInit {
         next: ({ library, categories }) => {
           const lib = library.find(i => normalizeAdvancedChartType(i.widgetName) === preset.chartType);
           if (!lib) { this.addBusy = false; this.addError = `The "${preset.chartType}" chart type is not in the widget library.`; this.cdr.markForCheck(); return; }
+          // A chart needs one of the user's own chart categories (the list holds only those).
+          const categoryId = categories[0]?.categoryId;
+          if (!categoryId) {
+            this.addBusy = false;
+            this.addError = 'You have no chart category yet. Create one under Charts & Tiles → WIP Charts → Manage Category, then try again.';
+            this.cdr.markForCheck();
+            return;
+          }
           const payload = this.presets.widgetPayload(preset);
           this.widgets.createWidget({
             name: preset.title, description: this.addTarget?.question ?? '', type: 'chart', libraryId: lib.id,
             source: payload.source, sourceType: payload.sourceType, sourceId: payload.sourceId, designJson: payload.designJson,
-            categoryId: categories[0]?.categoryId || 2,
+            categoryId,
           }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: w => {
               this.addBusy = false;
