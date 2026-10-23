@@ -18,7 +18,7 @@
 `GET api/self-healing/overview?days=` → `GetSelfHealingOverviewQuery` (validator: `days` null or in `SelfHealing:Days`) → `ViewRunRepository.OverviewAsync`, six queries:
 
 1. per-day runs, failures, average ms (`CONVERT(date, created_at)`, UTC);
-2. totals (runs, failures, slow = `duration_ms >= SlowMs`, average, max);
+2. totals (runs, failures, slow = successful runs with `duration_ms >= SlowMs`, average, max);
 3. failing sources: grouped by (`view_id`, `source_name`, `source_type`) with at least one error, ordered by failures; `StillFailing` = last failed at == last run at; top `TopViews` returned, all counted in `kpis.failingViews` when still failing;
 4. slow sources: successful runs only, average ms, top `TopViews`;
 5. the log: failed or slow runs, newest `LogRows`;

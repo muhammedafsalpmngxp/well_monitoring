@@ -22,7 +22,7 @@ public sealed class ViewRunRepository(TenantDbContext db) : IViewRunRepository
             .Select(x => new SelfHealingDayDto(x.Day, x.Runs, x.Failures, (int)Math.Round(x.Avg))).ToList();
 
         var totals = await runs.GroupBy(_ => 1)
-            .Select(g => new { Runs = g.Count(), Failures = g.Count(r => r.Error != null), Slow = g.Count(r => r.DurationMs >= slow),
+            .Select(g => new { Runs = g.Count(), Failures = g.Count(r => r.Error != null), Slow = g.Count(r => r.Error == null && r.DurationMs >= slow),
                 Avg = g.Average(r => (double)r.DurationMs), Max = g.Max(r => r.DurationMs) })
             .FirstOrDefaultAsync(ct);
 

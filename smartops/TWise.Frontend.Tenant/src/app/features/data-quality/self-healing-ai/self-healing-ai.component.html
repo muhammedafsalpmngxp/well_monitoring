@@ -87,7 +87,7 @@
 
   <p class="sha-note sha-note--error" *ngIf="error" role="alert">{{ error }}</p>
   <p class="sha-note" *ngIf="loading">Scanning…</p>
-  <p class="sha-note" *ngIf="overview && !overview.recordingOn">Chart and view loads are not being recorded (SelfHealing:RecordRuns is off), so only data loads are scanned.</p>
+  <p class="sha-note" *ngIf="overview && !overview.recordingOn">New chart and view loads are not being recorded (SelfHealing:RecordRuns is off); the figures below are from loads recorded earlier.</p>
   <p class="sha-note" *ngIf="overview?.recordingOn && !overview?.kpis?.runs && !loading">No chart or view loads recorded in this period yet. Open a few charts, dashboards or views, then run the scan again.</p>
 
   <!-- ─── KPI Cards ─────────────────────────────────────────────────────────── -->
