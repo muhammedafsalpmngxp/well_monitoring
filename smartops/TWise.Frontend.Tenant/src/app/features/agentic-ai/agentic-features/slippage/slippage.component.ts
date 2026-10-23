@@ -79,7 +79,7 @@ interface AdvisorState<T> { open: boolean; loading: boolean; error: string; data
 interface Milestone { prefix: string; label: string }
 
 type Tone = 'bad' | 'warn' | 'ok' | 'info' | 'neutral';
-type WellSort = 'overrun' | 'well' | 'status' | 'activity';
+type WellSort = 'overrun' | 'well' | 'activity';
 type CrewSort = 'open' | 'overdue' | 'crew' | 'recent';
 
 /**
@@ -159,10 +159,8 @@ export class SlippageComponent implements OnInit {
   // Well table
   wellSearch = '';
   wellMilestone = '';
-  wellHeadline = '';
   wellSort: WellSort = 'overrun';
   wellPage = 0;
-  headlines: string[] = [];
   wellRows: Row[] = [];
   readonly pageSize = PAGE_SIZE;
 
@@ -289,8 +287,6 @@ export class SlippageComponent implements OnInit {
     this.byMilestone = this.milestones.map(m => ({ milestone: m, count: counts.get(m.prefix) ?? 0 }));
     this.maxMilestoneCount = Math.max(1, ...this.byMilestone.map(b => b.count));
     this.kpi = { ...this.kpi, wells: rows.length, worst, dataQuality };
-    this.headlines = this.distinct(rows.map(r => r['well_slippage_status']));
-    if (this.wellHeadline && !this.headlines.includes(this.wellHeadline)) this.wellHeadline = '';
     if (this.wellMilestone && !this.milestones.some(m => m.prefix === this.wellMilestone)) this.wellMilestone = '';
     this.applyWellFilters(false);
   }
@@ -332,14 +328,12 @@ export class SlippageComponent implements OnInit {
     const needle = this.wellSearch.trim().toLowerCase();
     const rows = (this.wells.data?.rows ?? []).filter(w => {
       if (this.wellMilestone && !this.failed(w).some(m => m.prefix === this.wellMilestone)) return false;
-      if (this.wellHeadline && String(w['well_slippage_status'] ?? '') !== this.wellHeadline) return false;
       return !needle || String(w['well_id'] ?? '').toLowerCase().includes(needle);
     });
     const byId = (a: Row, b: Row) => String(a['well_id']).localeCompare(String(b['well_id']), undefined, { numeric: true });
     rows.sort((a, b) => {
       switch (this.wellSort) {
         case 'well': return byId(a, b);
-        case 'status': return String(a['well_slippage_status'] ?? '').localeCompare(String(b['well_slippage_status'] ?? '')) || byId(a, b);
         case 'activity': return this.nullLast(this.activityCount(a), this.activityCount(b)) || byId(a, b);
         default: return this.nullLast(this.worstVariance(a), this.worstVariance(b)) || byId(a, b);
       }
@@ -351,7 +345,7 @@ export class SlippageComponent implements OnInit {
   sortWells(sort: WellSort): void { this.wellSort = sort; this.applyWellFilters(); }
 
   clearWellFilters(): void {
-    this.wellSearch = ''; this.wellMilestone = ''; this.wellHeadline = '';
+    this.wellSearch = ''; this.wellMilestone = '';
     this.applyWellFilters();
   }
 
