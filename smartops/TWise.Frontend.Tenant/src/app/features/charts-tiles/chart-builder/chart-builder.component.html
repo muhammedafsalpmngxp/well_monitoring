@@ -429,8 +429,14 @@
                 </defs>
               </svg>
             </div>
-            <h3>Your canvas is ready</h3>
-            <p>{{ missingMappingHint || 'Choose a chart type and complete the required setup to generate a live preview.' }}</p>
+            <ng-container *ngIf="sourceError; else canvasReady">
+              <h3>The data source could not be loaded</h3>
+              <p class="builder-canvas__empty-error" role="alert">{{ sourceError }}</p>
+            </ng-container>
+            <ng-template #canvasReady>
+              <h3>Your canvas is ready</h3>
+              <p>{{ missingMappingHint || 'Choose a chart type and complete the required setup to generate a live preview.' }}</p>
+            </ng-template>
           </div>
 
           <div class="builder-tip" *ngIf="!canGeneratePreview && !sourceLoading">

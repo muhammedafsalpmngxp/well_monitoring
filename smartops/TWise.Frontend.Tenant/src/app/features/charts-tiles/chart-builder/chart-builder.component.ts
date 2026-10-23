@@ -5604,10 +5604,14 @@ export class ChartBuilderComponent implements OnInit, OnDestroy {
         }
         this.cdr.markForCheck();
       },
-      error: () => {
+      error: (err) => {
         if (requestVersion !== this.sourceLoadVersion) return;
         this.sourceLoading = false;
-        this.sourceError = 'Unable to load the selected source. Check the source, filters, and connection.';
+        // The server's reason (e.g. a connection secret that cannot be decrypted) says what to fix.
+        const reason = err?.error?.error ?? err?.error?.message;
+        this.sourceError = typeof reason === 'string' && reason
+          ? `Unable to load the selected source: ${reason}`
+          : 'Unable to load the selected source. Check the source, filters, and connection.';
         this.cdr.markForCheck();
       },
     }));

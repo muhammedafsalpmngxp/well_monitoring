@@ -2640,6 +2640,13 @@
       font-weight: 500;
       font-family: var(--font-family-base);
     }
+
+    // A load failure: the server's reason is shown as written.
+    p.builder-canvas__empty-error {
+      max-width: 520px;
+      color: #b42318 !important;
+      text-transform: none;
+    }
   }
 
   &__empty-illustration {
