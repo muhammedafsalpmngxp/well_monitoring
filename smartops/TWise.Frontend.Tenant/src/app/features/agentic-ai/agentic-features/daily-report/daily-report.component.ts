@@ -6,7 +6,9 @@ import {
   AgentAnswer, BriefLoad, DailyTask, GroupDetailsResponse, Load, LogicalTask, MilestoneAlert, MilestonesResponse, RecentDate,
   RecentDatesResponse, StatusGroup, SummaryResponse, WbsGroup, WellActivity, WellActivityResponse, WellDetailResponse, idle,
 } from './daily-report.models';
-import { TextBlock, codeLabel, dueText, orderedKeys, parseLengthRule, statusHint, statusTone, taskStateTone, toBlocks } from './daily-report.format';
+import { AttentionItem, attentionHint, attentionItems } from './daily-report.attention';
+import { DATA_QUALITY, FIELD, LEGEND } from './daily-report.glossary';
+import { TextBlock, chipFlags, codeHint, codeLabel, dueText, orderedKeys, parseLengthRule, progressText, splitStatusCounts, statusHint, statusTone, taskStateTone, toBlocks } from './daily-report.format';
 
 /** One row of the wells table: the day's per-well roll-up joined (by well id) to the well's task activity. */
 export interface WellRow {
@@ -42,11 +44,20 @@ export class DailyReportComponent implements OnInit {
 
   @ViewChild('wellPanel') private wellPanel?: ElementRef<HTMLElement>;
   @ViewChild('groupPanel') private groupPanel?: ElementRef<HTMLElement>;
+  @ViewChild('wellsPanel') private wellsPanel?: ElementRef<HTMLElement>;
+  @ViewChild('milestonesPanel') private milestonesPanel?: ElementRef<HTMLElement>;
+  @ViewChild('qualityPanel') private qualityPanel?: ElementRef<HTMLElement>;
 
   readonly breadcrumbs = [{ label: 'Home' }, { label: 'Agentic AI' }, { label: 'Agentic Features', route: '/agentic-ai/features' }, { label: 'Daily Report' }];
 
   // helpers for the template
   readonly codeLabel = codeLabel;
+  readonly codeHint = codeHint;
+  readonly progressText = progressText;
+  readonly attentionHint = attentionHint;
+  readonly field = FIELD;
+  readonly dq = DATA_QUALITY;
+  readonly legend = LEGEND;
   readonly statusTone = statusTone;
   readonly taskStateTone = taskStateTone;
   readonly statusHint = statusHint;
@@ -89,6 +100,8 @@ export class DailyReportComponent implements OnInit {
   visibleRows: WellRow[] = [];
   filteredCount = 0;
   private tasksByWell = new Map<number, DailyTask[]>();
+  /** Wells with open work that reported nothing on the report date (for the "Needs attention" list). */
+  private wellsWithoutEntry = 0;
 
   // milestones
   readonly upcomingPreview = 5;
@@ -223,9 +236,47 @@ export class DailyReportComponent implements OnInit {
 
   // ── Summary ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-  get statusCountKeys(): string[] { return orderedKeys(this.summary.data?.totals.status_counts); }
+  // ── Needs attention ───────────────────────────────────────────────────────────────────────────────────────────
 
-  get flagKeys(): string[] { return Object.keys(this.summary.data?.data_quality.flag_counts ?? {}); }
+  /** The list of things to look at first. A figure still loading keeps its rule quiet, and "nothing to flag" waits for it. */
+  get attention(): AttentionItem[] {
+    const s = this.summary.data;
+    if (!s) return [];
+    const m = this.milestones.data;
+    const items = attentionItems({
+      taskCount: s.totals.task_count,
+      statusCounts: s.totals.status_counts,
+      flaggedTasks: s.data_quality.affected_task_count,
+      wellsWithoutEntry: this.activity.data ? this.wellsWithoutEntry : null,
+      overdueMilestones: m ? m.overdue_count : null,
+      upcomingMilestones: m ? m.upcoming.length : null,
+      windowDays: m?.window_days ?? 7,
+    });
+    return this.checkingMore ? items.filter(i => i.id !== 'all-clear') : items;
+  }
+
+  get checkingMore(): boolean { return this.activity.loading || this.dayWells.loading || this.milestones.loading; }
+
+  trackAttention = (_: number, a: AttentionItem): string => a.id;
+
+  /** The "Show ..." link of an item: opens the tasks behind it, or brings the part of the page it is about into view. */
+  goTo(item: AttentionItem): void {
+    const action = item.action;
+    if (!action) return;
+    switch (action.kind) {
+      case 'group': this.openGroup(action.status); break;
+      case 'wells': this.setScope('active'); this.scrollTo(() => this.wellsPanel); break;
+      case 'quality': this.scrollTo(() => this.qualityPanel); break;
+      case 'milestones': this.scrollTo(() => this.milestonesPanel); break;
+    }
+  }
+
+  /** Statuses with tasks (tiles) and without (one line). */
+  get statusTiles(): string[] { return splitStatusCounts(this.summary.data?.totals.status_counts).shown; }
+
+  get emptyStatuses(): string[] { return splitStatusCounts(this.summary.data?.totals.status_counts).empty; }
+
+  get flagKeys(): string[] { return chipFlags(this.summary.data?.data_quality.flag_counts); }
 
   dqTotal(counts: Record<string, number> | null | undefined): number {
     return Object.values(counts ?? {}).reduce((a, b) => a + b, 0);
@@ -323,6 +374,7 @@ export class DailyReportComponent implements OnInit {
       all: this.allRows,
     };
     this.scopeCounts = { active: scoped.active.length, reported: scoped.reported.length, all: scoped.all.length };
+    this.wellsWithoutEntry = this.allRows.filter(r => !this.reported(r) && (r.activity?.open_task_count ?? 0) > 0).length;
     const needle = this.wellSearch.trim();
     const rows = scoped[this.wellScope]
       .filter(r => !needle || String(r.well_id).includes(needle))

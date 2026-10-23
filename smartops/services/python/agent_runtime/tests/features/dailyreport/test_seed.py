@@ -13,9 +13,9 @@ from app.features.common.models import FeatureAccess
 from app.features.dailyreport import data
 from app.features.dailyreport.agent.tools import TOOLS
 from app.features.dailyreport.settings import DailyReportSettings, load_settings
-from app.features.dailyreport.texts import parse_entries, parse_tool
+from app.features.dailyreport.texts import LAYOUT, MESSAGE_TEMPLATES, SECTION_OF, parse_entries, parse_sections, parse_tool
 from tests.features import _seed
-from tests.features.dailyreport.conftest import seed_access, seed_prompts, seed_queries, seed_settings
+from tests.features.dailyreport.conftest import seed_access, seed_prompts, seed_queries, seed_settings, seed_text
 
 CAPABILITIES = [data.DAILY_SUMMARY, data.DAILY_DETAILS, data.WELL_ACTIVITY, data.WELL_DETAIL, data.MILESTONES,
                 data.CREW_SUGGESTION, data.ACTIVITY_DATES]
@@ -24,7 +24,10 @@ PARAMS = {data.DAILY_SUMMARY: ["report_date"], data.DAILY_DETAILS: ["report_date
           data.WELL_DETAIL: ["report_date"], data.MILESTONES: [], data.CREW_SUGGESTION: [
               "report_date", "well_id", "task_code"], data.ACTIVITY_DATES: ["limit"]}
 
-#: prompt -> the placeholders the engine fills (entry lists: entry name -> placeholders).
+#: The prompts a tenant sees (AI Settings > AI Prompts): four stand alone, six hold the rest as sections (LAYOUT).
+STORED = {"explain_system", "writer_addendum", "planner_system", "verifier_system", *LAYOUT}
+
+#: logical text -> the placeholders the engine fills (entry lists: entry name -> placeholders).
 TEMPLATES = {
     "explain_system": set(), "writer_addendum": {"WORD_LIMIT"}, "planner_system": {"MAX_STEPS"},
     "planner_user": {"REPORT_DATE", "TOOLS", "QUESTION"}, "writer_user": {"REPORT_DATE", "QUESTION", "TOOL_RESULTS"},
@@ -71,23 +74,37 @@ def test_the_access_list_is_exactly_the_tables_the_queries_read():
     assert set(seed_access()["includedTables"]) == read
 
 
-def test_every_prompt_the_engine_reads_exists_with_its_placeholders():
+def test_a_tenant_sees_ten_prompts_and_every_other_text_is_a_section_or_fixed_in_code():
     prompts = seed_prompts()
-    expected = {f"dailyreport.{k}" for k in [*TEMPLATES, *ENTRIES]} | {f"dailyreport.tool_{n}" for n in TOOLS}
-    assert set(prompts) == expected
+    assert set(prompts) == {f"dailyreport.{k}" for k in STORED} and len(prompts) == 10
+    logical = {*TEMPLATES, *ENTRIES, *(f"tool_{n}" for n in TOOLS)}
+    for name in logical:
+        assert name in STORED or name in SECTION_OF or name in MESSAGE_TEMPLATES, name
+    for merged, names in LAYOUT.items():           # each merged prompt holds exactly its sections, in order
+        assert list(parse_sections(prompts[f"dailyreport.{merged}"])) == list(names), merged
+
+
+def test_the_seed_names_the_earlier_prompts_each_merged_prompt_replaced():
+    seeded = {p["key"]: p for p in _seed.feature_seed("dailyreport")["prompts"]}
+    for merged, names in LAYOUT.items():
+        assert seeded[f"dailyreport.{merged}"]["mergedFrom"] == [f"dailyreport.{n}" for n in names], merged
+    for key in STORED - set(LAYOUT):
+        assert not seeded[f"dailyreport.{key}"].get("mergedFrom"), key
+
+
+def test_every_prompt_the_engine_reads_has_its_placeholders():
     for name, placeholders in TEMPLATES.items():
-        assert set(_TOKEN.findall(prompts[f"dailyreport.{name}"])) == placeholders, name
+        assert set(_TOKEN.findall(seed_text(name))) == placeholders, name
     for name, entries in ENTRIES.items():
-        parsed = parse_entries(prompts[f"dailyreport.{name}"])
+        parsed = parse_entries(seed_text(name))
         assert parsed and all(parsed.values()), name
         for entry, placeholders in entries.items():
             assert set(_TOKEN.findall(parsed[entry])) == placeholders, (name, entry)
 
 
 def test_every_tool_description_covers_its_arguments():
-    prompts = seed_prompts()
     for name, tool in TOOLS.items():
-        description, args = parse_tool(prompts[f"dailyreport.tool_{name}"])
+        description, args = parse_tool(seed_text(f"tool_{name}"))
         assert description and list(args) == list(tool.params), name
 
 

@@ -189,6 +189,8 @@ public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogge
     /// Makes core.AiPrompt and the history complete and in agreement for every catalog key, in one transaction:
     ///  * no history yet: version 1 ('seed') is the seed text; a text the tenant already had (a core.AiPrompt row, or
     ///    else core.AiSettings.prompts_json from before core.AiPrompt) that differs from the seed becomes version 2;
+    ///    a merged prompt (PromptSections) has no row of its own: version 2 is the seed with each section replaced by
+    ///    the tenant's saved edit of the earlier prompt it came from, when there is one;
     ///  * no row, or a row that is not the history's live version: the row is written from the live version.
     /// </summary>
     private async Task SyncAsync(long tenantId, CancellationToken ct)
@@ -224,12 +226,21 @@ public sealed class AiPromptStore(TenantDbContext db, IMemoryCache cache, ILogge
                     var own = rows.TryGetValue(def.Key, out var row) ? row.Body
                         : (legacy ??= await LegacyTextsAsync(dbTx, tenantId, ct)).GetValueOrDefault(def.Key);
                     var seedText = seed[def.Key];
+                    var carried = false;
+                    if (own is null && def.Merged.Count > 0)
+                    {
+                        // A merged prompt starts from what the tenant had in the earlier prompts it replaced: a saved
+                        // edit of one of them becomes that section's text (their rows stay in core.AiPrompt, unused).
+                        own = PromptSections.Carry(seedText, def.Merged, k => rows.TryGetValue(k, out var earlier) ? earlier.Body : null);
+                        carried = own is not null;
+                    }
                     var customised = own is not null && own != seedText;
                     await InsertVersionAsync(dbTx, tenantId, def.Key, 1, seedText, "seed", null, SystemUser, now, isCurrent: !customised, ct);
                     live[def.Key] = new Current(1, seedText, SystemUser, now);
                     if (customised)
                     {
-                        await InsertVersionAsync(dbTx, tenantId, def.Key, 2, own!, "update", "Customised before prompt history", SystemUser, now, isCurrent: true, ct);
+                        await InsertVersionAsync(dbTx, tenantId, def.Key, 2, own!, "update",
+                            carried ? "Carried over from the earlier separate prompts" : "Customised before prompt history", SystemUser, now, isCurrent: true, ct);
                         live[def.Key] = new Current(2, own!, SystemUser, now);
                     }
                     changes++;

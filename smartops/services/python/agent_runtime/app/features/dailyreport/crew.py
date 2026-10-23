@@ -1,7 +1,7 @@
 """Crew suggestion evidence for one task (ported from crew_suggestion_service.py and schemas/crew_suggestion.py).
 
 Eligibility, history, ranking and availability are all decided in the CREW_SUGGESTION query. This only shapes its
-one row and picks the plain "why no crew was suggested" reason (the tenant's dailyreport.crew_no_suggestion_reasons).
+one row and picks the plain "why no crew was suggested" reason (the tenant's messages prompt, section crew_no_suggestion_reasons).
 Advisory only: nothing is written, no crew is assigned.
 
 Exactly one of ``suggested_crew`` (eligible, a candidate: a replacement candidate for a stalled task),

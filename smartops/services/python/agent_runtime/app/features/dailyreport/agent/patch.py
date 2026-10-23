@@ -1,7 +1,7 @@
 """Fixing only the sentences the verifier rejected, instead of rewriting the whole draft.
 
 The verifier names what it rejected (a figure, a date, a forbidden word, a field name). Code, not the model, finds
-the sentences that state it; the model rewrites just those (dailyreport.writer_patch); code puts them back in place,
+the sentences that state it; the model rewrites just those (the writer_fix prompt, section writer_patch); code puts them back in place,
 keeping every other sentence exactly as it was, and the whole draft is checked again. When a problem cannot be
 pinned to a sentence, or too much of the draft is affected, the caller rewrites the whole draft as before.
 """

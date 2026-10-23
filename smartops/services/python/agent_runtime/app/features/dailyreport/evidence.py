@@ -1,7 +1,7 @@
 """The compact, deterministic evidence payload a model is given for one scope (ported from evidence_service.py).
 
 Everything in it was computed by SQL and validation.py; the model receives facts and classifications only. The
-definition, constraint and note texts it reads are the tenant's prompts (dailyreport.evidence_*); how many tasks a
+definition, constraint and note texts it reads are the tenant's prompts (the definitions, data_limits and notes prompts); how many tasks a
 scope lists is a setting.
 """
 from __future__ import annotations
