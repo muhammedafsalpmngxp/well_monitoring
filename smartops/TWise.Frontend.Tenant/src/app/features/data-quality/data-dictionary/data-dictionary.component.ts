@@ -111,11 +111,13 @@ export class DataDictionaryComponent implements OnInit {
     this.drafting = true;
     this.draftNote = '';
     const { kind, id } = this.selected;
+    // A draft that comes back after another dataset was opened belongs to the old one: drop it.
+    const stillOpen = () => this.selected?.kind === kind && this.selected?.id === id;
     this.governance.draftDataset(kind, id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: d => { this.applyDraft(d); this.drafting = false; this.cdr.markForCheck(); },
+      next: d => { this.drafting = false; if (stillOpen()) this.applyDraft(d); this.cdr.markForCheck(); },
       error: err => {
         this.drafting = false;
-        this.draftNote = err?.error?.message ?? 'The AI could not draft this dataset. Try again.';
+        if (stillOpen()) this.draftNote = err?.error?.message ?? 'The AI could not draft this dataset. Try again.';
         this.cdr.markForCheck();
       },
     });
