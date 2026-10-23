@@ -1629,6 +1629,7 @@ CREATE TABLE core.AiTraces (
     id          bigint         IDENTITY(1,1) NOT NULL CONSTRAINT PK_core_AiTraces PRIMARY KEY,
     message_id  bigint         NOT NULL,
     trace_json  nvarchar(max)  NOT NULL,
+    rejections_json nvarchar(max) NULL,   -- Ask Data: queries refused and why (verifier | validator | database)
     created_at  datetime2      NOT NULL CONSTRAINT DF_core_AiTraces_created DEFAULT SYSUTCDATETIME()
 );
 GO

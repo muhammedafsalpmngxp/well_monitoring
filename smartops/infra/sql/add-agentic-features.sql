@@ -46,6 +46,10 @@ IF COL_LENGTH('core.AiSettings', 'crew_settings_json') IS NULL
 IF COL_LENGTH('core.AiSettings', 'askdata_included_tables') IS NULL
     ALTER TABLE core.AiSettings ADD askdata_included_tables nvarchar(max) NULL;
 
+-- Ask Data: each answer's refused queries and why (verifier reason, checker refusal, database error); see add-ai-trace.sql.
+IF OBJECT_ID('core.AiTraces', 'U') IS NOT NULL AND COL_LENGTH('core.AiTraces', 'rejections_json') IS NULL
+    ALTER TABLE core.AiTraces ADD rejections_json nvarchar(max) NULL;
+
 -- ── Verified SQL of Slippage and Daily Report ────────────────────────────────
 IF OBJECT_ID('core.AiFeatureQuery', 'U') IS NULL
     CREATE TABLE core.AiFeatureQuery (

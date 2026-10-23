@@ -52,6 +52,8 @@ def check() -> None:
         cols = [c for c in ("slippage_settings_json", "dailyreport_settings_json", "anomaly_settings_json", "crew_settings_json",
                             "askdata_included_tables")
                 if cur.execute("SELECT COL_LENGTH('core.AiSettings', ?)", c).fetchone()[0] is None]
+        if cur.execute("SELECT COL_LENGTH('core.AiTraces', 'rejections_json')").fetchone()[0] is None:
+            cols.append("AiTraces.rejections_json")
     with connect(CONTROL_DB) as conn:
         modules = conn.cursor().execute(
             "SELECT COUNT(*) FROM control.FeatureModule WHERE module_code IN "

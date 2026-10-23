@@ -21,6 +21,10 @@ CREATE TABLE core.AiTraces (
     trace_json  nvarchar(max)  NOT NULL,   -- steps: load, context, ask, query, rejected, answer
     created_at  datetime2      NOT NULL CONSTRAINT DF_core_AiTraces_created DEFAULT SYSUTCDATETIME()
 );
+-- Ask Data: every query refused on the way to the answer and why, a JSON array of
+-- {"stage": "verifier" | "validator" | "database", "sql": ..., "reason": ..., "subQuestion": ...}. NULL = none refused.
+IF COL_LENGTH('core.AiTraces', 'rejections_json') IS NULL
+    ALTER TABLE core.AiTraces ADD rejections_json nvarchar(max) NULL;
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiTraces_message')
 CREATE INDEX IX_core_AiTraces_message ON core.AiTraces (message_id);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_core_AiTraces_created')

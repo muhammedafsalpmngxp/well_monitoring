@@ -8,6 +8,7 @@ from app import trace
 from app.askdata.settings import agent_settings
 from app.askdata.common.connection import get_connection
 from app.askdata.common.readonly import assert_read_only
+from app.askdata.nodes._common import with_rejection
 from app.askdata.state import AgentState
 from app.askdata.log import get_agent_logger
 
@@ -51,7 +52,8 @@ def executor_node(state: AgentState) -> dict:
     except Exception as exc:  # noqa: BLE001 - feed the DB error back for self-correction
         elapsed = time.perf_counter() - start
         log.warning("exec error in %.2fs: %s", elapsed, exc)
-        return {"exec_error": str(exc), "retry_count": state.get("retry_count", 0) + 1}
+        return {"exec_error": str(exc), "retry_count": state.get("retry_count", 0) + 1,
+                "rejections": with_rejection(state, "database", str(exc), [sql])}
     finally:
         if conn is not None:
             try:

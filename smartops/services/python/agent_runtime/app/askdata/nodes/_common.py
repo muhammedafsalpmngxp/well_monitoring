@@ -10,6 +10,23 @@ from app.askdata.settings import agent_settings
 from app.askdata.common.text import rows_to_markdown  # noqa: F401 - shared; re-exported for the nodes
 
 
+# A turn's rejections are kept for the record (core.AiTraces.rejections_json), bounded so a runaway retry loop or a
+# huge query cannot bloat the answer the Tenant API stores.
+MAX_REJECTIONS = 20
+_REJECTION_SQL_MAX = 8000
+_REJECTION_REASON_MAX = 2000
+
+
+def with_rejection(state: AgentState, stage: str, reason: str, sqls: list[str] | None = None) -> list[dict[str, Any]]:
+    """The turn's rejections plus this one: ``stage`` is verifier (the figures were judged not to answer the question),
+    validator (the SQL checker refused it before it ran) or database (SQL Server error); one entry per query refused."""
+    sub_question = state.get("sub_question") or state.get("question", "")
+    added = [{"stage": stage, "sql": (sql or "")[:_REJECTION_SQL_MAX], "reason": (reason or "")[:_REJECTION_REASON_MAX],
+              "sub_question": sub_question}
+             for sql in (sqls if sqls else [state.get("sql", "")])]
+    return (list(state.get("rejections") or []) + added)[:MAX_REJECTIONS]
+
+
 def format_history(history: list[dict[str, str]] | None, max_turns: int | None = None) -> str:
     """Render the last few turns for multi-turn context (e.g. 'now group by month').
 

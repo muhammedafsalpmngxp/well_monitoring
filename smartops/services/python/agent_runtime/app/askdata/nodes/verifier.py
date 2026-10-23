@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from app.askdata.settings import agent_settings, current_run
 from app.askdata.tools import knowledge
-from app.askdata.nodes._common import history_for, render_steps
+from app.askdata.nodes._common import history_for, render_steps, with_rejection
 from app.askdata.prompts import current_prompts, msg
 from app.askdata.tools.sqlcheck import check as sql_concerns
 from app.askdata.state import AgentState
@@ -161,6 +161,8 @@ def _reject(state: AgentState, feedback: str) -> dict:
         "verify_feedback": _trim_feedback(feedback),
         "steps": [],
         "rejected_steps": state.get("rejected_steps", []) + steps,
+        # One verdict over all the steps, so each query set aside gets the same reason.
+        "rejections": with_rejection(state, "verifier", feedback, [s.get("sql", "") for s in steps] or None),
         "analysis": "",
         "verify_retry_count": state.get("verify_retry_count", 0) + 1,
         # Both budgets are reset because this rejection DISCARDS the gathered steps above: the

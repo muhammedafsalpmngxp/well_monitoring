@@ -141,6 +141,7 @@ def orchestrator_node(state: AgentState) -> dict:
         "chart": {},
         "steps": [],
         "rejected_steps": [],
+        "rejections": [],
         "tried_sql": [],
         "query_count": 0,
         "retry_count": 0,

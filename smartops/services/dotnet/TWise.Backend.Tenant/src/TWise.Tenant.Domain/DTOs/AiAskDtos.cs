@@ -28,6 +28,10 @@ public record AiInsightReportDto(string Question, string SourceName, int TotalRo
 
 public record AiTraceStep(string Step, int Ms, string? Detail, IReadOnlyList<AiMessage>? Prompt = null, string? Reply = null);
 
+/// <summary>A query Ask Data refused on the way to an answer (core.AiTraces.rejections_json): Stage is verifier (its reason
+/// for rejecting the figures), validator (refused before running) or database (SQL Server error).</summary>
+public record AskDataRejection(string Stage, string Sql, string Reason, string? SubQuestion);
+
 /// <summary>
 /// What the model is allowed to produce: a query over one dataset's columns. It is validated against
 /// the real schema and executed in memory by QuerySpecEngine, so the model never writes SQL.

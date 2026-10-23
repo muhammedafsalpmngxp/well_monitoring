@@ -305,6 +305,42 @@ def test_executor_refuses_anything_but_a_select():
     assert out["retry_count"] == 1 and "select" in out["exec_error"].lower()
 
 
+def test_each_refused_query_is_recorded_with_its_stage_and_reason(monkeypatch):
+    from app.askdata import runner
+    from app.askdata.nodes.executor import executor_node
+    from app.askdata.nodes.verifier import _reject
+
+    # Validator (the SQL checker): refused before it runs.
+    out = validator.validator_node({"sql": "SELECT well_id FROM dbo.task_daily", "schema": SCHEMA, "sub_question": "late wells"})
+    assert out["rejections"] == [{"stage": "validator", "sql": "SELECT well_id FROM dbo.task_daily",
+                                  "reason": out["validation_error"], "sub_question": "late wells"}]
+    # Database: the run failed (here the executor's own read-only guard); earlier rejections are kept.
+    out = executor_node({"sql": "DELETE FROM well.well_master", "question": "q", "rejections": out["rejections"]})
+    assert [r["stage"] for r in out["rejections"]] == ["validator", "database"]
+    assert out["rejections"][1]["sql"] == "DELETE FROM well.well_master" and out["rejections"][1]["reason"] == out["exec_error"]
+    # Verifier: one verdict over the steps, so every query set aside carries the same reason.
+    steps = [{"sql": "SELECT a FROM well.well_master", "rows": []}, {"sql": "SELECT b FROM well.task_daily", "rows": []}]
+    out = _reject({"steps": steps, "question": "q", "rejections": out["rejections"]}, "Counts wells, not tasks.")
+    assert [(r["stage"], r["sql"], r["reason"]) for r in out["rejections"][2:]] == [
+        ("verifier", "SELECT a FROM well.well_master", "Counts wells, not tasks."),
+        ("verifier", "SELECT b FROM well.task_daily", "Counts wells, not tasks.")]
+
+    # They reach the answer the Tenant API stores.
+    monkeypatch.setattr(runner.export_svc, "make_token", lambda sql: "t")
+    sent = runner._response({"answer": "a", "rejections": out["rejections"]}, "deep", 1.0, [])["rejections"]
+    assert [r["stage"] for r in sent] == ["validator", "database", "verifier", "verifier"]
+    assert set(sent[0]) == {"stage", "sql", "reason", "sub_question"}
+
+
+def test_rejections_are_bounded():
+    from app.askdata.nodes._common import MAX_REJECTIONS, with_rejection
+
+    many = with_rejection({"sql": "SELECT 1", "rejections": [{"stage": "x"}] * MAX_REJECTIONS}, "validator", "why")
+    assert len(many) == MAX_REJECTIONS
+    long = with_rejection({"sql": "S" * 20_000}, "database", "R" * 5_000)[0]
+    assert len(long["sql"]) == 8000 and len(long["reason"]) == 2000
+
+
 def test_knowledge_reaches_the_prompts_and_no_profile_is_added():
     p = build_prompts(50, "RULE X", "EXAMPLE Y", runtime_texts())
     assert "AGENT PROFILE" not in p.SYNTHESIZE_SYSTEM   # as twise: the prompts are the DB Assistant's own

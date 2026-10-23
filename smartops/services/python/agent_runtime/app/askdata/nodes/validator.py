@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from app.askdata.nodes._common import with_rejection
 from app.askdata.tools.access import access_problems
 from app.askdata.state import AgentState
 from app.askdata.log import get_agent_logger
@@ -131,7 +132,8 @@ def validator_node(state: AgentState) -> dict:
     ok, reason = is_select_only(sql)
     if not ok:
         log.warning("validation rejected: %s", reason)
-        return {"validation_error": reason, "retry_count": state.get("retry_count", 0) + 1}
+        return {"validation_error": reason, "retry_count": state.get("retry_count", 0) + 1,
+                "rejections": with_rejection(state, "validator", reason)}
 
     # WHAT it reads: only tables and columns the SCHEMA block shows (see graph/access.py). Also
     # catches a table-name slip (dbo.task_daily for well.task_daily) before a DB round trip.
@@ -139,7 +141,8 @@ def validator_node(state: AgentState) -> dict:
     if problems:
         reason = "Not allowed: " + " ".join(problems)
         log.warning("validation rejected: %s", reason)
-        return {"validation_error": reason, "retry_count": state.get("retry_count", 0) + 1}
+        return {"validation_error": reason, "retry_count": state.get("retry_count", 0) + 1,
+                "rejections": with_rejection(state, "validator", reason)}
 
     log.info("validation ok: single read-only SELECT over approved tables")
     return {"validation_error": ""}

@@ -77,6 +77,7 @@ public sealed class AiTraceConfiguration : IEntityTypeConfiguration<AiTrace>
         b.Property(e => e.Id).HasColumnName("id");
         b.Property(e => e.MessageId).HasColumnName("message_id");
         b.Property(e => e.TraceJson).HasColumnName("trace_json").IsRequired();
+        b.Property(e => e.RejectionsJson).HasColumnName("rejections_json");
         b.Property(e => e.CreatedAt).HasColumnName("created_at");
     }
 }

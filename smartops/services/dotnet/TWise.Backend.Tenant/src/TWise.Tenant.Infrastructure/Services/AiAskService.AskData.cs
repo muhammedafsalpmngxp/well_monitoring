@@ -80,6 +80,11 @@ public sealed partial class AiAskService
         foreach (var s in steps)
             trace.Add(new("query", 0, $"{Str(s, "sql")}\n{(s.TryGetProperty("row_count", out var rc) ? rc.ToString() : "?")} rows"
                 + (Rejected(s) ? " (rejected, not used for the answer)" : "")));
+        // Every query refused on the way (the verifier's reason, a checker refusal, a database error), in order: shown in
+        // the steps and kept as rows in core.AiTraces.rejections_json.
+        var rejections = Rejections(d);
+        foreach (var r in rejections)
+            trace.Add(new($"rejected by {r.Stage}", 0, $"{r.Reason}\n{r.Sql}"));
 
         // The query the answer was built from. steps also lists the rejected attempts (marked), so its last may not be it.
         var accepted = steps.Where(s => !Rejected(s)).ToList();
@@ -113,7 +118,14 @@ public sealed partial class AiAskService
         if (tracing) yield return new AiAskEvent("trace", trace);
         yield return new AiAskEvent("done", new { conversationId = conv.Id, sourceName = conv.SourceName, messageId = assistant.Id });
         // The trace is saved after "done": the panel does not wait for it. Fresh token: the request may be ending.
-        try { await conversations.AddTraceAsync(new AiTrace { MessageId = assistant.Id, TraceJson = JsonSerializer.Serialize(trace, Json) }, CancellationToken.None); }
+        try
+        {
+            await conversations.AddTraceAsync(new AiTrace
+            {
+                MessageId = assistant.Id, TraceJson = JsonSerializer.Serialize(trace, Json),
+                RejectionsJson = rejections.Count > 0 ? JsonSerializer.Serialize(rejections, Json) : null,
+            }, CancellationToken.None);
+        }
         catch (Exception ex) when (ex is not OperationCanceledException) { /* answer already saved */ }
     }
 
@@ -309,6 +321,15 @@ public sealed partial class AiAskService
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     /// <summary>An attempt the validator or verifier refused (Ask Data lists them after the accepted ones).</summary>
+    /// <summary>The queries the runtime refused this turn, in order (it caps them at 20): stage is validator (refused before
+    /// running), database (SQL Server error) or verifier (the figures did not answer the question).</summary>
+    internal static IReadOnlyList<AskDataRejection> Rejections(JsonElement done) =>
+        done.TryGetProperty("rejections", out var rs) && rs.ValueKind == JsonValueKind.Array
+            ? rs.EnumerateArray().Where(r => r.ValueKind == JsonValueKind.Object)
+                .Select(r => new AskDataRejection(Str(r, "stage") ?? "", Str(r, "sql") ?? "", Str(r, "reason") ?? "", Str(r, "sub_question")))
+                .ToList()
+            : [];
+
     private static bool Rejected(JsonElement step) =>
         step.ValueKind == JsonValueKind.Object && step.TryGetProperty("rejected", out var r) && r.ValueKind == JsonValueKind.True;
 

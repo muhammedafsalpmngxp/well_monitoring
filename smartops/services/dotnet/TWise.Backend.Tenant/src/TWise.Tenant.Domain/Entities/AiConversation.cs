@@ -36,5 +36,8 @@ public class AiTrace
     public long MessageId { get; set; }
     /// <summary>List of AiTraceStep as JSON.</summary>
     public string TraceJson { get; set; } = "";
+    /// <summary>Ask Data: every query refused on the way to the answer and why, as JSON
+    /// [{stage: validator | database | verifier, sql, reason, subQuestion}]; null when none was refused.</summary>
+    public string? RejectionsJson { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

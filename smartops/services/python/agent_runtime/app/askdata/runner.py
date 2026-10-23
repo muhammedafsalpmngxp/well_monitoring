@@ -309,6 +309,9 @@ def _response(result: dict[str, Any], mode: str, elapsed: float, usage: list[dic
                    "row_count": len(s.get("rows") or []), "truncated": bool(s.get("truncated")), "rejected": rejected}
                   for rejected, group in ((False, result.get("steps") or []), (True, result.get("rejected_steps") or []))
                   for s in group],
+        # Every query refused on the way and why (stage: verifier, validator or database), in order: core.AiTraces.rejections_json.
+        "rejections": [{"stage": r.get("stage", ""), "sql": r.get("sql", ""), "reason": r.get("reason", ""),
+                        "sub_question": r.get("sub_question", "")} for r in result.get("rejections") or []],
         "data": {"columns": list(last.get("columns") or []), "rows": [list(r) for r in last.get("rows") or []],
                  "truncated": bool(last.get("truncated"))} if last else None,
         "chart": result.get("chart") or None,

@@ -35,6 +35,9 @@ class AgentState(TypedDict, total=False):
     # Steps the Verifier rejected. Kept rather than deleted: the data really was retrieved, and
     # an answer hedged with "this could not be verified" beats silently answering from nothing.
     rejected_steps: list[dict[str, Any]]
+    # Every query refused this turn and why: [{stage: verifier | validator | database, sql, reason, sub_question}]
+    # (nodes/_common.with_rejection). Only reported with the answer; no node decides anything from it.
+    rejections: list[dict[str, Any]]
     # Normalized SQL already attempted this turn. Re-emitting one is pointless (identical SQL
     # returns identical data), so it short-circuits instead of burning another verify cycle.
     tried_sql: list[str]
