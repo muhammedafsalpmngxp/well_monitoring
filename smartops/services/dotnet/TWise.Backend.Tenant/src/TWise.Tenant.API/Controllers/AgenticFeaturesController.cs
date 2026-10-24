@@ -475,7 +475,15 @@ public sealed class DataAnomalyController(IDataAnomalyService anomaly, IAgenticF
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> CancelJob(long id, CancellationToken ct) =>
-        FeatureAsync(async t => Ok(await anomaly.CancelJobAsync(t, id, UserName(), ct)));
+        FeatureAsync(async t =>
+        {
+            // Whoever may start a run may cancel a run; a compile or discover is cancelled only by those who may start it.
+            var job = await anomaly.JobAsync(t, id, ct);
+            if (job.Kind != "run" && !ModulePermission.Has(User, Module, ModulePermission.Modify))
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    new { message = $"Only someone who may change Data Anomaly rules can cancel a {job.Kind}." });
+            return Ok(await anomaly.CancelJobAsync(t, id, UserName(), ct));
+        });
 }
 
 /// <summary>

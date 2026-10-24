@@ -152,10 +152,21 @@ def instantiate(rule: Rule, template: tuple[str, str] | None, fingerprint: str, 
 
 
 def smoke_test(probe: Probe) -> str:
-    """Run a cloned probe's SUMMARY once (short timeout). Returns the database's complaint, or ""."""
+    """Run a cloned probe's SUMMARY once (short timeout). Returns the database's complaint, or "". Running out of
+    the short time proves only that the table is large, not that the SQL is wrong: the run itself (with its longer
+    deadline) decides, so a timeout is not a complaint."""
     result = executor_node({"rule_id": probe.rule_id, "summary_sql": probe.summary_sql, "detail_sql": "",
                             "smoke_test": True})
-    return str(result.get("exec_error") or "")
+    error = str(result.get("exec_error") or "")
+    if _timed_out(error):
+        log.info("anomaly compile: %s did not finish within the smoke-test time; kept for the run to judge", probe.rule_id)
+        return ""
+    return error
+
+
+def _timed_out(error: str) -> bool:
+    """The driver's query timeout (SQLSTATE HYT00), not a fault in the SQL."""
+    return "HYT00" in error or "timeout expired" in error.lower()
 
 
 def _usage_calls() -> int:

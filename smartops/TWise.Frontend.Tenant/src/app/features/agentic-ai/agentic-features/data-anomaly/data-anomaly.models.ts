@@ -46,6 +46,8 @@ export interface AnomalyRule {
   compiledAt: string | null; edited: boolean; modifiedBy: string; modifiedAt: string;
   /** A default rule (can be reset to its default text, not deleted). */
   original: boolean;
+  /** When the rule's definition (not its status) last changed. */
+  definitionChangedAt?: string | null;
 }
 
 /** The Add rule / Edit form. The rule text is written as four parts (what is wrong and how to find it required); a text

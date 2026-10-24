@@ -256,7 +256,7 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
                     case "progress":
                         await BeatAsync(ev.Data.GetRawText());
                         break;
-                    case "probe" when job.Kind == DataAnomalyService.KindCompile && ev.Data.TryGetProperty("probe", out var probe):
+                    case "probe" when job.Kind == DataAnomalyService.KindCompile && !abandoned && ev.Data.TryGetProperty("probe", out var probe):
                         // Kept at once: a compile cut short (restart, lost connection) is resumed from these.
                         await SaveProbeAsync(job, probe);
                         await BeatAsync(null);
@@ -287,6 +287,11 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
         catch (OperationCanceledException) when (abandoned)
         {
             logger.LogInformation("Data Anomaly job {JobId} stopped: it was cancelled or marked failed.", job.Id);
+        }
+        catch (JobNotRunningException)
+        {
+            logger.LogInformation("Data Anomaly job {JobId} was cancelled or marked failed before its outcome was saved; "
+                + "nothing was stored.", job.Id);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -510,6 +515,9 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
     private async Task<JsonObject> StoreAsync(AiFeatureJob job, JsonElement options, JsonElement result, DateTime started)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(CancellationToken.None);
+        // A job cancelled after its last heartbeat must not store its outcome: a newer job may already be writing the
+        // same checks. The row stays locked until the commit, so a cancel waits for it instead of slipping in between.
+        if (!await HoldJobAsync(job.Id)) throw new JobNotRunningException();
         JsonObject summary;
         switch (job.Kind)
         {
@@ -549,6 +557,8 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
             {
                 _ruleIds ??= (await db.AnomalyRules.AsNoTracking().Where(r => r.TenantId == job.TenantId).Select(r => r.RuleId)
                     .ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                await using var transaction = await db.Database.BeginTransactionAsync(CancellationToken.None);
+                if (!await HoldJobAsync(job.Id)) return false;   // cancelled: keep nothing more of this compile
                 var row = await db.AnomalyProbes.FirstOrDefaultAsync(p => p.TenantId == job.TenantId && p.ProbeId == id);
                 if (row is null)
                 {
@@ -556,7 +566,13 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
                     db.AnomalyProbes.Add(row);
                 }
                 Fill(row, probe, _ruleIds);
+                if (!_ruleIds.Contains(row.RuleId))
+                {
+                    db.ChangeTracker.Clear();   // its rule was deleted: nothing to keep
+                    return false;
+                }
                 await db.SaveChangesAsync();
+                await transaction.CommitAsync(CancellationToken.None);
                 db.ChangeTracker.Clear();
                 return true;
             }, delays: ProbeRetryDelays);
@@ -593,6 +609,8 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
             if (string.IsNullOrEmpty(id) || id.Length > 200 || !seen.Add(id)) continue;
             var row = new AnomalyProbe { TenantId = tenantId, ProbeId = id };
             Fill(row, probe, ruleIds);
+            // A rule deleted while the job ran: its check is not brought back.
+            if (!ruleIds.Contains(row.RuleId)) continue;
             db.AnomalyProbes.Add(row);
             // Small round trips inside the one transaction: the catalog is still replaced all or nothing.
             if (++batch % ProbeBatchSize == 0)
@@ -604,6 +622,18 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
     }
+
+    /// <summary>True while the job is still running (cancel and the stale check end it): its heartbeat is touched, which
+    /// also locks the job row until the caller's transaction ends.</summary>
+    private async Task<bool> HoldJobAsync(long jobId)
+    {
+        var now = DateTime.UtcNow;
+        return await db.AiFeatureJobs.Where(j => j.Id == jobId && j.Status == AiFeatureJobStatus.Running)
+            .ExecuteUpdateAsync(x => x.SetProperty(j => j.HeartbeatAt, now), CancellationToken.None) > 0;
+    }
+
+    /// <summary>The job was cancelled (or failed as stale) before its outcome could be stored.</summary>
+    private sealed class JobNotRunningException() : Exception("The job is no longer running.");
 
     /// <summary>A family member's probe ("R12-003") belongs to its family rule ("R12").</summary>
     internal static string OwnerRule(string probeId, IReadOnlySet<string> ruleIds)
@@ -662,6 +692,9 @@ public sealed partial class AgenticJobRunner(TenantDbContext db, IAgenticFeature
             ["runId"] = runId, ["status"] = run.Status, ["score"] = run.Score, ["recordsFlagged"] = run.RecordsFlagged,
             ["probesRun"] = run.ProbesRun, ["reports"] = new JsonArray(formats.Select(f => (JsonNode)f).ToArray()),
             ["error"] = run.Error,
+            // A report file that could not be written: said on the job, while the run and its score stand.
+            ["reportErrors"] = result.TryGetProperty("reportErrors", out var reportErrors) && reportErrors.ValueKind == JsonValueKind.Array
+                ? JsonNode.Parse(reportErrors.GetRawText()) : new JsonArray(),
         };
     }
 

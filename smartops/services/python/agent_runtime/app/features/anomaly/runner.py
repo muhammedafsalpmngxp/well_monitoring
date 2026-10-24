@@ -26,6 +26,7 @@ from app.features.anomaly.run_graph import (
     scorer,
     select_probes,
     summarizer,
+    uncompiled,
 )
 from app.features.anomaly.schema_index import load_index
 from app.features.anomaly.semantics import semantic_fingerprint
@@ -119,6 +120,7 @@ def run(rules: list[Rule], catalog: dict[str, Probe], *, run_id: str, only: list
                     note += " (or switch on automatic rebuilding in the Data Anomaly settings)."
 
     probes, not_running = partition(selected, rules_by_id, outdated)
+    not_running = sorted(not_running + uncompiled(rules_by_id, catalog, only), key=lambda n: n["rule_id"])
 
     spool_dir = tempfile.mkdtemp(prefix="anomaly-run-")
     try:
@@ -145,7 +147,7 @@ def run(rules: list[Rule], catalog: dict[str, Probe], *, run_id: str, only: list
         "discovered_ranked": state["discovered_ranked"], "discovered_totals": state["discovered_totals"],
         "empty_scope": state["empty_scope"], "not_running": not_running,
         "failed": [{"rule_id": r.rule_id, "error": r.error} for r in results if not r.ok],
-        "catalog_stale": bool(outdated), "catalog_note": note, "error": "; ".join(report_errors),
+        "catalog_stale": bool(outdated), "catalog_note": note, "error": "", "reportErrors": report_errors,
         "staleProbes": stale_list, "reports": reports,
     }
     if catalog_changed:

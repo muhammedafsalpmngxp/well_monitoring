@@ -86,3 +86,15 @@ def test_a_real_sql_error_still_goes_back_to_the_author(fake_db, monkeypatch):
     with S.feature_context():
         out = compile_graph.executor_node(state())
     assert out["exec_error"] == "[42S22] Invalid column name 'spud_dt'." and out["retry_count"] == 1
+
+
+def test_a_family_check_that_only_runs_out_of_smoke_test_time_is_kept(monkeypatch):
+    """A clone of a family's query that is merely slow on a big table is left for the run to judge, not failed."""
+    from app.features.anomaly import compiler
+    from app.features.anomaly.model import Probe
+
+    answers = {"slow": "[HYT00] [Microsoft][ODBC Driver 17 for SQL Server]Query timeout expired (0) (SQLExecDirectW)",
+               "bad": "[42S22] Invalid column name 'x'."}
+    monkeypatch.setattr(compiler, "executor_node", lambda state: {"exec_error": answers[state["rule_id"]]})
+    assert compiler.smoke_test(Probe(rule_id="slow", summary_sql="SELECT 1")) == ""
+    assert compiler.smoke_test(Probe(rule_id="bad", summary_sql="SELECT 1")) == answers["bad"]

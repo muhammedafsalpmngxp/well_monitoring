@@ -191,5 +191,60 @@ public class AnomalyRuleEditorTests
         DataAnomalyService.ProbeReason(J("""{"summarySql":"SELECT 1"}""")).Should().BeNull();
     }
 
+    [Fact]
+    public void A_rule_id_that_names_one_of_a_familys_checks_is_refused()
+    {
+        var families = new HashSet<string>(["DQ-G01"], StringComparer.OrdinalIgnoreCase);
+        DataAnomalyService.FamilyOf("DQ-G01-003", families).Should().Be("DQ-G01");
+        DataAnomalyService.FamilyOf("dq-g01-045", families).Should().Be("DQ-G01");
+        DataAnomalyService.FamilyOf("DQ-G01-03", families).Should().BeNull("a family's checks are numbered with three digits");
+        DataAnomalyService.FamilyOf("DQ-A01-001", families).Should().BeNull("DQ-A01 is not a family");
+        DataAnomalyService.FamilyOf("DQ-U01", families).Should().BeNull();
+    }
+
+    [Fact]
+    public void A_status_change_is_not_a_change_to_the_rules_definition()
+    {
+        var created = new DateTime(2026, 10, 20, 8, 0, 0);
+        var rule = new TWise.Tenant.Domain.Entities.AnomalyRule
+        {
+            RuleId = "DQ-A01", CreatedAt = created, ModifiedAt = created.AddDays(3), DefinitionJson = """{"ruleId":"DQ-A01","status":"active"}""",
+        };
+        DataAnomalyService.DefinitionChangedAt(rule).Should().Be(DateTime.SpecifyKind(created, DateTimeKind.Utc),
+            "never changed here: when it was added, whatever its status changes did to ModifiedAt");
+
+        var edited = new DateTime(2026, 10, 23, 10, 4, 5, 123, DateTimeKind.Utc).AddTicks(4567);
+        rule.DefinitionJson = DataAnomalyService.WithField(rule.DefinitionJson, DataAnomalyService.ChangedAtField, DataAnomalyService.Stamp(edited));
+        var at = DataAnomalyService.DefinitionChangedAt(rule);
+        at.Should().Be(edited);
+        at.Kind.Should().Be(DateTimeKind.Utc);
+        DataAnomalyService.ChangedSince(at, edited).Should().BeFalse("the stamp reads back exactly, to the tick");
+    }
+
+    [Fact]
+    public void The_changed_at_stamp_does_not_make_an_unchanged_save_an_edit()
+    {
+        var seed = Seed("DQ-A01");
+        seed[DataAnomalyService.ChangedAtField] = "2026-10-23T10:04:05.0000000Z";
+        var d = DataAnomalyService.RuleDefinition(seed, "DQ-A01", new SaveAnomalyRuleRequest(null, null, null, null, null, null, null,
+            null, null, null, null, null, null));
+        seed.Remove("ruleHash");
+        JsonNode.DeepEquals(seed, d).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Times_sent_to_the_page_are_marked_utc()
+    {
+        var stored = new DateTime(2026, 10, 23, 12, 9, 34, DateTimeKind.Unspecified);
+        DataAnomalyService.Utc(stored).Kind.Should().Be(DateTimeKind.Utc);
+        DataAnomalyService.Utc((DateTime?)stored)!.Value.Kind.Should().Be(DateTimeKind.Utc);
+        DataAnomalyService.Utc((DateTime?)null).Should().BeNull();
+        System.Text.Json.JsonSerializer.Serialize(DataAnomalyService.Utc(stored)).Should().Be("\"2026-10-23T12:09:34Z\"");
+        var job = DataAnomalyService.JobDto(new TWise.Tenant.Domain.Entities.AiFeatureJob { CreatedAt = stored, FinishedAt = stored, RequestedBy = "x" });
+        job.CreatedAt.Kind.Should().Be(DateTimeKind.Utc);
+        job.FinishedAt!.Value.Kind.Should().Be(DateTimeKind.Utc);
+        job.StartedAt.Should().BeNull();
+    }
+
     private static JsonElement J(string json) => JsonSerializer.Deserialize<JsonElement>(json);
 }

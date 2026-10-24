@@ -481,6 +481,7 @@ export class DataAnomalyComponent implements OnInit {
     if (Array.isArray(r.errors)) out.push(...r.errors.map((e: unknown) => asText(e)));
     else if (r.errors && typeof r.errors === 'object') out.push(...Object.entries(r.errors).map(([k, v]) => `${k}: ${asText(v)}`));
     if (r.error) out.push(asText(r.error));
+    if (Array.isArray(r.reportErrors)) out.push(...r.reportErrors.map((e: unknown) => `Report: ${asText(e)}`));
     if (r.stoppedEarly) out.push('The compile stopped early.');
     return out.slice(0, 20);
   }
@@ -538,10 +539,16 @@ export class DataAnomalyComponent implements OnInit {
 
   compileRule(r: AnomalyRule): void { this.startCompile([r.ruleId], true); }
 
-  /** True when the rule changed after its checks were compiled: runs use the old SQL until it is compiled again. */
+  /** True when the rule's definition changed after its checks were compiled: runs use the old SQL until it is compiled
+   * again. A status change is not a change to the definition. */
   needsCompile(r: AnomalyRule): boolean {
-    return (r.status === 'active' || r.status === 'probation') && !!r.compiledAt
-      && new Date(r.modifiedAt).getTime() > new Date(r.compiledAt).getTime();
+    return (r.status === 'active' || r.status === 'probation') && !!r.compiledAt && !!r.definitionChangedAt
+      && new Date(r.definitionChangedAt).getTime() > new Date(r.compiledAt).getTime();
+  }
+
+  /** A run may be cancelled by whoever may start one; a compile or discover only by those who may change the rules. */
+  canCancel(j: AiFeatureJob): boolean {
+    return j.kind === 'run' ? this.canCreate || this.canModify : this.canModify;
   }
 
   // ── Add rule / Edit rule ─────────────────────────────────────────────────────────────────────────────────────
@@ -564,7 +571,7 @@ export class DataAnomalyComponent implements OnInit {
       wrong: parts?.wrong ?? '', matters: parts?.matters ?? '', detect: parts?.detect ?? '', neverFlag: parts?.neverFlag ?? '',
       freeText: parts ? null : (d.body ?? ''),
       summarySql: d.summarySql ?? '', detailSql: d.detailSql ?? '', family: !!asText(d.expandsOver),
-      expectedModifiedAt: r.modifiedAt,
+      expectedModifiedAt: r.definitionChangedAt ?? r.modifiedAt,
     };
     // How a default rule checks (statistical, a rule family…) is not on the form: it is kept, and said in plain words.
     const how = this.howItChecks(r);

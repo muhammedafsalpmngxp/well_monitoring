@@ -366,3 +366,36 @@ def test_a_bad_rule_is_reported_and_the_rest_compile(client):
     rules = S.sample_rules()[:1] + [{"ruleId": "DQ-BAD", "title": "x", "severity": "urgent"}]
     out = result_of(stream(client, "/compile", rules=rules, catalog=[]))
     assert out["compiled"] == ["DQ-T01"] and any("DQ-BAD: severity is 'urgent'" in e for e in out["errors"])
+
+
+def test_a_report_that_cannot_be_written_does_not_fail_the_run(client, monkeypatch):
+    """A broken Excel or Word file is reported on its own: the run, its findings and its score stand."""
+    from app.features.anomaly.report import xlsx_report
+
+    def broken(_state):
+        raise RuntimeError("disk full")
+
+    catalog = compile_all(client)["catalog"]
+    monkeypatch.setattr(xlsx_report, "build", broken)
+    out = result_of(stream(client, "/run", rules=S.sample_rules(), catalog=catalog, runId="r"))
+    assert out["error"] == "" and out["score"] < 100 and out["totals"]["probes_run"] == 3
+    assert out["reportErrors"] == ["the Excel workbook could not be written (RuntimeError)"]
+    assert set(out["reports"]) == {"docx"}
+
+
+def test_a_rule_that_was_never_compiled_is_listed_as_not_running(client):
+    catalog = [p for p in compile_all(client)["catalog"] if p["ruleId"] != "DQ-T01"]
+    out = result_of(stream(client, "/run", rules=S.sample_rules(), catalog=catalog, runId="r"))
+    missing = [n for n in out["not_running"] if n["rule_id"] == "DQ-T01"]
+    assert missing == [{"rule_id": "DQ-T01", "title": "Task finished before it started", "status": "not_compiled",
+                        "reason": "it has not been compiled yet: compile it so runs can use it"}]
+    assert out["totals"]["probes_run"] == 2
+
+
+def test_a_check_whose_rule_is_gone_never_runs_or_scores(client):
+    catalog = compile_all(client)["catalog"]
+    rules = [r for r in S.sample_rules() if r["ruleId"] != "DQ-T01"]          # DQ-T01 deleted, its check left behind
+    out = result_of(stream(client, "/run", rules=rules, catalog=catalog, runId="r"))
+    gone = [n for n in out["not_running"] if n["rule_id"] == "DQ-T01"]
+    assert gone and gone[0]["status"] == "removed"
+    assert all(r["rule_id"] != "DQ-T01" for r in out["ranked"]) and out["totals"]["probes_run"] == 2

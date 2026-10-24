@@ -104,8 +104,11 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
             throw new InvalidOperationException("A rule id is 1 to 60 letters, digits, '-', '_' or '.', starting with a letter or digit.");
         if (taken.Contains(id, StringComparer.OrdinalIgnoreCase))
             throw new FeatureConflictException($"A rule with the id '{id}' already exists. Choose another id.");
+        if (FamilyOf(id, await FamilyRuleIdsAsync(tenantId, ct)) is { } family)
+            throw new InvalidOperationException(FamilyClashMessage(id, family));
 
         var definition = RuleDefinition(null, id, request);
+        definition[ChangedAtField] = Stamp(DateTime.UtcNow);
         var row = NewRule(tenantId, JsonSerializer.Deserialize<JsonElement>(definition.ToJsonString(Json)), user, seedHash: null);
         db.AnomalyRules.Add(row);
         try
@@ -128,7 +131,8 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         var rule = await db.AnomalyRules.FirstOrDefaultAsync(r => r.TenantId == tenantId && r.RuleId == ruleId, ct)
             ?? throw new KeyNotFoundException($"There is no Data Anomaly rule '{ruleId}'.");
         // Two people editing the same rule: the second save is refused rather than silently replacing the first.
-        if (ChangedSince(rule.ModifiedAt, request.ExpectedModifiedAt))
+        // Only a change to the definition counts: someone switching the status meanwhile does not block this save.
+        if (ChangedSince(DefinitionChangedAt(rule), request.ExpectedModifiedAt))
             throw new FeatureConflictException(
                 $"{rule.ModifiedBy} changed this rule at {rule.ModifiedAt:yyyy-MM-dd HH:mm} UTC, after you opened it. Close the form and open the rule again to see their change.");
         var before = JsonNode.Parse(rule.DefinitionJson) as JsonObject ?? new JsonObject();
@@ -136,6 +140,7 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         before.Remove("ruleHash");
         if (!JsonNode.DeepEquals(before, definition))
         {
+            definition[ChangedAtField] = Stamp(DateTime.UtcNow);
             var updated = NewRule(tenantId, JsonSerializer.Deserialize<JsonElement>(definition.ToJsonString(Json)), user, seedHash: null);
             rule.Title = updated.Title;
             rule.Category = updated.Category;
@@ -169,7 +174,7 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
             rule.Category = original.Category;
             rule.Severity = original.Severity;
             rule.Source = original.Source;
-            rule.DefinitionJson = WithField(original.DefinitionJson, "status", rule.Status);
+            rule.DefinitionJson = WithField(WithField(original.DefinitionJson, "status", rule.Status), ChangedAtField, Stamp(DateTime.UtcNow));
             rule.SeedHash = hash;
             rule.ModifiedBy = user;
             rule.ModifiedAt = DateTime.UtcNow;
@@ -187,6 +192,10 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
             ?? throw new KeyNotFoundException($"There is no Data Anomaly rule '{ruleId}'.");
         if (IsSeedRule(rule.RuleId))
             throw new InvalidOperationException($"'{rule.RuleId}' is a default rule: set it to disabled instead of deleting it.");
+        // A compile or run writes its copy of the checks back when it ends, which would bring this rule's check back.
+        if (await db.AiFeatureJobs.AsNoTracking().Where(j => j.TenantId == tenantId && j.Feature == Feature
+                && (j.Status == AiFeatureJobStatus.Queued || j.Status == AiFeatureJobStatus.Running)).Select(j => j.Kind).FirstOrDefaultAsync(ct) is { } busy)
+            throw new FeatureConflictException($"A Data Anomaly {busy} is in progress. Delete the rule when it has finished.");
         var probes = await db.AnomalyProbes.Where(p => p.TenantId == tenantId && p.RuleId == rule.RuleId).ToListAsync(ct);
         db.AnomalyProbes.RemoveRange(probes);
         db.AnomalyRules.Remove(rule);
@@ -281,6 +290,20 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         return d;
     }
 
+    /// <summary>Kept in the definition (the runtime ignores it; it is not part of the rule's hash): when the rule's
+    /// definition last changed. A status change does not touch it, so it is what "changed since compile" and the edit
+    /// form's conflict check compare.</summary>
+    internal const string ChangedAtField = "changedAt";
+
+    internal static string Stamp(DateTime utc) => utc.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>When the definition last changed: its stamp, or (never changed here) when the rule was added.</summary>
+    internal static DateTime DefinitionChangedAt(AnomalyRule r) =>
+        Parse(r.DefinitionJson) is { } d && Str(d, ChangedAtField) is { } stamp
+        && DateTime.TryParse(stamp, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var at)
+            ? Utc(at) : Utc(r.CreatedAt);
+
     /// <summary>True when the rule was saved after the time the form was opened with (null: no check). Stored times are
     /// UTC without a kind; the page sends back the value it was given (no offset = UTC).</summary>
     internal static bool ChangedSince(DateTime modifiedAt, DateTime? expected) =>
@@ -292,6 +315,23 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         if (!allowed.Contains(v)) throw new InvalidOperationException($"A rule's {what} must be one of {string.Join(", ", allowed)}.");
         return v;
     }
+
+    /// <summary>The ids of the rules that repeat over the schema (their checks are named "&lt;id&gt;-001", "-002"…).</summary>
+    private async Task<IReadOnlySet<string>> FamilyRuleIdsAsync(long tenantId, CancellationToken ct) =>
+        (await db.AnomalyRules.AsNoTracking().Where(r => r.TenantId == tenantId).Select(r => new { r.RuleId, r.DefinitionJson }).ToListAsync(ct))
+        .Where(r => !string.IsNullOrWhiteSpace(Str(Parse(r.DefinitionJson) ?? EmptyObject, "expandsOver")))
+        .Select(r => r.RuleId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The family rule whose check would carry this id ("DQ-G01" for "DQ-G01-003"), or null.</summary>
+    internal static string? FamilyOf(string id, IReadOnlySet<string> families)
+    {
+        var m = FamilyMemberIdPattern().Match(id);
+        if (!m.Success) return null;
+        return families.FirstOrDefault(f => string.Equals(f, m.Groups[1].Value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string FamilyClashMessage(string id, string family) =>
+        $"'{id}' is the name of one of {family}'s checks (it repeats over the schema as {family}-001, -002…). Choose another id.";
 
     /// <summary>DQ-U01, DQ-U02…: the next id after the highest DQ-U number in use.</summary>
     internal static string NextUserRuleId(IEnumerable<string> taken)
@@ -404,6 +444,8 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         var taken = await db.AnomalyRules.Where(r => r.TenantId == tenantId).Select(r => r.RuleId).ToListAsync(ct);
         if (wanted is not null && taken.Contains(wanted, StringComparer.OrdinalIgnoreCase))
             throw new FeatureConflictException($"A rule with the id '{wanted}' already exists. Choose another id.");
+        if (wanted is not null && FamilyOf(wanted, await FamilyRuleIdsAsync(tenantId, ct)) is { } family)
+            throw new InvalidOperationException(FamilyClashMessage(wanted, family));
 
         var reply = await gateway.CallAsync(tenantId, user, Feature, "proposal-to-rule",
             new { proposal = Parse(proposal.ProposalJson), ruleId = wanted, status, reason = request.Reason ?? "",
@@ -414,14 +456,7 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         if (taken.Contains(row.RuleId, StringComparer.OrdinalIgnoreCase))
             throw new FeatureConflictException($"A rule with the id '{row.RuleId}' already exists. Choose another id.");
 
-        db.AnomalyRules.Add(row);
-        proposal.Status = "accepted";
-        proposal.RuleId = row.RuleId;
-        proposal.Reason = Clip(request.Reason, 1000);
-        proposal.DecidedBy = user;
-        proposal.DecidedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
-        return ProposalDto(proposal);
+        return await DecideAsync(proposal, "accepted", request.Reason, user, row, ct);
     }
 
     /// <summary>A rejected proposal is passed to every later Discover, which does not propose it again.</summary>
@@ -429,17 +464,54 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         CancellationToken ct)
     {
         var proposal = await PendingProposalAsync(tenantId, id, ct);
-        proposal.Status = "rejected";
-        proposal.Reason = Clip(request.Reason, 1000);
+        return await DecideAsync(proposal, "rejected", request.Reason, user, null, ct);
+    }
+
+    /// <summary>
+    /// Records the decision only while the proposal is still pending, in one statement, so two people deciding at the
+    /// same moment cannot both win (two rules from one proposal, or an accept over a reject). An accepted proposal's
+    /// rule is added in the same transaction: both happen or neither.
+    /// </summary>
+    private async Task<AnomalyProposalDto> DecideAsync(AnomalyProposal proposal, string status, string? reason, string user,
+        AnomalyRule? rule, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var why = Clip(reason, 1000);
+        var ruleId = rule?.RuleId;
+        await using (var transaction = await db.Database.BeginTransactionAsync(ct))
+        {
+            var decided = await db.AnomalyProposals
+                .Where(p => p.TenantId == proposal.TenantId && p.Id == proposal.Id && p.Status == "pending")
+                .ExecuteUpdateAsync(x => x.SetProperty(p => p.Status, status).SetProperty(p => p.RuleId, ruleId)
+                    .SetProperty(p => p.Reason, why).SetProperty(p => p.DecidedBy, user).SetProperty(p => p.DecidedAt, (DateTime?)now), ct);
+            if (decided == 0)
+                throw new FeatureConflictException("Someone else decided this proposal a moment ago. Refresh to see it.");
+            if (rule is not null)
+            {
+                db.AnomalyRules.Add(rule);
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException)
+                {
+                    db.ChangeTracker.Clear();   // UQ_core_AnomalyRule_rule: the id was taken a moment ago
+                    throw new FeatureConflictException($"A rule with the id '{rule.RuleId}' already exists. Choose another id.");
+                }
+            }
+            await transaction.CommitAsync(ct);
+        }
+        proposal.Status = status;
+        proposal.RuleId = ruleId;
+        proposal.Reason = why;
         proposal.DecidedBy = user;
-        proposal.DecidedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        proposal.DecidedAt = now;
         return ProposalDto(proposal);
     }
 
     private async Task<AnomalyProposal> PendingProposalAsync(long tenantId, long id, CancellationToken ct)
     {
-        var proposal = await db.AnomalyProposals.FirstOrDefaultAsync(p => p.TenantId == tenantId && p.Id == id, ct)
+        var proposal = await db.AnomalyProposals.AsNoTracking().FirstOrDefaultAsync(p => p.TenantId == tenantId && p.Id == id, ct)
             ?? throw new KeyNotFoundException("There is no such proposal.");
         if (proposal.Status != "pending") throw new FeatureConflictException($"This proposal was already {proposal.Status}.");
         return proposal;
@@ -575,7 +647,7 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
                     row.Category = upgraded.Category;
                     row.Severity = upgraded.Severity;
                     row.Source = upgraded.Source;
-                    row.DefinitionJson = WithField(upgraded.DefinitionJson, "status", row.Status);
+                    row.DefinitionJson = WithField(WithField(upgraded.DefinitionJson, "status", row.Status), ChangedAtField, Stamp(DateTime.UtcNow));
                     row.SeedHash = hash;
                     row.ModifiedBy = SystemUser;
                     row.ModifiedAt = DateTime.UtcNow;
@@ -635,7 +707,7 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     internal static AiFeatureJobDto JobDto(AiFeatureJob j) => new(j.Id, j.Feature, j.Kind, j.Status, Parse(j.RequestJson),
-        Parse(j.ProgressJson), Parse(j.ResultJson), j.Error, j.RequestedBy, j.CreatedAt, j.StartedAt, j.FinishedAt);
+        Parse(j.ProgressJson), Parse(j.ResultJson), j.Error, j.RequestedBy, Utc(j.CreatedAt), Utc(j.StartedAt), Utc(j.FinishedAt));
 
     internal static JsonElement? Parse(string? json)
     {
@@ -650,6 +722,8 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
     /// <summary>Stored times are UTC without a kind: marked UTC so the page reads them as UTC (sent with "Z").</summary>
     internal static DateTime Utc(DateTime t) => t.Kind == DateTimeKind.Utc ? t : DateTime.SpecifyKind(t, DateTimeKind.Utc);
 
+    internal static DateTime? Utc(DateTime? t) => t is { } v ? Utc(v) : null;
+
     internal static string? Clip(string? text, int max) => text is null ? null : text.Length <= max ? text : text[..max];
 
     /// <summary>run-yyyyMMdd-HHmmss-xxxx (UTC): sortable, unique, at most 40 characters.</summary>
@@ -661,10 +735,10 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
             .Select(r => r.Format).OrderBy(f => f).ToListAsync(ct);
 
     private static AnomalyRunSummaryDto RunSummary(AnomalyRun r, IReadOnlyList<string> reports) => new(r.RunId, r.Status, r.DatabaseName,
-        r.StartedAt, r.FinishedAt, r.Score, r.ProbesRun, r.RecordsExamined, r.RecordsFlagged, r.StartedBy, r.Error, reports);
+        Utc(r.StartedAt), Utc(r.FinishedAt), r.Score, r.ProbesRun, r.RecordsExamined, r.RecordsFlagged, r.StartedBy, r.Error, reports);
 
     private static AnomalyProposalDto ProposalDto(AnomalyProposal p) => new(p.Id, p.ProposalHash, p.Status, p.Title,
-        Parse(p.ProposalJson) ?? EmptyObject, p.RuleId, p.Reason, p.DecidedBy, p.DecidedAt, p.CreatedAt);
+        Parse(p.ProposalJson) ?? EmptyObject, p.RuleId, p.Reason, p.DecidedBy, Utc(p.DecidedAt), Utc(p.CreatedAt));
 
     private static AnomalyRuleDto RuleDto(AnomalyRule r, IReadOnlyList<AnomalyProbe> probes)
     {
@@ -681,11 +755,14 @@ public sealed partial class DataAnomalyService(TenantDbContext db, IAiSettingsRe
         }
         return new AnomalyRuleDto(r.RuleId, r.Title, r.Category, r.Severity, r.Status, r.Source, Parse(r.DefinitionJson) ?? EmptyObject,
             probeStatus, probes.Count, failed, error, probes.Count == 0 ? null : Utc(probes.Max(p => p.CompiledAt)), r.SeedHash is null,
-            r.ModifiedBy, Utc(r.ModifiedAt), IsSeedRule(r.RuleId));
+            r.ModifiedBy, Utc(r.ModifiedAt), IsSeedRule(r.RuleId), DefinitionChangedAt(r));
     }
 
     [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$")]
     private static partial Regex RuleIdPattern();
+
+    [GeneratedRegex(@"^(.+)-\d{3}$")]
+    private static partial Regex FamilyMemberIdPattern();
 
     [GeneratedRegex("^DQ-U(\\d{1,6})$", RegexOptions.IgnoreCase)]
     private static partial Regex UserRuleIdPattern();

@@ -90,15 +90,18 @@ def partition(selected: list[Probe], rules: dict[str, Rule], outdated: dict[str,
     not_running: list[dict[str, str]] = []
     for probe in selected:
         rule = rules.get(probe.rule_id)
-        blocked = staleness.runnable_reason(probe, rule)
+        # A check whose rule is gone (deleted, or a family member the schema no longer has) never runs or scores.
+        blocked = staleness.runnable_reason(probe, rule) if rule is not None else             "its rule no longer exists or no longer applies to this database"
         if not blocked and probe.rule_id not in outdated:
             probes.append(probe)
             continue
         if rule is not None and rule.status == "rejected":
             continue
-        if probe.rule_id in outdated:
+        if rule is None:
+            status = "removed"
+        elif probe.rule_id in outdated:
             status = "stale"
-        elif rule is not None and not rule.runnable:
+        elif not rule.runnable:
             status = rule.status
         else:
             status = probe.status
@@ -107,6 +110,20 @@ def partition(selected: list[Probe], rules: dict[str, Rule], outdated: dict[str,
     probes.sort(key=lambda p: p.rule_id)
     not_running.sort(key=lambda n: n["rule_id"])
     return probes, not_running
+
+
+def uncompiled(rules: dict[str, Rule], catalog: dict[str, Probe], only: list[str] | None) -> list[dict]:
+    """Rules that would run but have no compiled check yet: listed as not running, so the run's coverage is honest."""
+    wanted = {r.strip().lower() for r in (only or []) if r.strip()}
+    out = []
+    for rule in rules.values():
+        if not rule.runnable or rule.is_family or rule.rule_id in catalog:
+            continue
+        if wanted and rule.rule_id.lower() not in wanted and not (rule.family_id and rule.family_id.lower() in wanted):
+            continue
+        out.append({"rule_id": rule.rule_id, "title": rule.title, "status": "not_compiled",
+                    "reason": "it has not been compiled yet: compile it so runs can use it"})
+    return sorted(out, key=lambda n: n["rule_id"])
 
 
 # ── probe_runner (deterministic): SUMMARY always, DETAIL only when something was found ──
