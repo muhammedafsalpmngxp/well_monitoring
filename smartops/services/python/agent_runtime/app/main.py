@@ -50,7 +50,7 @@ from smartops_shared.app import create_app
 from app import twise
 from app.agentflow.convert import from_agentflow, to_agentflow
 from app.errors import user_message
-from app import trace
+from app import observability, trace
 from app.graph import RUN_KEYS, approval_update, build_graph, missing_inputs, uses
 from app.prompt_text import missing as missing_prompts
 from app.models import AskDataAskRequest, AskDataExportRequest, AskDataLinksRequest, AskDataRowsRequest, AskDataStartersRequest, JudgeRequest, ResumeRequest, RunRequest, ToolTryRequest
@@ -77,9 +77,14 @@ trace.setup()
 
 @app.middleware("http")
 async def _log_request(request, call_next):
-    """One line per runtime request: method, path, status, seconds (a stream is timed until its headers)."""
+    """One line per runtime request: method, path, status, seconds (a stream is timed until its headers).
+    The path also names the request's Langfuse trace (app/observability.py)."""
     started = time.monotonic()
-    response = await call_next(request)
+    route = observability.set_route(request.url.path)
+    try:
+        response = await call_next(request)
+    finally:
+        observability.reset_route(route)
     if request.url.path.startswith("/api/agent-runtime"):
         trace.request_done(request.method, request.url.path, response.status_code, time.monotonic() - started)
     return response
@@ -252,6 +257,11 @@ def resume(req: ResumeRequest) -> StreamingResponse:
 
 def askdata_events(req: AskDataAskRequest) -> Iterator[tuple[str, dict[str, Any]]]:
     """The question as (event, data) pairs from the same Ask Data graph an agent's ask_data step runs; last is done or error."""
+    yield from observability.traced_events(_askdata_events(req), "ask-data", input=req.question,
+                                           tags=("ask-data", req.mode))
+
+
+def _askdata_events(req: AskDataAskRequest) -> Iterator[tuple[str, dict[str, Any]]]:
     from app.askdata import runner
 
     try:
@@ -300,6 +310,17 @@ def run_events(req: RunRequest, *, extract_chat: Any = None, **graph_overrides: 
 
     A question (an input named "question") and a setup step can supply inputs, so the required inputs are checked
     after them when the agent has either; otherwise before anything runs, as always."""
+    yield from observability.traced_events(_run_events(req, extract_chat, **graph_overrides), "agent-run",
+                                           **_trace_of(req))
+
+
+def _trace_of(req: RunRequest) -> dict[str, Any]:
+    """An agent run's trace: its inputs (the question), the run token as the session (a resumed run joins it)."""
+    return {"input": req.inputs or None, "tags": ("agent",), "metadata": {"agent": req.agent.name[:200]},
+            "session_id": req.session_id if req.session_id != "agent-runtime" else None}
+
+
+def _run_events(req: RunRequest, extract_chat: Any = None, **graph_overrides: Any) -> Iterator[tuple[str, dict[str, Any]]]:
     cfg = req.agent
     prepares = asks_question(cfg) or cfg.steps[0].kind == "setup"
     if not prepares and (missing := missing_inputs(cfg, req.inputs)):
@@ -335,6 +356,11 @@ def run_events(req: RunRequest, *, extract_chat: Any = None, **graph_overrides: 
 def resume_events(req: ResumeRequest, **graph_overrides: Any) -> Iterator[tuple[str, dict[str, Any]]]:
     """Continues a paused run from the state it paused in: the person's decision is applied as the approval step's
     update, then the graph runs on from that step. Step numbers are the editor's (a setup step stays step 1)."""
+    yield from observability.traced_events(_resume_events(req, **graph_overrides), "agent-resume",
+                                           **{**_trace_of(req), "input": {"decision": req.decision}})
+
+
+def _resume_events(req: ResumeRequest, **graph_overrides: Any) -> Iterator[tuple[str, dict[str, Any]]]:
     try:
         i = int(req.node.split("_")[1])
         step = req.agent.steps[i - 1]

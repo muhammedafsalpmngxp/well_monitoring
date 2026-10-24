@@ -11,6 +11,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
+from app import observability
 from app.features.common.models import FeatureRequest
 from app.prompt_text import text as _text
 
@@ -20,6 +21,7 @@ class FeatureRun:
     feature: str                      # slippage | dailyreport | anomaly: prefix of its prompt keys and usage labels
     request: FeatureRequest
     usage: list[dict[str, Any]] = field(default_factory=list)
+    trace: Any = None                 # its Langfuse trace (app/observability.py), opened by the first run_context
 
     @property
     def texts(self) -> dict[str, str]:
@@ -46,8 +48,16 @@ def current() -> FeatureRun:
 
 @contextmanager
 def run_context(run: FeatureRun) -> Iterator[FeatureRun]:
+    """The run for the code inside. The first one opens the request's Langfuse trace (when tracing is on); a step
+    that sets the same run again on another thread continues that trace."""
     token = _RUN.set(run)
     try:
-        yield run
+        if run.trace is not None:
+            with observability.adopt(run.trace):
+                yield run
+        else:
+            with observability.unit(tags=("agentic-feature", run.feature)) as opened:
+                run.trace = opened
+                yield run
     finally:
         _RUN.reset(token)

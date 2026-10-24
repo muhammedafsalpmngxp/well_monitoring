@@ -13,13 +13,17 @@ async def answer_with_tools(tools: list, text: str, history: list[dict[str, str]
     """(answer, names of the tools called, usage row)."""
     from langgraph.prebuilt import create_react_agent
 
+    from app import observability
     from app.askdata import llm as llm_module
 
     model = llm_module.chat_model(llm.provider, llm.base_url, llm.model, llm.api_key, llm.temperature, max_tokens=llm.max_tokens)
     agent = create_react_agent(model, tools, prompt=system or None)
     earlier = "\n\n".join(f"Q: {h['user']}\nA: {h['assistant']}" for h in history)
     question = (f"EARLIER RESULTS:\n{earlier}\n\n" if earlier else "") + f"INSTRUCTION: {text}"
-    result = await agent.ainvoke({"messages": [("user", question)]}, {"recursion_limit": 2 * MAX_TOOL_ROUNDS + 1})
+    # Traced as one agent: each model call a generation, each tool call a tool, nested under it.
+    with observability.ai_call(f"tool-loop-{label}") as config:
+        result = await agent.ainvoke({"messages": [("user", question)]},
+                                     {"recursion_limit": 2 * MAX_TOOL_ROUNDS + 1, **config})
     messages = result["messages"]
     used = [c["name"] for m in messages for c in (getattr(m, "tool_calls", None) or [])]
     tokens = [getattr(m, "usage_metadata", None) or {} for m in messages]

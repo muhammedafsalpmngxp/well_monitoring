@@ -17,7 +17,7 @@ from functools import lru_cache
 from typing import Callable
 
 from app.askdata.settings import current_run
-from app import trace
+from app import observability, trace
 
 LLM_TIMEOUT = 120
 LLM_MAX_RETRIES = 2
@@ -93,7 +93,10 @@ def invoke(llm, messages: list[tuple[str, str]], temperature: float | None, fast
             chat = chat_model(llm.provider, llm.base_url, model, llm.api_key, sent["temperature"],
                               sent["reasoning_effort"], sent["verbosity"], max_tokens,
                               bool(sent["response_format"]), bool(stream and sent["stream_options"]))
-            reply = _stream(chat, messages, on_delta, streamed) if stream else chat.invoke(messages)
+            with observability.ai_call(trace.current_label() or "ai-call") as config:
+                # config: the Langfuse handler when tracing is on; otherwise the call is made as it always was.
+                reply = (_stream(chat, messages, on_delta, streamed, config) if stream
+                         else chat.invoke(messages, config=config) if config else chat.invoke(messages))
             trace.llm(model, time.perf_counter() - started, getattr(reply, "usage_metadata", None), fast=fast)
             return model, reply
         except Exception as exc:  # noqa: BLE001
@@ -117,10 +120,10 @@ _DROPPED = {"temperature": None, "verbosity": "", "reasoning_effort": "", "respo
             "stream_options": False}
 
 
-def _stream(chat, messages, on_delta: Callable[[str], None], streamed: list[bool]):
+def _stream(chat, messages, on_delta: Callable[[str], None], streamed: list[bool], config: dict | None = None):
     """The streamed reply as one message (chunks added up, usage included), each text piece passed on as it comes."""
     reply = None
-    for chunk in chat.stream(messages):
+    for chunk in (chat.stream(messages, config=config) if config else chat.stream(messages)):
         reply = chunk if reply is None else reply + chunk
         piece = _text(chunk.content)
         if piece:
