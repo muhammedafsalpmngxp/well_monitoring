@@ -239,6 +239,8 @@
   }
   &__empty { margin: 0; padding: 24px; text-align: center; color: #667085; font-size: 13px; background: #fcfcfd; border: 1px dashed #e4e7ec; border-radius: 8px; }
   &__muted { color: #667085; font-size: 12px; }
+  // Crew board People: "12 (5 National, 7 Expat)" on one line.
+  &__people { white-space: nowrap; font-variant-numeric: tabular-nums; }
   &__warn-text { color: #b54708; }
   &__bad-text { color: #b42318; font-weight: 600; }
   &__link {

@@ -453,7 +453,7 @@
                 <td>{{ c.supervisor || empty }}</td>
                 <td><ng-container *ngTemplateOutlet="availTpl; context: { $implicit: c.availability_status }"></ng-container></td>
                 <td>
-                  <ng-container *ngIf="c.members; else dash"><strong>{{ c.members }}</strong> <span class="cm__muted">{{ team(c) }}</span></ng-container>
+                  <span *ngIf="c.members; else dash" class="cm__people"><strong>{{ c.members }}</strong> <span class="cm__muted">{{ team(c) }}</span></span>
                 </td>
                 <td class="cm__num">{{ c.in_progress_tasks }}</td>
                 <td class="cm__num">{{ c.queued_tasks }}</td>

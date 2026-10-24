@@ -172,7 +172,7 @@ const CREW_COLUMNS: Column[] = [
   { label: 'Crew type', help: 'The crew type most often recorded for this crew.' },
   { label: 'Supervisor', help: "The crew's supervisor. All crews of one supervisor are one team: the same people, under one crew id per crew type." },
   { label: 'Availability', sort: 'status', dir: 'ascending', help: 'Free, Busy, Team busy or Inactive, worked out from the task records (see Crew availability above).' },
-  { label: 'People', sub: 'National · Expat', help: 'People in this crew, with their nationality where it is recorded.' },
+  { label: 'People', sub: 'total (National, Expat)', help: 'People in this crew, then in brackets how many are National and how many Expat (and how many have no nationality recorded).' },
   { label: 'In progress', sub: 'tasks, live wells', num: true, help: 'Tasks this crew has started and not finished, on wells still under construction.' },
   { label: 'Queued', sub: 'tasks not started', num: true, sort: 'queued', dir: 'descending', help: 'Tasks on live wells recorded for this crew that have not started yet: work already waiting for it.' },
   { label: 'Overdue', sub: 'of its open tasks', num: true, sort: 'overdue', dir: 'descending', help: 'Of its in-progress and queued tasks, how many are already past their target end date.' },
@@ -499,14 +499,14 @@ export class CrewManagementComponent implements OnInit {
     return v === 1 ? '1 day' : `${v} days`;
   }
 
+  /** The People split in brackets, both counts always shown so every row reads alike: "(5 National, 7 Expat)", plus
+   *  ", 1 not recorded" for people with no nationality recorded, or "(nationality not recorded)" when none has one. */
   team(c: { members: number | null; national_members?: number | null; expat_members?: number | null }): string {
-    if (!c.members) return EMPTY;
-    const parts = [];
-    if (c.national_members) parts.push(`${c.national_members} National`);
-    if (c.expat_members) parts.push(`${c.expat_members} Expat`);
-    const other = c.members - (c.national_members ?? 0) - (c.expat_members ?? 0);
-    if (other > 0) parts.push(`${other} not recorded`);
-    return parts.length ? parts.join(' · ') : '';
+    if (!c.members) return '';
+    const national = c.national_members ?? 0, expat = c.expat_members ?? 0;
+    const other = c.members - national - expat;
+    if (!national && !expat) return '(nationality not recorded)';
+    return `(${national} National, ${expat} Expat${other > 0 ? `, ${other} not recorded` : ''})`;
   }
 
   trackCrew(_: number, c: { crew_id: number }): number { return c.crew_id; }
