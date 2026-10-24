@@ -15,6 +15,7 @@ import { normalizeAdvancedChartType } from '../../../core/utils/advanced-chart.u
 import { StringUtil } from '../../../core/utils/string.util';
 import { forkJoin } from 'rxjs';
 import { markdownToHtml } from '../../../core/utils/markdown.util';
+import { mermaidPie, stripMermaid } from '../../../core/utils/mermaid-answer.util';
 import { HighchartsChartComponent } from 'highcharts-angular';
 import { CommonApiService } from '../../../core/services/common-api.service';
 import { SCHEDULES_MODULE, ScheduleDto } from '../../../core/services/schedule.service';
@@ -68,7 +69,14 @@ interface Turn {
   reportError?: string;
   alertMessage?: string;
   disliked: boolean;
+  /** The user stopped this question before its answer came back. */
+  stopped?: boolean;
+  /** Findings longer than LONG_FINDING are shown in full. */
+  allInsights?: boolean;
 }
+
+/** Findings longer than this are cut in the list until "Show full findings" (a grouped row can run to hundreds of characters). */
+const LONG_FINDING = 240;
 
 /**
  * "Ask your data" drawer. Type a question: Ask Data (the agent runtime's multi-agent graph over the Ask Data
@@ -87,6 +95,7 @@ export class AskAiPanelComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly commonApi = inject(CommonApiService);
   @ViewChild('scroller') private scroller?: ElementRef<HTMLElement>;
+  @ViewChild('questionBox') private questionBox?: ElementRef<HTMLTextAreaElement>;
 
   datasets: AiDataset[] = [];
   conversations: AiConversation[] = [];
@@ -139,15 +148,61 @@ export class AskAiPanelComponent implements OnInit {
 
   can(key: string): boolean { return this.features.enabled.includes(key); }
 
-  /** Answers as formatted HTML (tables, lists, bold); converted once per text, not on every check. */
+  /** Answers as formatted HTML (tables, lists, bold); converted once per text, not on every check. Chart code
+   * (Mermaid) is never shown as text: the panel draws the chart itself (see finishAnswer). */
   private mdCache = new Map<string, string>();
   md(text: string): string {
     let html = this.mdCache.get(text);
     if (html === undefined) {
       if (this.mdCache.size > 100) this.mdCache.clear();
-      this.mdCache.set(text, (html = markdownToHtml(text)));
+      this.mdCache.set(text, (html = markdownToHtml(stripMermaid(text))));
     }
     return html;
+  }
+
+  readonly longFinding = LONG_FINDING;
+
+  /** A finding as listed: cut after LONG_FINDING characters until the turn's findings are shown in full. */
+  finding(t: Turn, f: string): string {
+    return t.allInsights || f.length <= LONG_FINDING ? f : f.slice(0, LONG_FINDING).trimEnd() + '…';
+  }
+
+  hasLongFinding(t: Turn): boolean {
+    return !!t.insights?.some(f => f.length > LONG_FINDING);
+  }
+
+  /** An answer that wrote its chart as Mermaid code and has no chart of its own gets that chart drawn. */
+  private finishAnswer(t: Turn): void {
+    if (t.askChart || !t.answer) return;
+    const chart = mermaidPie(t.answer);
+    if (chart) { t.askChart = chart; t.askChartOptions = this.chartOptions(chart); }
+  }
+
+  /** While true, new content keeps the latest answer in view; reading earlier answers turns it off. */
+  private followLatest = true;
+  /** The reader is above the latest answer while something is still arriving: offer a way back down. */
+  showJump = false;
+
+  onScroll(): void {
+    const el = this.scroller?.nativeElement;
+    if (!el) return;
+    this.followLatest = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    if (this.followLatest && this.showJump) { this.showJump = false; this.cdr.markForCheck(); }
+  }
+
+  jumpToLatest(): void {
+    this.scrollToEnd(true);
+  }
+
+  /** Stops the question in progress: the request is cancelled and the panel is ready for the next question. */
+  stop(): void {
+    if (!this.busy) return;
+    this.askSub?.unsubscribe();
+    this.askSub = undefined;
+    const t = this.turns[this.turns.length - 1];
+    if (t) { t.status = ''; t.stopped = true; t.clarify = undefined; }
+    this.busy = false;
+    this.cdr.markForCheck();
   }
 
   /** The open conversation is on a dataset (not Ask Data): its notes editor applies. */
@@ -301,12 +356,13 @@ export class AskAiPanelComponent implements OnInit {
         if (!a) continue;
         t.result = a.result; t.sql = a.sql; t.insights = a.insights ?? undefined; t.followUps = a.followUps ?? undefined;
         if (a.chart) { t.askChart = a.chart; t.askChartOptions = this.chartOptions(a.chart); }
+        this.finishAnswer(t);
         if (t.spec && a.result && (sourceType === 'view' || sourceType === 'import'))
           t.chart = this.presets.suggest(t.spec, a.result, t.question, sourceType, sourceId, sourceName);
       }
     }
     this.cdr.markForCheck();
-    this.scrollToEnd();
+    this.scrollToEnd(true);
   }
 
   deleteConversation(c: AiConversation, ev: Event): void {
@@ -419,8 +475,11 @@ export class AskAiPanelComponent implements OnInit {
     const turn: Turn = { question, status: 'Sending…', spec: null, result: null, answer: '', error: '', showQuery: false, chart: null, messageId: null, liked: false, disliked: false };
     this.turns = [...this.turns, turn];
     this.question = '';
+    // The box itself is cleared too: text put in at once (paste, voice input, autofill) may not have reached change
+    // detection yet, and the box would otherwise keep it, so the next question would be typed onto the old one.
+    if (this.questionBox) this.questionBox.nativeElement.value = '';
     this.busy = true;
-    this.scrollToEnd();
+    this.scrollToEnd(true);
 
     this.askSub = this.ai.ask({
       conversationId: this.conversationId,
@@ -441,7 +500,7 @@ export class AskAiPanelComponent implements OnInit {
             break;
           case 'answer': turn.answer += ev.data; turn.status = ''; break;
           // The answer is complete at done; the server may still be saving its trace, so the panel does not wait.
-          case 'done': if (ev.data && 'conversationId' in ev.data) { this.conversationId = ev.data.conversationId; this.sourceName = ev.data.sourceName; turn.messageId = ev.data.messageId; this.loadConversations(); } this.busy = false; turn.status = ''; break;
+          case 'done': if (ev.data && 'conversationId' in ev.data) { this.conversationId = ev.data.conversationId; this.sourceName = ev.data.sourceName; turn.messageId = ev.data.messageId; this.loadConversations(); } this.busy = false; turn.status = ''; this.finishAnswer(turn); break;
           case 'suggestions': turn.suggestions = ev.data; break;
           case 'followups': turn.followUps = ev.data; break;
           case 'chartspec': turn.askChart = ev.data; turn.askChartOptions = this.chartOptions(ev.data); break;
@@ -454,7 +513,7 @@ export class AskAiPanelComponent implements OnInit {
         this.scrollToEnd();
       },
       error: err => { turn.error = err?.message ?? 'The request failed.'; turn.status = ''; this.busy = false; this.cdr.markForCheck(); },
-      complete: () => { this.busy = false; turn.status = ''; this.cdr.markForCheck(); },
+      complete: () => { this.busy = false; turn.status = ''; this.finishAnswer(turn); this.cdr.markForCheck(); },
     });
   }
 
@@ -683,9 +742,11 @@ export class AskAiPanelComponent implements OnInit {
     this.router.navigate(['/charts-tiles/builder']);
   }
 
+  /** Enter asks (Shift+Enter is a new line). While an answer is coming the next question can be typed; Enter keeps it
+   * until the answer is done (or stopped). */
   onEnter(ev: Event): void {
     const e = ev as KeyboardEvent;
-    if (!e.shiftKey) { e.preventDefault(); this.ask(); }
+    if (!e.shiftKey) { e.preventDefault(); if (!this.busy) this.ask(); }
   }
 
   /** Human-readable one-liner for a spec, e.g. "sum(Amount) by Region · where Year eq 2025 · top 10". */
@@ -740,7 +801,18 @@ export class AskAiPanelComponent implements OnInit {
     });
   }
 
-  private scrollToEnd(): void {
-    setTimeout(() => { const el = this.scroller?.nativeElement; if (el) el.scrollTop = el.scrollHeight; });
+  /** Keeps the latest answer in view: always after the user's own action (force), otherwise only while the reader is
+   * already at the bottom, so reading an earlier answer is never interrupted by new content. */
+  private scrollToEnd(force = false): void {
+    if (!force && !this.followLatest) {
+      if (!this.showJump) { this.showJump = true; this.cdr.markForCheck(); }
+      return;
+    }
+    this.followLatest = true;
+    this.showJump = false;
+    const toEnd = () => { const el = this.scroller?.nativeElement; if (el && this.followLatest) el.scrollTop = el.scrollHeight; };
+    setTimeout(toEnd);
+    // Charts draw a moment later and make the answer taller: after the user's own action, follow them down too.
+    if (force) setTimeout(toEnd, 400);
   }
 }

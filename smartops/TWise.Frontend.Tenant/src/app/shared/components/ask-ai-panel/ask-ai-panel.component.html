@@ -161,7 +161,7 @@
     </div>
   </div>
 
-  <div class="ask__body" #scroller *ngIf="!showHistory && !showNotes" [class.ask__body--empty]="!turns.length && !loadError">
+  <div class="ask__body" #scroller *ngIf="!showHistory && !showNotes" [class.ask__body--empty]="!turns.length && !loadError" (scroll)="onScroll()">
     <p *ngIf="loadError" class="ask__error">{{ loadError }}</p>
 
     <!-- Before the first question -->
@@ -184,16 +184,18 @@
           <small>{{ c.question }}</small>
           <button type="button" class="ask__chip" *ngFor="let o of c.options" [disabled]="busy" (click)="pickOption(t, o)">{{ o.label }}</button>
         </div>
+        <div class="ask__answer agent-md" *ngIf="t.answer" [innerHTML]="md(t.answer)"></div>
+        <small class="ask__muted ask__stopped" *ngIf="t.stopped" role="status">Stopped. Ask again, or try a different question.</small>
         <div class="ask__suggest" *ngIf="t.suggestions?.length && !t.status">
-          <small class="ask__muted">{{ t.error ? 'Try asking:' : 'Nothing matched. Try asking:' }}</small>
+          <small class="ask__muted">{{ t.error ? 'Try asking:' : t.answer ? 'You can also ask:' : 'Nothing matched. Try asking:' }}</small>
           <button type="button" class="ask__chip" *ngFor="let s of t.suggestions" [disabled]="busy" (click)="askSuggestion(s)">{{ s }}</button>
         </div>
-
-        <div class="ask__answer agent-md" *ngIf="t.answer" [innerHTML]="md(t.answer)"></div>
         <small class="ask__muted" *ngIf="t.sql">{{ t.sql.queries }} {{ t.sql.queries === 1 ? 'query' : 'queries' }} · {{ t.sql.verified ? 'figures verified' : 'figures not verified' }}</small>
         <ul class="ask__insights" *ngIf="t.insights?.length" aria-label="Key findings">
-          <li *ngFor="let f of t.insights">{{ f }}</li>
+          <li *ngFor="let f of t.insights" [title]="f.length > longFinding && !t.allInsights ? f : ''">{{ finding(t, f) }}</li>
         </ul>
+        <button type="button" class="ask__link ask__link--small" *ngIf="hasLongFinding(t)" (click)="t.allInsights = !t.allInsights" [attr.aria-expanded]="!!t.allInsights">
+          {{ t.allInsights ? 'Show shorter findings' : 'Show full findings' }}</button>
 
         <div class="ask__result" *ngIf="t.showTable && t.result as r">
           <table>
@@ -319,13 +321,23 @@
         </div>
       </div>
     </div>
+
+    <!-- Reading an earlier answer while a new one arrives: the panel stays put and offers the way back down -->
+    <button type="button" class="ask__jump" *ngIf="showJump && turns.length" (click)="jumpToLatest()" aria-label="Go to the latest answer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+      Latest answer
+    </button>
   </div>
 
   <footer class="ask__footer" *ngIf="!showHistory && !showNotes">
-    <textarea [(ngModel)]="question" name="question" rows="2" [readonly]="busy"
-      [placeholder]="pickingDataset && !selectedKey ? '' : 'Ask a question about this data…'"
-      (keydown.enter)="onEnter($event)"></textarea>
-    <button type="button" class="btn btn-primary" [disabled]="!canAsk" (click)="ask()">{{ busy ? 'Working…' : 'Ask' }}</button>
+    <textarea #questionBox [(ngModel)]="question" name="question" rows="2"
+      [placeholder]="busy ? 'Type your next question; send it when this answer is done' : pickingDataset && !selectedKey ? '' : 'Ask a question about this data…'"
+      (keydown.enter)="onEnter($event)" aria-label="Your question"></textarea>
+    <button type="button" class="btn btn-secondary ask__stop" *ngIf="busy" (click)="stop()" title="Stop this question">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+      Stop
+    </button>
+    <button type="button" class="btn btn-primary" *ngIf="!busy" [disabled]="!canAsk" (click)="ask()">Ask</button>
   </footer>
 </aside>
 <app-schedule-dialog *ngIf="scheduleTarget" [target]="scheduleTarget" (closed)="scheduleClosed($event)"></app-schedule-dialog>

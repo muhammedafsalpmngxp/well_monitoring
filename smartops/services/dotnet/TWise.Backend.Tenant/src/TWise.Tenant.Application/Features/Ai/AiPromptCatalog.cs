@@ -69,6 +69,9 @@ public static partial class AiPromptCatalog
         A("askdata.chitchat_system", "Chitchat", "Replies to messages that need no data (greetings, questions about the assistant). {{ORG_NAME}} becomes the organisation name."),
         A("askdata.business_rules", "Business rules", "What the business's tables and fields mean. Used by every agent whose Knowledge Source leaves business rules empty, and by Ask your data."),
         A("askdata.few_shots", "Examples (few-shots)", "Example questions with their correct SQL. Used when an agent's Knowledge Source leaves examples empty, and by Ask your data."),
+        new(AiPrompts.AskDataStarters, AskData, "Suggested first questions",
+            "The questions offered in an empty Ask your data panel, one per line (at most 6, each up to 200 characters). Leave it empty to let Ask Data suggest questions from the data.",
+            [], true),
 
         // ── Ask Data: what each node adds to its message ──────────────────────────────────────────────────────
         M("history_header", "Conversation: heading", "Heading above earlier turns in a follow-up question."),

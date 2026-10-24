@@ -50,7 +50,8 @@ public class AskDataKnowledgeTests
         var settings = new Mock<IAiSettingsRepository>();
         settings.Setup(s => s.GetAsync(7, It.IsAny<CancellationToken>())).ReturnsAsync(new AiSettings { AskDataAllowedSchemas = "[\"well\"]" });
         var runtime = new Mock<IAgentRuntimeClient>();
-        var handler = new GetAskDataStartersHandler(ask.Object, settings.Object, new Mock<IAiKnowledgeRepository>().Object, runtime.Object, NewCache());
+        var handler = new GetAskDataStartersHandler(ask.Object, settings.Object, new Mock<IAiKnowledgeRepository>().Object, runtime.Object, NewCache(),
+            Prompts(""));                                                                        // no list of its own: Ask Data suggests
 
         (await handler.Handle(new GetAskDataStartersQuery(7), default)).Should().BeEmpty();          // feature off
         runtime.Verify(r => r.AskDataStartersAsync(It.IsAny<AgentRuntimeAskData>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -63,6 +64,28 @@ public class AskDataKnowledgeTests
         runtime.Setup(r => r.AskDataStartersAsync(It.IsAny<AgentRuntimeAskData>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("down"));
         (await handler.Handle(new GetAskDataStartersQuery(7), default)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task The_admins_suggested_questions_are_shown_instead_of_the_automatic_ones()
+    {
+        var ask = new Mock<IAiAskService>();
+        ask.Setup(a => a.FeatureOnAsync(7, AiFeatureCatalog.Ask, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var runtime = new Mock<IAgentRuntimeClient>();
+        var handler = new GetAskDataStartersHandler(ask.Object, new Mock<IAiSettingsRepository>().Object, new Mock<IAiKnowledgeRepository>().Object,
+            runtime.Object, NewCache(), Prompts("How many wells are there in each cluster?\nWhich wells are due next month?"));
+
+        (await handler.Handle(new GetAskDataStartersQuery(7), default)).Should()
+            .Equal("How many wells are there in each cluster?", "Which wells are due next month?");
+        runtime.Verify(r => r.AskDataStartersAsync(It.IsAny<AgentRuntimeAskData>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static IAiPromptStore Prompts(string starters)
+    {
+        var store = new Mock<IAiPromptStore>();
+        store.Setup(s => s.GetAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, string> { [AiPrompts.AskDataStarters] = starters });
+        return store.Object;
     }
 
     private static Microsoft.Extensions.Caching.Memory.IMemoryCache NewCache() =>

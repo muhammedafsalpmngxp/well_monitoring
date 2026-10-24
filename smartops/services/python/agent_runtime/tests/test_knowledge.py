@@ -116,3 +116,21 @@ def test_an_answers_rows_run_again_only_when_still_allowed(monkeypatch):
     assert ok.status_code == 200 and ok.json() == {"data": {"columns": ["lift_type", "n"], "rows": [["PCP", 294], ["WI", 99]], "truncated": False}}
     bad = TestClient(app).post("/api/agent-runtime/askdata/rows", json={**body, "sql": "SELECT * FROM well.well_master"})
     assert bad.status_code == 400 and "cannot run again" in bad.json()["detail"]
+
+
+def test_starters_skip_tables_and_columns_named_in_abbreviations():
+    """The panel once offered "How many wbs records have wd prj WD?" and "employees by atnm sc": codes only the data
+    team reads. A column given a business name is still offered."""
+    def table(**cols):
+        return {name: {"kind": "text", "rows": 500, "table_rows": 500, "empty": 0, "values": values} for name, values in cols.items()}
+    profiles = {
+        "wbs.wbs_master": table(wd_prj=[["WD", 300], ["WP", 200]]),
+        "dbo.pa_ph_contact_numbers": table(personnel_area_text=[["Nimr", 300], ["Marmul", 200]]),
+        "ref.employee": table(atnm_sc=[["ATNM", 300], ["SC", 200]], nationality_type=[["National", 300], ["Expat", 200]]),
+    }
+    qs = suggest.starters(profiles)
+    assert qs and all("wd prj" not in q and "atnm" not in q and "wbs" not in q and "pa ph" not in q for q in qs)
+    assert "How many employees are there by nationality type?" in qs
+    named = suggest.starters({"ref.employee": table(atnm_sc=[["ATNM", 300], ["SC", 200]])},
+                             (ColumnNote("ref.employee.atnm_sc", "Employer"),))
+    assert named[0] == "How many employees are there by Employer?"

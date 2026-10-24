@@ -58,6 +58,13 @@ def _words(table: str, column: str, names: dict[str, str]) -> str:
     return " ".join(words)
 
 
+def _readable(words: str) -> bool:
+    """True when every word reads as a word ("lift type", "drilling sequence"), not an abbreviation that only the
+    data team knows ("wd prj", "atnm sc", "pa ph contact numbers", "wbs"): at least three letters and a vowel."""
+    tokens = [w for w in re.split(r"[^a-z]+", words.lower()) if w]
+    return bool(tokens) and all(len(w) >= 3 and re.search(r"[aeiouy]", w) for w in tokens)
+
+
 def _categories(columns: dict) -> list[tuple[str, dict]]:
     """Text columns with a few values, mostly filled, that are not one row per value (a lookup), numbers kept as
     text ("0.00") or an id; true / false columns are left out (a poor question)."""
@@ -101,10 +108,18 @@ def starters(profiles: dict, notes: Iterable[ColumnNote] = (), schema_text: str 
     """Up to MAX_STARTERS questions: one per table first (each table starting with a different kind), then more."""
     names = display_names(notes)
     per_table = []
-    for i, table in enumerate(_tables(profiles, schema_text)):
+    for table in _tables(profiles, schema_text):
         columns = profiles[table]
-        (column, p), dates = _categories(columns)[0], _dates(columns)
-        entity, cat = _entity(table), _words(table, column, names)
+        entity = _entity(table)
+        # A question people would type: a table and a column named in words (or given a business name), never codes.
+        if not _readable(entity.removesuffix(" records")):
+            continue
+        readable = [(c, p) for c, p in _categories(columns) if f"{table}.{c}" in names or _readable(_words(table, c, names))]
+        if not readable:
+            continue
+        (column, p), dates = readable[0], [d for d in _dates(columns) if f"{table}.{d}" in names or _readable(_words(table, d, names))]
+        cat = _words(table, column, names)
+        i = len(per_table)
         questions = [f"How many {entity} are there by {cat}?"]
         if len(top := str(p["values"][0][0])) <= MAX_VALUE:      # a long code makes a poor question
             questions.append(f"How many {entity} have {cat} {top}?")

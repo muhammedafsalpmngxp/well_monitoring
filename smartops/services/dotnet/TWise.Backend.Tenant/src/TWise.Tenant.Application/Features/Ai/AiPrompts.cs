@@ -27,6 +27,17 @@ public static class AiPrompts
     public const string DeckKeyFigures = "deck-key-figures";
     public const string SqlReview = "sql-review";
     public const string Dictionary = "dictionary";
+    /// <summary>Ask Data's suggested first questions, one per line; empty: Ask Data suggests questions from the data.</summary>
+    public const string AskDataStarters = "ask-starters";
+    /// <summary>Most suggested first questions shown, and the longest one kept.</summary>
+    public const int MaxStarters = 6, MaxStarterLength = 200;
+
+    /// <summary>The suggested first questions of a prompt text: one per line, blank lines and lines starting with "#"
+    /// skipped, repeats dropped, at most MaxStarters. Empty when the text has none.</summary>
+    public static IReadOnlyList<string> StarterQuestions(string? text) =>
+        (text ?? "").Split('\n').Select(l => l.Trim())
+            .Where(l => l.Length > 0 && !l.StartsWith('#') && l.Length <= MaxStarterLength)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxStarters).ToList();
     /// <summary>Longest per-dataset override (core.AiDatasetPrompts.prompt_text).</summary>
     public const int MaxLength = 4000;
     /// <summary>Keys an admin may also set per dataset; the rest are tenant-wide only.</summary>
